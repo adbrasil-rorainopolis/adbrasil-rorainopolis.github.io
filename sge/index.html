@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="sacro-claro">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,203 +11,308 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sge-logo.css">
 <style>
   /* ===== Tokens EXATOS do css/style.css do app desktop ===== */
   :root, [data-theme="sacro-claro"] {
     --bg-main: #fafaf9; --bg-surface: #ffffff; --bg-card: rgba(255,255,255,0.92); --bg-input: #f8fafc;
     --border-color: rgba(217,119,6,0.22); --border-focus: #d97706;
     --color-primary: #d97706; --color-primary-hover: #b45309; --color-primary-light: rgba(217,119,6,0.12);
-    --color-success: #10b981; --color-danger: #ef4444;
+    --color-success: #10b981; --color-danger: #ef4444; --color-info: #0284c7;
     --text-main: #0f172a; --text-muted: #475569; --text-subtle: #94a3b8; --text-accent: #92400e; --text-inverse: #ffffff;
     --shadow-card: 0 20px 45px -15px rgba(217,119,6,0.12), 0 0 1px 1px rgba(217,119,6,0.1);
     --glow-primary: 0 0 20px rgba(217,119,6,0.25);
-    --logo-simbolo: #B08A45;
-    --linhas-rgb: 217,119,6;
+    --card-g1: rgba(255,255,255,0.72); --card-g2: rgba(255,255,255,0.55); --card-g3: rgba(250,250,249,0.42);
+    --card-glow: rgba(217,119,6,0.16); --menu-bg: rgba(255,255,255,0.97);
+    --logo-simbolo: #B08A45; --logo-letra: #9C7A33; --linhas-rgb: 217,119,6;
   }
   [data-theme="dark-operacional"] {
     --bg-main: #020617; --bg-surface: #0b1329; --bg-card: rgba(15,23,42,0.88); --bg-input: #030712;
     --border-color: rgba(51,65,85,0.7); --border-focus: #f59e0b;
     --color-primary: #f59e0b; --color-primary-hover: #d97706; --color-primary-light: rgba(245,158,11,0.15);
-    --color-success: #10b981; --color-danger: #ef4444;
+    --color-success: #10b981; --color-danger: #ef4444; --color-info: #38bdf8;
     --text-main: #f8fafc; --text-muted: #94a3b8; --text-subtle: #64748b; --text-accent: #fbbf24; --text-inverse: #020617;
     --shadow-card: 0 20px 40px -10px rgba(0,0,0,0.7), 0 0 1px 1px rgba(255,255,255,0.05);
     --glow-primary: 0 0 25px rgba(245,158,11,0.3);
-    --logo-simbolo: #E9CE8C;
-    --linhas-rgb: 245,158,11;
+    --card-g1: rgba(15,23,42,0.72); --card-g2: rgba(15,23,42,0.55); --card-g3: rgba(2,6,23,0.42);
+    --card-glow: rgba(245,158,11,0.14); --menu-bg: rgba(11,19,41,0.97);
+    --logo-simbolo: #E9CE8C; --logo-letra: #D9B45C; --linhas-rgb: 245,158,11;
   }
   [data-theme="verde-oliva"] {
     --bg-main: #04130d; --bg-surface: #0a2318; --bg-card: rgba(10,35,24,0.88); --bg-input: #03100a;
     --border-color: rgba(16,185,129,0.28); --border-focus: #10b981;
     --color-primary: #10b981; --color-primary-hover: #059669; --color-primary-light: rgba(16,185,129,0.15);
-    --color-success: #10b981; --color-danger: #ef4444;
+    --color-success: #10b981; --color-danger: #ef4444; --color-info: #38bdf8;
     --text-main: #ecfdf5; --text-muted: #a7f3d0; --text-subtle: #6ee7b7; --text-accent: #34d399; --text-inverse: #022c22;
     --shadow-card: 0 20px 40px -10px rgba(0,20,10,0.75), 0 0 1px 1px rgba(16,185,129,0.15);
     --glow-primary: 0 0 25px rgba(16,185,129,0.3);
-    --logo-simbolo: #9DBB5A;
-    --linhas-rgb: 16,185,129;
+    --card-g1: rgba(10,35,24,0.72); --card-g2: rgba(10,35,24,0.55); --card-g3: rgba(4,19,13,0.42);
+    --card-glow: rgba(16,185,129,0.16); --menu-bg: rgba(10,35,24,0.97);
+    --logo-simbolo: #9DBB5A; --logo-letra: #7BA03C; --linhas-rgb: 16,185,129;
   }
   [data-theme="azul-real"] {
     --bg-main: #020b1f; --bg-surface: #07173d; --bg-card: rgba(7,23,61,0.88); --bg-input: #040e29;
     --border-color: rgba(56,189,248,0.25); --border-focus: #38bdf8;
     --color-primary: #38bdf8; --color-primary-hover: #0284c7; --color-primary-light: rgba(56,189,248,0.15);
-    --color-success: #10b981; --color-danger: #ef4444;
+    --color-success: #10b981; --color-danger: #ef4444; --color-info: #38bdf8;
     --text-main: #f0f9ff; --text-muted: #bae6fd; --text-subtle: #7dd3fc; --text-accent: #38bdf8; --text-inverse: #030712;
     --shadow-card: 0 20px 40px -10px rgba(0,5,25,0.8), 0 0 1px 1px rgba(56,189,248,0.15);
     --glow-primary: 0 0 25px rgba(56,189,248,0.35);
-    --logo-simbolo: #9CC4EE;
-    --linhas-rgb: 56,189,248;
+    --card-g1: rgba(7,23,61,0.72); --card-g2: rgba(7,23,61,0.55); --card-g3: rgba(2,11,31,0.42);
+    --card-glow: rgba(56,189,248,0.16); --menu-bg: rgba(7,23,61,0.97);
+    --logo-simbolo: #9CC4EE; --logo-letra: #6FA3DC; --linhas-rgb: 56,189,248;
   }
 
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%}
-  body{
-    font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg-main);color:var(--text-main);
-    min-height:100dvh;overflow-x:hidden;transition:background .3s,color .3s;
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background: var(--bg-main); color: var(--text-main);
+    overflow: hidden; transition: background .3s, color .3s;
   }
-  canvas#linhas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5}
+  .font-cinzel { font-family: 'Cinzel', serif; }
+  .theme-transition { transition: background-color .35s ease, border-color .35s ease, color .35s ease; }
+  canvas#linhas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
 
-  /* ---------- LOGIN ---------- */
-  #tela-login{
-    position:relative;min-height:100dvh;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;padding:32px 22px;gap:8px;
-  }
-  #tela-login img.logo{width:min(280px,72vw);filter:drop-shadow(0 6px 24px var(--color-primary-light));margin-bottom:6px}
-  .titulo-app{font-family:Cinzel,serif;font-weight:900;font-size:clamp(22px,6vw,30px);letter-spacing:.14em;
-    background:linear-gradient(120deg,var(--color-primary-hover),var(--color-primary),#92400e);
-    -webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
-  .subtitulo{font-size:12px;color:var(--text-muted);letter-spacing:.28em;text-transform:uppercase;margin-bottom:26px}
-  .form{width:min(420px,100%);display:flex;flex-direction:column;gap:14px}
-  .campo label{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
-  .campo input{
-    width:100%;padding:15px 16px;border-radius:14px;border:1px solid var(--border-color);
-    background:var(--bg-card);color:var(--text-main);font-size:16px;font-family:inherit;outline:none;
-    transition:border-color .2s, box-shadow .2s;
-  }
-  .campo input:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-light)}
-  .btn{
-    margin-top:8px;padding:16px;border:none;border-radius:14px;cursor:pointer;
-    font-family:Cinzel,serif;font-weight:700;font-size:15px;letter-spacing:.12em;color:#fff;
-    background:linear-gradient(120deg,var(--color-primary-hover),var(--color-primary));
-    box-shadow:var(--glow-primary);transition:transform .15s, box-shadow .15s;
-  }
-  .btn:active{transform:scale(.97)}
-  .btn:disabled{opacity:.55;cursor:wait}
-  #msg-login{min-height:20px;font-size:13px;color:var(--color-danger);text-align:center;font-weight:600}
-  .rodape-login{margin-top:30px;font-size:10px;color:var(--text-muted);opacity:.7;letter-spacing:.18em;text-transform:uppercase}
+  /* ===== Transição PowerPoint do desktop ===== */
+  #splash-screen { transition: all 1.2s cubic-bezier(0.77, 0, 0.175, 1); transform-origin: center center; }
+  .splash-exit { transform: scale(2.2) rotate(12deg); opacity: 0; pointer-events: none; filter: blur(10px); }
 
-  /* ---------- DASHBOARD ---------- */
-  #tela-app{display:none;position:relative;min-height:100dvh;padding:calc(14px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
-  header.app{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border-color);margin-bottom:18px}
-  header.app img{width:56px}
-  header.app .ola{flex:1;min-width:0}
-  header.app .ola b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  header.app .ola span{font-size:11px;color:var(--text-muted)}
-  .badge-perfil{display:inline-block;margin-top:3px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-    padding:3px 8px;border-radius:20px;background:var(--color-primary-light);color:var(--color-primary);border:1px solid var(--color-primary-light)}
-  .btn-sair{background:none;border:1px solid var(--border-color);color:var(--text-muted);font-size:11px;font-weight:700;
-    padding:8px 12px;border-radius:10px;cursor:pointer;font-family:inherit}
-  #sel-tema{background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-muted);font-size:11px;font-weight:700;
-    padding:8px 6px;border-radius:10px;cursor:pointer;font-family:inherit;outline:none}
-  .grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-  .card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:18px;padding:16px}
-  .card .rotulo{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
-  .card .valor{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
-  .card .valor.ouro{background:linear-gradient(120deg,var(--color-primary),var(--color-primary-hover));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .card-largo{grid-column:1/-1}
-  .fin .linha-fin{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-top:1px dashed var(--border-color);font-size:14px}
-  .fin .linha-fin:first-of-type{border-top:none}
-  .fin .linha-fin b{font-variant-numeric:tabular-nums;font-weight:800}
-  .pos{color:var(--color-success)} .neg{color:var(--color-danger)}
-  .fin-periodo{font-size:11px;color:var(--text-muted);margin-bottom:4px}
-  .carregando{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;padding:10px 0}
-  .spin{width:16px;height:16px;border:2px solid var(--border-color);border-top-color:var(--color-primary);border-radius:50%;animation:giro .8s linear infinite}
-  @keyframes giro{to{transform:rotate(360deg)}}
-  .lista-congs{margin-top:4px}
-  .lista-congs .cong{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-top:1px dashed var(--border-color);font-size:13px}
-  .lista-congs .cong span:last-child{color:var(--text-muted);font-size:11px}
-  .vazio{color:var(--text-muted);font-size:13px;padding:8px 0}
+  #login-screen { transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: center center; }
+  .login-hidden { transform: scale(0.7) rotate(-8deg); opacity: 0; pointer-events: none; filter: blur(8px); }
+  .login-visible { transform: scale(1) rotate(0deg); opacity: 1; pointer-events: auto; filter: blur(0px); }
+
+  @keyframes drawRing { 0% { stroke-dashoffset: 1000; opacity: 0; } 50% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 1; } }
+  @keyframes fadeInScale { 0% { opacity: 0; transform: scale(0.85) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+  .animate-ring-outer { stroke-dasharray: 1000; animation: drawRing 2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .animate-ring-inner { stroke-dasharray: 800; animation: drawRing 2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+  .animate-content { animation: fadeInScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards; opacity: 0; }
+  .animate-text { animation: fadeInScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards; opacity: 0; }
+
+  /* ===== Card login: degradê translúcido flutuando sobre as linhas ===== */
+  #card-login {
+    background: linear-gradient(165deg, var(--card-g1) 0%, var(--card-g2) 60%, var(--card-g3) 100%);
+    box-shadow: 0 40px 90px -30px var(--card-glow);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    transition: opacity .55s cubic-bezier(.4,0,.2,1), transform .55s cubic-bezier(.4,0,.2,1), filter .55s ease;
+  }
+  #card-login.saindo { opacity: 0; transform: scale(0.93) translateY(8px); filter: blur(6px); pointer-events: none; }
+
+  /* ===== Botão entrar "quiet neutral" — inverte por tema ===== */
+  .btn-entrar { background: var(--text-main); color: var(--bg-main); box-shadow: 0 12px 28px -12px rgba(0,0,0,.45); transition: transform .18s ease, filter .18s ease, box-shadow .18s ease; }
+  .btn-entrar:hover { transform: translateY(-1px); filter: brightness(1.12); box-shadow: 0 16px 32px -12px rgba(0,0,0,.5); }
+  .btn-entrar:active { transform: translateY(0); filter: brightness(.96); }
+
+  .menu-engrenagem-item { transition: opacity .15s ease, background-color .15s ease; }
+  .menu-engrenagem-item:hover, .menu-engrenagem-item:active { background: var(--color-primary-light); }
+
+  /* ===== App: transição hub entre módulos ===== */
+  #dash-conteudo { transition: opacity .22s ease, filter .22s ease; }
+  #dash-conteudo.hub-conteudo-esmaecido { opacity: 0; filter: blur(4px); }
+
+  /* ===== Bottom nav = sidebar global mobile ===== */
+  .sidebar-nav-btn { transition: all .18s ease; color: var(--text-muted); }
+  .sidebar-nav-btn.ativa { color: var(--color-primary); transform: translateY(-2px); }
+  .sidebar-nav-btn.ativa .nav-ind { opacity: 1; transform: scaleX(1); }
+  .sidebar-nav-btn .nav-ind { opacity: 0; transform: scaleX(.4); transition: all .2s ease; background: var(--color-primary); }
+
+  .valor-ouro { background: linear-gradient(120deg, var(--color-primary), var(--color-primary-hover)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  @keyframes giro { to { transform: rotate(360deg); } }
+  .spin { width: 16px; height: 16px; border: 2px solid var(--border-color); border-top-color: var(--color-primary); border-radius: 50%; animation: giro .8s linear infinite; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  #toast { animation: toastIn .25s ease; }
 </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col overflow-hidden relative select-none">
+
 <canvas id="linhas"></canvas>
 
-<!-- TELA DE LOGIN -->
-<section id="tela-login">
-  <img class="logo" src="icons/logo.png" alt="SGE">
-  <h1 class="titulo-app">SGE — AD BRASIL</h1>
-  <p class="subtitulo">Gestão Eclesiástica</p>
-  <form class="form" id="form-login" autocomplete="off">
-    <div class="campo">
-      <label for="cpf">CPF de acesso</label>
-      <input id="cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" required>
+<!-- ============ SPLASH — anel orbital + logo (igual desktop) ============ -->
+<div id="splash-screen" class="absolute inset-0 flex items-center justify-center z-30 transition-all" style="background: var(--bg-main);">
+  <div class="relative p-10 rounded-[2.5rem] border shadow-[0_25px_60px_-15px_rgba(217,119,6,0.12)] flex flex-col items-center justify-center" style="background: var(--bg-card); border-color: var(--border-color);">
+    <div class="relative w-56 h-56 flex items-center justify-center">
+      <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="92" fill="none" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" class="animate-ring-outer"/>
+        <circle cx="100" cy="100" r="82" fill="none" stroke="url(#goldGradientLight)" stroke-width="1" stroke-dasharray="3 5" class="animate-ring-inner"/>
+        <defs>
+          <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#92400e"/><stop offset="50%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309"/>
+          </linearGradient>
+          <linearGradient id="goldGradientLight" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6"/><stop offset="100%" stop-color="#d97706" stop-opacity="0.9"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="animate-content flex flex-col items-center text-center z-10">
+        <div class="logo-sge-mascara w-40 h-36"></div>
+      </div>
     </div>
-    <div class="campo">
-      <label for="senha">Senha</label>
-      <input id="senha" type="password" placeholder="••••••••" required>
-    </div>
-    <div id="msg-login"></div>
-    <button class="btn" id="btn-entrar" type="submit">ENTRAR</button>
-  </form>
-  <p class="rodape-login">AD Brasil · Rorainópolis</p>
-</section>
-
-<!-- TELA DO APP -->
-<section id="tela-app">
-  <header class="app">
-    <img src="icons/logo.png" alt="">
-    <div class="ola">
-      <b id="ola-nome">—</b>
-      <span id="ola-cpf">—</span><br>
-      <span class="badge-perfil" id="ola-perfil">—</span>
-    </div>
-    <select id="sel-tema" onchange="trocarTema(this.value)" title="Tema">
-      <option value="sacro-claro">Sacro</option>
-      <option value="dark-operacional">Noturno</option>
-      <option value="verde-oliva">Oliva</option>
-      <option value="azul-real">Azul</option>
-    </select>
-    <button class="btn-sair" id="btn-sair">Sair</button>
-  </header>
-
-  <div class="grade">
-    <div class="card">
-      <div class="rotulo">Congregações</div>
-      <div class="valor ouro" id="n-congs">—</div>
-    </div>
-    <div class="card">
-      <div class="rotulo">Membros</div>
-      <div class="valor ouro" id="n-membros">—</div>
-    </div>
-    <div class="card card-largo fin">
-      <div class="rotulo">Resumo Financeiro</div>
-      <div class="fin-periodo" id="fin-periodo">—</div>
-      <div id="fin-corpo"><div class="carregando"><div class="spin"></div>Carregando…</div></div>
-    </div>
-    <div class="card card-largo">
-      <div class="rotulo">Congregações ativas</div>
-      <div class="lista-congs" id="lista-congs"><div class="carregando"><div class="spin"></div>Carregando…</div></div>
+    <div class="animate-text mt-5 text-center z-10">
+      <div class="flex items-center justify-center gap-2.5">
+        <span class="h-px w-8 bg-gradient-to-r from-transparent to-amber-500/60"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm"></span>
+        <span class="h-px w-8 bg-gradient-to-l from-transparent to-amber-500/60"></span>
+      </div>
     </div>
   </div>
-</section>
+</div>
+
+<!-- ============ HEADER — igual desktop (logo + título + badge + engrenagem) ============ -->
+<header id="header-login" class="w-full backdrop-blur-md border-b px-4 py-3 flex items-center justify-between z-40 shadow-sm theme-transition" style="background: var(--bg-surface); border-color: var(--border-color);">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600">
+      <div class="logo-sge-icone w-5 h-5"></div>
+    </div>
+    <span class="font-cinzel font-bold tracking-wider text-sm" style="color: var(--text-accent, var(--color-primary));">SGE - AD Brasil</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <div id="status-ambiente-badge" class="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-[10px] font-semibold text-emerald-500">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span>Conectado</span>
+    </div>
+    <div class="relative">
+      <button type="button" onclick="toggleMenuEngrenagem()" id="btn-engrenagem" class="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer hover:opacity-70" style="color: var(--color-primary);" title="Ferramentas">
+        <i class="fa-solid fa-gear text-base"></i>
+      </button>
+      <div id="menu-engrenagem" class="hidden absolute right-0 top-11 w-60 rounded-2xl p-2 space-y-1 shadow-2xl z-50" style="background: var(--menu-bg); box-shadow: 0 20px 50px -12px rgba(0,0,0,0.30), 0 0 0 1px var(--border-color); backdrop-filter: blur(12px);">
+        <div class="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center justify-between" style="color: var(--text-muted);">
+          <span>Tema</span><span id="lbl-tema-ativo-nome" class="normal-case tracking-normal font-semibold"></span>
+        </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('sacro-claro')">
+          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 border border-amber-700/30 shrink-0"></span> Sacro Dourado
+          <i class="fa-solid fa-check ml-auto text-[10px] tema-check" data-tema="sacro-claro" style="color: var(--color-primary);"></i>
+        </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('dark-operacional')">
+          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700 shrink-0"></span> Operacional Noturno
+          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="dark-operacional" style="color: var(--color-primary);"></i>
+        </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('verde-oliva')">
+          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-900 border border-emerald-500/30 shrink-0"></span> Verde Eclesiástico
+          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="verde-oliva" style="color: var(--color-primary);"></i>
+        </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('azul-real')">
+          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-sky-500 to-blue-900 border border-sky-400/30 shrink-0"></span> Azul Real Nobre
+          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
+        </div>
+        <div class="px-3.5 pt-2 pb-1.5 text-[10px] font-bold opacity-80" style="border-top: 1px solid var(--border-color); color: var(--color-primary);">
+          <span>SGE Mobile · v1.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ LOGIN — réplica do card desktop ============ -->
+<div id="login-screen" class="flex-1 flex items-center justify-center p-4 relative z-10 login-hidden overflow-y-auto">
+  <div class="w-full max-w-md mx-auto my-auto">
+    <div id="card-login" class="rounded-[2.5rem] p-8 relative theme-transition">
+      <div class="flex items-center justify-center gap-5 mb-5">
+        <div class="logo-sge-mascara w-24 h-[5.5rem] shrink-0"></div>
+        <div class="w-px h-16" style="background: var(--border-color);"></div>
+        <img src="icons/logo_ad_brasil.png" alt="AD Brasil" class="h-20 w-auto object-contain shrink-0" style="filter: drop-shadow(0 6px 14px rgba(0,0,0,0.15));">
+      </div>
+      <div class="text-center mb-6">
+        <h4 class="font-cinzel font-bold text-sm tracking-wide" style="color: var(--text-accent, var(--color-primary));">AD Brasil Rorainópolis</h4>
+      </div>
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-1.5">CPF de Acesso</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5" style="color: var(--color-primary);">
+              <i class="fa-solid fa-user text-xs"></i>
+            </span>
+            <input type="text" id="login-usuario" required placeholder="000.000.000-00" inputmode="numeric" maxlength="14" class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+          </div>
+          <span class="text-[10px] mt-1 block opacity-60">Use somente o CPF cadastrado para entrar no SGE.</span>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-1.5">Senha de Acesso</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5" style="color: var(--color-primary);">
+              <i class="fa-solid fa-lock text-xs"></i>
+            </span>
+            <input type="password" id="login-senha" required placeholder="••••••••" class="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm outline-none transition-all" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+            <span onclick="toggleMostrarSenha()" class="absolute inset-y-0 right-0 flex items-center pr-3.5 opacity-60 cursor-pointer">
+              <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
+            </span>
+          </div>
+          <div class="text-right mt-1">
+            <a href="javascript:void(0)" onclick="emBreve('Recuperação de senha')" class="text-xs hover:underline font-medium" style="color: var(--color-primary);">Esqueceu a senha?</a>
+          </div>
+        </div>
+        <div id="login-erro" class="hidden p-3 rounded-xl text-xs font-semibold text-center" style="color: var(--color-danger); background: var(--color-primary-light); border: 1px solid var(--border-color);"></div>
+        <div class="space-y-3 pt-2">
+          <button type="submit" id="btn-login-submit" class="btn-entrar w-full py-2.5 px-4 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-right-to-bracket text-xs"></i> <span id="lbl-btn-login">Entrar no SGE</span>
+          </button>
+          <div class="text-center pt-1">
+            <span class="text-xs opacity-75">Não tem uma conta?</span>
+            <a href="javascript:void(0)" onclick="emBreve('Cadastro')" class="text-xs font-bold hover:underline transition ml-1 cursor-pointer" style="color: var(--color-info);">Cadastre-se</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP — shell com sidebar global (bottom nav mobile) ============ -->
+<div id="tela-app" class="flex-1 flex-col relative z-10 hidden" style="display:none;">
+  <main id="dash-conteudo" class="flex-1 overflow-y-auto px-4 pt-4 pb-2"></main>
+
+  <nav class="w-full border-t theme-transition shrink-0" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
+    <div class="flex items-stretch justify-around px-1">
+      <button onclick="mudarVisao('dashboard')" data-mod="dashboard" class="sidebar-nav-btn ativa flex-1 flex flex-col items-center gap-1 py-2.5" title="Panorama Geral">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-house-chimney text-base"></i><span class="text-[9px] font-bold">Panorama</span>
+      </button>
+      <button onclick="mudarVisao('gestao')" data-mod="gestao" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Gestão Unificada">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-chart-pie text-base text-amber-500"></i><span class="text-[9px] font-bold">Gestão</span>
+      </button>
+      <button onclick="mudarVisao('financeiro')" data-mod="financeiro" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Financeiro e Tesouraria">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-vault text-base text-emerald-500"></i><span class="text-[9px] font-bold">Financ.</span>
+      </button>
+      <button onclick="mudarVisao('governanca')" data-mod="governanca" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Congregações e Lideranças">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-church text-base text-sky-500"></i><span class="text-[9px] font-bold">Congr.</span>
+      </button>
+      <button onclick="mudarVisao('secretaria')" data-mod="secretaria" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Secretaria e Espiritual">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-dove text-base text-pink-400"></i><span class="text-[9px] font-bold">Secret.</span>
+      </button>
+      <button onclick="mudarVisao('missoes')" data-mod="missoes" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Hub de Missões">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-globe text-base text-orange-400"></i><span class="text-[9px] font-bold">Missões</span>
+      </button>
+    </div>
+  </nav>
+</div>
 
 <script>
 const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
 const CHAVE = 'sge_mobile_sessao';
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MODULOS = {
+  dashboard:  { nome: 'Panorama Geral',            icone: 'fa-house-chimney', cor: 'var(--color-primary)' },
+  gestao:     { nome: 'Gestão Unificada',          icone: 'fa-chart-pie',     cor: '#f59e0b' },
+  financeiro: { nome: 'Financeiro & Tesouraria',   icone: 'fa-vault',         cor: '#10b981' },
+  governanca: { nome: 'Congregações & Lideranças', icone: 'fa-church',        cor: '#38bdf8' },
+  secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
+  missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
+};
+const NOMES_TEMA = { 'sacro-claro':'Sacro Dourado', 'dark-operacional':'Operacional Noturno', 'verde-oliva':'Verde Eclesiástico', 'azul-real':'Azul Real Nobre' };
 
-/* ---------- util ---------- */
 const $ = id => document.getElementById(id);
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
   const res = await fetch(API, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-    },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
     body: JSON.stringify({ action, ...(payload || {}) })
   });
   const data = await res.json().catch(() => ({}));
@@ -215,16 +320,34 @@ async function api(action, payload, token){
   return data;
 }
 
-function mascaraCpf(el){
-  el.addEventListener('input', () => {
-    let d = el.value.replace(/\D/g, '').slice(0, 11);
-    d = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    el.value = d;
-  });
+function toast(msg){
+  const old = $('toast'); if (old) old.remove();
+  const t = document.createElement('div');
+  t.id = 'toast';
+  t.className = 'fixed left-1/2 bottom-24 z-[90] px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl';
+  t.style.cssText = `transform:translateX(-50%);background:var(--bg-surface);color:var(--text-main);border:1px solid var(--border-color);`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
 }
-mascaraCpf($('cpf'));
+function emBreve(recurso){ toast(recurso + ' disponível em breve no mobile — use o app desktop por ora.'); }
 
-/* ---------- fundo animado (linhas onduladas do login) ---------- */
+/* ---------- tema (mesma chave do desktop) ---------- */
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-theme', tema);
+  localStorage.setItem('sge_theme_choice', tema);
+  document.querySelectorAll('.tema-check').forEach(el => el.classList.toggle('hidden', el.dataset.tema !== tema));
+  const lbl = $('lbl-tema-ativo-nome'); if (lbl) lbl.textContent = NOMES_TEMA[tema] || tema;
+}
+function fixarTema(tema){ aplicarTema(tema); fecharMenuEngrenagem(); }
+function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); }
+function fecharMenuEngrenagem(){ $('menu-engrenagem').classList.add('hidden'); }
+document.addEventListener('click', (e) => {
+  const menu = $('menu-engrenagem'), btn = $('btn-engrenagem');
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) fecharMenuEngrenagem();
+});
+
+/* ---------- linhas onduladas (fundo característico do login) ---------- */
 (function(){
   const cv = $('linhas'), ctx = cv.getContext('2d');
   const linhasRGB = () => getComputedStyle(document.documentElement).getPropertyValue('--linhas-rgb').trim() || '217,119,6';
@@ -233,7 +356,7 @@ mascaraCpf($('cpf'));
   addEventListener('resize', dim); dim();
   function desenha(){
     ctx.clearRect(0, 0, cv.width, cv.height);
-    const h = cv.height, w = cv.width;
+    const h = cv.height, w = cv.width, rgb = linhasRGB();
     for (let i = 0; i < 5; i++){
       ctx.beginPath();
       const yBase = h * (0.2 + i * 0.16);
@@ -242,7 +365,7 @@ mascaraCpf($('cpf'));
                         + Math.sin(x / w * Math.PI * 5 + t * 0.35 + i) * h * 0.02;
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(${linhasRGB()},${0.05 + i * 0.022})`;
+      ctx.strokeStyle = `rgba(${rgb},${0.05 + i * 0.022})`;
       ctx.lineWidth = 1.4 * devicePixelRatio;
       ctx.stroke();
     }
@@ -252,57 +375,128 @@ mascaraCpf($('cpf'));
   desenha();
 })();
 
+/* ---------- CPF / senha ---------- */
+$('login-usuario').addEventListener('input', (e) => {
+  let d = e.target.value.replace(/\D/g, '').slice(0, 11);
+  d = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  e.target.value = d;
+});
+function toggleMostrarSenha(){
+  const inp = $('login-senha'), ico = $('eye-icon');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.className = `fa-solid ${show ? 'fa-eye-slash' : 'fa-eye'} text-xs`;
+}
+
 /* ---------- sessão ---------- */
 function sessao(){ try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
 function salvarSessao(s){ localStorage.setItem(CHAVE, JSON.stringify(s)); }
 function limparSessao(){ localStorage.removeItem(CHAVE); }
 
-function mostrar(tela){
-  $('tela-login').style.display = tela === 'login' ? 'flex' : 'none';
-  $('tela-app').style.display = tela === 'app' ? 'block' : 'none';
-}
-
 /* ---------- login ---------- */
 $('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const btn = $('btn-entrar'), msg = $('msg-login');
-  msg.textContent = ''; btn.disabled = true; btn.textContent = 'ENTRANDO…';
+  const btn = $('btn-login-submit'), lbl = $('lbl-btn-login'), erro = $('login-erro');
+  erro.classList.add('hidden'); btn.disabled = true; lbl.textContent = 'Entrando…';
   try {
-    const res = await api('login', { cpf: $('cpf').value.trim(), senha: $('senha').value });
+    const res = await api('login', { cpf: $('login-usuario').value.trim(), senha: $('login-senha').value });
     if (!res.token) throw new Error(res.erro || 'Falha na autenticação.');
     salvarSessao({ token: res.token, usuario: res.usuario || {} });
-    entrarNoApp();
+    $('card-login').classList.add('saindo');
+    setTimeout(entrarNoApp, 420);
   } catch (err) {
-    msg.textContent = err.message || 'Não foi possível entrar.';
+    erro.textContent = err.message || 'Não foi possível entrar.';
+    erro.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = 'ENTRAR';
+    btn.disabled = false; lbl.textContent = 'Entrar no SGE';
   }
 });
 
-$('btn-sair').addEventListener('click', () => { limparSessao(); $('senha').value = ''; mostrar('login'); });
+function sairDoApp(){
+  limparSessao();
+  $('tela-app').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+  $('login-screen').classList.remove('login-visible');
+  $('login-screen').classList.add('login-hidden');
+  $('card-login').classList.remove('saindo');
+  $('login-senha').value = '';
+  setTimeout(() => { $('login-screen').classList.remove('login-hidden'); $('login-screen').classList.add('login-visible'); }, 80);
+}
 
-/* ---------- dashboard ---------- */
-function entrarNoApp(){
-  const s = sessao();
-  if (!s || !s.token) return mostrar('login');
-  const u = s.usuario;
-  $('ola-nome').textContent = u.nome || 'Usuário';
-  $('ola-cpf').textContent = u.cpf || '';
-  $('ola-perfil').textContent = u.perfil || 'Operador';
-  mostrar('app');
+/* ---------- navegação de módulos (sidebar global) ---------- */
+let moduloAtual = 'dashboard';
+function mudarVisao(mod){
+  if (mod === moduloAtual) return;
+  moduloAtual = mod;
+  document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === mod));
+  const conteudo = $('dash-conteudo');
+  conteudo.classList.add('hub-conteudo-esmaecido');
+  setTimeout(() => {
+    renderModulo(mod);
+    conteudo.classList.remove('hub-conteudo-esmaecido');
+    conteudo.scrollTop = 0;
+  }, 230);
+}
+
+function renderModulo(mod){
+  const m = MODULOS[mod];
+  if (mod === 'dashboard') return renderPanorama();
+  $('dash-conteudo').innerHTML = `
+    <div class="flex flex-col items-center justify-center text-center pt-16 gap-4">
+      <div class="w-20 h-20 rounded-3xl flex items-center justify-center" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
+        <i class="fa-solid ${m.icone} text-3xl" style="color: ${m.cor};"></i>
+      </div>
+      <h2 class="font-cinzel font-bold text-lg" style="color: var(--text-accent, var(--color-primary));">${m.nome}</h2>
+      <p class="text-xs max-w-[260px] leading-relaxed" style="color: var(--text-muted);">
+        Este módulo está sendo adaptado para o mobile.<br>Os dados já sincronizam com a nuvem — a interface completa chega nas próximas atualizações.
+      </p>
+      <span class="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full" style="background: var(--color-primary-light); color: var(--color-primary);">Em construção</span>
+    </div>`;
+}
+
+/* ---------- Panorama (dashboard real) ---------- */
+function renderPanorama(){
+  const s = sessao(); const u = s?.usuario || {};
+  $('dash-conteudo').innerHTML = `
+    <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color: var(--border-color);">
+      <div class="logo-sge-icone w-10 h-10 shrink-0" style="color: var(--color-primary);"></div>
+      <div class="flex-1 min-w-0">
+        <b class="block text-base truncate">${u.nome || 'Usuário'}</b>
+        <span class="text-[10px] block" style="color: var(--text-muted);">${u.cpf || ''}</span>
+        <span class="inline-block mt-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full" style="background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-light);">${u.perfil || 'Operador'}</span>
+      </div>
+      <button onclick="sairDoApp()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+        <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1.5" style="color: var(--text-muted);">Congregações</div>
+        <div class="text-2xl font-extrabold valor-ouro" id="n-congs">—</div>
+      </div>
+      <div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+        <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1.5" style="color: var(--text-muted);">Membros</div>
+        <div class="text-2xl font-extrabold valor-ouro" id="n-membros">—</div>
+      </div>
+      <div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+        <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1" style="color: var(--text-muted);">Resumo Financeiro</div>
+        <div class="text-[11px] mb-1" style="color: var(--text-muted);" id="fin-periodo">—</div>
+        <div id="fin-corpo"><div class="flex items-center gap-2.5 text-xs py-2" style="color: var(--text-muted);"><div class="spin"></div>Carregando…</div></div>
+      </div>
+      <div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+        <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1" style="color: var(--text-muted);">Congregações ativas</div>
+        <div id="lista-congs"><div class="flex items-center gap-2.5 text-xs py-2" style="color: var(--text-muted);"><div class="spin"></div>Carregando…</div></div>
+      </div>
+    </div>`;
   carregarDashboard(s.token);
 }
 
 async function carregarDashboard(token){
-  // cards independentes — um erro não derruba os outros
   api('listar_congregacoes', null, token).then(res => {
     const lista = res.dados || [];
-    const ativas = lista.filter(c => String(c.ativo ?? '1') !== '0' && String(c.ativo).toLowerCase() !== 'false');
-    $('n-congs').textContent = ativas.length || lista.length;
+    $('n-congs').textContent = lista.length;
     $('lista-congs').innerHTML = lista.length
-      ? lista.map(c => `<div class="cong"><span>${c.nome || '—'}</span><span>${c.conselho || ''}</span></div>`).join('')
-      : '<div class="vazio">Nenhuma congregação cadastrada.</div>';
-  }).catch(() => { $('n-congs').textContent = '—'; $('lista-congs').innerHTML = '<div class="vazio">Indisponível.</div>'; });
+      ? lista.map(c => `<div class="flex justify-between items-center py-2.5 text-[13px]" style="border-top: 1px dashed var(--border-color);"><span>${c.nome || '—'}</span><span class="text-[11px]" style="color: var(--text-muted);">${c.conselho || ''}</span></div>`).join('')
+      : '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhuma congregação cadastrada.</div>';
+  }).catch(() => { $('n-congs').textContent = '—'; $('lista-congs').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Indisponível.</div>'; });
 
   api('listar_membros', null, token).then(res => {
     $('n-membros').textContent = (res.dados || []).length;
@@ -315,8 +509,7 @@ async function carregarFinanceiro(token){
   try {
     const per = await api('listar_periodos_financeiros', null, token);
     const lista = per.periodos || per.dados || [];
-    if (!lista.length){ $('fin-corpo').innerHTML = '<div class="vazio">Nenhum período importado ainda.</div>'; return; }
-    // período mais recente por (ano, índice do mês)
+    if (!lista.length){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhum período importado ainda.</div>'; return; }
     const ultimo = lista.reduce((a, b) => {
       const ka = (+a.ano) * 100 + MESES.findIndex(m => m.toLowerCase() === String(a.mes).toLowerCase());
       const kb = (+b.ano) * 100 + MESES.findIndex(m => m.toLowerCase() === String(b.mes).toLowerCase());
@@ -326,30 +519,46 @@ async function carregarFinanceiro(token){
     const mov = await api('carregar_movimento_financeiro', { ano: ultimo.ano, mes: ultimo.mes }, token);
     const totais = (mov.totais || []).filter(t => /fechamento/i.test(t.aba || ''));
     const t = totais[0] || (mov.totais || [])[0];
-    if (!t){ $('fin-corpo').innerHTML = '<div class="vazio">Sem totais neste período.</div>'; return; }
+    if (!t){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Sem totais neste período.</div>'; return; }
     const saldo = (+t.saldo_campo || 0);
-    $('fin-corpo').innerHTML = `
-      <div class="linha-fin"><span>Dízimos</span><b>${brl(+t.dizimos)}</b></div>
-      <div class="linha-fin"><span>Ofertas</span><b>${brl(+t.ofertas)}</b></div>
-      <div class="linha-fin"><span>Total de entradas</span><b class="pos">${brl(+t.total_entradas)}</b></div>
-      <div class="linha-fin"><span>Total de despesas</span><b class="neg">${brl(+t.total_despesas)}</b></div>
-      <div class="linha-fin"><span>Saldo do campo</span><b class="${saldo < 0 ? 'neg' : 'pos'}">${brl(saldo)}</b></div>`;
+    const linha = (rot, val) => `<div class="flex justify-between items-baseline py-2 text-sm" style="border-top: 1px dashed var(--border-color);"><span>${rot}</span><b style="font-variant-numeric:tabular-nums">${brl(val)}</b></div>`;
+    $('fin-corpo').innerHTML =
+      linha('Dízimos', +t.dizimos) + linha('Ofertas', +t.ofertas) +
+      linha('Total de entradas', +t.total_entradas) + linha('Total de despesas', +t.total_despesas) +
+      linha('Saldo do campo', saldo);
+    $('fin-corpo').querySelectorAll('b').forEach((b, i) => {
+      if (i === 2) b.style.color = 'var(--color-success)';
+      if (i === 3) b.style.color = 'var(--color-danger)';
+      if (i === 4) b.style.color = saldo < 0 ? 'var(--color-danger)' : 'var(--color-success)';
+    });
   } catch (e) {
-    $('fin-corpo').innerHTML = '<div class="vazio">Financeiro indisponível.</div>';
+    $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Financeiro indisponível.</div>';
   }
 }
 
-/* ---------- tema (mesma chave do desktop) ---------- */
-function aplicarTema(tema){
-  document.documentElement.setAttribute('data-theme', tema);
-  localStorage.setItem('sge_theme_choice', tema);
-  const sel = $('sel-tema'); if (sel) sel.value = tema;
+/* ---------- boot: splash → login → app ---------- */
+function entrarNoApp(){
+  $('login-screen').classList.add('login-hidden');
+  $('login-screen').classList.remove('login-visible');
+  setTimeout(() => { $('login-screen').style.display = 'none'; }, 650);
+  $('tela-app').style.display = 'flex';
+  moduloAtual = 'dashboard';
+  document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
+  renderPanorama();
 }
-function trocarTema(tema){ aplicarTema(tema); }
-aplicarTema(localStorage.getItem('sge_theme_choice') || 'sacro-claro');
 
-/* ---------- boot ---------- */
-if (sessao()?.token) entrarNoApp(); else mostrar('login');
+function iniciarSequencia(){
+  aplicarTema(localStorage.getItem('sge_theme_choice') || 'sacro-claro');
+  setTimeout(() => {
+    $('splash-screen').classList.add('splash-exit');
+    $('login-screen').classList.remove('login-hidden');
+    $('login-screen').classList.add('login-visible');
+    setTimeout(() => $('splash-screen').remove(), 1300);
+    if (sessao()?.token) setTimeout(entrarNoApp, 600);
+  }, 2400);
+}
+iniciarSequencia();
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
