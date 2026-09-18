@@ -223,7 +223,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.6</span>
+          <span>SGE Mobile · v1.7</span>
         </div>
       </div>
     </div>
@@ -512,7 +512,7 @@ async function verificarBiometria(){
   }});
   return !!assertion;
 }
-async function desbloquearBio(){
+async function desbloquearBio(auto){
   const btn = $('btn-unlock'), erro = $('unlock-erro');
   btn.disabled = true; if (erro) erro.classList.add('hidden');
   try {
@@ -526,9 +526,11 @@ async function desbloquearBio(){
   } catch (e) {
     console.error('[SGE bio] get falhou:', e);
     if (erro) {
-      erro.textContent = e?.name === 'NotAllowedError'
-        ? 'Verificação cancelada ou credencial não encontrada neste app. Tente de novo — ou entre com senha e reative a biometria.'
-        : ('Biometria falhou: ' + (e?.name || e?.message || 'erro desconhecido'));
+      erro.textContent = auto
+        ? 'Toque em Desbloquear para usar sua digital ou FaceID.'
+        : (e?.name === 'NotAllowedError'
+          ? 'Verificação cancelada ou credencial não encontrada neste app. Tente de novo — ou entre com senha e reative a biometria.'
+          : ('Biometria falhou: ' + (e?.name || e?.message || 'erro desconhecido')));
       erro.classList.remove('hidden');
     }
   } finally { btn.disabled = false; }
@@ -541,9 +543,11 @@ function usarSenha(){
   $('unlock-screen').style.display = 'none';
   mostrarLogin();
 }
-async function maybeOferecerBio(){
+async function maybeOferecerBio(s){
   try {
-    if (bioCred()?.id || localStorage.getItem('sge_bio_recusado') === '1') return;
+    const c = bioCred(), cpf = s?.usuario?.cpf || s?.usuario?.Cpf;
+    if (c?.id && c.cpf === cpf) return; // bio ja habilitada p/ este usuario
+    if (localStorage.getItem('sge_bio_recusado') === '1') return;
     if (!(await bioDisponivel())) return;
     $('bio-optin').style.display = 'flex';
   } catch { /* sem biometria: segue com senha */ }
@@ -562,7 +566,6 @@ function desativarBio(){
 }
 function sairEFechar(){
   fecharMenuEngrenagem();
-  limparSessao(); limparSessaoBio();
   sairDoApp();
   window.close();
 }
@@ -579,7 +582,7 @@ $('form-login').addEventListener('submit', async (e) => {
     salvarSessao(nova);
     if (bioCred()?.cpf && bioCred().cpf === (nova.usuario?.cpf || nova.usuario?.Cpf)) salvarSessaoBio(nova);
     $('card-login').classList.add('saindo');
-    setTimeout(() => { entrarNoApp(); maybeOferecerBio(); }, 420);
+    setTimeout(() => { entrarNoApp(); maybeOferecerBio(nova); }, 420);
   } catch (err) {
     erro.textContent = err.message || 'Não foi possível entrar.';
     erro.classList.remove('hidden');
@@ -589,7 +592,7 @@ $('form-login').addEventListener('submit', async (e) => {
 });
 
 function sairDoApp(){
-  limparSessao(); limparSessaoBio();
+  limparSessao(); // sessao bio permanece: proxima abertura desbloqueia por digital
   $('tela-app').style.display = 'none';
   document.body.classList.remove('app-aberto');
   $('login-screen').style.display = 'flex';
@@ -742,6 +745,13 @@ function iniciarSequencia(){
     } catch { toast('Biometria não ativada.'); }
   };
   $('btn-bio-nao').onclick = () => { localStorage.setItem('sge_bio_recusado', '1'); $('bio-optin').style.display = 'none'; };
+  if (!sessao()?.token && bioSessao()?.token && bioCred()?.id) {
+    // biometria registrada: primeira coisa na tela e' o prompt nativo
+    $('splash-screen').remove();
+    $('unlock-screen').style.display = 'flex';
+    desbloquearBio(true);
+    return;
+  }
   setTimeout(() => {
     $('splash-screen').classList.add('splash-exit');
     setTimeout(() => $('splash-screen').remove(), 1300);
