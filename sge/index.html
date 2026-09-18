@@ -213,8 +213,17 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="atualizarAgora()">
           <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
         </div>
+        <div id="mi-bio-ativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="ativarBioPeloMenu()">
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-primary);"></i> Ativar digital/FaceID
+        </div>
+        <div id="mi-bio-desativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="desativarBio()">
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-danger);"></i> Desativar digital/FaceID
+        </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="sairEFechar()">
+          <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
+        </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.4</span>
+          <span>SGE Mobile · v1.5</span>
         </div>
       </div>
     </div>
@@ -309,6 +318,36 @@
     </div>
   </nav>
 
+<!-- ============ UNLOCK — biometria (WebAuthn platform) ============ -->
+<div id="unlock-screen" class="fixed z-20 items-center justify-center p-4" style="display:none; left:0; right:0; top:57px; bottom:0; background: var(--bg-main);">
+  <div class="w-full max-w-md mx-auto">
+    <div class="rounded-[2.5rem] p-8 relative theme-transition flex flex-col items-center text-center" style="background: linear-gradient(165deg, var(--card-g1) 0%, var(--card-g2) 60%, var(--card-g3) 100%); box-shadow: 0 40px 90px -30px var(--card-glow); border: 1px solid var(--border-color); backdrop-filter: blur(14px);">
+      <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
+        <i class="fa-solid fa-fingerprint text-3xl" style="color: var(--color-primary);"></i>
+      </div>
+      <h1 class="font-cinzel font-bold text-lg mb-1" style="color: var(--text-accent, var(--color-primary));">SGE bloqueado</h1>
+      <p class="text-xs mb-5" style="color: var(--text-muted);">Use sua digital ou FaceID para continuar.</p>
+      <button type="button" id="btn-unlock" onclick="desbloquearBio()" class="btn-entrar w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-fingerprint"></i> Desbloquear
+      </button>
+      <button type="button" onclick="usarSenha()" class="mt-3 text-xs font-semibold cursor-pointer hover:underline" style="color: var(--color-primary); background:none; border:none;">Entrar com senha</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BIO OPT-IN — caixa de pergunta ============ -->
+<div id="bio-optin" class="fixed inset-0 z-[70] items-center justify-center p-4" style="display:none; background: rgba(2,6,23,0.45); backdrop-filter: blur(4px);">
+  <div class="w-full max-w-sm rounded-3xl p-6 text-center theme-transition" style="background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.5);">
+    <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
+      <i class="fa-solid fa-fingerprint text-2xl" style="color: var(--color-primary);"></i>
+    </div>
+    <h2 class="font-cinzel font-bold text-base mb-1" style="color: var(--text-accent, var(--color-primary));">Desbloqueio rápido</h2>
+    <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-muted);">Quer entrar com sua digital ou FaceID nas próximas vezes?<br>Se preferir, continue usando CPF e senha.</p>
+    <button type="button" id="btn-bio-sim" class="btn-entrar w-full py-2.5 rounded-2xl font-bold text-sm">Ativar digital/FaceID</button>
+    <button type="button" id="btn-bio-nao" class="mt-2.5 w-full py-2.5 rounded-2xl font-bold text-sm" style="background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Agora não</button>
+  </div>
+</div>
+
 <script>
 const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
 const CHAVE = 'sge_mobile_sessao';
@@ -333,7 +372,10 @@ async function api(action, payload, token){
     body: JSON.stringify({ action, ...(payload || {}) })
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.erro || 'Erro ' + res.status), { data });
+  if (!res.ok) {
+    if (res.status === 401 && token) { limparSessao(); limparSessaoBio(); location.reload(); }
+    throw Object.assign(new Error(data.erro || 'Erro ' + res.status), { data });
+  }
   return data;
 }
 
@@ -357,7 +399,14 @@ function aplicarTema(tema){
   const lbl = $('lbl-tema-ativo-nome'); if (lbl) lbl.textContent = NOMES_TEMA[tema] || tema;
 }
 function fixarTema(tema){ aplicarTema(tema); fecharMenuEngrenagem(); }
-function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); }
+function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); }
+async function atualizarMenuBio(){
+  const ativar = $('mi-bio-ativar'), desativar = $('mi-bio-desativar');
+  if (!ativar || !desativar) return;
+  const tem = !!bioCred()?.id;
+  desativar.classList.toggle('hidden', !tem);
+  ativar.classList.toggle('hidden', tem || !(await bioDisponivel()));
+}
 async function atualizarAgora(){
   fecharMenuEngrenagem();
   try {
@@ -413,10 +462,94 @@ function toggleMostrarSenha(){
   ico.className = `fa-solid ${show ? 'fa-eye-slash' : 'fa-eye'} text-xs`;
 }
 
-/* ---------- sessão ---------- */
-function sessao(){ try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
-function salvarSessao(s){ localStorage.setItem(CHAVE, JSON.stringify(s)); }
-function limparSessao(){ localStorage.removeItem(CHAVE); }
+/* ---------- sessão (volátil: senha pedida ao reabrir o app) ---------- */
+const BIO_CRED = 'sge_bio_cred';
+const BIO_SESSAO = 'sge_bio_session';
+function sessao(){ try { return JSON.parse(sessionStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
+function salvarSessao(s){ sessionStorage.setItem(CHAVE, JSON.stringify(s)); }
+function limparSessao(){ sessionStorage.removeItem(CHAVE); }
+function bioCred(){ try { return JSON.parse(localStorage.getItem(BIO_CRED) || 'null'); } catch { return null; } }
+function bioSessao(){ try { return JSON.parse(localStorage.getItem(BIO_SESSAO) || 'null'); } catch { return null; } }
+function salvarSessaoBio(s){ localStorage.setItem(BIO_SESSAO, JSON.stringify(s)); }
+function limparSessaoBio(){ localStorage.removeItem(BIO_SESSAO); }
+
+/* ---------- biometria (WebAuthn platform authenticator) ---------- */
+const b64urlDecode = (str) => {
+  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u.buffer;
+};
+async function bioDisponivel(){
+  try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }
+  catch { return false; }
+}
+async function registrarBiometria(){
+  const s = sessao(); if (!s?.token) return false;
+  const cpf = s.usuario?.cpf || s.usuario?.Cpf || 'usuario';
+  const cred = await navigator.credentials.create({ publicKey: {
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    rp: { name: 'SGE - AD Brasil' },
+    user: { id: new TextEncoder().encode(cpf), name: cpf, displayName: s.usuario?.nome || s.usuario?.Nome || cpf },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+    timeout: 60000, attestation: 'none'
+  }});
+  if (!cred) return false;
+  localStorage.setItem(BIO_CRED, JSON.stringify({ id: cred.id, cpf }));
+  salvarSessaoBio(s);
+  return true;
+}
+async function verificarBiometria(){
+  const c = bioCred(); if (!c?.id) return false;
+  const assertion = await navigator.credentials.get({ publicKey: {
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    allowCredentials: [{ type: 'public-key', id: b64urlDecode(c.id) }],
+    userVerification: 'required', timeout: 60000
+  }});
+  return !!assertion;
+}
+async function desbloquearBio(){
+  const btn = $('btn-unlock'); btn.disabled = true;
+  try {
+    if (await verificarBiometria()) {
+      salvarSessao(bioSessao());
+      $('unlock-screen').style.display = 'none';
+      entrarNoApp();
+    } else toast('Biometria não reconhecida.');
+  } catch (e) {
+    toast(e?.name === 'NotAllowedError' ? 'Verificação cancelada.' : 'Biometria indisponível neste aparelho.');
+  } finally { btn.disabled = false; }
+}
+function usarSenha(){
+  $('unlock-screen').style.display = 'none';
+  mostrarLogin();
+}
+async function maybeOferecerBio(){
+  try {
+    if (bioCred()?.id || localStorage.getItem('sge_bio_recusado') === '1') return;
+    if (!(await bioDisponivel())) return;
+    $('bio-optin').style.display = 'flex';
+  } catch { /* sem biometria: segue com senha */ }
+}
+async function ativarBioPeloMenu(){
+  fecharMenuEngrenagem();
+  try {
+    if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital/FaceID ativado.'); }
+    else toast('Não foi possível ativar a biometria.');
+  } catch { toast('Biometria não ativada.'); }
+}
+function desativarBio(){
+  fecharMenuEngrenagem();
+  localStorage.removeItem(BIO_CRED); limparSessaoBio();
+  toast('Desbloqueio por digital/FaceID desativado.');
+}
+function sairEFechar(){
+  fecharMenuEngrenagem();
+  limparSessao(); limparSessaoBio();
+  sairDoApp();
+  window.close();
+}
 
 /* ---------- login ---------- */
 $('form-login').addEventListener('submit', async (e) => {
@@ -426,9 +559,11 @@ $('form-login').addEventListener('submit', async (e) => {
   try {
     const res = await api('login', { cpf: $('login-usuario').value.trim(), senha: $('login-senha').value });
     if (!res.token) throw new Error(res.erro || 'Falha na autenticação.');
-    salvarSessao({ token: res.token, usuario: res.usuario || {} });
+    const nova = { token: res.token, usuario: res.usuario || {} };
+    salvarSessao(nova);
+    if (bioCred()?.cpf && bioCred().cpf === (nova.usuario?.cpf || nova.usuario?.Cpf)) salvarSessaoBio(nova);
     $('card-login').classList.add('saindo');
-    setTimeout(entrarNoApp, 420);
+    setTimeout(() => { entrarNoApp(); maybeOferecerBio(); }, 420);
   } catch (err) {
     erro.textContent = err.message || 'Não foi possível entrar.';
     erro.classList.remove('hidden');
@@ -438,7 +573,7 @@ $('form-login').addEventListener('submit', async (e) => {
 });
 
 function sairDoApp(){
-  limparSessao();
+  limparSessao(); limparSessaoBio();
   $('tela-app').style.display = 'none';
   document.body.classList.remove('app-aberto');
   $('login-screen').style.display = 'flex';
@@ -576,14 +711,27 @@ function entrarNoApp(){
   renderPanorama();
 }
 
+function mostrarLogin(){
+  $('login-screen').classList.remove('login-hidden');
+  $('login-screen').classList.add('login-visible');
+}
 function iniciarSequencia(){
   aplicarTema(localStorage.getItem('sge_theme_choice') || 'sacro-claro');
+  localStorage.removeItem(CHAVE); // migração: chave antiga era permanente
+  $('btn-bio-sim').onclick = async () => {
+    $('bio-optin').style.display = 'none';
+    try {
+      if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital/FaceID ativado.'); }
+      else toast('Não foi possível ativar a biometria.');
+    } catch { toast('Biometria não ativada.'); }
+  };
+  $('btn-bio-nao').onclick = () => { localStorage.setItem('sge_bio_recusado', '1'); $('bio-optin').style.display = 'none'; };
   setTimeout(() => {
     $('splash-screen').classList.add('splash-exit');
-    $('login-screen').classList.remove('login-hidden');
-    $('login-screen').classList.add('login-visible');
     setTimeout(() => $('splash-screen').remove(), 1300);
-    if (sessao()?.token) setTimeout(entrarNoApp, 600);
+    if (sessao()?.token) { setTimeout(entrarNoApp, 600); return; }
+    if (bioSessao()?.token && bioCred()?.id) { $('unlock-screen').style.display = 'flex'; return; }
+    mostrarLogin();
   }, 2400);
 }
 iniciarSequencia();
