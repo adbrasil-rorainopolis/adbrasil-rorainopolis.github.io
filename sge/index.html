@@ -223,7 +223,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.5</span>
+          <span>SGE Mobile · v1.6</span>
         </div>
       </div>
     </div>
@@ -330,7 +330,9 @@
       <button type="button" id="btn-unlock" onclick="desbloquearBio()" class="btn-entrar w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
         <i class="fa-solid fa-fingerprint"></i> Desbloquear
       </button>
+      <div id="unlock-erro" class="hidden mt-3 text-[11px] leading-relaxed" style="color: var(--color-danger);"></div>
       <button type="button" onclick="usarSenha()" class="mt-3 text-xs font-semibold cursor-pointer hover:underline" style="color: var(--color-primary); background:none; border:none;">Entrar com senha</button>
+      <button type="button" onclick="esquecerBio()" class="mt-2 text-[10px] cursor-pointer hover:underline" style="color: var(--text-muted); background:none; border:none;">Desativar biometria neste aparelho</button>
     </div>
   </div>
 </div>
@@ -475,7 +477,8 @@ function limparSessaoBio(){ localStorage.removeItem(BIO_SESSAO); }
 
 /* ---------- biometria (WebAuthn platform authenticator) ---------- */
 const b64urlDecode = (str) => {
-  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  const pad = str.length % 4 ? '='.repeat(4 - (str.length % 4)) : '';
+  const bin = atob((str + pad).replace(/-/g, '+').replace(/_/g, '/'));
   const u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
   return u.buffer;
@@ -510,16 +513,29 @@ async function verificarBiometria(){
   return !!assertion;
 }
 async function desbloquearBio(){
-  const btn = $('btn-unlock'); btn.disabled = true;
+  const btn = $('btn-unlock'), erro = $('unlock-erro');
+  btn.disabled = true; if (erro) erro.classList.add('hidden');
   try {
     if (await verificarBiometria()) {
-      salvarSessao(bioSessao());
+      const bs = bioSessao();
+      if (!bs?.token) { usarSenha(); return; }
+      salvarSessao(bs);
       $('unlock-screen').style.display = 'none';
       entrarNoApp();
-    } else toast('Biometria não reconhecida.');
+    } else if (erro) { erro.textContent = 'Biometria não reconhecida. Tente novamente.'; erro.classList.remove('hidden'); }
   } catch (e) {
-    toast(e?.name === 'NotAllowedError' ? 'Verificação cancelada.' : 'Biometria indisponível neste aparelho.');
+    console.error('[SGE bio] get falhou:', e);
+    if (erro) {
+      erro.textContent = e?.name === 'NotAllowedError'
+        ? 'Verificação cancelada ou credencial não encontrada neste app. Tente de novo — ou entre com senha e reative a biometria.'
+        : ('Biometria falhou: ' + (e?.name || e?.message || 'erro desconhecido'));
+      erro.classList.remove('hidden');
+    }
   } finally { btn.disabled = false; }
+}
+function esquecerBio(){
+  localStorage.removeItem(BIO_CRED); limparSessaoBio();
+  usarSenha();
 }
 function usarSenha(){
   $('unlock-screen').style.display = 'none';
