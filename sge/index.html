@@ -214,7 +214,7 @@
           <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.3</span>
+          <span>SGE Mobile · v1.4</span>
         </div>
       </div>
     </div>
@@ -525,7 +525,9 @@ async function carregarDashboard(token){
   }).catch(() => { $('n-congs').textContent = '—'; $('lista-congs').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Indisponível.</div>'; });
 
   api('listar_membros', null, token).then(res => {
-    $('n-membros').textContent = (res.dados || []).length;
+    // paridade desktop: nao excluido E (nunca inativado OU reativado)
+    const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
+    $('n-membros').textContent = ativos.length;
   }).catch(() => { $('n-membros').textContent = '—'; });
 
   carregarFinanceiro(token);
