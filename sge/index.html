@@ -78,8 +78,14 @@
   #login-screen, #dash-conteudo {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
+  /* nav fixa: nao depende de flex nem de altura do container */
+  .app-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  }
+  #tela-app main#dash-conteudo { padding-bottom: 90px; }
+  #tela-app { position: absolute; left: 0; right: 0; bottom: 0; top: 57px; display: flex; flex-direction: column; }
   .font-cinzel { font-family: 'Cinzel', serif; }
   .theme-transition { transition: background-color .35s ease, border-color .35s ease, color .35s ease; }
   canvas#linhas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
@@ -266,10 +272,10 @@
 </div>
 
 <!-- ============ APP — shell com sidebar global (bottom nav mobile) ============ -->
-<div id="tela-app" class="flex-1 flex-col relative z-10 hidden" style="display:none;">
+<div id="tela-app" class="z-10" style="display:none;">
   <main id="dash-conteudo" class="flex-1 overflow-y-auto px-4 pt-4 pb-2"></main>
 
-  <nav class="w-full border-t theme-transition shrink-0" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
+  <nav class="app-nav w-full border-t theme-transition" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
     <div class="flex items-stretch justify-around px-1">
       <button onclick="mudarVisao('dashboard')" data-mod="dashboard" class="sidebar-nav-btn ativa flex-1 flex flex-col items-center gap-1 py-2.5" title="Panorama Geral">
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
