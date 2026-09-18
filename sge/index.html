@@ -73,6 +73,13 @@
     background: var(--bg-main); color: var(--text-main);
     overflow: hidden; transition: background .3s, color .3s;
   }
+  /* mobile: 100vh cobre a area util do navegador — dvh respeita a barra de URL */
+  body.h-screen { height: 100vh; height: 100dvh; }
+  #login-screen, #dash-conteudo {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
   .font-cinzel { font-family: 'Cinzel', serif; }
   .theme-transition { transition: background-color .35s ease, border-color .35s ease, color .35s ease; }
   canvas#linhas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
