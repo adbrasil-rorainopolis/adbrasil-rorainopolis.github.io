@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#fafaf9">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,16 +14,57 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0b0f14; --card:#141b24; --card2:#1a2330; --borda:#26313f;
-    --ouro1:#b45309; --ouro2:#f59e0b; --ouro3:#92400e;
-    --txt:#eef2f7; --txt2:#9aa7b8; --ok:#34d399; --erro:#f87171;
+  /* ===== Tokens EXATOS do css/style.css do app desktop ===== */
+  :root, [data-theme="sacro-claro"] {
+    --bg-main: #fafaf9; --bg-surface: #ffffff; --bg-card: rgba(255,255,255,0.92); --bg-input: #f8fafc;
+    --border-color: rgba(217,119,6,0.22); --border-focus: #d97706;
+    --color-primary: #d97706; --color-primary-hover: #b45309; --color-primary-light: rgba(217,119,6,0.12);
+    --color-success: #10b981; --color-danger: #ef4444;
+    --text-main: #0f172a; --text-muted: #475569; --text-subtle: #94a3b8; --text-accent: #92400e; --text-inverse: #ffffff;
+    --shadow-card: 0 20px 45px -15px rgba(217,119,6,0.12), 0 0 1px 1px rgba(217,119,6,0.1);
+    --glow-primary: 0 0 20px rgba(217,119,6,0.25);
+    --logo-simbolo: #B08A45;
+    --linhas-rgb: 217,119,6;
   }
+  [data-theme="dark-operacional"] {
+    --bg-main: #020617; --bg-surface: #0b1329; --bg-card: rgba(15,23,42,0.88); --bg-input: #030712;
+    --border-color: rgba(51,65,85,0.7); --border-focus: #f59e0b;
+    --color-primary: #f59e0b; --color-primary-hover: #d97706; --color-primary-light: rgba(245,158,11,0.15);
+    --color-success: #10b981; --color-danger: #ef4444;
+    --text-main: #f8fafc; --text-muted: #94a3b8; --text-subtle: #64748b; --text-accent: #fbbf24; --text-inverse: #020617;
+    --shadow-card: 0 20px 40px -10px rgba(0,0,0,0.7), 0 0 1px 1px rgba(255,255,255,0.05);
+    --glow-primary: 0 0 25px rgba(245,158,11,0.3);
+    --logo-simbolo: #E9CE8C;
+    --linhas-rgb: 245,158,11;
+  }
+  [data-theme="verde-oliva"] {
+    --bg-main: #04130d; --bg-surface: #0a2318; --bg-card: rgba(10,35,24,0.88); --bg-input: #03100a;
+    --border-color: rgba(16,185,129,0.28); --border-focus: #10b981;
+    --color-primary: #10b981; --color-primary-hover: #059669; --color-primary-light: rgba(16,185,129,0.15);
+    --color-success: #10b981; --color-danger: #ef4444;
+    --text-main: #ecfdf5; --text-muted: #a7f3d0; --text-subtle: #6ee7b7; --text-accent: #34d399; --text-inverse: #022c22;
+    --shadow-card: 0 20px 40px -10px rgba(0,20,10,0.75), 0 0 1px 1px rgba(16,185,129,0.15);
+    --glow-primary: 0 0 25px rgba(16,185,129,0.3);
+    --logo-simbolo: #9DBB5A;
+    --linhas-rgb: 16,185,129;
+  }
+  [data-theme="azul-real"] {
+    --bg-main: #020b1f; --bg-surface: #07173d; --bg-card: rgba(7,23,61,0.88); --bg-input: #040e29;
+    --border-color: rgba(56,189,248,0.25); --border-focus: #38bdf8;
+    --color-primary: #38bdf8; --color-primary-hover: #0284c7; --color-primary-light: rgba(56,189,248,0.15);
+    --color-success: #10b981; --color-danger: #ef4444;
+    --text-main: #f0f9ff; --text-muted: #bae6fd; --text-subtle: #7dd3fc; --text-accent: #38bdf8; --text-inverse: #030712;
+    --shadow-card: 0 20px 40px -10px rgba(0,5,25,0.8), 0 0 1px 1px rgba(56,189,248,0.15);
+    --glow-primary: 0 0 25px rgba(56,189,248,0.35);
+    --logo-simbolo: #9CC4EE;
+    --linhas-rgb: 56,189,248;
+  }
+
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{
-    font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--txt);
-    min-height:100dvh;overflow-x:hidden;
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg-main);color:var(--text-main);
+    min-height:100dvh;overflow-x:hidden;transition:background .3s,color .3s;
   }
   canvas#linhas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5}
 
@@ -32,59 +73,61 @@
     position:relative;min-height:100dvh;display:flex;flex-direction:column;
     align-items:center;justify-content:center;padding:32px 22px;gap:8px;
   }
-  #tela-login img.logo{width:min(280px,72vw);filter:drop-shadow(0 6px 24px rgba(245,158,11,.25));margin-bottom:6px}
+  #tela-login img.logo{width:min(280px,72vw);filter:drop-shadow(0 6px 24px var(--color-primary-light));margin-bottom:6px}
   .titulo-app{font-family:Cinzel,serif;font-weight:900;font-size:clamp(22px,6vw,30px);letter-spacing:.14em;
-    background:linear-gradient(120deg,var(--ouro1),var(--ouro2),var(--ouro3));
+    background:linear-gradient(120deg,var(--color-primary-hover),var(--color-primary),#92400e);
     -webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
-  .subtitulo{font-size:12px;color:var(--txt2);letter-spacing:.28em;text-transform:uppercase;margin-bottom:26px}
+  .subtitulo{font-size:12px;color:var(--text-muted);letter-spacing:.28em;text-transform:uppercase;margin-bottom:26px}
   .form{width:min(420px,100%);display:flex;flex-direction:column;gap:14px}
-  .campo label{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px}
+  .campo label{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
   .campo input{
-    width:100%;padding:15px 16px;border-radius:14px;border:1px solid var(--borda);
-    background:var(--card);color:var(--txt);font-size:16px;font-family:inherit;outline:none;
+    width:100%;padding:15px 16px;border-radius:14px;border:1px solid var(--border-color);
+    background:var(--bg-card);color:var(--text-main);font-size:16px;font-family:inherit;outline:none;
     transition:border-color .2s, box-shadow .2s;
   }
-  .campo input:focus{border-color:var(--ouro2);box-shadow:0 0 0 3px rgba(245,158,11,.15)}
+  .campo input:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-light)}
   .btn{
     margin-top:8px;padding:16px;border:none;border-radius:14px;cursor:pointer;
     font-family:Cinzel,serif;font-weight:700;font-size:15px;letter-spacing:.12em;color:#fff;
-    background:linear-gradient(120deg,var(--ouro1),var(--ouro2));
-    box-shadow:0 8px 24px rgba(180,83,9,.35);transition:transform .15s, box-shadow .15s;
+    background:linear-gradient(120deg,var(--color-primary-hover),var(--color-primary));
+    box-shadow:var(--glow-primary);transition:transform .15s, box-shadow .15s;
   }
   .btn:active{transform:scale(.97)}
   .btn:disabled{opacity:.55;cursor:wait}
-  #msg-login{min-height:20px;font-size:13px;color:var(--erro);text-align:center;font-weight:600}
-  .rodape-login{margin-top:30px;font-size:10px;color:var(--txt2);opacity:.7;letter-spacing:.18em;text-transform:uppercase}
+  #msg-login{min-height:20px;font-size:13px;color:var(--color-danger);text-align:center;font-weight:600}
+  .rodape-login{margin-top:30px;font-size:10px;color:var(--text-muted);opacity:.7;letter-spacing:.18em;text-transform:uppercase}
 
   /* ---------- DASHBOARD ---------- */
   #tela-app{display:none;position:relative;min-height:100dvh;padding:calc(14px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
-  header.app{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--borda);margin-bottom:18px}
+  header.app{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border-color);margin-bottom:18px}
   header.app img{width:56px}
   header.app .ola{flex:1;min-width:0}
   header.app .ola b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  header.app .ola span{font-size:11px;color:var(--txt2)}
+  header.app .ola span{font-size:11px;color:var(--text-muted)}
   .badge-perfil{display:inline-block;margin-top:3px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-    padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.15);color:var(--ouro2);border:1px solid rgba(245,158,11,.3)}
-  .btn-sair{background:none;border:1px solid var(--borda);color:var(--txt2);font-size:11px;font-weight:700;
+    padding:3px 8px;border-radius:20px;background:var(--color-primary-light);color:var(--color-primary);border:1px solid var(--color-primary-light)}
+  .btn-sair{background:none;border:1px solid var(--border-color);color:var(--text-muted);font-size:11px;font-weight:700;
     padding:8px 12px;border-radius:10px;cursor:pointer;font-family:inherit}
+  #sel-tema{background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-muted);font-size:11px;font-weight:700;
+    padding:8px 6px;border-radius:10px;cursor:pointer;font-family:inherit;outline:none}
   .grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-  .card{background:var(--card);border:1px solid var(--borda);border-radius:18px;padding:16px}
-  .card .rotulo{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:8px}
+  .card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:18px;padding:16px}
+  .card .rotulo{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
   .card .valor{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
-  .card .valor.ouro{background:linear-gradient(120deg,var(--ouro2),var(--ouro1));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card .valor.ouro{background:linear-gradient(120deg,var(--color-primary),var(--color-primary-hover));-webkit-background-clip:text;background-clip:text;color:transparent}
   .card-largo{grid-column:1/-1}
-  .fin .linha-fin{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-top:1px dashed var(--borda);font-size:14px}
+  .fin .linha-fin{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-top:1px dashed var(--border-color);font-size:14px}
   .fin .linha-fin:first-of-type{border-top:none}
   .fin .linha-fin b{font-variant-numeric:tabular-nums;font-weight:800}
-  .pos{color:var(--ok)} .neg{color:var(--erro)}
-  .fin-periodo{font-size:11px;color:var(--txt2);margin-bottom:4px}
-  .carregando{display:flex;align-items:center;gap:10px;color:var(--txt2);font-size:13px;padding:10px 0}
-  .spin{width:16px;height:16px;border:2px solid var(--borda);border-top-color:var(--ouro2);border-radius:50%;animation:giro .8s linear infinite}
+  .pos{color:var(--color-success)} .neg{color:var(--color-danger)}
+  .fin-periodo{font-size:11px;color:var(--text-muted);margin-bottom:4px}
+  .carregando{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;padding:10px 0}
+  .spin{width:16px;height:16px;border:2px solid var(--border-color);border-top-color:var(--color-primary);border-radius:50%;animation:giro .8s linear infinite}
   @keyframes giro{to{transform:rotate(360deg)}}
   .lista-congs{margin-top:4px}
-  .lista-congs .cong{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-top:1px dashed var(--borda);font-size:13px}
-  .lista-congs .cong span:last-child{color:var(--txt2);font-size:11px}
-  .vazio{color:var(--txt2);font-size:13px;padding:8px 0}
+  .lista-congs .cong{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-top:1px dashed var(--border-color);font-size:13px}
+  .lista-congs .cong span:last-child{color:var(--text-muted);font-size:11px}
+  .vazio{color:var(--text-muted);font-size:13px;padding:8px 0}
 </style>
 </head>
 <body>
@@ -119,6 +162,12 @@
       <span id="ola-cpf">—</span><br>
       <span class="badge-perfil" id="ola-perfil">—</span>
     </div>
+    <select id="sel-tema" onchange="trocarTema(this.value)" title="Tema">
+      <option value="sacro-claro">Sacro</option>
+      <option value="dark-operacional">Noturno</option>
+      <option value="verde-oliva">Oliva</option>
+      <option value="azul-real">Azul</option>
+    </select>
     <button class="btn-sair" id="btn-sair">Sair</button>
   </header>
 
@@ -178,6 +227,7 @@ mascaraCpf($('cpf'));
 /* ---------- fundo animado (linhas onduladas do login) ---------- */
 (function(){
   const cv = $('linhas'), ctx = cv.getContext('2d');
+  const linhasRGB = () => getComputedStyle(document.documentElement).getPropertyValue('--linhas-rgb').trim() || '217,119,6';
   let t = 0;
   function dim(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
   addEventListener('resize', dim); dim();
@@ -192,7 +242,7 @@ mascaraCpf($('cpf'));
                         + Math.sin(x / w * Math.PI * 5 + t * 0.35 + i) * h * 0.02;
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(245,158,11,${0.05 + i * 0.022})`;
+      ctx.strokeStyle = `rgba(${linhasRGB()},${0.05 + i * 0.022})`;
       ctx.lineWidth = 1.4 * devicePixelRatio;
       ctx.stroke();
     }
@@ -288,6 +338,15 @@ async function carregarFinanceiro(token){
     $('fin-corpo').innerHTML = '<div class="vazio">Financeiro indisponível.</div>';
   }
 }
+
+/* ---------- tema (mesma chave do desktop) ---------- */
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-theme', tema);
+  localStorage.setItem('sge_theme_choice', tema);
+  const sel = $('sel-tema'); if (sel) sel.value = tema;
+}
+function trocarTema(tema){ aplicarTema(tema); }
+aplicarTema(localStorage.getItem('sge_theme_choice') || 'sacro-claro');
 
 /* ---------- boot ---------- */
 if (sessao()?.token) entrarNoApp(); else mostrar('login');
