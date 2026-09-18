@@ -83,7 +83,9 @@
   /* nav fixa: nao depende de flex nem de altura do container */
   .app-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: none;
   }
+  body.app-aberto .app-nav { display: block; }
   #tela-app main#dash-conteudo { padding-bottom: 90px; }
   #tela-app { position: absolute; left: 0; right: 0; bottom: 0; top: 57px; display: flex; flex-direction: column; }
   .font-cinzel { font-family: 'Cinzel', serif; }
@@ -211,7 +213,7 @@
           <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
         </div>
         <div class="px-3.5 pt-2 pb-1.5 text-[10px] font-bold opacity-80" style="border-top: 1px solid var(--border-color); color: var(--color-primary);">
-          <span>SGE Mobile · v1.0</span>
+          <span>SGE Mobile · v1.1</span>
         </div>
       </div>
     </div>
@@ -275,6 +277,8 @@
 <div id="tela-app" class="z-10" style="display:none;">
   <main id="dash-conteudo" class="flex-1 overflow-y-auto px-4 pt-4 pb-2"></main>
 
+</div>
+
   <nav class="app-nav w-full border-t theme-transition" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
     <div class="flex items-stretch justify-around px-1">
       <button onclick="mudarVisao('dashboard')" data-mod="dashboard" class="sidebar-nav-btn ativa flex-1 flex flex-col items-center gap-1 py-2.5" title="Panorama Geral">
@@ -303,7 +307,6 @@
       </button>
     </div>
   </nav>
-</div>
 
 <script>
 const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
@@ -428,6 +431,7 @@ $('form-login').addEventListener('submit', async (e) => {
 function sairDoApp(){
   limparSessao();
   $('tela-app').style.display = 'none';
+  document.body.classList.remove('app-aberto');
   $('login-screen').style.display = 'flex';
   $('login-screen').classList.remove('login-visible');
   $('login-screen').classList.add('login-hidden');
@@ -555,6 +559,7 @@ function entrarNoApp(){
   $('login-screen').classList.remove('login-visible');
   setTimeout(() => { $('login-screen').style.display = 'none'; }, 650);
   $('tela-app').style.display = 'flex';
+  document.body.classList.add('app-aberto');
   moduloAtual = 'dashboard';
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
   renderPanorama();
@@ -572,7 +577,10 @@ function iniciarSequencia(){
 }
 iniciarSequencia();
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+}
 </script>
 </body>
 </html>
