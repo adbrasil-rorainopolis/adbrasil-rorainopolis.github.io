@@ -214,7 +214,7 @@
           <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.2</span>
+          <span>SGE Mobile · v1.3</span>
         </div>
       </div>
     </div>
@@ -517,7 +517,7 @@ function renderPanorama(){
 
 async function carregarDashboard(token){
   api('listar_congregacoes', null, token).then(res => {
-    const lista = res.dados || [];
+    const lista = (res.dados || []).filter(c => c.ativo !== 0 && c.ativo !== false);
     $('n-congs').textContent = lista.length;
     $('lista-congs').innerHTML = lista.length
       ? lista.map(c => `<div class="flex justify-between items-center py-2.5 text-[13px]" style="border-top: 1px dashed var(--border-color);"><span>${c.nome || '—'}</span><span class="text-[11px]" style="color: var(--text-muted);">${c.conselho || ''}</span></div>`).join('')
