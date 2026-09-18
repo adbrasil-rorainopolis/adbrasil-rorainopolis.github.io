@@ -67,27 +67,25 @@
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
+  html { min-height: 100%; }
   body {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     background: var(--bg-main); color: var(--text-main);
-    overflow: hidden; transition: background .3s, color .3s;
+    overflow-x: hidden; transition: background .3s, color .3s;
+    min-height: 100vh; min-height: 100dvh;
   }
-  /* mobile: 100vh cobre a area util do navegador — dvh respeita a barra de URL */
-  body.h-screen { height: 100vh; height: 100dvh; }
-  #login-screen, #dash-conteudo {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
+  /* header e nav fixos no viewport; conteudo rola no documento (scroll nativo = PTR nativo) */
+  #header-login { position: fixed; top: 0; left: 0; right: 0; }
+  #login-screen {
+    position: fixed; left: 0; right: 0; top: 57px; bottom: 0;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  /* nav fixa: nao depende de flex nem de altura do container */
   .app-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
     display: none;
   }
   body.app-aberto .app-nav { display: block; }
-  #tela-app main#dash-conteudo { padding-bottom: 90px; }
-  #tela-app { position: absolute; left: 0; right: 0; bottom: 0; top: 57px; display: flex; flex-direction: column; }
+  #tela-app { padding-top: 57px; padding-bottom: 96px; min-height: 100vh; min-height: 100dvh; }
   .font-cinzel { font-family: 'Cinzel', serif; }
   .theme-transition { transition: background-color .35s ease, border-color .35s ease, color .35s ease; }
   canvas#linhas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
@@ -141,12 +139,12 @@
   #toast { animation: toastIn .25s ease; }
 </style>
 </head>
-<body class="h-screen w-screen flex flex-col overflow-hidden relative select-none">
+<body class="relative select-none">
 
 <canvas id="linhas"></canvas>
 
 <!-- ============ SPLASH — anel orbital + logo (igual desktop) ============ -->
-<div id="splash-screen" class="absolute inset-0 flex items-center justify-center z-30 transition-all" style="background: var(--bg-main);">
+<div id="splash-screen" class="fixed inset-0 flex items-center justify-center z-30 transition-all" style="background: var(--bg-main);">
   <div class="relative p-10 rounded-[2.5rem] border shadow-[0_25px_60px_-15px_rgba(217,119,6,0.12)] flex flex-col items-center justify-center" style="background: var(--bg-card); border-color: var(--border-color);">
     <div class="relative w-56 h-56 flex items-center justify-center">
       <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
@@ -212,8 +210,11 @@
           <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-sky-500 to-blue-900 border border-sky-400/30 shrink-0"></span> Azul Real Nobre
           <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
         </div>
-        <div class="px-3.5 pt-2 pb-1.5 text-[10px] font-bold opacity-80" style="border-top: 1px solid var(--border-color); color: var(--color-primary);">
-          <span>SGE Mobile · v1.1</span>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="atualizarAgora()">
+          <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
+        </div>
+        <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
+          <span>SGE Mobile · v1.2</span>
         </div>
       </div>
     </div>
@@ -221,7 +222,7 @@
 </header>
 
 <!-- ============ LOGIN — réplica do card desktop ============ -->
-<div id="login-screen" class="flex-1 flex items-center justify-center p-4 relative z-10 login-hidden overflow-y-auto">
+<div id="login-screen" class="flex items-center justify-center p-4 z-10 login-hidden">
   <div class="w-full max-w-md mx-auto my-auto">
     <div id="card-login" class="rounded-[2.5rem] p-8 relative theme-transition">
       <div class="flex items-center justify-center gap-5 mb-5">
@@ -274,8 +275,8 @@
 </div>
 
 <!-- ============ APP — shell com sidebar global (bottom nav mobile) ============ -->
-<div id="tela-app" class="z-10" style="display:none;">
-  <main id="dash-conteudo" class="flex-1 overflow-y-auto px-4 pt-4 pb-2"></main>
+<div id="tela-app" class="relative z-10" style="display:none;">
+  <main id="dash-conteudo" class="px-4 pt-4 pb-2"></main>
 
 </div>
 
@@ -357,6 +358,14 @@ function aplicarTema(tema){
 }
 function fixarTema(tema){ aplicarTema(tema); fecharMenuEngrenagem(); }
 function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); }
+async function atualizarAgora(){
+  fecharMenuEngrenagem();
+  try {
+    if ('caches' in window) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+    if ('serviceWorker' in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); }
+  } catch(e) {}
+  location.reload(true);
+}
 function fecharMenuEngrenagem(){ $('menu-engrenagem').classList.add('hidden'); }
 document.addEventListener('click', (e) => {
   const menu = $('menu-engrenagem'), btn = $('btn-engrenagem');
@@ -558,7 +567,7 @@ function entrarNoApp(){
   $('login-screen').classList.add('login-hidden');
   $('login-screen').classList.remove('login-visible');
   setTimeout(() => { $('login-screen').style.display = 'none'; }, 650);
-  $('tela-app').style.display = 'flex';
+  $('tela-app').style.display = 'block';
   document.body.classList.add('app-aberto');
   moduloAtual = 'dashboard';
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
