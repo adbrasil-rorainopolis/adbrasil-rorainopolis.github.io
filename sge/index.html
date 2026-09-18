@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SGE — AD Brasil</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --card:#141b24; --card2:#1a2330; --borda:#26313f;
+    --ouro1:#b45309; --ouro2:#f59e0b; --ouro3:#92400e;
+    --txt:#eef2f7; --txt2:#9aa7b8; --ok:#34d399; --erro:#f87171;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--txt);
+    min-height:100dvh;overflow-x:hidden;
+  }
+  canvas#linhas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5}
+
+  /* ---------- LOGIN ---------- */
+  #tela-login{
+    position:relative;min-height:100dvh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:32px 22px;gap:8px;
+  }
+  #tela-login img.logo{width:min(280px,72vw);filter:drop-shadow(0 6px 24px rgba(245,158,11,.25));margin-bottom:6px}
+  .titulo-app{font-family:Cinzel,serif;font-weight:900;font-size:clamp(22px,6vw,30px);letter-spacing:.14em;
+    background:linear-gradient(120deg,var(--ouro1),var(--ouro2),var(--ouro3));
+    -webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+  .subtitulo{font-size:12px;color:var(--txt2);letter-spacing:.28em;text-transform:uppercase;margin-bottom:26px}
+  .form{width:min(420px,100%);display:flex;flex-direction:column;gap:14px}
+  .campo label{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px}
+  .campo input{
+    width:100%;padding:15px 16px;border-radius:14px;border:1px solid var(--borda);
+    background:var(--card);color:var(--txt);font-size:16px;font-family:inherit;outline:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .campo input:focus{border-color:var(--ouro2);box-shadow:0 0 0 3px rgba(245,158,11,.15)}
+  .btn{
+    margin-top:8px;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    font-family:Cinzel,serif;font-weight:700;font-size:15px;letter-spacing:.12em;color:#fff;
+    background:linear-gradient(120deg,var(--ouro1),var(--ouro2));
+    box-shadow:0 8px 24px rgba(180,83,9,.35);transition:transform .15s, box-shadow .15s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.55;cursor:wait}
+  #msg-login{min-height:20px;font-size:13px;color:var(--erro);text-align:center;font-weight:600}
+  .rodape-login{margin-top:30px;font-size:10px;color:var(--txt2);opacity:.7;letter-spacing:.18em;text-transform:uppercase}
+
+  /* ---------- DASHBOARD ---------- */
+  #tela-app{display:none;position:relative;min-height:100dvh;padding:calc(14px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
+  header.app{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--borda);margin-bottom:18px}
+  header.app img{width:56px}
+  header.app .ola{flex:1;min-width:0}
+  header.app .ola b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.app .ola span{font-size:11px;color:var(--txt2)}
+  .badge-perfil{display:inline-block;margin-top:3px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 8px;border-radius:20px;background:rgba(245,158,11,.15);color:var(--ouro2);border:1px solid rgba(245,158,11,.3)}
+  .btn-sair{background:none;border:1px solid var(--borda);color:var(--txt2);font-size:11px;font-weight:700;
+    padding:8px 12px;border-radius:10px;cursor:pointer;font-family:inherit}
+  .grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--borda);border-radius:18px;padding:16px}
+  .card .rotulo{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:8px}
+  .card .valor{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+  .card .valor.ouro{background:linear-gradient(120deg,var(--ouro2),var(--ouro1));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card-largo{grid-column:1/-1}
+  .fin .linha-fin{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-top:1px dashed var(--borda);font-size:14px}
+  .fin .linha-fin:first-of-type{border-top:none}
+  .fin .linha-fin b{font-variant-numeric:tabular-nums;font-weight:800}
+  .pos{color:var(--ok)} .neg{color:var(--erro)}
+  .fin-periodo{font-size:11px;color:var(--txt2);margin-bottom:4px}
+  .carregando{display:flex;align-items:center;gap:10px;color:var(--txt2);font-size:13px;padding:10px 0}
+  .spin{width:16px;height:16px;border:2px solid var(--borda);border-top-color:var(--ouro2);border-radius:50%;animation:giro .8s linear infinite}
+  @keyframes giro{to{transform:rotate(360deg)}}
+  .lista-congs{margin-top:4px}
+  .lista-congs .cong{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-top:1px dashed var(--borda);font-size:13px}
+  .lista-congs .cong span:last-child{color:var(--txt2);font-size:11px}
+  .vazio{color:var(--txt2);font-size:13px;padding:8px 0}
+</style>
+</head>
+<body>
+<canvas id="linhas"></canvas>
+
+<!-- TELA DE LOGIN -->
+<section id="tela-login">
+  <img class="logo" src="icons/logo.png" alt="SGE">
+  <h1 class="titulo-app">SGE — AD BRASIL</h1>
+  <p class="subtitulo">Gestão Eclesiástica</p>
+  <form class="form" id="form-login" autocomplete="off">
+    <div class="campo">
+      <label for="cpf">CPF de acesso</label>
+      <input id="cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" required>
+    </div>
+    <div class="campo">
+      <label for="senha">Senha</label>
+      <input id="senha" type="password" placeholder="••••••••" required>
+    </div>
+    <div id="msg-login"></div>
+    <button class="btn" id="btn-entrar" type="submit">ENTRAR</button>
+  </form>
+  <p class="rodape-login">AD Brasil · Rorainópolis</p>
+</section>
+
+<!-- TELA DO APP -->
+<section id="tela-app">
+  <header class="app">
+    <img src="icons/logo.png" alt="">
+    <div class="ola">
+      <b id="ola-nome">—</b>
+      <span id="ola-cpf">—</span><br>
+      <span class="badge-perfil" id="ola-perfil">—</span>
+    </div>
+    <button class="btn-sair" id="btn-sair">Sair</button>
+  </header>
+
+  <div class="grade">
+    <div class="card">
+      <div class="rotulo">Congregações</div>
+      <div class="valor ouro" id="n-congs">—</div>
+    </div>
+    <div class="card">
+      <div class="rotulo">Membros</div>
+      <div class="valor ouro" id="n-membros">—</div>
+    </div>
+    <div class="card card-largo fin">
+      <div class="rotulo">Resumo Financeiro</div>
+      <div class="fin-periodo" id="fin-periodo">—</div>
+      <div id="fin-corpo"><div class="carregando"><div class="spin"></div>Carregando…</div></div>
+    </div>
+    <div class="card card-largo">
+      <div class="rotulo">Congregações ativas</div>
+      <div class="lista-congs" id="lista-congs"><div class="carregando"><div class="spin"></div>Carregando…</div></div>
+    </div>
+  </div>
+</section>
+
+<script>
+const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
+const CHAVE = 'sge_mobile_sessao';
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+/* ---------- util ---------- */
+const $ = id => document.getElementById(id);
+const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+
+async function api(action, payload, token){
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+    },
+    body: JSON.stringify({ action, ...(payload || {}) })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.erro || 'Erro ' + res.status), { data });
+  return data;
+}
+
+function mascaraCpf(el){
+  el.addEventListener('input', () => {
+    let d = el.value.replace(/\D/g, '').slice(0, 11);
+    d = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    el.value = d;
+  });
+}
+mascaraCpf($('cpf'));
+
+/* ---------- fundo animado (linhas onduladas do login) ---------- */
+(function(){
+  const cv = $('linhas'), ctx = cv.getContext('2d');
+  let t = 0;
+  function dim(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
+  addEventListener('resize', dim); dim();
+  function desenha(){
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const h = cv.height, w = cv.width;
+    for (let i = 0; i < 5; i++){
+      ctx.beginPath();
+      const yBase = h * (0.2 + i * 0.16);
+      for (let x = 0; x <= w; x += 8){
+        const y = yBase + Math.sin(x / w * Math.PI * 2.2 + t * 0.6 + i * 1.3) * h * 0.045
+                        + Math.sin(x / w * Math.PI * 5 + t * 0.35 + i) * h * 0.02;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(245,158,11,${0.05 + i * 0.022})`;
+      ctx.lineWidth = 1.4 * devicePixelRatio;
+      ctx.stroke();
+    }
+    t += 0.008;
+    requestAnimationFrame(desenha);
+  }
+  desenha();
+})();
+
+/* ---------- sessão ---------- */
+function sessao(){ try { return JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
+function salvarSessao(s){ localStorage.setItem(CHAVE, JSON.stringify(s)); }
+function limparSessao(){ localStorage.removeItem(CHAVE); }
+
+function mostrar(tela){
+  $('tela-login').style.display = tela === 'login' ? 'flex' : 'none';
+  $('tela-app').style.display = tela === 'app' ? 'block' : 'none';
+}
+
+/* ---------- login ---------- */
+$('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('btn-entrar'), msg = $('msg-login');
+  msg.textContent = ''; btn.disabled = true; btn.textContent = 'ENTRANDO…';
+  try {
+    const res = await api('login', { cpf: $('cpf').value.trim(), senha: $('senha').value });
+    if (!res.token) throw new Error(res.erro || 'Falha na autenticação.');
+    salvarSessao({ token: res.token, usuario: res.usuario || {} });
+    entrarNoApp();
+  } catch (err) {
+    msg.textContent = err.message || 'Não foi possível entrar.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'ENTRAR';
+  }
+});
+
+$('btn-sair').addEventListener('click', () => { limparSessao(); $('senha').value = ''; mostrar('login'); });
+
+/* ---------- dashboard ---------- */
+function entrarNoApp(){
+  const s = sessao();
+  if (!s || !s.token) return mostrar('login');
+  const u = s.usuario;
+  $('ola-nome').textContent = u.nome || 'Usuário';
+  $('ola-cpf').textContent = u.cpf || '';
+  $('ola-perfil').textContent = u.perfil || 'Operador';
+  mostrar('app');
+  carregarDashboard(s.token);
+}
+
+async function carregarDashboard(token){
+  // cards independentes — um erro não derruba os outros
+  api('listar_congregacoes', null, token).then(res => {
+    const lista = res.dados || [];
+    const ativas = lista.filter(c => String(c.ativo ?? '1') !== '0' && String(c.ativo).toLowerCase() !== 'false');
+    $('n-congs').textContent = ativas.length || lista.length;
+    $('lista-congs').innerHTML = lista.length
+      ? lista.map(c => `<div class="cong"><span>${c.nome || '—'}</span><span>${c.conselho || ''}</span></div>`).join('')
+      : '<div class="vazio">Nenhuma congregação cadastrada.</div>';
+  }).catch(() => { $('n-congs').textContent = '—'; $('lista-congs').innerHTML = '<div class="vazio">Indisponível.</div>'; });
+
+  api('listar_membros', null, token).then(res => {
+    $('n-membros').textContent = (res.dados || []).length;
+  }).catch(() => { $('n-membros').textContent = '—'; });
+
+  carregarFinanceiro(token);
+}
+
+async function carregarFinanceiro(token){
+  try {
+    const per = await api('listar_periodos_financeiros', null, token);
+    const lista = per.periodos || per.dados || [];
+    if (!lista.length){ $('fin-corpo').innerHTML = '<div class="vazio">Nenhum período importado ainda.</div>'; return; }
+    // período mais recente por (ano, índice do mês)
+    const ultimo = lista.reduce((a, b) => {
+      const ka = (+a.ano) * 100 + MESES.findIndex(m => m.toLowerCase() === String(a.mes).toLowerCase());
+      const kb = (+b.ano) * 100 + MESES.findIndex(m => m.toLowerCase() === String(b.mes).toLowerCase());
+      return kb > ka ? b : a;
+    });
+    $('fin-periodo').textContent = `${ultimo.mes} / ${ultimo.ano}`;
+    const mov = await api('carregar_movimento_financeiro', { ano: ultimo.ano, mes: ultimo.mes }, token);
+    const totais = (mov.totais || []).filter(t => /fechamento/i.test(t.aba || ''));
+    const t = totais[0] || (mov.totais || [])[0];
+    if (!t){ $('fin-corpo').innerHTML = '<div class="vazio">Sem totais neste período.</div>'; return; }
+    const saldo = (+t.saldo_campo || 0);
+    $('fin-corpo').innerHTML = `
+      <div class="linha-fin"><span>Dízimos</span><b>${brl(+t.dizimos)}</b></div>
+      <div class="linha-fin"><span>Ofertas</span><b>${brl(+t.ofertas)}</b></div>
+      <div class="linha-fin"><span>Total de entradas</span><b class="pos">${brl(+t.total_entradas)}</b></div>
+      <div class="linha-fin"><span>Total de despesas</span><b class="neg">${brl(+t.total_despesas)}</b></div>
+      <div class="linha-fin"><span>Saldo do campo</span><b class="${saldo < 0 ? 'neg' : 'pos'}">${brl(saldo)}</b></div>`;
+  } catch (e) {
+    $('fin-corpo').innerHTML = '<div class="vazio">Financeiro indisponível.</div>';
+  }
+}
+
+/* ---------- boot ---------- */
+if (sessao()?.token) entrarNoApp(); else mostrar('login');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
