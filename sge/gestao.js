@@ -739,7 +739,7 @@ async function calcularFluxo(ano, mes){
 const G = {
   aba: 'cruzamento', dados: null, mensal: null, fluxo: null,
   periodos: [], graf: null, grafMS: null, grafME: null,
-  modelo: 'bar', dimensao: 'tempo', editando: null, filtrosAberto: true, contasAberto: false,
+  modelo: 'bar', dimensao: 'tempo', editando: null, filtrosAberto: true, contasAberto: false, contasEntradasAberto: false, contasSaidasAberto: false,
 };
 const ABAS = [
   ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
@@ -830,10 +830,14 @@ function _filtrosUI(){
             <i class="fa-solid ${G.contasAberto ? 'fa-chevron-up' : 'fa-chevron-down'} opacity-60"></i></button>
           <div id="gestao-contas-corpo" class="${G.contasAberto ? '' : 'hidden'} mt-2 border rounded-xl p-2 space-y-1" style="border-color:var(--border-color)">
             <input id="gf-busca-conta" oninput="gestaoBuscaConta()" placeholder="Buscar conta…" class="w-full px-2.5 py-1.5 rounded-lg border text-xs mb-1" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-            <p class="text-[10px] font-bold uppercase opacity-50 pt-1">Entradas</p>
+            <button onclick="G_contasGrupoToggle('entradas', this)" class="w-full flex items-center justify-between text-[10px] font-bold uppercase opacity-60 pt-1 cursor-pointer"><span>Entradas (${CONTAS_ENTRADAS_BI.length})</span><i class="fa-solid ${G.contasEntradasAberto ? 'fa-chevron-up' : 'fa-chevron-down'}"></i></button>
+            <div id="gestao-contas-entradas" class="${G.contasEntradasAberto ? '' : 'hidden'} space-y-0.5">
             ${CONTAS_ENTRADAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-amber-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
-            <p class="text-[10px] font-bold uppercase opacity-50 pt-1">Saídas</p>
+            </div>
+            <button onclick="G_contasGrupoToggle('saidas', this)" class="w-full flex items-center justify-between text-[10px] font-bold uppercase opacity-60 pt-1 cursor-pointer"><span>Saídas (${CONTAS_SAIDAS_BI.length})</span><i class="fa-solid ${G.contasSaidasAberto ? 'fa-chevron-up' : 'fa-chevron-down'}"></i></button>
+            <div id="gestao-contas-saidas" class="${G.contasSaidasAberto ? '' : 'hidden'} space-y-0.5">
             ${CONTAS_SAIDAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-red-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
+            </div>
           </div>
         </div>
         <button onclick="gestaoCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#b45309,#d97706)"><i class="fa-solid fa-bolt mr-1.5"></i>Cruzar dados financeiros</button>
@@ -856,6 +860,12 @@ window.gestaoToggleSemana = n => {
     b.style.borderColor = on ? '#f59e0b' : 'var(--border-color)';
   });
 };
+window.G_contasGrupoToggle = (grupo, btn) => {
+  const aberto = grupo === 'entradas' ? (G.contasEntradasAberto = !G.contasEntradasAberto) : (G.contasSaidasAberto = !G.contasSaidasAberto);
+  el(`gestao-contas-${grupo}`)?.classList.toggle('hidden', !aberto);
+  const ico = btn?.querySelector('i.fa-solid');
+  if (ico){ ico.classList.toggle('fa-chevron-up', aberto); ico.classList.toggle('fa-chevron-down', !aberto); }
+};
 window.gestaoContaMudou = () => {
   const cbs = [...document.querySelectorAll('.gestao-conta-cb')];
   cbs.forEach(c => { const l = c.closest('.gconta'); if (l) l.style.background = c.checked ? 'var(--color-primary-light)' : ''; });
@@ -865,6 +875,9 @@ window.gestaoContaMudou = () => {
 };
 window.gestaoBuscaConta = () => {
   const q = cf(el('gf-busca-conta').value);
+  if (q){ G.contasEntradasAberto = true; G.contasSaidasAberto = true;
+    el('gestao-contas-entradas')?.classList.remove('hidden');
+    el('gestao-contas-saidas')?.classList.remove('hidden'); }
   document.querySelectorAll('.gconta').forEach(l => l.classList.toggle('hidden', q && !l.dataset.nome.includes(q)));
 };
 window.gestaoMudaConselho = async () => {
@@ -911,7 +924,7 @@ function renderAbaCruzamento(){
             <label id="gestao-media-wrap" class="flex items-center gap-1 text-[10px] font-bold opacity-80"><input type="checkbox" id="gestao-media-cb" onchange="gestaoGrafico()" class="accent-amber-500">Média</label>
           </div>
         </div>
-        <div class="relative h-64"><canvas id="gestao-canvas"></canvas></div>
+        <div class="relative h-64"><canvas id="gestao-canvas"></canvas><p id="gestao-graf-aviso" class="hidden absolute inset-0 flex items-center justify-center text-[11px] opacity-60 text-center px-4">Gráficos indisponíveis — a biblioteca de gráficos não carregou.</p></div>
       </div>
       <div id="gestao-comparativos" class="grid grid-cols-3 gap-2.5"></div>
       <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -978,7 +991,7 @@ function renderizarCruzamento(dados){
   const at = validos.at(-1) || {}, ant = validos.at(-2) || {};
   setHtml('gestao-comparativos', (consultor ? [['Entradas','entradas'],['Despesas','despesas']] : [['Entradas','entradas'],['Despesas','despesas'],['Resultado','saldo']]).map(([tt, k]) => {
     const v = variacaoPct(at[k], ant[k]);
-    return `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex justify-between gap-2"><span class="text-[11px] font-bold">${tt}</span><strong class="${v === null ? 'opacity-60' : v >= 0 ? 'text-emerald-500' : 'text-red-500'}">${v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</strong></div><p class="text-[10px] opacity-60 mt-1">${esc(at.periodo || '-')} vs ${esc(ant.periodo || '-')}</p></div>`;
+    return `<div class="border rounded-xl p-3 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60 truncate">${tt}</p><p class="mt-1 text-sm font-black tabular-nums whitespace-nowrap ${v === null ? 'opacity-60' : v >= 0 ? 'text-emerald-500' : 'text-red-500'}">${v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</p><p class="text-[10px] opacity-60 mt-1 truncate">${esc(at.periodo || '-')} vs ${esc(ant.periodo || '-')}</p></div>`;
   }).join(''));
 
   const nContas = nContasK;
@@ -1012,7 +1025,12 @@ function renderizarCruzamento(dados){
 }
 
 window.gestaoGrafico = function(){
-  if (!G.dados || typeof Chart === 'undefined') return;
+  if (typeof Chart === 'undefined'){
+    el('gestao-graf-aviso')?.classList.remove('hidden');
+    return;
+  }
+  el('gestao-graf-aviso')?.classList.add('hidden');
+  if (!G.dados) return;
   const cb = el('gestao-media-cb');
   if (cb){ const off = G.dimensao !== 'tempo'; cb.disabled = off; if (off) cb.checked = false; el('gestao-media-wrap')?.classList.toggle('opacity-45', off); }
   const t = G.dados.totais || {}, sel = G.dados.contas_selecionadas || [];
