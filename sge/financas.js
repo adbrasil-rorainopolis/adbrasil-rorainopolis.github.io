@@ -17,9 +17,12 @@ const cf = s => String(s ?? '').toLowerCase().trim();
 const F = {
   membros: null,            // cache lista completa (nuvem)
   lancPorAno: {},           // cache lançamentos por ano
+  lancTodos: null,          // cache lançamentos completos (frequência)
   histCongs: null,          // cache histórico congregações
   filtros: { conselho: 'Todos', congregacao: 'Todas', status: 'Todos', busca: '' },
   membroSel: null,
+  aba: 'rol',
+  fq: { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], conselho: 'Todos', congregacao: 'Todas', perfil: 'Todos', faixa: null, dados: null },
 };
 
 /* ---------- parsing de moeda (paridade com _parse_valor_moeda) ---------- */
@@ -54,6 +57,13 @@ async function carregarLancamentosAno(ano){
     return res?.dados || res || [];
   })();
   return F.lancPorAno[a];
+}
+async function carregarTodosLancamentos(){
+  if (!F.lancTodos) F.lancTodos = (async () => {
+    const res = await api('listar_lancamentos', null, sessao()?.token);
+    return res?.dados || res || [];
+  })();
+  return F.lancTodos;
 }
 async function carregarHistoricoCongs(){
   if (!F.histCongs) F.histCongs = (async () => {
@@ -150,8 +160,32 @@ window.renderFinanceiro = function(){
     <div class="space-y-3">
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
-        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Rol de Dizimistas</h2><p class="text-[10px] opacity-60">Consulta de membros e históricos — somente leitura</p></div>
+        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas — somente leitura</p></div>
       </div>
+      <div class="flex gap-2" id="fin-tabs">
+        ${['rol','frequencia'].map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
+      </div>
+      <div id="fin-sub"></div>
+    </div>
+`;
+  finAba(F.aba || 'rol');
+};
+
+window.finAba = function(aba){
+  F.aba = aba;
+  document.querySelectorAll('#fin-tabs .fin-tab').forEach(b => {
+    const ativa = b.dataset.aba === aba;
+    b.style.background = ativa ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)' : 'var(--bg-card)';
+    b.style.color = ativa ? '#fff' : 'var(--text-muted)';
+    b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
+  });
+  if (aba === 'frequencia') return finRenderFrequencia();
+  finRenderRol();
+};
+
+function finRenderRol(){
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="grid grid-cols-2 gap-2">
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="dz-conselho" onchange="dzMudaConselho()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
@@ -169,7 +203,7 @@ window.renderFinanceiro = function(){
 `;
   _dzPopularConselhos();
   dzCarregar();
-};
+}
 
 /* modal criado no <body> — fora de qualquer contexto de empilhamento/filtro */
 function _dzModal(){
@@ -322,7 +356,295 @@ window.dzHistCongs = async function(id){
 
 window.dzFecharModal = function(){ el('dz-modal').classList.add('hidden'); };
 
+
+/* ===================== Frequência / Turnover BI =====================
+   Port fiel de sge_bridge.obter_dados_frequencia_bi (somente leitura) */
+
+const _normIdMembro = v => {
+  let t = String(v ?? '').trim();
+  if (!t || ['nan','none','null','-'].includes(t.toLowerCase())) return '';
+  if (/^\d+\.0$/.test(t)) t = t.slice(0, -2);
+  const d = t.replace(/\D/g, '');
+  return d && parseInt(d, 10) > 0 ? String(parseInt(d, 10)).padStart(6, '0') : '';
+};
+const _nomeCongExib = nome => {
+  const texto = String(nome ?? '').trim();
+  if (!texto) return '';
+  const exc = new Set(['pp','p.p','ad','umad']);
+  const lig = new Set(['a','as','e','da','das','de','do','dos','em']);
+  return texto.toLowerCase().split(/\s+/).map(p => {
+    const limpo = p.replace(/[.,()-]/g, '');
+    return exc.has(limpo) ? p.toUpperCase() : lig.has(limpo) ? p.toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1);
+  }).join(' ');
+};
+const _periodoIdx = (ano, mes) => {
+  const i = MESES_ORD.findIndex(m => m.toLowerCase() === String(mes ?? '').trim().toLowerCase());
+  const a = parseInt(ano, 10);
+  return i < 0 || !Number.isFinite(a) ? null : a * 12 + i;
+};
+const _rotuloPeriodo = p => `${MESES_ORD[p % 12]}/${Math.floor(p / 12)}`;
+const _numSemana = s => { const m = String(s ?? '').match(/\d+/); return m ? parseInt(m[0], 10) : 0; };
+const _formaContrib = parcelas => {
+  try {
+    const itens = typeof parcelas === 'string' ? JSON.parse(parcelas || '[]') : (parcelas || []);
+    const e = (itens || []).reduce((a, i) => a + parseValor(i?.especie), 0);
+    const x = (itens || []).reduce((a, i) => a + parseValor(i?.pix), 0);
+    if (e > 0 && x > 0) return 'Misto';
+    if (x > 0) return 'PIX / Transferência';
+  } catch(_){}
+  return 'Espécie';
+};
+const _classificarFreq = (periodos, ref) => {
+  const hist = [...periodos].filter(p => p <= ref).sort((a, b) => a - b);
+  if (!hist.length) return ['Ausente', null];
+  const mesesAus = ref - hist[hist.length - 1];
+  if (mesesAus > 0) return ['Ausente', mesesAus];
+  if (hist[0] >= ref - 1 && hist.length <= 2) return ['Novo Dizimista', 0];
+  for (let p = ref - 2; p <= ref; p++) if (!periodos.has(p)) return ['Irregular', 0];
+  return ['Recorrente / Fiel', 0];
+};
+const FQ_CHAVES = { 'Recorrente / Fiel': 'recorrentes', 'Irregular': 'irregulares', 'Novo Dizimista': 'novos', 'Ausente': 'ausentes' };
+
+async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = 'Todas' }){
+  await carregarMembros();
+  const lancamentos = await carregarTodosLancamentos();
+  const hoje = new Date();
+  const referencia = _periodoIdx(ano, mes) ?? (hoje.getFullYear() * 12 + hoje.getMonth());
+
+  const contribuicoes = {}, ultimos = {};
+  for (const r of lancamentos){
+    if (parseValor(r.valor) <= 0) continue;
+    const per = _periodoIdx(r.ano, r.mes);
+    if (per === null || per > referencia) continue;
+    const chave = _normIdMembro(r.id);
+    if (!chave) continue;
+    (contribuicoes[chave] = contribuicoes[chave] || new Set()).add(per);
+    const ordem = [per, _numSemana(r.semana)];
+    if (!ultimos[chave] || ordem[0] > ultimos[chave][0][0] || (ordem[0] === ultimos[chave][0][0] && ordem[1] > ultimos[chave][0][1]))
+      ultimos[chave] = [ordem, r.semana, r.valor, r.detalhes_parcelas];
+  }
+
+  const contagem = { recorrentes: 0, irregulares: 0, novos: 0, ausentes: 0, ativos: 0, inativos: 0 };
+  const faixas = { '1': 0, '2': 0, '3': 0, '6': 0, nunca: 0 };
+  const detalhes = [], membrosAtivos = [];
+  const porConselho = {}, porCongregacao = {};
+
+  for (const m of (F.membros || [])){
+    if (String(m.excluido_em ?? '').trim()) continue;
+    const consM = String(m.conselho || '').trim();
+    const congM = _nomeCongExib(m.congregacao);
+    if (!['', 'Todos', 'Todas'].includes(conselho ?? 'Todos') && consM.toLowerCase() !== String(conselho).toLowerCase()) continue;
+    if (!['', 'Todos', 'Todas'].includes(congregacao ?? 'Todas') && congM.toLowerCase() !== String(congregacao).toLowerCase()) continue;
+
+    const inativo = !!(String(m.data_inativacao ?? '').trim() && !String(m.data_reativacao ?? '').trim());
+    if (inativo){ contagem.inativos++; continue; }
+    const chave = _normIdMembro(m.id);
+    const periodos = contribuicoes[chave] || new Set();
+    const [perfil, mesesAus] = _classificarFreq(periodos, referencia);
+    const ch = FQ_CHAVES[perfil];
+    contagem[ch]++;
+    membrosAtivos.push([consM, periodos]);
+    for (const mapa of [porConselho, porCongregacao]){
+      const nome = mapa === porConselho ? (consM || 'Sem conselho') : (congM || 'Sem congregação');
+      (mapa[nome] = mapa[nome] || { recorrentes: 0, irregulares: 0, novos: 0, ausentes: 0 })[ch]++;
+    }
+    if (mesesAus === null) faixas.nunca++;
+    else for (const lim of [1, 2, 3, 6]) if (mesesAus >= lim) faixas[String(lim)]++;
+
+    const ult = ultimos[chave];
+    detalhes.push({ id: String(m.id ?? ''), nome: String(m.nome ?? ''), conselho: consM, congregacao: congM,
+      perfil, meses_ausente: mesesAus,
+      ultima_contribuicao: ult ? `${_numSemana(ult[1])}ª Semana • ${_rotuloPeriodo(ult[0][0])}` : 'Nunca contribuiu',
+      ultimo_valor: ult ? parseValor(ult[2]) : 0,
+      ultima_forma: ult ? _formaContrib(ult[3]) : '-',
+      meses_com_contribuicao: periodos.size });
+  }
+  detalhes.sort((a, b) => (-(a.meses_ausente ?? 9999) + (b.meses_ausente ?? 9999)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const total = contagem.recorrentes + contagem.irregulares + contagem.novos + contagem.ausentes;
+  contagem.ativos = total;
+  const perc = {};
+  for (const k of ['recorrentes', 'irregulares', 'novos', 'ausentes']) perc[k] = total ? contagem[k] / total * 100 : 0;
+
+  const evolucao = [];
+  for (let p = Math.max(0, referencia - 11); p <= referencia; p++){
+    const linha = { periodo: _rotuloPeriodo(p), recorrentes: 0, irregulares: 0, novos: 0, ausentes: 0 };
+    for (const [, periodos] of membrosAtivos) linha[FQ_CHAVES[_classificarFreq(periodos, p)[0]]]++;
+    evolucao.push(linha);
+  }
+  return { sucesso: true, ...contagem, faixas_ausencia: faixas, percentuais: perc,
+    evolucao_mensal: evolucao, por_conselho: porConselho, por_congregacao: porCongregacao,
+    taxa_fidelidade: `${(total ? contagem.recorrentes / total * 100 : 0).toFixed(1)}%`,
+    total_avaliados: total, data_referencia: _rotuloPeriodo(referencia), membros: detalhes };
+}
+
+/* ---------- UI frequência ---------- */
+const FQ_CORES = { recorrentes: '#10b981', irregulares: '#f59e0b', novos: '#d946ef', ausentes: '#ef4444' };
+let _fqChart = null;
+
+function finRenderFrequencia(){
+  const fq = F.fq;
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('fq-ano', _fqAnos(), fq.ano)}</div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês de referência</span>${selF('fq-mes', MESES_ORD.map(m => [m, m]), fq.mes)}</div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="fq-conselho" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="fq-congregacao" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
+        </div>
+        <button onclick="fqCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-chart-line mr-1.5"></i>Analisar frequência</button>
+      </div>
+      <div id="fq-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando frequência…</div></div>
+    </div>`;
+  _fqPopularFiltros();
+  fqCarregar();
+}
+
+function _fqAnos(){
+  const anos = new Set(['2024','2025','2026','2027', String(new Date().getFullYear())]);
+  return [...anos].sort().map(a => [a, a]);
+}
+async function _fqPopularFiltros(){
+  try {
+    await carregarMembros();
+    const cons = [...new Set((F.membros || []).map(m => String(m.conselho || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const congs = [...new Set((F.membros || []).map(m => _nomeCongExib(m.congregacao)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const sc = el('fq-conselho'), sg = el('fq-congregacao');
+    if (sc) sc.innerHTML = '<option value="Todos">Todos</option>' + cons.map(c => `<option ${c === F.fq.conselho ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    if (sg) sg.innerHTML = '<option value="Todas">Todas</option>' + congs.map(c => `<option ${c === F.fq.congregacao ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  } catch(e){}
+}
+
+window.fqCarregar = async function(){
+  const fq = F.fq;
+  fq.ano = el('fq-ano')?.value || fq.ano;
+  fq.mes = el('fq-mes')?.value || fq.mes;
+  fq.conselho = el('fq-conselho')?.value || 'Todos';
+  fq.congregacao = el('fq-congregacao')?.value || 'Todas';
+  fq.faixa = null;
+  const corpo = el('fq-corpo');
+  corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Analisando frequência…</div>';
+  try {
+    fq.dados = await dadosFrequenciaBI(fq);
+    _fqRenderCorpo();
+  } catch(e){
+    corpo.innerHTML = `<p class="text-center text-xs text-red-500 py-10">${esc(e.message || 'Falha ao carregar frequência.')}</p>`;
+  }
+};
+
+function _fqRenderCorpo(){
+  const d = F.fq.dados;
+  if (!d || F.aba !== 'frequencia') return;
+  const kpi = (rotulo, n, cor, pct) => `<div class="border rounded-xl p-3 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)">
+    <p class="text-[9px] font-bold uppercase opacity-60 truncate">${rotulo}</p>
+    <p class="text-lg font-bold tabular-nums" style="color:${cor}">${n}</p>
+    <p class="text-[9px] opacity-50">${pct}</p></div>`;
+  el('fq-corpo').innerHTML = `
+    <p class="text-[10px] font-bold uppercase opacity-60 px-1">Competência ${esc(d.data_referencia)} • ${d.total_avaliados} membros ativos avaliados • Taxa geral de fidelidade: <span class="text-emerald-500">${esc(d.taxa_fidelidade)}</span></p>
+    <div class="grid grid-cols-2 gap-2">
+      ${kpi('Recorrentes / Fiéis', d.recorrentes, FQ_CORES.recorrentes, d.percentuais.recorrentes.toFixed(1) + '%')}
+      ${kpi('Irregulares', d.irregulares, FQ_CORES.irregulares, d.percentuais.irregulares.toFixed(1) + '%')}
+      ${kpi('Novos Dizimistas', d.novos, FQ_CORES.novos, d.percentuais.novos.toFixed(1) + '%')}
+      ${kpi('Ausentes', d.ausentes, FQ_CORES.ausentes, d.percentuais.ausentes.toFixed(1) + '%')}
+    </div>
+    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <h3 class="font-bold text-xs mb-2">Faixas de ausência <span class="opacity-50 font-normal">(toque para filtrar)</span></h3>
+      <div class="flex flex-wrap gap-1.5">
+        ${[['1','1+ mês'],['2','2+ meses'],['3','3+ meses'],['6','6+ meses'],['nunca','Nunca contribuiu']].map(([k, t]) =>
+          `<button onclick="fqFaixa('${k}')" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer ${F.fq.faixa === k ? 'text-white' : ''}" style="border-color:var(--border-color);${F.fq.faixa === k ? 'background:#ef4444;border-color:transparent;' : 'background:var(--bg-input)'}">${t}: <b>${d.faixas_ausencia[k] || 0}</b></button>`).join('')}
+        ${F.fq.faixa ? `<button onclick="fqFaixa(null)" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer opacity-70" style="border-color:var(--border-color)">Limpar</button>` : ''}
+      </div>
+    </div>
+    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <h3 class="font-bold text-xs mb-2">Evolução mensal dos perfis</h3>
+      <div class="relative h-52"><canvas id="fq-grafico"></canvas></div>
+    </div>
+    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h3 class="font-bold text-xs">Distribuição territorial</h3>
+        ${selF('fq-visao', [['conselho','Por conselho'],['congregacao','Por congregação']], 'conselho', 'fqRenderTerritorios()')}
+      </div>
+      <div id="fq-territorios" class="space-y-2"></div>
+    </div>
+    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h3 class="font-bold text-xs">Acompanhamento <span id="fq-lista-n" class="opacity-50 font-normal"></span></h3>
+        ${selF('fq-perfil', [['Todos','Todos os perfis'],['Recorrente / Fiel','Recorrente / Fiel'],['Irregular','Irregular'],['Novo Dizimista','Novo Dizimista'],['Ausente','Ausente']], F.fq.perfil, 'fqRenderLista()')}
+      </div>
+      <div id="fq-lista" class="space-y-2"></div>
+    </div>`;
+  fqRenderTerritorios();
+  fqRenderLista();
+  _fqGrafico();
+}
+
+window.fqFaixa = function(k){ F.fq.faixa = F.fq.faixa === k ? null : k; _fqRenderCorpo(); };
+
+window.fqRenderTerritorios = function(){
+  const d = F.fq.dados; if (!d) return;
+  const dados = el('fq-visao')?.value === 'congregacao' ? d.por_congregacao : d.por_conselho;
+  el('fq-territorios').innerHTML = Object.entries(dados || {}).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([nome, p]) => {
+    const total = (p.recorrentes || 0) + (p.irregulares || 0) + (p.novos || 0) + (p.ausentes || 0);
+    return `<div class="border rounded-lg p-2.5" style="border-color:var(--border-color)">
+      <div class="flex justify-between gap-2"><span class="font-bold text-xs truncate">${esc(nome)}</span><span class="text-[10px] opacity-60 shrink-0">${total} ativos</span></div>
+      <div class="grid grid-cols-4 gap-1.5 mt-2 text-[10px]">
+        <span class="text-emerald-500">Fiéis <b>${p.recorrentes || 0}</b></span>
+        <span class="text-amber-500">Irreg. <b>${p.irregulares || 0}</b></span>
+        <span class="text-fuchsia-400">Novos <b>${p.novos || 0}</b></span>
+        <span class="text-red-400">Aus. <b>${p.ausentes || 0}</b></span>
+      </div></div>`;
+  }).join('') || '<p class="text-xs opacity-60 text-center py-6">Sem dados para os filtros selecionados.</p>';
+};
+
+window.fqRenderLista = function(){
+  const d = F.fq.dados; if (!d) return;
+  F.fq.perfil = el('fq-perfil')?.value || 'Todos';
+  const faixa = F.fq.faixa;
+  const linhas = (d.membros || []).filter(m => {
+    if (F.fq.perfil !== 'Todos' && m.perfil !== F.fq.perfil) return false;
+    if (faixa === 'nunca') return m.meses_ausente === null;
+    if (faixa) return m.meses_ausente !== null && m.meses_ausente >= Number(faixa);
+    return true;
+  });
+  el('fq-lista-n').textContent = `• ${linhas.length} membro(s)`;
+  el('fq-lista').innerHTML = linhas.map(m => {
+    const aus = m.meses_ausente === null ? 'Nunca contribuiu' : m.meses_ausente === 0 ? 'Em dia' : `${m.meses_ausente} ${m.meses_ausente === 1 ? 'mês' : 'meses'} sem dizimar`;
+    const corAus = m.meses_ausente === null || m.meses_ausente >= 3 ? 'text-red-500' : m.meses_ausente >= 1 ? 'text-amber-500' : 'text-emerald-500';
+    const corPerfil = { 'Recorrente / Fiel': 'text-emerald-500', 'Irregular': 'text-amber-500', 'Novo Dizimista': 'text-fuchsia-400', 'Ausente': 'text-red-400' }[m.perfil] || '';
+    return `<div class="border rounded-xl p-3" style="background:var(--bg-input);border-color:var(--border-color)">
+      <div class="flex items-center justify-between gap-2">
+        <p class="font-bold text-xs truncate min-w-0">${esc(m.nome)}</p>
+        <span class="text-[9px] font-bold ${corPerfil} shrink-0">${esc(m.perfil)}</span>
+      </div>
+      <p class="text-[10px] opacity-60 truncate">${esc(m.conselho)} • ${esc(m.congregacao)}</p>
+      <div class="flex items-center justify-between gap-2 mt-1.5">
+        <button onclick="dzHistDizimos('${esc(m.id)}')" class="text-[10px] text-sky-400 font-bold cursor-pointer text-left truncate" title="Histórico de dízimos"><i class="fa-solid fa-clock-rotate-left mr-1"></i>${esc(m.ultima_contribuicao)}</button>
+        <div class="text-right shrink-0">
+          <p class="text-[11px] font-bold tabular-nums">${moeda(m.ultimo_valor)}</p>
+          <p class="text-[9px] opacity-50">${esc(m.ultima_forma)} • <b class="${corAus}">${aus}</b></p>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<p class="text-xs opacity-60 text-center py-6">Nenhum membro nesta classificação.</p>';
+};
+
+function _fqGrafico(){
+  const canvas = el('fq-grafico');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const series = F.fq.dados?.evolucao_mensal || [];
+  if (_fqChart) _fqChart.destroy();
+  const ds = (rotulo, chave, cor) => ({ label: rotulo, data: series.map(i => i[chave]), borderColor: cor, backgroundColor: cor, tension: .3 });
+  _fqChart = new Chart(canvas, { type: 'line',
+    data: { labels: series.map(i => i.periodo), datasets: [
+      ds('Fiel', 'recorrentes', FQ_CORES.recorrentes), ds('Irregular', 'irregulares', FQ_CORES.irregulares),
+      ds('Novo', 'novos', FQ_CORES.novos), ds('Ausente', 'ausentes', FQ_CORES.ausentes)] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } },
+      scales: { x: { ticks: { color: '#94a3b8', maxRotation: 45 }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: 'rgba(148,163,184,.12)' } } } } });
+}
+
 /* depuração/testes */
-window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, F };
+window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F };
 
 })();

@@ -1,4 +1,4 @@
-const CACHE = 'sge-pwa-v20';
+const CACHE = 'sge-pwa-v21';
 const SHELL = ['./', './index.html', './gestao.js',
   './financas.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png'];
 
