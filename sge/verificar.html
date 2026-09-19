@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificação de Documento — SGE AD Brasil</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0b1220; color: #e8ecf3; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { width: 100%; max-width: 440px; background: #131c2e; border: 1px solid #243048; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    .topo { padding: 22px 24px 16px; border-bottom: 1px solid #243048; text-align: center; }
+    .topo h1 { font-size: 15px; letter-spacing: 2px; color: #d9b45b; font-weight: 700; }
+    .topo p { font-size: 11px; color: #8a94a8; margin-top: 4px; }
+    .selo { margin: 22px auto 8px; width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; }
+    .selo.ok { background: rgba(16,185,129,.15); border: 2px solid #10b981; color: #10b981; }
+    .selo.erro { background: rgba(239,68,68,.15); border: 2px solid #ef4444; color: #ef4444; }
+    .veredito { text-align: center; padding: 0 24px 18px; }
+    .veredito h2 { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+    .veredito h2.ok { color: #10b981; }
+    .veredito h2.erro { color: #ef4444; }
+    .veredito p { font-size: 11px; color: #8a94a8; margin-top: 4px; }
+    .dados { padding: 14px 24px 22px; }
+    .linha { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #1e2a42; font-size: 12px; }
+    .linha:last-child { border-bottom: none; }
+    .linha .lbl { color: #8a94a8; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; padding-top: 2px; }
+    .linha .val { font-weight: 600; text-align: right; }
+    .codigo { margin: 4px 24px 20px; background: #0b1220; border: 1px dashed #33415e; border-radius: 10px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 11px; color: #d9b45b; text-align: center; letter-spacing: 1px; }
+    .rodape { text-align: center; font-size: 9px; color: #5a6478; padding: 0 24px 18px; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="topo">
+        <h1>SGE • AD BRASIL</h1>
+        <p>Verificação de autenticidade — Relatório Movimento Caixa</p>
+    </div>
+    <div class="selo" id="selo">…</div>
+    <div class="veredito">
+        <h2 id="veredito">VERIFICANDO…</h2>
+        <p id="veredito-sub">Conferindo a assinatura digital do documento.</p>
+    </div>
+    <div class="dados" id="dados"></div>
+    <div class="codigo" id="codigo">—</div>
+    <div class="rodape">Documento gerado eletronicamente pelo SGE — Sistema de Gestão Eclesiástica</div>
+</div>
+<script>
+async function sha16(texto) {
+    try {
+        if (crypto?.subtle) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,16).toUpperCase();
+        }
+    } catch(e) {}
+    let h = 5381;
+    for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) >>> 0;
+    return h.toString(16).toUpperCase().padStart(8,'0');
+}
+function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+(async () => {
+    const p = new URLSearchParams(location.search);
+    const c = p.get('c') || '', d = p.get('d') || '', s = p.get('s') || '';
+    const a = p.get('a') || '', g = p.get('g') || '';
+    const n = p.get('n') || '0', v = p.get('v') || '0';
+    const hRecebido = (p.get('h') || '').toUpperCase();
+    const base = `SGE-CAIXA|${c}|${d}|${s}|${n}|${v}`;
+    const hCalc = await sha16(base);
+    const integro = hRecebido && hRecebido === hCalc;
+
+    const selo = document.getElementById('selo');
+    const ver = document.getElementById('veredito');
+    const sub = document.getElementById('veredito-sub');
+    selo.className = 'selo ' + (integro ? 'ok' : 'erro');
+    selo.textContent = integro ? '✓' : '✕';
+    ver.className = integro ? 'ok' : 'erro';
+    ver.textContent = integro ? 'DOCUMENTO ORIGINAL' : 'ATENÇÃO: DADOS DIFEREM';
+    sub.textContent = integro
+        ? 'Este relatório foi gerado pelo SGE e não sofreu alterações.'
+        : 'O conteúdo exibido não confere com a assinatura digital. O documento pode ter sido alterado.';
+
+    let dataGrav = '—';
+    if (g) { try { dataGrav = new Date(g).toLocaleString('pt-BR'); } catch(e) { dataGrav = g; } }
+    const saldo = Number(v || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+    document.getElementById('dados').innerHTML = [
+        ['Congregação', c ? ('CONGREGAÇÃO ' + c).toUpperCase() : '—'],
+        ['Data do relatório', d || '—'],
+        ['Fechamento', s || '—'],
+        ['Lançamentos', n],
+        ['Saldo declarado', saldo],
+        ['Registrado por', a || '—'],
+        ['Gravado em', dataGrav],
+    ].map(([l, val]) => `<div class="linha"><span class="lbl">${l}</span><span class="val">${esc(val)}</span></div>`).join('');
+    document.getElementById('codigo').textContent = 'SGE-CX-' + (hRecebido || '—');
+})();
+</script>
+</body>
+</html>
