@@ -41,6 +41,9 @@ const CATEGORIAS_DESPESAS = ['Administrativo','Operacional','Encargos','Manuten�
 const FATOR_RETENCAO_CAIXA = 0.54;
 const LIMIAR_SEMAFORO_AMARELO = 0.15;
 const EPS = 0.004;
+/* Mobile = viewer: nenhum dado é gravado (despesas, quitação, ciclo). */
+const SOMENTE_LEITURA = true;
+const _bloqueado = () => ({ sucesso: false, mensagem: 'Aplicativo em modo somente leitura.' });
 
 /* ---------- Helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -186,6 +189,7 @@ function obterCiclo(ano, mes){
   return { total_semanas: total, semana_fechamento: fech };
 }
 function salvarCiclo(ano, mes, totalSemanas, semanaFech){
+  if (SOMENTE_LEITURA) return _bloqueado();
   const total = parseInt(totalSemanas, 10) === 5 ? 5 : 4;
   const fech = Math.max(1, Math.min(total, parseInt(semanaFech ?? total, 10) || total));
   const dados = _cicloMapa(); dados[`${ano}_${mes}`] = { total_semanas: total, semana_fechamento: fech };
@@ -204,6 +208,7 @@ function listarDespesas(ano, mes){
     .sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em)) || String(a.descricao).localeCompare(String(b.descricao)));
 }
 function adicionarDespesa(ano, mes, descricao, categoria, valor){
+  if (SOMENTE_LEITURA) return _bloqueado();
   descricao = String(descricao || '').trim();
   if (!descricao) return { sucesso: false, mensagem: 'Informe a descrição da despesa.' };
   if (!CATEGORIAS_DESPESAS.includes(categoria)) categoria = 'Operacional';
@@ -214,6 +219,7 @@ function adicionarDespesa(ano, mes, descricao, categoria, valor){
   _despGravar(l); return { sucesso: true, id, mensagem: 'Despesa fixa adicionada.' };
 }
 function atualizarDespesa(id, descricao, categoria, valor){
+  if (SOMENTE_LEITURA) return _bloqueado();
   descricao = String(descricao || '').trim();
   if (!descricao) return { sucesso: false, mensagem: 'Informe a descrição da despesa.' };
   if (!CATEGORIAS_DESPESAS.includes(categoria)) categoria = 'Operacional';
@@ -223,11 +229,13 @@ function atualizarDespesa(id, descricao, categoria, valor){
   _despGravar(l); return { sucesso: true, mensagem: 'Despesa atualizada.' };
 }
 function removerDespesa(id){
+  if (SOMENTE_LEITURA) return _bloqueado();
   const l = _despLer(); const i = l.findIndex(x => x.id === id);
   if (i < 0) return { sucesso: false, mensagem: 'Despesa não encontrada.' };
   l.splice(i, 1); _despGravar(l); return { sucesso: true, mensagem: 'Despesa removida.' };
 }
 function alternarQuitacao(id, semana, marcado){
+  if (SOMENTE_LEITURA) return _bloqueado();
   const s = parseInt(semana, 10);
   if (!(s >= 1 && s <= 5)) return { sucesso: false, mensagem: 'Semana fora do intervalo (1 a 5).' };
   const l = _despLer(); const d = l.find(x => x.id === id);
@@ -1050,7 +1058,7 @@ function renderAbaMensal(){
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
       ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
-      ${selHtml('mm-fech', [['4','4 semanas'],['5','5 semanas']], obterCiclo(m.ano, m.mes).total_semanas, 'gestaoCiclo(this.value)')}
+      ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
       <button onclick="gestaoMensalCarregar()" class="px-4 py-2 bg-violet-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-chart-line mr-1"></i>Analisar</button>
     </div>
     <div id="mm-kpis" class="grid grid-cols-2 gap-2.5"></div>
@@ -1067,14 +1075,11 @@ function renderAbaMensal(){
   gestaoMensalCarregar();
 }
 window.gestaoMensalSel = () => { G.mensalSel = { ano: el('mm-ano').value, mes: el('mm-mes').value }; gestaoMensalCarregar(); };
-window.gestaoCiclo = total => {
-  salvarCiclo(G.mensalSel.ano, G.mensalSel.mes, +total, +total);
-  toast(`${G.mensalSel.mes}/${G.mensalSel.ano} configurado com ${total} fechamentos (neste aparelho).`);
-  gestaoMensalCarregar();
-};
+window.gestaoCiclo = () => { toast('Ciclo de fechamentos é configurado no desktop — app somente leitura.'); };
 window.gestaoMensalCarregar = async function(){
   const k = el('mm-kpis'); if (k) k.innerHTML = '<div class="col-span-2 border rounded-xl p-6 text-center opacity-60 text-xs" style="border-color:var(--border-color)"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Calculando…</div>';
   const res = await analisarMes(G.mensalSel.ano, G.mensalSel.mes);
+  if (G.aba !== 'mensal') return;
   if (!res.sucesso){
     G.mensal = null;
     if (k) k.innerHTML = `<div class="col-span-2 border rounded-xl p-6 text-center text-red-500 text-xs" style="border-color:var(--border-color)">${esc(res.mensagem)}</div>`;
@@ -1082,7 +1087,7 @@ window.gestaoMensalCarregar = async function(){
   }
   G.mensal = res;
   const a = res.atual, comp = res.comparativos, ant = comp.mes_anterior, anual = comp.media_anual, yoy = comp.mesmo_mes_ano_anterior, proj = res.projecao, equiv = comp.mes_anterior_equiv;
-  el('mm-fech').value = String(res.ciclo.total_semanas);
+  const selFech = el('mm-fech'); if (selFech) selFech.value = String(res.ciclo.total_semanas);
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
   const sub = temEquiv ? `vs ${equiv.semanas_equivalentes} primeiras sem. de ${esc(equiv.rotulo)}` : `vs ${esc(ant.rotulo || '-')}`;
   const pick = (chave, fb) => temEquiv && equiv[chave] !== null && equiv[chave] !== undefined ? equiv[chave] : fb;
@@ -1166,9 +1171,9 @@ function renderAbaFluxo(){
   G.fluxoSel = m;
   el('gestao-corpo').innerHTML = `
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Projeção de Despesas & Fluxo de Caixa</h3><p class="text-[10px] opacity-60 mt-0.5">Despesas fixas com quitação semanal e semáforo de caixa. <span class="text-amber-500">Despesas ficam neste aparelho (como no desktop).</span></p></div>
+      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Projeção de Despesas & Fluxo de Caixa</h3><p class="text-[10px] opacity-60 mt-0.5">Semáforo de caixa e despesas fixas do mês. <span class="text-amber-500">Somente leitura — a gestão é feita no desktop.</span></p></div>
       ${selHtml('fx-ano', anos, m.ano, 'gestaoFluxoSel()')}${selHtml('fx-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoFluxoSel()')}
-      <button onclick="gestaoAbrirModalDesp()" class="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-plus mr-1"></i>Despesa fixa</button>
+      
     </div>
     <div id="fx-semaforo" class="border rounded-2xl p-4" style="border-color:var(--border-color)"></div>
     <div id="fx-kpis" class="grid grid-cols-2 gap-2.5"></div>
@@ -1176,22 +1181,14 @@ function renderAbaFluxo(){
       <div class="px-4 py-3 border-b" style="border-color:var(--border-color)"><h3 class="font-bold text-sm">Despesas fixas do mês</h3><span id="fx-legenda" class="text-[10px] opacity-60"></span></div>
       <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr id="fx-thead"></tr></thead><tbody id="fx-tbody" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
     </div>
-    <div id="modal-desp" class="fixed inset-0 z-[92] hidden items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm" onclick="if(event.target===this)gestaoFecharModalDesp()">
-      <div class="w-full sm:max-w-sm border rounded-t-3xl sm:rounded-2xl p-5 space-y-3" style="background:var(--bg-card);border-color:var(--border-color)">
-        <h3 id="desp-titulo" class="font-bold text-sm">Adicionar despesa fixa</h3>
-        <div id="desp-feedback" class="hidden"></div>
-        <input id="desp-descricao" placeholder="Descrição (ex.: Aluguel do templo)" class="w-full px-3 py-2.5 rounded-xl border text-sm" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        ${selHtml('desp-categoria', CATEGORIAS_DESPESAS.map(c => [c, c]), 'Operacional')}
-        <input id="desp-valor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Valor previsto (R$)" class="w-full px-3 py-2.5 rounded-xl border text-sm" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        <div class="flex gap-2 pt-1"><button onclick="gestaoFecharModalDesp()" class="flex-1 py-2.5 rounded-xl border text-xs font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button><button onclick="gestaoSalvarDesp()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">Salvar</button></div>
-      </div>
-    </div>`;
+`;
   gestaoFluxoCarregar();
 }
 window.gestaoFluxoSel = () => { G.fluxoSel = { ano: el('fx-ano').value, mes: el('fx-mes').value }; gestaoFluxoCarregar(); };
 window.gestaoFluxoCarregar = async function(){
   const sem = el('fx-semaforo'); if (sem) sem.innerHTML = '<div class="flex items-center gap-2 opacity-60 text-xs justify-center"><i class="fa-solid fa-circle-notch fa-spin"></i>Calculando fluxo de caixa…</div>';
   const c = await calcularFluxo(G.fluxoSel.ano, G.fluxoSel.mes);
+  if (G.aba !== 'fluxo') return;
   if (!c.sucesso){ if (sem) sem.innerHTML = `<div class="text-red-500 text-xs text-center">${esc(c.mensagem)}</div>`; return; }
   G.fluxo = c;
   const kcard = (t2, v, cor, det) => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-black tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
@@ -1226,35 +1223,16 @@ window.gestaoFluxoCarregar = async function(){
     ].filter(k => !(perfilConsultor() && /caixa|resultado/i.test(k[0]))).map(k => kcard(...k)).join('');
   }
   const totalSem = c.ciclo?.total_semanas || 4;
-  el('fx-thead').innerHTML = `<th class="p-3">Descrição</th><th class="p-3">Categoria</th><th class="p-3 text-right">Previsto</th>${Array.from({ length: totalSem }, (_, i) => `<th class="p-3 text-center">S${i + 1}${i + 1 === c.semana_atual ? ' <i class="fa-solid fa-arrow-down text-violet-400"></i>' : ''}</th>`).join('')}<th class="p-3 text-center">Status</th><th class="p-3 text-center">Ações</th>`;
+  el('fx-thead').innerHTML = `<th class="p-3">Descrição</th><th class="p-3">Categoria</th><th class="p-3 text-right">Previsto</th>${Array.from({ length: totalSem }, (_, i) => `<th class="p-3 text-center">S${i + 1}${i + 1 === c.semana_atual ? ' <i class="fa-solid fa-arrow-down text-violet-400"></i>' : ''}</th>`).join('')}<th class="p-3 text-center">Status</th>${SOMENTE_LEITURA ? '' : '<th class="p-3 text-center">Ações</th>'}`;
   el('fx-tbody').innerHTML = !c.despesas?.length
-    ? `<tr><td colspan="${5 + totalSem}" class="p-8 text-center opacity-60">Nenhuma despesa fixa em ${esc(c.periodo.mes)}/${c.periodo.ano}. Toque em "Despesa fixa".</td></tr>`
-    : c.despesas.map(d => `<tr><td class="p-3 font-semibold">${esc(d.descricao)}</td><td class="p-3"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold" style="background:var(--bg-surface)">${esc(d.categoria)}</span></td><td class="p-3 text-right font-bold tabular-nums">${moeda(d.valor_previsto)}</td>${Array.from({ length: totalSem }, (_, i) => { const s = i + 1, on = !!d.quitacao?.[String(s)]; return `<td class="p-3 text-center"><input type="checkbox" ${on ? 'checked' : ''} onchange="gestaoQuitacao('${d.id}',${s},this.checked)" class="w-4 h-4 accent-emerald-500"></td>`; }).join('')}<td class="p-3 text-center">${d.quitada ? '<span class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-check mr-0.5"></i>QUITADA</span>' : '<span class="text-[10px] font-bold text-amber-500">PENDENTE</span>'}</td><td class="p-3 text-center whitespace-nowrap"><button onclick="gestaoAbrirModalDesp('${d.id}')" class="px-2 py-1 rounded-md bg-sky-600/20 text-sky-400 cursor-pointer"><i class="fa-solid fa-pen text-[10px]"></i></button> <button onclick="gestaoRemoverDesp('${d.id}')" class="px-2 py-1 rounded-md bg-red-600/20 text-red-400 cursor-pointer"><i class="fa-solid fa-trash text-[10px]"></i></button></td></tr>`).join('');
-  el('fx-legenda').textContent = `${c.despesas?.length || 0} despesa(s) • ciclo de ${totalSem} fechamentos • marque a semana do pagamento`;
+    ? `<tr><td colspan="${5 + totalSem - (SOMENTE_LEITURA ? 1 : 0)}" class="p-8 text-center opacity-60">Nenhuma despesa fixa em ${esc(c.periodo.mes)}/${c.periodo.ano}.</td></tr>`
+    : c.despesas.map(d => `<tr><td class="p-3 font-semibold">${esc(d.descricao)}</td><td class="p-3"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold" style="background:var(--bg-surface)">${esc(d.categoria)}</span></td><td class="p-3 text-right font-bold tabular-nums">${moeda(d.valor_previsto)}</td>${Array.from({ length: totalSem }, (_, i) => { const s = i + 1, on = !!d.quitacao?.[String(s)]; return `<td class="p-3 text-center"><input type="checkbox" ${on ? 'checked' : ''} ${SOMENTE_LEITURA ? 'disabled' : `onchange="gestaoQuitacao('${d.id}',${s},this.checked)"`} class="w-4 h-4 accent-emerald-500 ${SOMENTE_LEITURA ? 'opacity-60' : ''}"></td>`; }).join('')}<td class="p-3 text-center">${d.quitada ? '<span class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-check mr-0.5"></i>QUITADA</span>' : '<span class="text-[10px] font-bold text-amber-500">PENDENTE</span>'}</td>${SOMENTE_LEITURA ? '' : `<td class="p-3 text-center whitespace-nowrap"><button onclick="gestaoAbrirModalDesp('${d.id}')" class="px-2 py-1 rounded-md bg-sky-600/20 text-sky-400 cursor-pointer"><i class="fa-solid fa-pen text-[10px]"></i></button> <button onclick="gestaoRemoverDesp('${d.id}')" class="px-2 py-1 rounded-md bg-red-600/20 text-red-400 cursor-pointer"><i class="fa-solid fa-trash text-[10px]"></i></button></td>`}</tr>`).join('');
+  el('fx-legenda').textContent = `${c.despesas?.length || 0} despesa(s) • ciclo de ${totalSem} fechamentos • quitação gerenciada no desktop`;
 };
-window.gestaoAbrirModalDesp = id => {
-  G.editando = id || null;
-  const d = id ? (G.fluxo?.despesas || []).find(x => x.id === id) : null;
-  el('desp-titulo').textContent = id ? 'Editar despesa fixa' : 'Adicionar despesa fixa';
-  el('desp-descricao').value = d?.descricao || '';
-  el('desp-categoria').value = d?.categoria || 'Operacional';
-  el('desp-valor').value = d?.valor_previsto ?? '';
-  el('desp-feedback').classList.add('hidden');
-  el('modal-desp').classList.remove('hidden'); el('modal-desp').classList.add('flex');
-};
-window.gestaoFecharModalDesp = () => { el('modal-desp').classList.add('hidden'); el('modal-desp').classList.remove('flex'); G.editando = null; };
-window.gestaoSalvarDesp = () => {
-  const res = G.editando
-    ? atualizarDespesa(G.editando, el('desp-descricao').value, el('desp-categoria').value, el('desp-valor').value)
-    : adicionarDespesa(G.fluxoSel.ano, G.fluxoSel.mes, el('desp-descricao').value, el('desp-categoria').value, el('desp-valor').value);
-  if (!res.sucesso){ const fb = el('desp-feedback'); fb.className = 'p-2.5 rounded-lg text-xs font-bold bg-red-500/10 text-red-500'; fb.textContent = res.mensagem; fb.classList.remove('hidden'); return; }
-  gestaoFecharModalDesp(); gestaoFluxoCarregar();
-};
-window.gestaoRemoverDesp = id => {
-  const d = (G.fluxo?.despesas || []).find(x => x.id === id);
-  if (!confirm(`Remover a despesa "${d?.descricao || ''}"?`)) return;
-  removerDespesa(id); gestaoFluxoCarregar();
-};
+window.gestaoAbrirModalDesp = () => { toast('Somente leitura — despesas são gerenciadas no desktop.'); };
+window.gestaoFecharModalDesp = () => {};
+window.gestaoSalvarDesp = () => { toast('Somente leitura.'); };
+window.gestaoRemoverDesp = () => { toast('Somente leitura.'); };
 window.gestaoQuitacao = (id, sem, on) => { alternarQuitacao(id, sem, on); gestaoFluxoCarregar(); };
 
 /* API de depuração/testes */
