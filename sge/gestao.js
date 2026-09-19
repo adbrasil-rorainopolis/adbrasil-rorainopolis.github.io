@@ -826,14 +826,14 @@ function _filtrosUI(){
             <span class="text-[10px] opacity-50 self-center">vazio = fechamento do mês</span></div></div>
         <div>
           <button onclick="G_contasToggle()" class="w-full flex items-center justify-between px-2.5 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">
-            <span><i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Contas analisadas ${nContas ? `(${nContas} selecionadas)` : '(todas)'}</span>
+            <span id="gestao-contas-titulo"><i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Contas analisadas ${nContas ? `(${nContas} selecionadas)` : '(todas)'}</span>
             <i class="fa-solid ${G.contasAberto ? 'fa-chevron-up' : 'fa-chevron-down'} opacity-60"></i></button>
-          <div id="gestao-contas-corpo" class="${G.contasAberto ? '' : 'hidden'} mt-2 border rounded-xl p-2 space-y-1 max-h-64 overflow-y-auto" style="border-color:var(--border-color)">
+          <div id="gestao-contas-corpo" class="${G.contasAberto ? '' : 'hidden'} mt-2 border rounded-xl p-2 space-y-1" style="border-color:var(--border-color)">
             <input id="gf-busca-conta" oninput="gestaoBuscaConta()" placeholder="Buscar conta…" class="w-full px-2.5 py-1.5 rounded-lg border text-xs mb-1" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <p class="text-[10px] font-bold uppercase opacity-50 pt-1">Entradas</p>
-            ${CONTAS_ENTRADAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" class="gestao-conta-cb mt-0.5 accent-amber-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
+            ${CONTAS_ENTRADAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-amber-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
             <p class="text-[10px] font-bold uppercase opacity-50 pt-1">Saídas</p>
-            ${CONTAS_SAIDAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" class="gestao-conta-cb mt-0.5 accent-red-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
+            ${CONTAS_SAIDAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-red-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
           </div>
         </div>
         <button onclick="gestaoCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#b45309,#d97706)"><i class="fa-solid fa-bolt mr-1.5"></i>Cruzar dados financeiros</button>
@@ -850,6 +850,13 @@ window.gestaoToggleSemana = n => {
     b.style.background = on ? 'rgba(245,158,11,.18)' : 'transparent';
     b.style.borderColor = on ? '#f59e0b' : 'var(--border-color)';
   });
+};
+window.gestaoContaMudou = () => {
+  const cbs = [...document.querySelectorAll('.gestao-conta-cb')];
+  cbs.forEach(c => { const l = c.closest('.gconta'); if (l) l.style.background = c.checked ? 'var(--color-primary-light)' : ''; });
+  const n = cbs.filter(c => c.checked).length;
+  const t = el('gestao-contas-titulo');
+  if (t) t.innerHTML = `<i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Contas analisadas ${n ? `(${n} selecionadas)` : '(todas)'}`;
 };
 window.gestaoBuscaConta = () => {
   const q = cf(el('gf-busca-conta').value);
@@ -906,7 +913,7 @@ function renderAbaCruzamento(){
         <h3 class="font-bold text-sm mb-3">Ranking de conselhos</h3><div id="gestao-ranking" class="space-y-3"></div>
       </div>
       <div class="border rounded-xl overflow-x-auto" style="border-color:var(--border-color)">
-        <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Período</th><th class="p-3">Semana</th><th class="p-3">Conselho</th><th class="p-3">Congregação</th><th class="p-3">Entradas</th><th class="p-3">Dízimos</th><th class="p-3">Ofertas</th><th class="p-3">Despesas</th><th class="p-3">Saldo</th></tr></thead>
+        <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Período</th><th class="p-3">Semana</th><th class="p-3">Conselho</th><th class="p-3">Congregação</th><th class="p-3">Entradas</th><th class="p-3">Dízimos</th><th class="p-3">Ofertas</th><th class="p-3">Despesas</th><th class="p-3" id="gestao-th-valor">Saldo</th></tr></thead>
         <tbody id="gestao-tbody" class="divide-y" style="border-color:var(--border-color)"><tr><td colspan="9" class="p-8 text-center opacity-60">Configure os filtros e cruze os dados.</td></tr></tbody></table>
       </div>` : '')
     + (isInd ? `
@@ -950,9 +957,11 @@ function renderizarCruzamento(dados){
   const consultor = perfilConsultor();
   const ofLiq = num(t.ofertas) - num(t.missoes);
   const setHtml = (id, html) => { const e = el(id); if (e) e.innerHTML = html; };
+  const nContasK = (dados.contas_selecionadas || []).length;
+  const cardConta = nContasK ? card('Contas selecionadas', moeda(t.conta_selecionada_total), 'text-amber-500', nContasK === 1 ? dados.contas_selecionadas[0] : `${nContasK} contas no filtro`) : '';
   setHtml('gestao-kpis', consultor
-    ? card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Missões', moeda(t.missoes), 'text-purple-400') + card('Despesas', moeda(t.despesas), 'text-red-500')
-    : card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(t.ofertas), 'text-amber-500') + card('Despesas', moeda(t.despesas), 'text-red-500') + card('Resultado', moeda(t.saldo_liquido), num(t.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500'));
+    ? cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Missões', moeda(t.missoes), 'text-purple-400') + card('Despesas', moeda(t.despesas), 'text-red-500')
+    : cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(t.ofertas), 'text-amber-500') + card('Despesas', moeda(t.despesas), 'text-red-500') + card('Resultado', moeda(t.saldo_liquido), num(t.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500'));
   const f = dados.filtros || {};
   const pl = el('gestao-periodo-label'); if (pl) pl.textContent = `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim}`;
   const conselhos = Object.entries(t.por_conselho || {}).sort((a, b) => b[1] - a[1]);
@@ -966,7 +975,9 @@ function renderizarCruzamento(dados){
     return `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex justify-between gap-2"><span class="text-[11px] font-bold">${tt}</span><strong class="${v === null ? 'opacity-60' : v >= 0 ? 'text-emerald-500' : 'text-red-500'}">${v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</strong></div><p class="text-[10px] opacity-60 mt-1">${esc(at.periodo || '-')} vs ${esc(ant.periodo || '-')}</p></div>`;
   }).join(''));
 
-  const nContas = (dados.contas_selecionadas || []).length;
+  const nContas = nContasK;
+  const thV = el('gestao-th-valor');
+  if (thV) thV.textContent = nContas ? (nContas === 1 ? dados.contas_selecionadas[0] : `${nContas} contas sel.`) : 'Saldo';
   const tb = el('gestao-tbody');
   if (tb) tb.innerHTML = linhas.map(i => {
     const val = nContas ? i.valor_conta_especifica : i.saldo;
