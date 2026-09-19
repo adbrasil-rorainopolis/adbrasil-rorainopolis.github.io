@@ -166,7 +166,17 @@ window.renderFinanceiro = function(){
       <p id="dz-total" class="text-[10px] font-bold uppercase opacity-60 px-1">Carregando…</p>
       <div id="dz-lista" class="space-y-2"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando membros…</div></div>
     </div>
-    <div id="dz-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center px-4" style="background:rgba(0,0,0,.55)">
+`;
+  _dzPopularConselhos();
+  dzCarregar();
+};
+
+/* modal criado no <body> — fora de qualquer contexto de empilhamento/filtro */
+function _dzModal(){
+  let m = el('dz-modal');
+  if (!m){
+    const host = document.createElement('div');
+    host.innerHTML = `<div id="dz-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center px-4" style="background:rgba(0,0,0,.55)">
       <div class="w-full max-w-lg max-h-[82vh] flex flex-col rounded-3xl border theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           <div class="min-w-0"><h3 id="dz-modal-titulo" class="font-bold text-sm truncate"></h3><p id="dz-modal-sub" class="text-[10px] opacity-60"></p></div>
@@ -176,9 +186,11 @@ window.renderFinanceiro = function(){
         <div id="dz-modal-corpo" class="overflow-y-auto px-4 pb-6 space-y-2" style="-webkit-overflow-scrolling:touch"></div>
       </div>
     </div>`;
-  _dzPopularConselhos();
-  dzCarregar();
-};
+    document.body.appendChild(host.firstElementChild);
+    m = el('dz-modal');
+  }
+  return m;
+}
 
 async function _dzPopularConselhos(){
   try {
@@ -234,6 +246,7 @@ window.dzCarregar = async function(){
 
 /* ---------- modal: histórico de dízimos ---------- */
 window.dzHistDizimos = async function(id){
+  _dzModal();
   const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
   F.membroSel = id;
   el('dz-modal-titulo').textContent = `Histórico de Dízimos — ${mem.nome}`;
@@ -284,6 +297,7 @@ window.dzFiltrarHist = async function(){
 
 /* ---------- modal: histórico de congregações ---------- */
 window.dzHistCongs = async function(id){
+  _dzModal();
   const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
   el('dz-modal-titulo').textContent = `Histórico de Congregações — ${mem.nome}`;
   el('dz-modal-sub').textContent = `ID do Membro: ${id} • atual: ${mem.conselho || ''} • ${mem.congregacao || ''}`;
