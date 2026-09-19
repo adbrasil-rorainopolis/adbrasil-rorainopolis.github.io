@@ -166,8 +166,8 @@ window.renderFinanceiro = function(){
       <p id="dz-total" class="text-[10px] font-bold uppercase opacity-60 px-1">Carregando…</p>
       <div id="dz-lista" class="space-y-2"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando membros…</div></div>
     </div>
-    <div id="dz-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center" style="background:rgba(0,0,0,.55)">
-      <div class="w-full max-w-lg max-h-[86vh] flex flex-col rounded-t-3xl border-t theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
+    <div id="dz-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center px-4" style="background:rgba(0,0,0,.55)">
+      <div class="w-full max-w-lg max-h-[82vh] flex flex-col rounded-3xl border theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           <div class="min-w-0"><h3 id="dz-modal-titulo" class="font-bold text-sm truncate"></h3><p id="dz-modal-sub" class="text-[10px] opacity-60"></p></div>
           <button onclick="dzFecharModal()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
