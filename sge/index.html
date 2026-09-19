@@ -16,6 +16,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="gestao.js"></script>
+<script src="financas.js"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -228,7 +229,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.13</span>
+          <span>SGE Mobile · v1.14</span>
         </div>
       </div>
     </div>
@@ -627,6 +628,7 @@ function renderModulo(mod){
   const m = MODULOS[mod];
   if (mod === 'dashboard') return renderPanorama();
   if (mod === 'gestao' && typeof renderGestao === 'function') return renderGestao();
+  if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
   $('dash-conteudo').innerHTML = `
     <div class="flex flex-col items-center justify-center text-center pt-16 gap-4">
       <div class="w-20 h-20 rounded-3xl flex items-center justify-center" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">

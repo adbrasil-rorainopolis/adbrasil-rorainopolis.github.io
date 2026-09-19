@@ -1,5 +1,6 @@
-const CACHE = 'sge-pwa-v17';
-const SHELL = ['./', './index.html', './gestao.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png'];
+const CACHE = 'sge-pwa-v18';
+const SHELL = ['./', './index.html', './gestao.js',
+  './financas.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
