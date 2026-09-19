@@ -912,7 +912,7 @@ function renderAbaCruzamento(){
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
           <div><h3 class="font-bold text-sm">Análise visual</h3><span id="gestao-periodo-label" class="text-[10px] opacity-60"></span></div>
           <div class="flex items-center gap-2 text-xs">
-            <select id="gestao-dimensao" onchange="G.dimensao=this.value;gestaoGrafico()" class="px-2 py-1.5 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <select id="gestao-dimensao" onchange="gestaoDimensao(this.value)" class="px-2 py-1.5 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
               <option value="tempo" ${G.dimensao==='tempo'?'selected':''}>Evolução por período</option>
               <option value="conselho" ${G.dimensao==='conselho'?'selected':''}>Comparar conselhos</option>
               <option value="congregacao" ${G.dimensao==='congregacao'?'selected':''}>Comparar congregações</option>
@@ -955,6 +955,7 @@ function renderAbaCruzamento(){
 }
 
 window.gestaoModelo = m => { G.modelo = m; gestaoGrafico(); };
+window.gestaoDimensao = d => { G.dimensao = d; gestaoGrafico(); };
 window.gestaoCarregar = async function(){
   const f = _lerFiltros();
   if (G.filtrosAberto){ G.filtrosAberto = false; _aplicarFiltrosVisivel(); }
