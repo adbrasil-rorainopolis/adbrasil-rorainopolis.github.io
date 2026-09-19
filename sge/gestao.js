@@ -840,7 +840,12 @@ function _filtrosUI(){
       </div>
     </div>`;
 }
-window.G_filtrosToggle = () => { G.filtrosAberto = !G.filtrosAberto; el('gestao-filtros-corpo')?.classList.toggle('hidden', !G.filtrosAberto); document.querySelector('#gestao-corpo .fa-chevron-up, #gestao-corpo .fa-chevron-down')?.classList.toggle('fa-chevron-up', G.filtrosAberto); };
+function _aplicarFiltrosVisivel(){
+  el('gestao-filtros-corpo')?.classList.toggle('hidden', !G.filtrosAberto);
+  const ico = document.querySelector('#gestao-corpo .fa-chevron-up, #gestao-corpo .fa-chevron-down');
+  if (ico){ ico.classList.toggle('fa-chevron-up', G.filtrosAberto); ico.classList.toggle('fa-chevron-down', !G.filtrosAberto); }
+}
+window.G_filtrosToggle = () => { G.filtrosAberto = !G.filtrosAberto; _aplicarFiltrosVisivel(); };
 window.G_contasToggle = () => { G.contasAberto = !G.contasAberto; el('gestao-contas-corpo')?.classList.toggle('hidden', !G.contasAberto); };
 window.gestaoToggleSemana = n => {
   const i = G.filtros.semanas.indexOf(`${n}º. SEMANA`);
@@ -939,6 +944,7 @@ function renderAbaCruzamento(){
 window.gestaoModelo = m => { G.modelo = m; gestaoGrafico(); };
 window.gestaoCarregar = async function(){
   const f = _lerFiltros();
+  if (G.filtrosAberto){ G.filtrosAberto = false; _aplicarFiltrosVisivel(); }
   const tb = el('gestao-tbody'); if (tb) tb.innerHTML = '<tr><td colspan="9" class="p-8 text-center opacity-60"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Cruzando dados…</td></tr>';
   try {
     const dados = await consultarCruzamento(f.ano_ini, f.mes_ini, f.ano_fim, f.mes_fim, f);
