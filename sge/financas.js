@@ -786,7 +786,11 @@ function rcRenderTela(){
             </div>
             <div id="rcm-aviso-semana" class="col-span-2"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
-              <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+              <div class="relative">
+                <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" readonly onclick="rcmAbrirCalendario()" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 pr-8 rounded-lg border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+                <i class="fa-solid fa-calendar-days absolute right-2.5 top-1/2 text-xs opacity-50" style="transform:translateY(-50%);pointer-events:none"></i>
+                <input type="date" id="rcm-data-cal" onchange="rcmDataCalendario(this)" tabindex="-1" class="absolute opacity-0" style="left:0;bottom:0;width:2px;height:2px;pointer-events:none">
+              </div></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
               ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
           </div>
@@ -796,13 +800,16 @@ function rcRenderTela(){
           ${selF('rcm-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), null, "rcmToggleRecibo()")}
           <div class="grid grid-cols-2 gap-2">
             <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-            <input id="rcm-valor" type="number" step="0.01" min="0" placeholder="Valor (R$)" inputmode="decimal" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input id="rcm-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           </div>
           <input id="rcm-descricao" placeholder="Descrição / Histórico" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
         </div>
         <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
-          <p class="text-[10px] font-bold uppercase opacity-60 mb-2">Movimento do caixa</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[10px] font-bold uppercase opacity-60">Movimento do caixa</p>
+            ${RC.somenteLeitura ? '' : '<p class="text-[9px] opacity-45"><i class="fa-solid fa-pen mr-0.5"></i>Toque num lançamento para editar</p>'}
+          </div>
           <div id="rcm-lista"></div>
           <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
         </div>
@@ -914,7 +921,7 @@ window.rcmAdicionar = function(){
   const tipo = el('rcm-tipo').value;
   const recibo = el('rcm-recibo').value.trim();
   const descricao = el('rcm-descricao').value.trim();
-  const valor = parseFloat(el('rcm-valor').value);
+  const valor = rcmValorNum(el('rcm-valor').value);
   const isSaida = tipo.includes('SAIDAS');
   if (!isSaida){
     if (!recibo){ toast('Informe o número do recibo.'); return; }
@@ -934,6 +941,113 @@ window.rcmRemover = function(i){
   rcmRenderDoc();
 };
 
+/* Máscara de moeda: dígitos entram como centavos — "123456" vira "R$ 1.234,56" */
+function rcmValorNum(v){
+  const d = String(v ?? '').replace(/\D/g, '').slice(0, 12);
+  return d ? parseInt(d, 10) / 100 : NaN;
+}
+window.rcmMascaraValor = function(inp){
+  const n = rcmValorNum(inp.value);
+  inp.value = isNaN(n) ? '' : rcMoeda(n);
+};
+
+/* Calendário nativo ao tocar no campo de data */
+window.rcmAbrirCalendario = function(){
+  const cal = el('rcm-data-cal'), txt = el('rcm-data');
+  if (!cal || !txt) return;
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt.value.trim());
+  cal.value = m ? `${m[3]}-${m[2]}-${m[1]}` : new Date().toISOString().slice(0, 10);
+  try { cal.showPicker(); }
+  catch(e){
+    txt.removeAttribute('readonly');
+    txt.focus();
+    toast('Digite a data no formato DD/MM/AAAA.');
+  }
+};
+window.rcmDataCalendario = function(cal){
+  const txt = el('rcm-data');
+  if (!cal.value || !txt) return;
+  const [a, m, d] = cal.value.split('-');
+  txt.value = `${d}/${m}/${a}`;
+  F.rcData = txt.value;
+  rcmRenderDoc();
+  rcmAvisoSemana();
+};
+
+/* ---------- Edição de lançamento (toque na linha) ---------- */
+window.rcmEditar = function(i){
+  if (RC.somenteLeitura) return;
+  const it = RC.lancamentos[i]; if (!it) return;
+  const isSai = it.tipo.includes('SAIDAS');
+  el('rcm-edita')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-edita" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)this.remove()">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 max-h-[92dvh] flex flex-col" style="background:var(--bg-card)">
+        <div class="overflow-y-auto flex-1 pb-2">
+          <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-extrabold uppercase tracking-wider" style="color:${isSai ? '#f87171' : '#34d399'}"><i class="fa-solid fa-pen-to-square mr-1"></i>Editar lançamento</p>
+            <button onclick="document.getElementById('rcm-edita').remove()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="space-y-2.5">
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo</span>
+              ${selF('rcm-ed-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), it.tipo, 'rcmEdToggleRecibo()')}</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nº Recibo</span>
+                <input id="rcm-ed-recibo" inputmode="numeric" placeholder="Nº Recibo" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+              <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor</span>
+                <input id="rcm-ed-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+            </div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição / Histórico</span>
+              <input id="rcm-ed-descricao" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-3" style="border-top:1px solid var(--border-color)">
+          <button onclick="rcmExcluir(${i})" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:#f8717155;color:#f87171;background:#f8717114"><i class="fa-solid fa-trash mr-1"></i>Excluir</button>
+          <button onclick="rcmSalvarEdicao(${i})" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-check mr-1"></i>Salvar alteração</button>
+        </div>
+      </div>
+    </div>`);
+  el('rcm-ed-recibo').value = it.recibo || '';
+  el('rcm-ed-descricao').value = it.descricao || '';
+  el('rcm-ed-valor').value = rcMoeda(it.valor);
+  rcmEdToggleRecibo();
+};
+
+window.rcmEdToggleRecibo = function(){
+  const t = el('rcm-ed-tipo'), r = el('rcm-ed-recibo');
+  if (!t || !r) return;
+  const sai = t.value.includes('SAIDAS');
+  r.disabled = sai;
+  if (sai) r.value = '';
+  r.placeholder = sai ? 'N/A (Saída)' : 'Nº Recibo';
+};
+
+window.rcmSalvarEdicao = function(i){
+  const it = RC.lancamentos[i]; if (!it) return;
+  const tipo = el('rcm-ed-tipo').value;
+  const recibo = el('rcm-ed-recibo').value.trim();
+  const descricao = el('rcm-ed-descricao').value.trim();
+  const valor = rcmValorNum(el('rcm-ed-valor').value);
+  const isSaida = tipo.includes('SAIDAS');
+  if (!isSaida){
+    if (!recibo){ toast('Informe o número do recibo.'); return; }
+    if (RC.lancamentos.some((l, j) => j !== i && l.recibo === recibo)){ toast(`O recibo "${recibo}" já foi lançado.`); return; }
+  }
+  if (!descricao || isNaN(valor) || valor <= 0){ toast('Preencha a descrição e um valor válido.'); return; }
+  RC.lancamentos[i] = { tipo, recibo: isSaida ? '' : recibo, descricao, valor };
+  el('rcm-edita')?.remove();
+  rcmRenderLista();
+  rcmRenderDoc();
+};
+
+window.rcmExcluir = function(i){
+  RC.lancamentos.splice(i, 1);
+  el('rcm-edita')?.remove();
+  rcmRenderLista();
+  rcmRenderDoc();
+};
+
 function rcmRenderLista(){
   const lista = el('rcm-lista'); if (!lista) return;
   let somaEnt = 0, somaSai = 0;
@@ -948,11 +1062,11 @@ function rcmRenderLista(){
     itens.forEach(it => {
       sub += it.valor;
       isSai ? somaSai += it.valor : somaEnt += it.valor;
-      html += `<div class="flex items-center gap-2 py-1.5 border-b" style="border-color:var(--border-color)">
+      html += `<div class="flex items-center gap-2 py-1.5 border-b ${RC.somenteLeitura ? '' : 'cursor-pointer'}" style="border-color:var(--border-color)" ${RC.somenteLeitura ? '' : `onclick="rcmEditar(${it._i})"`}>
         ${it.recibo ? `<span class="text-[9px] font-mono opacity-50 w-9 shrink-0">${rcEsc(it.recibo)}</span>` : ''}
         <span class="flex-1 text-[11px] truncate">${rcEsc(it.descricao)}</span>
         <span class="text-[11px] font-bold shrink-0" style="color:${isSai ? '#f87171' : '#34d399'}">${rcMoeda(it.valor)}</span>
-        ${RC.somenteLeitura ? '' : `<button onclick="rcmRemover(${it._i})" class="w-6 h-6 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>`}
+        ${RC.somenteLeitura ? '' : `<span class="w-6 h-6 rounded-lg text-[9px] shrink-0 flex items-center justify-center" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-pen"></i></span>`}
       </div>`;
     });
     html += `<div class="flex justify-between text-[10px] font-bold py-1 opacity-70"><span>Subtotal ${RC_TITULOS[tipo]}</span><span>${rcMoeda(sub)}</span></div>`;
