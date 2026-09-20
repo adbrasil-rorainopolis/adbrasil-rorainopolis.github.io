@@ -975,7 +975,7 @@ window.rcmAbrirCalendario = function(){
         </div>
         <div id="rcm-cal-grade" class="grid grid-cols-7 gap-1"></div>
         <div class="flex items-center justify-between mt-3 pt-3" style="border-top:1px solid var(--border-color)">
-          <button onclick="rcmCalHoje()" class="text-[10px] font-bold cursor-pointer" style="color:#f59e0b"><i class="fa-solid fa-calendar-day mr-1"></i>Hoje</button>
+          <button onclick="rcmCalHoje()" class="text-[10px] font-bold cursor-pointer" style="color:var(--color-primary)"><i class="fa-solid fa-calendar-day mr-1"></i>Hoje</button>
           <button onclick="rcmCalFechar()" class="text-[10px] font-bold cursor-pointer opacity-60" style="color:var(--text-muted)">Fechar</button>
         </div>
       </div>
@@ -995,7 +995,7 @@ function rcmCalRender(){
   for (let d = 1; d <= dias; d++){
     const iso = `${RC_CAL.ano}-${String(RC_CAL.mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const selDia = iso === RC_CAL.sel, hojeDia = iso === hojeIso;
-    html += `<button onclick="rcmCalDia('${iso}')" class="aspect-square rounded-lg text-[11px] font-bold cursor-pointer" style="${selDia ? 'background:linear-gradient(135deg,#b45309,#f59e0b);color:#fff' : `background:${hojeDia ? 'rgba(245,158,11,.15)' : 'var(--bg-input)'};color:var(--text-main);${hojeDia ? 'outline:1px solid rgba(245,158,11,.5)' : ''}`}">${d}</button>`;
+    html += `<button onclick="rcmCalDia('${iso}')" class="aspect-square rounded-lg text-[11px] font-bold cursor-pointer" style="${selDia ? 'background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:var(--text-inverse)' : `background:${hojeDia ? 'var(--color-primary-light)' : 'var(--bg-input)'};color:var(--text-main);${hojeDia ? 'outline:1px solid var(--color-primary)' : ''}`}">${d}</button>`;
   }
   g.innerHTML = html;
 }
