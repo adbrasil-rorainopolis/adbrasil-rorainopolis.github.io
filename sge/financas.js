@@ -762,8 +762,8 @@ function rcRenderTela(){
   const dataPadrao = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
   const semEdicao = RC.somenteLeitura && !RC.podeEditar;
   const badge = RC.status === 'enviado'
-    ? '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">Enviado</span>'
-    : '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">Rascunho</span>';
+    ? '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.35)"><i class="fa-solid fa-circle-check mr-0.5"></i>Enviado</span>'
+    : '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.35)"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>Rascunho</span>';
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
       ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório ${RC.status === 'enviado' ? 'enviado' : 'recebido'} — somente leitura${RC.podeEditar ? ' • toque em CORRIGIR para retificar' : ''}</div>` : ''}
@@ -776,6 +776,7 @@ function rcRenderTela(){
         ${badge}
       </div>
       <div class="grid grid-cols-3 gap-2">${rcmAcoesHtml()}</div>
+      ${!RC.somenteLeitura && RC.id && RC.status === 'rascunho' ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.10);color:#f59e0b;border:1px solid rgba(245,158,11,.25)"><i class="fa-solid fa-circle-exclamation"></i>Gravado como rascunho — resta ENVIAR para a central receber</div>` : ''}
       <div id="rcm-view-editar" class="space-y-3">
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
@@ -979,6 +980,15 @@ function rcmColetar(){
   return rel;
 }
 
+/* Marca o relatório carregado como enviado na central. */
+async function rcmEnviarAtual(){
+  const r2 = await api('enviar_relatorio_caixa', { id: RC.id }, sessao()?.token);
+  if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); return false; }
+  RC.status = 'enviado';
+  RC.gravadoEm = new Date().toISOString();
+  return true;
+}
+
 window.rcmSalvar = async function(enviar){
   const rel = rcmColetar();
   if (!rel.congregacao){ toast('Selecione a congregação do relatório.'); return; }
@@ -993,12 +1003,13 @@ window.rcmSalvar = async function(enviar){
     RC.autor = sessao()?.usuario?.nome || RC.autor;
     RC.gravadoEm = new Date().toISOString();
     if (enviar){
-      const r2 = await api('enviar_relatorio_caixa', { id: RC.id }, sessao()?.token);
-      if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); rcRenderTela(); return; }
-      RC.status = 'enviado';
-      toast('Relatório enviado à central.');
+      if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
+    } else if (RC.status === 'enviado'){
+      toast('Retificação gravada — relatório permanece enviado.');
+    } else if (confirm('Rascunho gravado na nuvem.\n\nDeseja enviar para a central agora?')){
+      if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
     } else {
-      toast(RC.status === 'enviado' ? 'Retificação gravada — relatório permanece enviado.' : 'Rascunho salvo na nuvem.');
+      toast('Rascunho salvo na nuvem.');
     }
     rcRenderTela();
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
@@ -1215,13 +1226,18 @@ window.rcmCentral = async function(){
     const admin = rcEhAdmin();
     box.innerHTML = lista.map(r => {
       const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin;
+      const enviado = r.status === 'enviado';
+      const badgeItem = enviado
+        ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981"><i class="fa-solid fa-circle-check mr-0.5"></i>enviado</span>'
+        : '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>rascunho</span>';
       return `
       <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
           <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}</p>
         </div>
-        <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:${r.status === 'enviado' ? 'rgba(56,189,248,.15);color:#38bdf8' : 'rgba(245,158,11,.15);color:#f59e0b'}">${rcEsc(r.status || 'rascunho')}</span>
+        ${badgeItem}
+        ${pode && !enviado ? `<button onclick="rcmEnviarItem('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#8b5cf6" title="Enviar à central"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
         <button onclick="rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
         ${pode ? `<button onclick="rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
@@ -1251,6 +1267,18 @@ window.rcmAbrir = async function(id){
     RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
     rcRenderTela();
   } catch(e){ toast(e.message || 'Erro ao abrir.'); }
+};
+
+/* Envio rápido de rascunho direto da central. */
+window.rcmEnviarItem = async function(id){
+  if (!confirm('Enviar este relatório para a central?')) return;
+  try {
+    const res = await api('enviar_relatorio_caixa', { id }, sessao()?.token);
+    if (!res?.ok){ toast(res?.erro || 'Falha ao enviar.'); return; }
+    toast('Relatório enviado à central.');
+    if (String(RC.id) === String(id)){ RC.status = 'enviado'; rcRenderTela(); }
+    else rcmCentral();
+  } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
 window.rcmExcluir = async function(id){
