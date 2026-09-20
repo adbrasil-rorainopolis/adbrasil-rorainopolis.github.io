@@ -877,7 +877,11 @@ function rcRenderTela(){
           <div class="p-4 space-y-4 text-[11px] leading-relaxed overflow-y-auto" style="color:var(--text-main)">
             <div>
               <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-inbox mr-1.5"></i>O que é a Central de Relatórios?</p>
-              <p class="opacity-80">É a caixa de entrada do caixa. Fica no topo da tela e mostra todos os relatórios do seu alcance: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). Use os filtros <b>Todos / Enviados / Rascunhos</b> e a busca por congregação para achar qualquer relatório.</p>
+              <p class="opacity-80">É a caixa de entrada do caixa. Fica no topo da tela e mostra todos os relatórios do seu alcance: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). Use os filtros <b>Todos / Enviados / Rascunhos / Lixeira</b> e a busca por congregação para achar qualquer relatório.</p>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-trash-can mr-1.5"></i>Excluiu sem querer? Use a Lixeira</p>
+              <p class="opacity-80">Relatório excluído <b>não é apagado para sempre</b> — ele vai para a <b>Lixeira</b> (último filtro da Central). Lá ele aparece com o selo <b style="color:#f87171">EXCLUÍDO</b> e a data da exclusão. Toque em <i class="fa-solid fa-rotate-left" style="color:#34d399"></i> para <b>restaurar</b>: ele volta para a Central no mesmo status — enviado volta como enviado, rascunho volta como rascunho.</p>
             </div>
             <div>
               <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-folder-open mr-1.5"></i>Como continuar um rascunho?</p>
