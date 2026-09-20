@@ -811,7 +811,7 @@ function rcRenderTela(){
           <input id="rcm-central-busca" placeholder="Buscar congregação..." value="${esc(RC.centralBusca || '')}" oninput="RC.centralBusca=this.value;rcmCentralRender()" class="w-full px-2 py-1.5 mb-1 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           <div id="rcm-central" style="max-height:230px;overflow-y:auto"><p class="text-[11px] opacity-50 py-3 text-center">Carregando…</p></div>
         </div>
-        <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div id="rcm-card-ident" class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
               <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria();rcmSugerirSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
@@ -1743,15 +1743,17 @@ window.rcmCentralRender = function(){
       const badgeItem = enviado
         ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981"><i class="fa-solid fa-circle-check mr-0.5"></i>enviado</span>'
         : '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>rascunho</span>';
+      const aberto = String(r.id) === String(RC.id || '');
       return `
-      <div class="flex items-center gap-2 py-2 border-b cursor-pointer" style="border-color:var(--border-color)" onclick="rcmAbrir('${r.id}')" title="Toque para ${enviado ? 'visualizar' : 'continuar a edição'}">
+      <div class="flex items-center gap-2 py-2 border-b cursor-pointer" style="border-color:var(--border-color);${aberto ? 'background:var(--color-primary-light);border-left:3px solid var(--color-primary);padding-left:7px;border-radius:0 10px 10px 0' : ''}" onclick="rcmAbrir('${r.id}')" title="Toque para ${enviado ? 'visualizar' : 'continuar a edição'}">
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
           <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}</p>
         </div>
+        ${aberto ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:var(--color-primary);color:var(--text-inverse)">aberto</span>' : ''}
         ${badgeItem}
         ${pode && !enviado ? `<button onclick="event.stopPropagation();rcmEnviarItem('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#8b5cf6" title="Enviar à central"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
-        <button onclick="event.stopPropagation();rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
+        <button onclick="event.stopPropagation();rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:${enviado ? '#38bdf8' : 'var(--color-primary)'}" title="${enviado ? 'Visualizar' : 'Continuar edição'}"><i class="fa-solid ${enviado ? 'fa-eye' : 'fa-pen-to-square'}"></i></button>
         ${pode ? `<button onclick="event.stopPropagation();rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
     }).join('');
@@ -1778,6 +1780,9 @@ window.rcmAbrir = async function(id){
     RC.somenteLeitura = !RC.podeEditar || RC.status === 'enviado';
     RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
     rcRenderTela();
+    const alvo = el(RC.somenteLeitura ? 'rcm-view-previa' : 'rcm-card-ident');
+    if (alvo) setTimeout(() => alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    toast(RC.somenteLeitura ? 'Relatório aberto para visualização.' : 'Rascunho carregado — continue a edição abaixo.');
   } catch(e){ toast(e.message || 'Erro ao abrir.'); }
 };
 
