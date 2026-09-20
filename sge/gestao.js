@@ -1496,12 +1496,14 @@ window.guAcessos = async function(cpf, aprovar){
             <div id="gu-ac-tes-cong" class="mt-2 ${a.tesoureiro ? '' : 'hidden'}">
               <select id="gu-ac-tes-sel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
                 <option value="">— selecione a congregação —</option>
-                ${(cat.congregacoes || []).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
+                ${[...new Set((cat.congregacoes || []).map(c => c.conselho || 'Sem conselho'))].sort().map(g =>
+                  `<optgroup label="${esc(g)}">${(cat.congregacoes || []).filter(c => (c.conselho || 'Sem conselho') === g).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>`
+                ).join('')}
               </select></div>`)}
           ${secao('Conselhos visíveis', 'Nada marcado = todos • marque para limitar e filtrar as congregações',
             `<div class="flex flex-wrap gap-1.5">${(cat.conselhos || []).map(c => chip('conselhos', c, a.conselhos.includes(c))).join('') || '<span class="text-[10px] opacity-50">Nenhum conselho cadastrado</span>'}</div>`)}
           ${secao('Congregações visíveis', 'Nada marcado = todas • marque conselhos acima para filtrar',
-            `<div id="gu-congs-box" class="flex flex-wrap gap-1.5"></div><p id="gu-congs-count" class="text-[9px] opacity-40 mt-1.5"></p>`)}
+            `<div id="gu-congs-box"></div><p id="gu-congs-count" class="text-[9px] opacity-40 mt-1.5"></p>`)}
           ${secao('Módulos liberados', 'Nada marcado = acesso legado (todos os módulos)',
             `<div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div>`)}
         </div>
@@ -1530,10 +1532,15 @@ window.guRenderCongs = () => {
   const box = el('gu-congs-box'); if (!box || !GU.catalogo) return;
   const cons = new Set([...document.querySelectorAll('.gu-chip[data-grupo="conselhos"][data-on="1"]')].map(b => b.dataset.valor));
   const lista = (GU.catalogo.congregacoes || []).filter(c => !cons.size || cons.has(c.conselho));
-  box.innerHTML = lista.map(c => {
+  const chipCong = c => {
     const on = GU.selCongs?.has(c.nome);
     return `<button type="button" onclick="guToggle(this)" data-grupo="congregacoes" data-valor="${esc(c.nome)}" data-on="${on ? 1 : 0}" class="gu-chip px-2.5 py-2 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${on ? '#8b5cf6' : 'var(--border-color)'};background:${on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${on ? '#a78bfa' : 'var(--text-muted)'}"><i class="fa-solid fa-check mr-1 gu-chip-ck${on ? '' : ' hidden'}"></i>${esc(c.nome)}</button>`;
-  }).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação nesse conselho.</span>';
+  };
+  const grupos = {};
+  lista.forEach(c => { const g = c.conselho || 'Sem conselho'; (grupos[g] = grupos[g] || []).push(c); });
+  box.innerHTML = Object.keys(grupos).sort((x, y) => x === 'Sem conselho' ? 1 : y === 'Sem conselho' ? -1 : x.localeCompare(y)).map(g =>
+    `<div class="mb-2.5"><p class="text-[9px] font-black uppercase tracking-wide mb-1" style="color:#8b5cf6">${esc(g)}</p><div class="flex flex-wrap gap-1.5">${grupos[g].map(chipCong).join('')}</div></div>`
+  ).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação nesse conselho.</span>';
   const cnt = el('gu-congs-count');
   if (cnt) cnt.textContent = `${lista.length} congregações${cons.size ? ' (filtradas por conselho)' : ''}`;
 };
