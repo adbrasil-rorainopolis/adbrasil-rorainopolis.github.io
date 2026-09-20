@@ -36,6 +36,14 @@
     .hidden { display: none; }
     .link-reenvio { text-align: center; margin-top: 12px; font-size: 11px; color: #8a94a8; }
     .link-reenvio a { color: #d9b45b; cursor: pointer; text-decoration: none; }
+    .link-acesso { text-align: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid #243048; font-size: 11.5px; color: #8a94a8; }
+    .link-acesso a { color: #d9b45b; cursor: pointer; text-decoration: none; font-weight: 600; }
+    .dl-box { background: rgba(217,180,91,.08); border: 1px solid rgba(217,180,91,.35); border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 12px; color: #c7cfdd; line-height: 1.6; }
+    .dl-box b { color: #d9b45b; }
+    .dl-box .btn { margin-top: 10px; }
+    .passos-pwa { text-align: left; margin-top: 10px; }
+    .passos-pwa div { display: flex; gap: 8px; margin-bottom: 6px; font-size: 11.5px; color: #8a94a8; }
+    .passos-pwa b { color: #d9b45b; }
 </style>
 </head>
 <body>
@@ -64,6 +72,17 @@
             <div class="campo"><label>Confirmar senha</label><input id="f-senha2" type="password" required minlength="6" autocomplete="new-password"></div>
             <button class="btn" id="btn-enviar" type="submit">Solicitar acesso</button>
         </form>
+        <div class="link-acesso">Já possui cadastro ou trocou de dispositivo? <a id="lnk-acesso">Clique aqui para baixar o app</a></div>
+    </div>
+
+    <!-- ETAPA 1b: acesso por CPF + senha (reinstalação / troca de aparelho) -->
+    <div class="corpo hidden" id="etapa-acesso">
+        <div id="msg-acesso"></div>
+        <div class="campo"><label>CPF</label><input id="a-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></div>
+        <div class="campo"><label>Senha</label><input id="a-senha" type="password" autocomplete="current-password"></div>
+        <button class="btn" id="btn-acesso">Verificar e baixar</button>
+        <div class="link-reenvio"><a id="lnk-voltar">← Voltar ao cadastro</a></div>
+        <div id="dl-acesso"></div>
     </div>
 
     <!-- ETAPA 2: código de 6 dígitos -->
@@ -89,6 +108,7 @@
                 <div><b>2</b><span>Você receberá por e-mail a decisão e o perfil concedido.</span></div>
                 <div><b>3</b><span>O acesso ao SGE será liberado somente após a aprovação.</span></div>
             </div>
+            <div id="dl-fim"></div>
         </div>
     </div>
 
@@ -99,7 +119,65 @@
 const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
 const $ = id => document.getElementById(id);
 let cpfCadastro = '';
+let senhaCadastro = '';
 let origemConvite = '';
+
+// Detecção de dispositivo para a tela de espera / download
+function ehCelular() {
+    return /Android|iPhone|iPad|iPod|Windows Phone|webOS|Mobile/i.test(navigator.userAgent)
+        || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
+}
+const URL_PWA = 'index.html';   // PWA do SGE (mesmo diretório no Pages)
+
+function blocoDownload(mostrarStatus) {
+    if (ehCelular()) {
+        return `<div class="dl-box">
+            <b>📱 Instalar no celular</b>
+            <div class="passos-pwa">
+                <div><b>1</b><span>Toque no botão abaixo para abrir o aplicativo.</span></div>
+                <div><b>2</b><span>No menu do navegador (⋮ ou compartilhar), escolha <b>"Adicionar à tela inicial"</b>.</span></div>
+                <div><b>3</b><span>O ícone do SGE aparecerá junto aos seus apps.</span></div>
+            </div>
+            <a href="${URL_PWA}" class="btn" style="display:block;text-align:center;text-decoration:none;color:#0b1220">Abrir o aplicativo SGE</a>
+        </div>`;
+    }
+    return `<div class="dl-box">
+        <b>💻 Versão para computador (Windows)</b>
+        <p style="margin-top:6px">Baixe o pacote do SGE e descompacte para usar no seu computador.</p>
+        <button class="btn" id="btn-dl-app">Baixar SGE para Windows</button>
+        ${mostrarStatus ? '<p style="margin-top:8px;font-size:10.5px;color:#8a94a8">O aplicativo já pode ser instalado — o acesso às funções será liberado após a aprovação.</p>' : ''}
+    </div>`;
+}
+
+function ligarBotaoDownload(getCredenciais) {
+    const btn = document.getElementById('btn-dl-app');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const { cpf, senha } = getCredenciais();
+        btn.disabled = true; btn.textContent = 'Baixando…';
+        try {
+            const resp = await fetch(API, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'baixar_app', cpf, senha }),
+            });
+            if (!resp.ok) {
+                let j = {}; try { j = await resp.json(); } catch(e) {}
+                msg('msg-acesso', j.erro || 'Não foi possível baixar agora.', 'erro');
+                msg('msg-codigo', j.erro || 'Não foi possível baixar agora.', 'erro');
+            } else {
+                const blob = await resp.blob();
+                const dispo = resp.headers.get('Content-Disposition') || '';
+                const nome = (dispo.match(/filename="?([^";]+)"?/) || [])[1] || 'SGE-app.zip';
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+                URL.revokeObjectURL(a.href);
+            }
+        } catch(e) {
+            msg('msg-acesso','Falha de conexão ao baixar.','erro');
+        }
+        btn.disabled = false; btn.textContent = 'Baixar SGE para Windows';
+    });
+}
 
 // Link personalizado: cadastro.html?c=mucak → mostra a congregação/origem no topo
 (function(){
@@ -165,6 +243,7 @@ $('form-cadastro').addEventListener('submit', async ev => {
         });
         if (r.ok) {
             cpfCadastro = cpf;
+            senhaCadastro = senha;
             $('cod-email').textContent = email;
             msg('msg-codigo', r.mensagem, r.email_enviado ? 'ok' : 'erro');
             $('etapa-form').classList.add('hidden');
@@ -189,6 +268,8 @@ $('btn-confirmar').addEventListener('click', async () => {
         if (r.ok) {
             $('etapa-codigo').classList.add('hidden');
             $('etapa-fim').classList.remove('hidden');
+            $('dl-fim').innerHTML = blocoDownload(true);
+            ligarBotaoDownload(() => ({ cpf: cpfCadastro, senha: senhaCadastro }));
         } else {
             msg('msg-codigo', r.erro || 'Código inválido.', 'erro');
         }
@@ -207,6 +288,43 @@ $('lnk-reenviar').addEventListener('click', async () => {
     } catch(e) {
         msg('msg-codigo','Falha de conexão. Tente novamente.','erro');
     }
+});
+
+// --- Acesso por CPF + senha: reinstalação / troca de dispositivo ---
+mascaraCPF($('a-cpf'));
+$('lnk-acesso').addEventListener('click', () => {
+    $('etapa-form').classList.add('hidden');
+    $('etapa-acesso').classList.remove('hidden');
+    $('a-cpf').focus();
+});
+$('lnk-voltar').addEventListener('click', () => {
+    $('etapa-acesso').classList.add('hidden');
+    $('etapa-form').classList.remove('hidden');
+});
+
+$('btn-acesso').addEventListener('click', async () => {
+    msg('msg-acesso','');
+    $('dl-acesso').innerHTML = '';
+    const cpf = $('a-cpf').value.trim(), senha = $('a-senha').value;
+    if (!cpf || !senha) { msg('msg-acesso','Informe CPF e senha.','erro'); return; }
+    const btn = $('btn-acesso'); btn.disabled = true; btn.textContent = 'Verificando…';
+    try {
+        const r = await chamar('consultar_acesso_cpf', { cpf, senha });
+        if (r.ok) {
+            const pendente = !r.aprovado;
+            msg('msg-acesso', pendente
+                ? `Olá, <b>${r.nome}</b>! Seu cadastro ainda <b>aguarda aprovação do administrador</b> — mas você já pode instalar o aplicativo abaixo.`
+                : `Olá, <b>${r.nome}</b>! Cadastro aprovado — baixe o aplicativo abaixo.`,
+                'ok');
+            $('dl-acesso').innerHTML = blocoDownload(pendente);
+            ligarBotaoDownload(() => ({ cpf, senha }));
+        } else {
+            msg('msg-acesso', r.erro || 'CPF ou senha inválidos.', 'erro');
+        }
+    } catch(e) {
+        msg('msg-acesso','Falha de conexão. Tente novamente.','erro');
+    }
+    btn.disabled = false; btn.textContent = 'Verificar e baixar';
 });
 </script>
 </body>
