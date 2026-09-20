@@ -43,6 +43,7 @@
     <div class="topo">
         <h1>SGE • AD BRASIL</h1>
         <p>Solicitação de acesso — Sistema de Gestão Eclesiástica</p>
+        <p id="convite-origem" class="hidden" style="margin-top:8px;font-size:10.5px;color:#d9b45b;font-weight:700;letter-spacing:.6px;text-transform:uppercase"></p>
     </div>
 
     <!-- ETAPA 1: formulário -->
@@ -98,6 +99,18 @@
 const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
 const $ = id => document.getElementById(id);
 let cpfCadastro = '';
+let origemConvite = '';
+
+// Link personalizado: cadastro.html?c=mucak → mostra a congregação/origem no topo
+(function(){
+    const c = new URLSearchParams(location.search).get('c');
+    if (!c) return;
+    origemConvite = decodeURIComponent(c.replace(/\+/g,' ')).trim().slice(0, 60);
+    if (!origemConvite) return;
+    const el = $('convite-origem');
+    el.textContent = 'Convite — ' + origemConvite;
+    el.classList.remove('hidden');
+})();
 
 function mascaraCPF(el){ el.addEventListener('input', () => {
     let v = el.value.replace(/\D/g,'').slice(0,11);
@@ -148,6 +161,7 @@ $('form-cadastro').addEventListener('submit', async ev => {
         const r = await chamar('cadastro_externo', {
             nome, cpf, data_nascimento: nasc, email,
             telefone: $('f-tel').value.trim(), sexo: $('f-sexo').value, senha,
+            origem: origemConvite,
         });
         if (r.ok) {
             cpfCadastro = cpf;
