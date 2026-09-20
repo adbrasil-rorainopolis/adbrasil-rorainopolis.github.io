@@ -658,7 +658,7 @@ const RC_CATS = [
   { id: 'OFERTA ORDINARIA', rotulo: 'Oferta Ordinária', titulo: 'OFERTAS', subs: [
     'Oferta Extraordinária', 'Oferta Ordinária - 3ª Feira', 'Oferta Ordinária - 5ª Feira',
     'Oferta Ordinária - 6ª Feira', 'Oferta Ordinária - Sábado', 'Oferta da EBD',
-    'Consagração Geral', 'Culto das Crianças', 'Outros'],
+    'Consagração Geral', 'Outros'],
     subsAG: [
     'Oferta Ordinária do Culto de Assembleia Geral - 2ª Feira',
     'Oferta Ordinária - Assembleia Geral - Culto de Milagres - 4ª Feira',
@@ -671,7 +671,7 @@ const RC_CATS = [
     'Oferta do Culto do Círculo de Oração'] },
   { id: 'DOMINGO NOITE', rotulo: 'Oferta Ordinária de Domingo à Noite - Outros Departamentos', titulo: 'DOM. NOITE - OUTROS DEPTOS', subs: [
     'Oferta do Culto da UMAD', 'Culto do Diaconato', 'Culto do Instrumental', 'Culto da Família',
-    'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto Público', 'Outros'] },
+    'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto das Crianças', 'Culto Público', 'Outros'] },
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
 ];
 const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
