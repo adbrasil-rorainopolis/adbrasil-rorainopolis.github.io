@@ -138,7 +138,7 @@ async function carregarMovimento(ano, mes){
           detalhes_despesas_operacionais: m.detalhes_despesas_operacionais || {},
         });
       }
-      return { ano: String(ano), mes: String(mes), arquivo_origem: arquivo, abas };
+      return { ano: String(ano), mes: String(mes), arquivo_origem: arquivo, abas, escopo_resumo: res.escopo_resumo || '' };
     } catch(e){ return null; }
   })();
   return _cacheMov[chave];
@@ -176,9 +176,60 @@ async function identificarConselho(nomeCong, numOrdem){
   for (const [nome, conselho] of Object.entries(mapa)) if (chaveNormalizada(nome) === alvo) return conselho;
   return 'Conselho Geral';
 }
-/* Escopo do usuário: a API não expõe `acessos`; aplica-se a máscara de Consultor
-   e trata-se o restante como irrestrito (limitação documentada). */
-const filtrosEscopo = () => [null, null];
+/* Escopo: a API já limita os dados no servidor (movimentos, totais,
+   congregações). Aqui ficam os filtros de exibição da Análise do Mês —
+   conselho/congregação escolhidos pelo usuário, dentro do escopo dele.
+   Persistido por usuário (CPF) em localStorage. */
+const filtrosEscopo = () => {
+  const f = G.filtroMensal || {};
+  const cons = f.conselho && f.conselho !== 'Todos' ? f.conselho : null;
+  const cong = f.congregacao && f.congregacao !== 'Todas' ? f.congregacao : null;
+  return [cons, cong];
+};
+const _mmFiltroKey = () => 'sge_mm_filtro_' + String(sessao()?.usuario?.cpf || 'anon').replace(/\D/g, '');
+function _mmFiltroLer(){ try { const o = JSON.parse(localStorage.getItem(_mmFiltroKey()) || '{}'); return { conselho: o.conselho || 'Todos', congregacao: o.congregacao || 'Todas' }; } catch { return { conselho: 'Todos', congregacao: 'Todas' }; } }
+function _mmFiltroGravar(){ try { localStorage.setItem(_mmFiltroKey(), JSON.stringify({ conselho: G.filtroMensal?.conselho || 'Todos', congregacao: G.filtroMensal?.congregacao || 'Todas' })); } catch {} }
+function _mmFiltroInit(){ if (!G.filtroMensal) G.filtroMensal = _mmFiltroLer(); }
+
+/* Popula os selects de escopo (prefixo: 'mm' na aba Análise, 'fx' na aba Fluxo).
+   As opções já vêm restritas ao escopo do usuário — a API filtra a lista. */
+async function _popularFiltrosEscopo(pfx){
+  const selC = el(`${pfx}-conselho`); if (!selC) return;
+  const { porConselho } = await mapaConselhos();
+  const conselhos = Object.keys(porConselho).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  selC.innerHTML = '<option value="Todos">Todos os conselhos</option>' + conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (!conselhos.includes(G.filtroMensal.conselho)) G.filtroMensal.conselho = 'Todos';
+  selC.value = G.filtroMensal.conselho;
+  _popularCongsEscopo(pfx);
+}
+function _popularCongsEscopo(pfx){
+  const cong = el(`${pfx}-congregacao`); if (!cong) return;
+  mapaConselhos().then(({ porConselho }) => {
+    const cons = el(`${pfx}-conselho`)?.value || 'Todos';
+    const lista = cons === 'Todos' ? Object.values(porConselho).flat() : (porConselho[cons] || []);
+    const unicas = [...new Set(lista)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    cong.innerHTML = '<option value="Todas">Todas as congregações</option>' + unicas.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if (!unicas.includes(G.filtroMensal.congregacao)) G.filtroMensal.congregacao = 'Todas';
+    cong.value = G.filtroMensal.congregacao;
+  });
+}
+window.gestaoEscopoConselho = (pfx, recarregar) => {
+  G.filtroMensal.conselho = el(`${pfx}-conselho`)?.value || 'Todos';
+  G.filtroMensal.congregacao = 'Todas';
+  _popularCongsEscopo(pfx); _mmFiltroGravar(); recarregar();
+};
+window.gestaoEscopoCongregacao = (pfx, recarregar) => {
+  G.filtroMensal.congregacao = el(`${pfx}-congregacao`)?.value || 'Todas';
+  _mmFiltroGravar(); recarregar();
+};
+const _filtroEscopoUI = pfx => `
+      <div class="flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
+        ${selHtml(`${pfx}-conselho`, [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('${pfx}', gestaoMensalCarregar)`)}
+        ${selHtml(`${pfx}-congregacao`, [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('${pfx}', gestaoMensalCarregar)`)}</div>`;
+const _filtroEscopoUIFluxo = () => `
+      <div class="flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
+        ${selHtml('fx-conselho', [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('fx', gestaoFluxoCarregar)`)}
+        ${selHtml('fx-congregacao', [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('fx', gestaoFluxoCarregar)`)}</div>`;
 
 /* ---------- Ciclo financeiro (localStorage — paridade com JSON por estação) ---------- */
 const CHAVE_CICLO = 'sge_ciclo_config';
@@ -327,6 +378,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
     media_semanal_entradas: semanasComDados ? totEnt / semanasComDados : 0,
     media_semanal_despesas: semanasComDados ? totDesp / semanasComDados : 0,
     por_congregacao: porCongregacao, por_conselho: porConselho, tem_dados: semanasComDados > 0,
+    escopo_resumo: dados.escopo_resumo || '',
   };
 }
 
@@ -641,7 +693,7 @@ async function analisarMes(ano, mes){
   ins('info', `Projeção para o próximo mês: ${moeda(projecao.proximo_mes_entradas)} de entradas (confiança ${projecao.confianca}, base ${nHist} meses).`);
 
   return { sucesso: true, periodo: { ano: String(anoI), mes: mesNome, mes_indice: mesIdx },
-    atual, comparativos, projecao, ciclo, insights,
+    atual, comparativos, projecao, ciclo, insights, escopo_resumo: atual.escopo_resumo || '',
     serie_anual: Object.entries(resumos).sort((a, b) => +a[0] - +b[0]).map(([i, r]) => ({ mes: ORDEM_MESES[+i - 1], mes_indice: +i, entradas: r.entradas, despesas: r.despesas, saldo: r.saldo_liquido, semanas_com_dados: r.semanas_com_dados })) };
 }
 
@@ -661,18 +713,18 @@ function saldoSemanaAnterior(resumo, semanaAtual){
   if (Math.abs(acum) < EPS && !ant.tem_dados) return 0;
   return Math.abs(acum) > EPS ? acum : num(ant.saldo);
 }
-async function mediaSemanalAno(anoI, mesIdx){
+async function mediaSemanalAno(anoI, mesIdx, consF, congF){
   let ent = 0, sem = 0;
   for (let i = 1; i <= mesIdx; i++){
-    const r = await resumoMes(anoI, ORDEM_MESES[i - 1], null, null);
+    const r = await resumoMes(anoI, ORDEM_MESES[i - 1], consF, congF);
     if (r && r.tem_dados){ ent += r.entradas; sem += r.semanas_com_dados; }
   }
   return sem ? ent / sem : 0;
 }
-async function mediaSemanaPosicao(anoI, mesIdx, semanaAtual){
+async function mediaSemanaPosicao(anoI, mesIdx, semanaAtual, consF, congF){
   const vals = [];
   for (let m = 1; m < mesIdx; m++){
-    const r = await resumoMes(anoI, ORDEM_MESES[m - 1], null, null);
+    const r = await resumoMes(anoI, ORDEM_MESES[m - 1], consF, congF);
     const sems = (r || {}).semanas || [];
     if (semanaAtual <= sems.length && sems[semanaAtual - 1].tem_dados) vals.push(num(sems[semanaAtual - 1].entradas));
   }
@@ -695,8 +747,8 @@ async function calcularFluxo(ano, mes){
   let receitaRealizada = 0;
   if (resumo && semanaAtual <= semanas.length && semanas[semanaAtual - 1].tem_dados) receitaRealizada = num(semanas[semanaAtual - 1].entradas);
   const mediaSemMes = num((resumo || {}).media_semanal_entradas);
-  const [mediaPos, nPos] = await mediaSemanaPosicao(anoI, mesIdx, semanaAtual);
-  const mediaSemAno = resumo ? await mediaSemanalAno(anoI, mesIdx) : 0;
+  const [mediaPos, nPos] = await mediaSemanaPosicao(anoI, mesIdx, semanaAtual, consF, congF);
+  const mediaSemAno = resumo ? await mediaSemanalAno(anoI, mesIdx, consF, congF) : 0;
   let receitaProj, origem;
   if (mediaPos){ receitaProj = mediaPos; origem = 'posicao'; }
   else if (mediaSemMes){ receitaProj = mediaSemMes; origem = 'mes'; }
@@ -741,6 +793,7 @@ const G = {
   aba: 'cruzamento', dados: null, mensal: null, fluxo: null,
   periodos: [], graf: null, grafMS: null, grafME: null,
   modelo: 'bar', dimensao: 'tempo', editando: null, filtrosAberto: true, contasAberto: false, contasEntradasAberto: false, contasSaidasAberto: false,
+  filtroMensal: null,
 };
 const ABAS = [
   ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
@@ -1087,6 +1140,7 @@ window.gestaoExportarPDF = async function(){
 
 /* ===================== ABA 2 — Análise do Mês ===================== */
 function renderAbaMensal(){
+  _mmFiltroInit();
   const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
   const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
   const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
@@ -1097,9 +1151,11 @@ function renderAbaMensal(){
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
       ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
+      ${_filtroEscopoUI('mm')}
       ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
       <button onclick="gestaoMensalCarregar()" class="px-4 py-2 bg-violet-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-chart-line mr-1"></i>Analisar</button>
     </div>
+    <div id="mm-escopo-selo"></div>
     <div id="mm-kpis" class="grid grid-cols-2 gap-2.5"></div>
     <div id="mm-medias" class="grid grid-cols-2 gap-2.5"></div>
     <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><h3 class="font-bold text-sm mb-2">Semanas do mês</h3><span id="mm-semanas-label" class="text-[10px] opacity-60"></span><div class="relative h-56 mt-2"><canvas id="mm-graf-semanas"></canvas></div></div>
@@ -1111,6 +1167,7 @@ function renderAbaMensal(){
       <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Semana</th><th class="p-3">Entradas</th><th class="p-3">Dízimos</th><th class="p-3">Ofertas</th><th class="p-3">Despesas</th><th class="p-3">Resultado</th><th class="p-3">Acumulado</th></tr></thead>
       <tbody id="mm-tbody" class="divide-y" style="border-color:var(--border-color)"></tbody></table>
     </div>`;
+  _popularFiltrosEscopo('mm');
   gestaoMensalCarregar();
 }
 window.gestaoMensalSel = () => { G.mensalSel = { ano: el('mm-ano').value, mes: el('mm-mes').value }; gestaoMensalCarregar(); };
@@ -1125,6 +1182,8 @@ window.gestaoMensalCarregar = async function(){
     return;
   }
   G.mensal = res;
+  const selo = el('mm-escopo-selo');
+  if (selo) selo.innerHTML = res.escopo_resumo ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fa-solid fa-lock"></i>Visão limitada ao seu escopo: ${esc(res.escopo_resumo)}</div>` : '';
   const a = res.atual, comp = res.comparativos, ant = comp.mes_anterior, anual = comp.media_anual, yoy = comp.mesmo_mes_ano_anterior, proj = res.projecao, equiv = comp.mes_anterior_equiv;
   const selFech = el('mm-fech'); if (selFech) selFech.value = String(res.ciclo.total_semanas);
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
@@ -1202,6 +1261,7 @@ function graficosMensal(res){
 
 /* ===================== ABA 3 — Projeção de Despesas & Fluxo ===================== */
 function renderAbaFluxo(){
+  _mmFiltroInit();
   const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
   const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
   const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
@@ -1212,7 +1272,7 @@ function renderAbaFluxo(){
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Projeção de Despesas & Fluxo de Caixa</h3><p class="text-[10px] opacity-60 mt-0.5">Semáforo de caixa e despesas fixas do mês. <span class="text-amber-500">Somente leitura — a gestão é feita no desktop.</span></p></div>
       ${selHtml('fx-ano', anos, m.ano, 'gestaoFluxoSel()')}${selHtml('fx-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoFluxoSel()')}
-      
+      ${_filtroEscopoUIFluxo()}
     </div>
     <div id="fx-semaforo" class="border rounded-2xl p-4" style="border-color:var(--border-color)"></div>
     <div id="fx-kpis" class="grid grid-cols-2 gap-2.5"></div>
@@ -1221,6 +1281,7 @@ function renderAbaFluxo(){
       <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr id="fx-thead"></tr></thead><tbody id="fx-tbody" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
     </div>
 `;
+  _popularFiltrosEscopo('fx');
   gestaoFluxoCarregar();
 }
 window.gestaoFluxoSel = () => { G.fluxoSel = { ano: el('fx-ano').value, mes: el('fx-mes').value }; gestaoFluxoCarregar(); };
