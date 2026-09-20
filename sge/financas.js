@@ -789,7 +789,6 @@ function rcRenderTela(){
               <div class="relative">
                 <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" readonly onclick="rcmAbrirCalendario()" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 pr-8 rounded-lg border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
                 <i class="fa-solid fa-calendar-days absolute right-2.5 top-1/2 text-xs opacity-50" style="transform:translateY(-50%);pointer-events:none"></i>
-                <input type="date" id="rcm-data-cal" onchange="rcmDataCalendario(this)" tabindex="-1" class="absolute opacity-0" style="left:0;bottom:0;width:2px;height:2px;pointer-events:none">
               </div></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
               ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
@@ -951,28 +950,76 @@ window.rcmMascaraValor = function(inp){
   inp.value = isNaN(n) ? '' : rcMoeda(n);
 };
 
-/* Calendário nativo ao tocar no campo de data */
+/* Calendário próprio no estilo do app — grade mensal ao tocar na data */
+const RC_CAL = { ano: 0, mes: 0, sel: '' };
+const RC_CAL_MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+
 window.rcmAbrirCalendario = function(){
-  const cal = el('rcm-data-cal'), txt = el('rcm-data');
-  if (!cal || !txt) return;
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt.value.trim());
-  cal.value = m ? `${m[3]}-${m[2]}-${m[1]}` : new Date().toISOString().slice(0, 10);
-  try { cal.showPicker(); }
-  catch(e){
-    txt.removeAttribute('readonly');
-    txt.focus();
-    toast('Digite a data no formato DD/MM/AAAA.');
-  }
-};
-window.rcmDataCalendario = function(cal){
   const txt = el('rcm-data');
-  if (!cal.value || !txt) return;
-  const [a, m, d] = cal.value.split('-');
-  txt.value = `${d}/${m}/${a}`;
-  F.rcData = txt.value;
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((txt?.value || '').trim());
+  const hoje = new Date();
+  RC_CAL.sel = m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  RC_CAL.ano = m ? +m[3] : hoje.getFullYear();
+  RC_CAL.mes = m ? (+m[2]) - 1 : hoje.getMonth();
+  el('rcm-cal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-cal" class="fixed inset-0 z-[96] flex items-center justify-center p-4" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)this.remove()">
+      <div class="w-full max-w-[320px] rounded-2xl p-4" style="background:var(--bg-card);border:1px solid var(--border-color)">
+        <div class="flex items-center justify-between mb-3">
+          <button onclick="rcmCalMes(-1)" class="w-8 h-8 rounded-lg cursor-pointer" style="background:var(--bg-input);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+          <p id="rcm-cal-titulo" class="text-xs font-extrabold uppercase tracking-wider" style="color:var(--text-main)"></p>
+          <button onclick="rcmCalMes(1)" class="w-8 h-8 rounded-lg cursor-pointer" style="background:var(--bg-input);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[9px] font-bold opacity-50 mb-1.5" style="color:var(--text-muted)">
+          <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+        </div>
+        <div id="rcm-cal-grade" class="grid grid-cols-7 gap-1"></div>
+        <div class="flex items-center justify-between mt-3 pt-3" style="border-top:1px solid var(--border-color)">
+          <button onclick="rcmCalHoje()" class="text-[10px] font-bold cursor-pointer" style="color:#f59e0b"><i class="fa-solid fa-calendar-day mr-1"></i>Hoje</button>
+          <button onclick="rcmCalFechar()" class="text-[10px] font-bold cursor-pointer opacity-60" style="color:var(--text-muted)">Fechar</button>
+        </div>
+      </div>
+    </div>`);
+  rcmCalRender();
+};
+
+function rcmCalRender(){
+  const g = el('rcm-cal-grade'), t = el('rcm-cal-titulo');
+  if (!g || !t) return;
+  t.textContent = `${RC_CAL_MESES[RC_CAL.mes]} ${RC_CAL.ano}`;
+  const primeiro = new Date(RC_CAL.ano, RC_CAL.mes, 1).getDay();
+  const dias = new Date(RC_CAL.ano, RC_CAL.mes + 1, 0).getDate();
+  const hojeIso = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+  let html = '';
+  for (let i = 0; i < primeiro; i++) html += '<span></span>';
+  for (let d = 1; d <= dias; d++){
+    const iso = `${RC_CAL.ano}-${String(RC_CAL.mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const selDia = iso === RC_CAL.sel, hojeDia = iso === hojeIso;
+    html += `<button onclick="rcmCalDia('${iso}')" class="aspect-square rounded-lg text-[11px] font-bold cursor-pointer" style="${selDia ? 'background:linear-gradient(135deg,#b45309,#f59e0b);color:#fff' : `background:${hojeDia ? 'rgba(245,158,11,.15)' : 'var(--bg-input)'};color:var(--text-main);${hojeDia ? 'outline:1px solid rgba(245,158,11,.5)' : ''}`}">${d}</button>`;
+  }
+  g.innerHTML = html;
+}
+window.rcmCalMes = function(dir){
+  RC_CAL.mes += dir;
+  if (RC_CAL.mes < 0){ RC_CAL.mes = 11; RC_CAL.ano--; }
+  if (RC_CAL.mes > 11){ RC_CAL.mes = 0; RC_CAL.ano++; }
+  rcmCalRender();
+};
+window.rcmCalDia = function(iso){
+  const txt = el('rcm-data');
+  const [a, m, d] = iso.split('-');
+  RC_CAL.sel = iso;
+  if (txt) txt.value = `${d}/${m}/${a}`;
+  F.rcData = txt?.value || '';
+  el('rcm-cal')?.remove();
   rcmRenderDoc();
   rcmAvisoSemana();
 };
+window.rcmCalHoje = function(){
+  const h = new Date();
+  rcmCalDia(`${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-${String(h.getDate()).padStart(2,'0')}`);
+};
+window.rcmCalFechar = () => el('rcm-cal')?.remove();
 
 /* ---------- Edição de lançamento (toque na linha) ---------- */
 window.rcmEditar = function(i){
