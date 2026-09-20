@@ -781,13 +781,14 @@ function rcRenderTela(){
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
-              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
+            <div id="rcm-aviso-semana" class="col-span-2"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
               <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
-              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc()")}</div>
+              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
           </div>
         </div>
         <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -824,6 +825,7 @@ function rcRenderTela(){
   rcmRenderLista();
   rcmAplicarModo();
   rcmCentral();
+  rcmAvisoSemana();
 }
 
 function rcmAcoesHtml(){
@@ -899,6 +901,7 @@ window.rcmMascaraData = function(inp){
   else inp.value = v;
   F.rcData = inp.value;
   rcmRenderDoc();
+  rcmAvisoSemana();
 };
 
 window.rcmToggleRecibo = function(){
@@ -980,6 +983,56 @@ function rcmColetar(){
   return rel;
 }
 
+/* Período de fechamento: mês/ano da data do relatório (ou campos mes/ano gravados).
+   Normaliza para MM/AAAA — mes pode vir como nome ("Setembro") ou número. */
+function rcmPeriodoChave(o){
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(o.data_relatorio || '').trim());
+  if (m) return m[2] + '/' + m[3];
+  const mi = MESES_ORD.findIndex(x => String(x).toLowerCase() === String(o.mes || '').toLowerCase());
+  const mm = mi >= 0 ? String(mi + 1).padStart(2, '0') : String(o.mes || '').padStart(2, '0');
+  return mm + '/' + String(o.ano || new Date().getFullYear());
+}
+
+/* Já existe relatório da mesma congregação + semana + período? (exceto o carregado) */
+async function rcmExisteSemana(rel){
+  try {
+    const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    const chave = rcmPeriodoChave(rel);
+    return (res?.relatorios || []).find(r =>
+      String(r.id) !== String(rel.id || '') &&
+      String(r.congregacao || '').trim().toLowerCase() === String(rel.congregacao || '').trim().toLowerCase() &&
+      String(r.semana || '') === String(rel.semana || '') &&
+      rcmPeriodoChave(r) === chave
+    ) || null;
+  } catch(e){ return null; }
+}
+
+/* Aviso ao vivo: semana já tem rascunho/enviado? */
+let _rcmAvisoSeq = 0;
+window.rcmAvisoSemana = async function(){
+  const seq = ++_rcmAvisoSeq;
+  const box = el('rcm-aviso-semana');
+  if (!box) return;
+  const hoje = new Date();
+  const rel = {
+    id: RC.id,
+    congregacao: el('rcm-congregacao')?.value || '',
+    semana: el('rcm-semana')?.value || '',
+    data_relatorio: el('rcm-data')?.value || '',
+    mes: MESES_ORD[hoje.getMonth()], ano: String(hoje.getFullYear()),
+  };
+  if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){ box.innerHTML = ''; return; }
+  const ex = await rcmExisteSemana(rel);
+  if (seq !== _rcmAvisoSeq) return;
+  const b2 = el('rcm-aviso-semana');
+  if (!b2) return;
+  if (!ex){ b2.innerHTML = ''; return; }
+  const env = ex.status === 'enviado';
+  b2.innerHTML = `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:${env ? 'rgba(16,185,129,.10)' : 'rgba(245,158,11,.10)'};color:${env ? '#10b981' : '#f59e0b'};border:1px solid ${env ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.25)'}"><i class="fa-solid ${env ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>${env
+    ? 'Esta semana já foi ENVIADA à central — ao gravar você poderá retificar'
+    : 'Já existe um RASCUNHO desta semana — ao gravar você poderá revisá-lo'}</div>`;
+};
+
 /* Marca o relatório carregado como enviado na central. */
 async function rcmEnviarAtual(){
   const r2 = await api('enviar_relatorio_caixa', { id: RC.id }, sessao()?.token);
@@ -995,6 +1048,19 @@ window.rcmSalvar = async function(enviar){
   if (!rel.data_relatorio){ toast('Informe a data do relatório.'); return; }
   const congFixa = rcCongFixa();
   if (congFixa && rel.congregacao !== congFixa){ toast(`Tesoureiro: relatório só pode ser da congregação ${congFixa}.`); return; }
+  /* Trava anti-duplicata: mesma congregação + semana + período já tem relatório? */
+  const existente = await rcmExisteSemana(rel);
+  if (existente){
+    if (existente.status === 'enviado'){
+      if (confirm(`A ${rel.semana} de "${rel.congregacao}" já foi ENVIADA à central.\n\nOK = abrir para retificar\nCancelar = voltar e escolher outra semana`)){
+        await rcmAbrir(existente.id);
+        if (RC.podeEditar) rcmCorrigir();
+      }
+    } else if (confirm(`Já existe um RASCUNHO da ${rel.semana} de "${rel.congregacao}" (${existente.data_relatorio || 'sem data'}).\n\nOK = abrir para revisar\nCancelar = voltar e escolher outra semana`)){
+      await rcmAbrir(existente.id);
+    }
+    return;
+  }
   try {
     const res = await api('salvar_relatorio_caixa', { relatorio: rel, autor_nome: sessao()?.usuario?.nome || '' }, sessao()?.token);
     if (!res?.ok) { toast(res?.erro || 'Falha ao salvar.'); return; }
