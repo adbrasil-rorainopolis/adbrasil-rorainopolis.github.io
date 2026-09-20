@@ -787,7 +787,6 @@ function rcRenderTela(){
   const congFixa = rcCongFixa();
   const hoje = new Date();
   const dataPadrao = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
-  const semEdicao = RC.somenteLeitura && !RC.podeEditar;
   const badge = RC.status === 'enviado'
     ? '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.35)"><i class="fa-solid fa-circle-check mr-0.5"></i>Enviado</span>'
     : '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.35)"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>Rascunho</span>';
@@ -796,19 +795,25 @@ function rcRenderTela(){
       ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório ${RC.status === 'enviado' ? 'enviado' : 'recebido'} — somente leitura${RC.podeEditar ? ' • toque em CORRIGIR para retificar' : ''}</div>` : ''}
       ${!RC.somenteLeitura && RC.status === 'enviado' && RC.id ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.3)"><i class="fa-solid fa-screwdriver-wrench"></i>Retificação — o relatório segue enviado; GRAVAR salva a nova versão</div>` : ''}
       <div class="flex items-center gap-2">
-        <div class="flex-1 grid grid-cols-2 gap-1 p-1 rounded-2xl border" style="background:var(--bg-input);border-color:var(--border-color)">
-          <button id="rcm-tab-editar" onclick="rcmModo('editar')" ${semEdicao ? 'disabled' : ''} class="py-2 rounded-xl text-[11px] font-extrabold cursor-pointer" style="color:${semEdicao ? 'var(--text-muted);opacity:.35;cursor:not-allowed' : 'var(--text-muted)'}"><i class="fa-solid fa-pen-to-square mr-1"></i>Editar</button>
-          <button id="rcm-tab-previa" onclick="rcmModo('previa')" class="py-2 rounded-xl text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-file-lines mr-1"></i>Prévia</button>
-        </div>
+        <div class="flex-1 grid grid-cols-5 gap-1.5">${rcmAcoesHtml()}</div>
         ${badge}
       </div>
-      <div class="grid grid-cols-3 gap-2">${rcmAcoesHtml()}</div>
+      <div id="rcm-orientacao" class="hidden rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.10);color:#38bdf8;border:1px solid rgba(56,189,248,.25)"></div>
       ${!RC.somenteLeitura && RC.id && RC.status === 'rascunho' ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.10);color:#f59e0b;border:1px solid rgba(245,158,11,.25)"><i class="fa-solid fa-circle-exclamation"></i>Gravado como rascunho — resta ENVIAR para a central receber</div>` : ''}
       <div id="rcm-view-editar" class="space-y-3">
+        <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-inbox mr-1"></i>Central de relatórios</p>
+            <button onclick="rcmCentral()" class="text-[10px] font-bold cursor-pointer opacity-70"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+          </div>
+          <div class="flex gap-1.5 mb-2" id="rcm-central-chips"></div>
+          <input id="rcm-central-busca" placeholder="Buscar congregação..." value="${esc(RC.centralBusca || '')}" oninput="RC.centralBusca=this.value;rcmCentralRender()" class="w-full px-2 py-1.5 mb-1 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <div id="rcm-central" style="max-height:230px;overflow-y:auto"><p class="text-[11px] opacity-50 py-3 text-center">Carregando…</p></div>
+        </div>
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
-              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria();rcmSugerirSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
             <div id="rcm-aviso-semana" class="col-span-2"></div>
@@ -848,18 +853,18 @@ function rcRenderTela(){
           <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
         </div>
       </div>
-      <div id="rcm-view-previa" class="hidden space-y-1.5">
+      <div id="rcm-view-previa" class="hidden space-y-2">
+        <div class="flex items-center gap-2">
+          ${!RC.somenteLeitura
+            ? `<button onclick="rcmModo('editar')" class="px-3 py-2 rounded-xl text-[10px] font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left mr-1"></i>Voltar à edição</button>`
+            : `<button onclick="rcmVoltar()" class="px-3 py-2 rounded-xl text-[10px] font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left mr-1"></i>Voltar</button>`}
+          <span class="text-[9px] opacity-50 flex-1 text-center">Espelho oficial — não precisa gravar antes</span>
+          <button onclick="rcmPdf()" class="px-3 py-2 rounded-xl text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0369a1,#38bdf8)"><i class="fa-solid fa-file-pdf mr-1"></i>Salvar PDF</button>
+        </div>
         <div class="border rounded-2xl p-2" style="background:var(--bg-card);border-color:var(--border-color);overflow-x:auto;-webkit-overflow-scrolling:touch">
           <div id="rcm-doc"></div>
         </div>
         <p class="text-[9px] opacity-40 text-center">Documento em tamanho de papel — deslize para o lado para conferir tudo</p>
-      </div>
-      <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-inbox mr-1"></i>Central de relatórios</p>
-          <button onclick="rcmCentral()" class="text-[10px] font-bold cursor-pointer opacity-70"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
-        </div>
-        <div id="rcm-central"><p class="text-[11px] opacity-50 py-3 text-center">Toque em Atualizar para listar.</p></div>
       </div>
     </div>${RCM_CSS}`;
   rcPopularCongregacoes();
@@ -879,11 +884,11 @@ function rcmAcoesHtml(){
     ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}
     ${B('rcmVoltar()', 'fa-arrow-rotate-left', 'VOLTAR', 'linear-gradient(135deg,#334155,#475569)')}`;
   return `
+    ${B('rcmNovo()', 'fa-file-circle-plus', 'NOVO', 'linear-gradient(135deg,#334155,#475569)')}
     ${B('rcmSalvar(false)', 'fa-floppy-disk', 'GRAVAR', 'linear-gradient(135deg,#047857,#10b981)')}
     ${B('rcmSalvar(true)', 'fa-paper-plane', 'ENVIAR', 'linear-gradient(135deg,#6d28d9,#8b5cf6)')}
-    ${B('rcmVisualizar()', 'fa-eye', 'VISUALIZAR', 'linear-gradient(135deg,#b45309,#f59e0b)')}
-    ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}
-    ${B('rcmNovo()', 'fa-file-circle-plus', 'NOVO', 'linear-gradient(135deg,#334155,#475569)')}`;
+    ${B("rcmModo('previa')", 'fa-eye', 'PRÉVIA', 'linear-gradient(135deg,#b45309,#f59e0b)')}
+    ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}`;
 }
 
 window.rcmModo = function(m){
@@ -901,10 +906,6 @@ function rcmAplicarModo(){
   const previa = RC.modo === 'previa' || RC.somenteLeitura;
   ed.classList.toggle('hidden', previa);
   pv.classList.toggle('hidden', !previa);
-  const te = el('rcm-tab-editar'), tp = el('rcm-tab-previa');
-  const ativo = 'linear-gradient(135deg,#b45309,#f59e0b)';
-  if (te){ te.style.background = !previa ? ativo : 'transparent'; te.style.color = !previa ? '#fff' : 'var(--text-muted)'; }
-  if (tp){ tp.style.background = previa ? ativo : 'transparent'; tp.style.color = previa ? '#fff' : 'var(--text-muted)'; }
   if (previa) rcmRenderDoc();
 }
 
@@ -1665,11 +1666,29 @@ window.rcmCentral = async function(){
   box.innerHTML = '<div class="flex items-center justify-center gap-2 py-4 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div>';
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
-    const lista = res?.relatorios || [];
-    if (!lista.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório na central.</p>'; return; }
-    const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
-    const admin = rcEhAdmin();
-    box.innerHTML = lista.map(r => {
+    RC.centralLista = res?.relatorios || [];
+    rcmCentralRender();
+  } catch(e){ box.innerHTML = `<p class="text-[11px] py-3 text-center" style="color:#f87171">${rcEsc(e.message || 'Falha ao carregar.')}</p>`; }
+};
+
+window.rcmCentralFiltro = function(f){ RC.centralFiltro = f; rcmCentralRender(); };
+
+window.rcmCentralRender = function(){
+  const box = el('rcm-central'); if (!box) return;
+  const lista = RC.centralLista || [];
+  const f = RC.centralFiltro || 'todos';
+  const nEnv = lista.filter(r => r.status === 'enviado').length;
+  const chips = el('rcm-central-chips');
+  if (chips){
+    const mk = (id, rot) => `<button onclick="rcmCentralFiltro('${id}')" class="px-2.5 py-1 rounded-full text-[9px] font-extrabold cursor-pointer" style="${f === id ? 'background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:#fff;border:1px solid transparent' : 'background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border-color)'}">${rot}</button>`;
+    chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`);
+  }
+  const busca = String(RC.centralBusca || '').trim().toLowerCase();
+  const fil = lista.filter(r => (f === 'todos' || r.status === f) && (!busca || String(r.congregacao || '').toLowerCase().includes(busca)));
+  if (!fil.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório neste filtro.</p>'; return; }
+  const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
+  const admin = rcEhAdmin();
+  box.innerHTML = fil.map(r => {
       const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin;
       const enviado = r.status === 'enviado';
       const badgeItem = enviado
@@ -1687,7 +1706,6 @@ window.rcmCentral = async function(){
         ${pode ? `<button onclick="rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
     }).join('');
-  } catch(e){ box.innerHTML = `<p class="text-[11px] py-3 text-center" style="color:#f87171">${rcEsc(e.message || 'Falha ao carregar.')}</p>`; }
 };
 
 window.rcmAbrir = async function(id){
@@ -1738,13 +1756,51 @@ window.rcmExcluir = async function(id){
 
 window.rcmVoltar = function(){ rcmNovo(); };
 
-window.rcmNovo = function(){
+window.rcmNovo = async function(){
   RC.lancamentos = []; RC.id = null; RC.status = 'rascunho';
   RC.somenteLeitura = false; RC.podeEditar = true; RC.modo = 'editar';
   RC.autor = ''; RC.gravadoEm = '';
-  RC.meta = { congregacao: '', conselho: '', data: '', semana: '2ª Semana' };
-  F.rcCongregacao = ''; F.rcData = ''; F.rcSemana = '2ª Semana';
+  RC.meta = { congregacao: '', conselho: '', data: '', semana: '1ª Semana' };
+  const congFixa = rcCongFixa();
+  F.rcCongregacao = congFixa || '';
+  const hoje = new Date();
+  F.rcData = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+  F.rcSemana = '1ª Semana';
   rcRenderTela();
+  const cong = String(el('rcm-congregacao')?.value || F.rcCongregacao || '').trim();
+  const sug = await rcmSugerirSemana();
+  const semTxt = sug && sug.prox !== '1ª Semana' ? ` Sugeri a <b>${sug.prox}</b> — próxima semana sem prestação de contas.` : '';
+  rcmOrientacao(`<i class="fa-solid fa-circle-info"></i><span>Novo relatório iniciado${cong ? ' para <b>' + rcEsc(cong) + '</b>' : ''}.${semTxt} Preencha os lançamentos, toque em <b>GRAVAR</b>, confira a <b>PRÉVIA</b> e depois <b>ENVIE</b>.</span>`);
+};
+
+window.rcmOrientacao = function(html){
+  const o = el('rcm-orientacao'); if (!o) return;
+  if (!html){ o.classList.add('hidden'); o.innerHTML = ''; return; }
+  o.innerHTML = html; o.classList.remove('hidden');
+};
+
+/* Sugere a primeira semana ainda não prestada para a congregação
+   selecionada (dentro do mês/ano da data do relatório). */
+window.rcmSugerirSemana = async function(){
+  if (RC.id) return null;
+  const cong = String(el('rcm-congregacao')?.value || F.rcCongregacao || '').trim();
+  if (!cong) return null;
+  const SEM = ['1ª Semana','2ª Semana','3ª Semana','4ª Semana','5ª Semana'];
+  try {
+    const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    const mm = String(el('rcm-data')?.value || F.rcData || '').substring(3);
+    const usadas = new Set((res?.relatorios || [])
+      .filter(r => String(r.congregacao || '').trim().toLowerCase() === cong.toLowerCase()
+               && (!mm || String(r.data_relatorio || '').substring(3) === mm))
+      .map(r => r.semana));
+    const prox = SEM.find(s => !usadas.has(s)) || '5ª Semana';
+    if (F.rcSemana !== prox){
+      F.rcSemana = prox;
+      const s = el('rcm-semana'); if (s) s.value = prox;
+      rcmRenderDoc(); rcmAvisoSemana();
+    }
+    return { prox };
+  } catch(e){ return null; }
 };
 
 /* depuração/testes */
