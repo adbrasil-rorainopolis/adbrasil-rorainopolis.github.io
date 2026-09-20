@@ -51,6 +51,7 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const moeda = v => brl(num(v));
 const cf = s => String(s ?? '').toLowerCase();
 function perfilConsultor(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'consultor'; }
+function perfilAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'administrador'; }
 function variacaoPct(atual, base){ if (base === null || base === undefined || Math.abs(num(base)) < EPS) return null; return +(((num(atual) - num(base)) / Math.abs(num(base))) * 100).toFixed(1); }
 function mediaArr(vals){ return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0; }
 /* np.polyfit(x, y, 1) equivalente: retorna [slope, intercept] */
@@ -775,7 +776,7 @@ window.renderGestao = function(){
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Gestão Unificada</h2><p class="text-[10px] opacity-60">BI financeiro, projeções e relatórios — mesmos cálculos do desktop</p></div>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
-        ${ABAS.map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
+        ${(perfilAdmin() ? [...ABAS, ['usuarios', 'Usuários', 'fa-user-shield', '#f43f5e']] : ABAS).map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
       </div>
       <div id="gestao-corpo"><div class="flex items-center justify-center gap-2.5 py-16 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando módulo…</div></div>
     </div>`;
@@ -789,6 +790,7 @@ window.gestaoAba = async function(aba){
     b.style.background = ativo ? 'var(--color-primary-light)' : 'var(--bg-card)';
     b.style.borderColor = ativo ? 'var(--color-primary)' : 'var(--border-color)';
   });
+  if (aba === 'usuarios') return renderAbaUsuarios();
   if (!G.periodos.length) G.periodos = await listarPeriodos();
   if (aba === 'cruzamento' || aba === 'indicadores' || aba === 'relatorios') renderAbaCruzamento();
   else if (aba === 'mensal') renderAbaMensal();
@@ -1270,6 +1272,303 @@ window.gestaoFecharModalDesp = () => {};
 window.gestaoSalvarDesp = () => { toast('Somente leitura.'); };
 window.gestaoRemoverDesp = () => { toast('Somente leitura.'); };
 window.gestaoQuitacao = (id, sem, on) => { alternarQuitacao(id, sem, on); gestaoFluxoCarregar(); };
+
+/* ===================== ABA 6 — Gestão de Usuários (Administrador) ===================== */
+const GU_STATUS = {
+  pendente:         { rot: 'Pendente',          cor: '#f59e0b', ico: 'fa-clock' },
+  email_confirmado: { rot: 'Aguarda aprovação', cor: '#38bdf8', ico: 'fa-envelope-circle-check' },
+  aprovado:         { rot: 'Aprovado',          cor: '#10b981', ico: 'fa-circle-check' },
+  bloqueado:        { rot: 'Bloqueado',         cor: '#ef4444', ico: 'fa-ban' },
+  inativo:          { rot: 'Inativo',           cor: '#94a3b8', ico: 'fa-circle-pause' },
+  recusado:         { rot: 'Recusado',          cor: '#f43f5e', ico: 'fa-circle-xmark' },
+};
+const GU_FILTROS = [['Todos','Todos'], ['Email_Confirmado','Aguardando'], ['Pendente','Pendentes'], ['Aprovado','Aprovados'], ['Bloqueado','Bloqueados'], ['Inativo','Inativos'], ['Recusado','Recusados']];
+const GU_LINK_BASE = 'https://cdaniel09917-design.github.io/sge/cadastro';
+const GU = { lista: null, filtro: 'Todos', busca: '', sub: 'usuarios', catalogo: null, acessos: null, linkCong: '' };
+const guApi = (action, payload) => api(action, payload, sessao()?.token);
+const guBadge = st => { const m = GU_STATUS[cf(st)] || { rot: st || '-', cor: '#64748b', ico: 'fa-circle' };
+  return `<span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider" style="color:${m.cor};background:${m.cor}1c;border:1px solid ${m.cor}55"><i class="fa-solid ${m.ico} mr-0.5"></i>${m.rot}</span>`; };
+const guFmtData = v => { const s = String(v || '').trim(); if (!s) return '-'; const d = new Date(s); return isNaN(d) ? s.slice(0, 10) : d.toLocaleDateString('pt-BR'); };
+
+function renderAbaUsuarios(){
+  const corpo = el('gestao-corpo');
+  corpo.innerHTML = `
+    <div class="flex gap-1.5 mb-3">
+      <button onclick="guSub('usuarios')" id="gu-tab-usuarios" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer"><i class="fa-solid fa-users-gear mr-1.5"></i>Usuários</button>
+      <button onclick="guSub('link')" id="gu-tab-link" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer"><i class="fa-solid fa-link mr-1.5"></i>Link de cadastro</button>
+    </div>
+    <div id="gu-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div></div>`;
+  guSub(GU.sub);
+}
+
+window.guSub = function(sub){
+  GU.sub = sub;
+  ['usuarios','link'].forEach(s => { const b = el(`gu-tab-${s}`); if (!b) return;
+    const on = s === sub;
+    b.style.background = on ? 'rgba(244,63,94,.12)' : 'var(--bg-card)';
+    b.style.borderColor = on ? '#f43f5e' : 'var(--border-color)';
+    b.style.color = on ? '#f43f5e' : 'var(--text-muted)';
+  });
+  if (sub === 'link') return guRenderLink();
+  if (GU.lista) return guRenderLista();
+  guCarregar();
+};
+
+async function guCarregar(){
+  const corpo = el('gu-corpo'); if (!corpo) return;
+  corpo.innerHTML = `<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando usuários…</div>`;
+  try {
+    const res = await guApi('listar_usuarios_admin', {});
+    GU.lista = res.dados || [];
+    guRenderLista();
+  } catch (e) {
+    corpo.innerHTML = `<div class="border rounded-2xl p-5 text-center" style="border-color:var(--border-color);background:var(--bg-card)">
+      <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl"></i>
+      <p class="text-xs mt-2 opacity-75">${esc(e.message || 'Falha ao carregar usuários.')}</p>
+      <button onclick="guCarregar()" class="mt-3 px-4 py-2 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#f43f5e">Tentar novamente</button></div>`;
+  }
+}
+window.guCarregar = guCarregar;
+
+function guRenderLista(){
+  const corpo = el('gu-corpo'); if (!corpo) return;
+  const lista = GU.lista || [];
+  const conta = k => lista.filter(u => cf(u.status) === k).length;
+  const kpis = `
+    <div class="grid grid-cols-4 gap-2 mb-3">
+      ${[['Aguardando', conta('email_confirmado'), '#38bdf8'], ['Pendentes', conta('pendente'), '#f59e0b'],
+         ['Aprovados', conta('aprovado'), '#10b981'], ['Bloq./Inat.', conta('bloqueado') + conta('inativo') + conta('recusado'), '#ef4444']]
+        .map(([r, v, c]) => `<div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)">
+          <p class="text-[9px] font-bold uppercase opacity-60">${r}</p><p class="text-base font-black tabular-nums" style="color:${c}">${v}</p></div>`).join('')}
+    </div>`;
+  const chips = `<div class="flex gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1" style="scrollbar-width:none">
+    ${GU_FILTROS.map(([v, t]) => `<button onclick="guFiltro('${v}')" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${GU.filtro === v ? '#f43f5e' : 'var(--border-color)'};background:${GU.filtro === v ? 'rgba(244,63,94,.12)' : 'var(--bg-card)'};color:${GU.filtro === v ? '#f43f5e' : 'var(--text-muted)'}">${t}</button>`).join('')}
+  </div>`;
+  const busca = `<div class="flex gap-2 mb-2.5">
+    <div class="flex-1 flex items-center gap-2 px-3 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
+      <i class="fa-solid fa-magnifying-glass text-[11px] opacity-50"></i>
+      <input id="gu-busca" value="${esc(GU.busca)}" oninput="guBuscar()" placeholder="Nome, CPF, e-mail…" class="flex-1 bg-transparent py-2 text-xs outline-none" style="color:var(--text-main)">
+    </div>
+    <button onclick="guCarregar()" class="px-3 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)" title="Atualizar"><i class="fa-solid fa-rotate text-xs"></i></button>
+  </div>`;
+
+  const q = cf(GU.busca);
+  const visiveis = lista.filter(u => {
+    if (GU.filtro !== 'Todos' && cf(u.status) !== cf(GU.filtro)) return false;
+    return !q || cf(`${u.cpf} ${u.nome} ${u.email} ${u.telefone}`).includes(q);
+  });
+  const cards = visiveis.length ? visiveis.map(u => `
+    <button onclick="guAbrir('${u.cpf}')" class="w-full text-left border rounded-2xl p-3 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-black text-xs" style="background:${(GU_STATUS[cf(u.status)] || {}).cor || '#64748b'}1c;color:${(GU_STATUS[cf(u.status)] || {}).cor || '#64748b'}">${esc((u.nome || '?').trim().charAt(0).toUpperCase())}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold truncate">${esc(u.nome)}${u.tesoureiro ? ' <i class="fa-solid fa-coins text-[9px] text-amber-500" title="Tesoureiro"></i>' : ''}</p>
+          <p class="text-[10px] opacity-60 font-mono">${esc(u.cpf)}</p>
+          <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">${guBadge(u.status)}<span class="text-[9px] font-bold uppercase tracking-wider opacity-55">${esc(u.perfil || 'Consultor')}</span></div>
+        </div>
+        <i class="fa-solid fa-chevron-right text-[10px] opacity-40 mt-3"></i>
+      </div>
+    </button>`).join('')
+    : `<div class="border rounded-2xl p-8 text-center text-xs opacity-60" style="border-color:var(--border-color)">Nenhum usuário neste filtro.</div>`;
+
+  corpo.innerHTML = kpis + chips + busca + `<div class="space-y-2">${cards}</div>
+    <p class="text-[9px] opacity-45 text-center pt-2">Toque no usuário para aprovar, bloquear, configurar acessos ou redefinir senha.</p>`;
+}
+
+window.guFiltro = v => { GU.filtro = v; guRenderLista(); };
+window.guBuscar = () => { GU.busca = el('gu-busca')?.value || ''; guRenderLista(); setTimeout(() => { const i = el('gu-busca'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 0); };
+
+/* ---------- Detalhe / ações do usuário ---------- */
+window.guAbrir = function(cpf){
+  const u = (GU.lista || []).find(x => x.cpf === cpf); if (!u) return;
+  const st = cf(u.status);
+  const linhaInfo = (rot, val) => `<div class="flex justify-between gap-3 py-1.5 border-b" style="border-color:var(--border-color)"><span class="text-[10px] uppercase font-bold opacity-55">${rot}</span><span class="text-[11px] font-semibold text-right">${esc(val || '-')}</span></div>`;
+  const podeAprovar = st === 'email_confirmado', podeRecusar = st === 'email_confirmado' || st === 'pendente';
+  const podeBloquear = st === 'aprovado', podeReativar = st === 'bloqueado' || st === 'inativo';
+  const podeReenviar = st === 'pendente';
+  const acaoBtn = (onclick, rot, ico, cor) => `<button onclick="${onclick}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:${cor}"><i class="fa-solid ${ico}"></i>${rot}</button>`;
+  const acaoBtnSec = (onclick, rot, ico, cor) => `<button onclick="${onclick}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:${cor}66;color:${cor};background:${cor}14"><i class="fa-solid ${ico}"></i>${rot}</button>`;
+
+  el('gestao-corpo').insertAdjacentHTML('beforeend', `
+    <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 pb-8 max-h-[88vh] overflow-y-auto" style="background:var(--bg-card)">
+        <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-11 h-11 rounded-full flex items-center justify-center font-black" style="background:${(GU_STATUS[st] || {}).cor || '#64748b'}1c;color:${(GU_STATUS[st] || {}).cor || '#64748b'}">${esc((u.nome || '?').charAt(0).toUpperCase())}</div>
+          <div class="flex-1 min-w-0"><p class="font-bold text-sm truncate">${esc(u.nome)}</p><div class="mt-1">${guBadge(u.status)}</div></div>
+          <button onclick="guFechar()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="border rounded-xl px-3 mb-3" style="border-color:var(--border-color)">
+          ${linhaInfo('CPF', u.cpf)}${linhaInfo('E-mail', u.email)}${linhaInfo('Telefone', u.telefone)}
+          ${linhaInfo('Perfil', u.perfil || 'Consultor')}${linhaInfo('Cadastro', guFmtData(u.criado))}
+          ${u.aprovado_em ? linhaInfo(`Decisão (${u.aprovado_por || 'admin'})`, guFmtData(u.aprovado_em)) : ''}
+          ${u.motivo ? linhaInfo('Motivo', u.motivo) : ''}
+          ${linhaInfo('Abrangência', u.resumo_acessos)}
+          ${u.tesoureiro ? linhaInfo('Tesoureiro de', u.congregacao_tesoureiro || 'sim') : ''}
+        </div>
+        ${podeAprovar ? `<div class="mb-3"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Perfil ao aprovar</span>
+          <select id="gu-perfil" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <option value="Consultor">Consultor — somente leitura</option>
+            <option value="Operador" selected>Operador — lança e edita</option>
+            <option value="Administrador">Administrador — acesso total</option>
+          </select></div>` : ''}
+        <div class="grid grid-cols-2 gap-2">
+          ${podeAprovar ? acaoBtn(`guStatus('${u.cpf}','Aprovado')`, 'Aprovar', 'fa-check', '#059669') : ''}
+          ${podeReativar ? acaoBtn(`guStatus('${u.cpf}','Aprovado')`, 'Reativar', 'fa-rotate-left', '#059669') : ''}
+          ${podeRecusar ? acaoBtnSec(`guStatus('${u.cpf}','Recusado')`, 'Recusar', 'fa-xmark', '#f43f5e') : ''}
+          ${podeBloquear ? acaoBtnSec(`guStatus('${u.cpf}','Bloqueado')`, 'Bloquear', 'fa-ban', '#ef4444') : ''}
+          ${podeBloquear ? acaoBtnSec(`guStatus('${u.cpf}','Inativo')`, 'Inativar', 'fa-circle-pause', '#94a3b8') : ''}
+          ${podeReenviar ? acaoBtnSec(`guReenviar('${u.cpf}')`, 'Reenviar código', 'fa-envelope', '#38bdf8') : ''}
+          ${acaoBtnSec(`guAcessos('${u.cpf}')`, 'Acessos & escopo', 'fa-shield-halved', '#8b5cf6')}
+          ${acaoBtnSec(`guSenha('${u.cpf}')`, 'Redefinir senha', 'fa-key', '#f59e0b')}
+        </div>
+      </div>
+    </div>`);
+};
+window.guFechar = () => el('gu-sheet')?.remove();
+
+window.guStatus = async function(cpf, status){
+  const u = (GU.lista || []).find(x => x.cpf === cpf);
+  let motivo = '', perfil = el('gu-perfil')?.value || '';
+  if (status === 'Recusado' || status === 'Bloqueado' || status === 'Inativo'){
+    const resp = prompt(`Motivo para marcar ${u?.nome || cpf} como ${status}:`);
+    if (resp === null) return;
+    motivo = resp;
+  } else if (!confirm(`${status === 'Aprovado' && cf(u?.status) === 'email_confirmado' ? 'Aprovar' : 'Reativar'} o cadastro de ${u?.nome || cpf}?`)) return;
+  try {
+    const res = await guApi('alterar_status_usuario', { cpf, status, perfil, motivo });
+    toast(res.mensagem || 'Status atualizado.');
+    guFechar(); guCarregar();
+  } catch (e) { toast(e.message || 'Falha ao alterar status.'); }
+};
+
+window.guReenviar = async function(cpf){
+  try {
+    const res = await api('reenviar_codigo_cadastro', { cpf });
+    toast(res.mensagem || 'Código reenviado.');
+  } catch (e) { toast(e.message || 'Falha ao reenviar.'); }
+};
+
+window.guSenha = async function(cpf){
+  const u = (GU.lista || []).find(x => x.cpf === cpf);
+  const senha = prompt(`Nova senha para ${u?.nome || cpf} (mín. 6 caracteres):`);
+  if (senha === null) return;
+  if (senha.trim().length < 6) return toast('Senha muito curta (mín. 6).');
+  try {
+    const res = await guApi('redefinir_senha_admin', { cpf, nova_senha: senha.trim() });
+    toast(res.mensagem || 'Senha redefinida.');
+  } catch (e) { toast(e.message || 'Falha ao redefinir senha.'); }
+};
+
+/* ---------- Sheet de acessos & escopo ---------- */
+window.guAcessos = async function(cpf){
+  try {
+    if (!GU.catalogo) GU.catalogo = await guApi('catalogo_acessos_admin', {});
+    GU.acessos = await guApi('obter_acessos_admin', { cpf });
+    GU.acessos.cpf = cpf;
+  } catch (e) { return toast(e.message || 'Falha ao carregar acessos.'); }
+  const a = GU.acessos, cat = GU.catalogo;
+  const chip = (grupo, val, marcado) => `<button type="button" onclick="guToggle(this)" data-grupo="${grupo}" data-valor="${esc(val)}" data-on="${marcado ? 1 : 0}" class="gu-chip px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${marcado ? '#8b5cf6' : 'var(--border-color)'};background:${marcado ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${marcado ? '#a78bfa' : 'var(--text-muted)'}">${esc(val)}</button>`;
+  const modulosMarcados = new Set((a.permissoes || []).map(p => p.modulo));
+  guFechar();
+  el('gestao-corpo').insertAdjacentHTML('beforeend', `
+    <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 pb-8 max-h-[88vh] overflow-y-auto" style="background:var(--bg-card)">
+        <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-shield-halved text-violet-400"></i>
+          <p class="font-bold text-sm flex-1">Acessos de ${esc(a.nome || cpf)}</p>
+          <button onclick="guFechar()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Papel base</span>
+            <select id="gu-ac-papel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${['Consultor','Operador','Administrador'].map(p => `<option value="${p}" ${a.perfil === p ? 'selected' : ''}>${p}</option>`).join('')}
+            </select></div>
+          <div class="border rounded-xl p-3" style="border-color:var(--border-color)">
+            <label class="flex items-center gap-2 text-xs font-bold cursor-pointer"><input type="checkbox" id="gu-ac-tes" ${a.tesoureiro ? 'checked' : ''} onchange="guTesoureiro()" class="w-4 h-4 accent-amber-500"> É tesoureiro (Relatório de Caixa)</label>
+            <div id="gu-ac-tes-cong" class="mt-2 ${a.tesoureiro ? '' : 'hidden'}">
+              <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação fixa do tesoureiro</span>
+              <select id="gu-ac-tes-sel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+                <option value="">— selecione —</option>
+                ${(cat.congregacoes || []).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
+              </select></div>
+          </div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Conselhos <span class="normal-case font-medium opacity-70">(vazio = todos)</span></span>
+            <div class="flex flex-wrap gap-1.5">${(cat.conselhos || []).map(c => chip('conselhos', c, a.conselhos.includes(c))).join('') || '<span class="text-[10px] opacity-50">Nenhum conselho cadastrado</span>'}</div></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Congregações <span class="normal-case font-medium opacity-70">(vazio = todas)</span></span>
+            <div class="flex flex-wrap gap-1.5">${(cat.congregacoes || []).map(c => chip('congregacoes', c.nome, a.congregacoes.includes(c.nome))).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação ativa</span>'}</div></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Módulos liberados <span class="normal-case font-medium opacity-70">(sem nenhum = acesso legado total)</span></span>
+            <div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div></div>
+          <button onclick="guSalvarAcessos('${cpf}')" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Gravar acessos</button>
+        </div>
+      </div>
+    </div>`);
+};
+window.guToggle = btn => {
+  const on = btn.dataset.on !== '1';
+  btn.dataset.on = on ? '1' : '0';
+  btn.style.borderColor = on ? '#8b5cf6' : 'var(--border-color)';
+  btn.style.background = on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)';
+  btn.style.color = on ? '#a78bfa' : 'var(--text-muted)';
+};
+window.guTesoureiro = () => el('gu-ac-tes-cong')?.classList.toggle('hidden', !el('gu-ac-tes')?.checked);
+window.guSalvarAcessos = async function(cpf){
+  const marcados = g => [...document.querySelectorAll(`.gu-chip[data-grupo="${g}"][data-on="1"]`)].map(b => b.dataset.valor);
+  const tes = !!el('gu-ac-tes')?.checked;
+  try {
+    const res = await guApi('salvar_acessos_admin', {
+      cpf, papel: el('gu-ac-papel')?.value || 'Consultor',
+      conselhos: marcados('conselhos'), congregacoes: marcados('congregacoes'),
+      permissoes: marcados('modulos').map(m => ({ modulo: m, aba: '*', acao: '*' })),
+      tesoureiro: tes, congregacao_tesoureiro: tes ? (el('gu-ac-tes-sel')?.value || '') : '',
+    });
+    toast(res.mensagem || 'Acessos gravados.');
+    guFechar(); guCarregar();
+  } catch (e) { toast(e.message || 'Falha ao gravar acessos.'); }
+};
+
+/* ---------- Gerador de link de cadastro ---------- */
+async function guRenderLink(){
+  const corpo = el('gu-corpo'); if (!corpo) return;
+  try { if (!GU.catalogo) GU.catalogo = await guApi('catalogo_acessos_admin', {}); }
+  catch (e) { corpo.innerHTML = `<p class="text-xs text-center opacity-60 py-10">${esc(e.message)}</p>`; return; }
+  const congs = (GU.catalogo.congregacoes || []).map(c => c.nome);
+  corpo.innerHTML = `
+    <div class="border rounded-2xl p-4 space-y-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(56,189,248,.12)"><i class="fa-solid fa-link text-sky-400"></i></div>
+        <div><p class="text-xs font-bold">Link de cadastro externo</p><p class="text-[10px] opacity-60">Envie pelo WhatsApp — a pessoa se cadastra e você aprova aqui.</p></div>
+      </div>
+      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação de origem (opcional)</span>
+        <select id="gu-link-cong" onchange="guLinkMuda()" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <option value="">— Link genérico (sem congregação) —</option>
+          ${congs.map(c => `<option value="${esc(c)}" ${c === GU.linkCong ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        </select></div>
+      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Link gerado</span>
+        <input id="gu-link-txt" readonly value="${esc(GU_LINK_BASE)}" class="w-full px-3 py-2.5 rounded-xl border text-[11px] font-mono" style="background:var(--bg-input);border-color:var(--border-color);color:#38bdf8"></div>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="guLinkCopiar()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-copy mr-1"></i>Copiar</button>
+        <button onclick="guLinkWhats()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-brands fa-whatsapp mr-1"></i>WhatsApp</button>
+        <button onclick="window.open(el('gu-link-txt').value,'_blank')" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Abrir</button>
+      </div>
+      <p class="text-[9px] opacity-45 leading-relaxed">O link genérico cadastra sem congregação de origem. Com congregação, o cadastro já nasce vinculado a ela.</p>
+    </div>`;
+  guLinkMuda();
+}
+window.guLinkMuda = () => {
+  GU.linkCong = el('gu-link-cong')?.value || '';
+  const txt = el('gu-link-txt'); if (txt) txt.value = GU_LINK_BASE + (GU.linkCong ? `?c=${encodeURIComponent(GU.linkCong)}` : '');
+};
+window.guLinkCopiar = async () => {
+  const v = el('gu-link-txt')?.value || GU_LINK_BASE;
+  try { await navigator.clipboard.writeText(v); toast('Link copiado!'); }
+  catch { const i = el('gu-link-txt'); i?.select(); document.execCommand('copy'); toast('Link copiado!'); }
+};
+window.guLinkWhats = () => {
+  const v = el('gu-link-txt')?.value || GU_LINK_BASE;
+  window.open(`https://wa.me/?text=${encodeURIComponent('Cadastre-se no SGE AD Brasil pelo link: ' + v)}`, '_blank');
+};
 
 /* API de depuração/testes */
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
