@@ -1468,38 +1468,40 @@ window.guAcessos = async function(cpf){
     GU.acessos.cpf = cpf;
   } catch (e) { return toast(e.message || 'Falha ao carregar acessos.'); }
   const a = GU.acessos, cat = GU.catalogo;
-  const chip = (grupo, val, marcado) => `<button type="button" onclick="guToggle(this)" data-grupo="${grupo}" data-valor="${esc(val)}" data-on="${marcado ? 1 : 0}" class="gu-chip px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${marcado ? '#8b5cf6' : 'var(--border-color)'};background:${marcado ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${marcado ? '#a78bfa' : 'var(--text-muted)'}">${esc(val)}</button>`;
+  const chip = (grupo, val, marcado) => `<button type="button" onclick="guToggle(this)" data-grupo="${grupo}" data-valor="${esc(val)}" data-on="${marcado ? 1 : 0}" class="gu-chip px-2.5 py-2 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${marcado ? '#8b5cf6' : 'var(--border-color)'};background:${marcado ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${marcado ? '#a78bfa' : 'var(--text-muted)'}"><i class="fa-solid fa-check mr-1 gu-chip-ck${marcado ? '' : ' hidden'}"></i>${esc(val)}</button>`;
   const modulosMarcados = new Set((a.permissoes || []).map(p => p.modulo));
+  const secao = (rot, hint, inner) => `<div class="border rounded-xl p-3" style="border-color:var(--border-color)">
+    <p class="text-[10px] font-bold uppercase opacity-60 mb-0.5">${rot}</p>
+    <p class="text-[9px] opacity-50 mb-2">${hint}</p>${inner}</div>`;
   guFechar();
   el('gestao-corpo').insertAdjacentHTML('beforeend', `
     <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
       <div class="w-full max-w-lg rounded-t-3xl p-4 pb-8 max-h-[88vh] overflow-y-auto" style="background:var(--bg-card)">
         <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
-        <div class="flex items-center gap-2 mb-3">
+        <div class="flex items-center gap-2 mb-1">
           <i class="fa-solid fa-shield-halved text-violet-400"></i>
           <p class="font-bold text-sm flex-1">Acessos de ${esc(a.nome || cpf)}</p>
           <button onclick="guFechar()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
         </div>
+        <p class="text-[10px] opacity-60 mb-3">Toque nos itens para marcar/desmarcar o que este usuário pode ver e operar.</p>
         <div class="space-y-3">
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Papel base</span>
-            <select id="gu-ac-papel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          ${secao('Papel (hierarquia)', 'Consultor lê • Operador lança/edita • Administrador tem acesso total',
+            `<select id="gu-ac-papel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
               ${['Consultor','Operador','Administrador'].map(p => `<option value="${p}" ${a.perfil === p ? 'selected' : ''}>${p}</option>`).join('')}
-            </select></div>
-          <div class="border rounded-xl p-3" style="border-color:var(--border-color)">
-            <label class="flex items-center gap-2 text-xs font-bold cursor-pointer"><input type="checkbox" id="gu-ac-tes" ${a.tesoureiro ? 'checked' : ''} onchange="guTesoureiro()" class="w-4 h-4 accent-amber-500"> É tesoureiro (Relatório de Caixa)</label>
+            </select>`)}
+          ${secao('Tesouraria', 'Se marcado, o usuário lança o Relatório de Caixa da congregação fixa',
+            `<label class="flex items-center gap-2 text-xs font-bold cursor-pointer"><input type="checkbox" id="gu-ac-tes" ${a.tesoureiro ? 'checked' : ''} onchange="guTesoureiro()" class="w-4 h-4 accent-amber-500"> É tesoureiro (Relatório de Caixa)</label>
             <div id="gu-ac-tes-cong" class="mt-2 ${a.tesoureiro ? '' : 'hidden'}">
-              <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação fixa do tesoureiro</span>
               <select id="gu-ac-tes-sel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-                <option value="">— selecione —</option>
+                <option value="">— selecione a congregação —</option>
                 ${(cat.congregacoes || []).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
-              </select></div>
-          </div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Conselhos <span class="normal-case font-medium opacity-70">(vazio = todos)</span></span>
-            <div class="flex flex-wrap gap-1.5">${(cat.conselhos || []).map(c => chip('conselhos', c, a.conselhos.includes(c))).join('') || '<span class="text-[10px] opacity-50">Nenhum conselho cadastrado</span>'}</div></div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Congregações <span class="normal-case font-medium opacity-70">(vazio = todas)</span></span>
-            <div class="flex flex-wrap gap-1.5">${(cat.congregacoes || []).map(c => chip('congregacoes', c.nome, a.congregacoes.includes(c.nome))).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação ativa</span>'}</div></div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1.5">Módulos liberados <span class="normal-case font-medium opacity-70">(sem nenhum = acesso legado total)</span></span>
-            <div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div></div>
+              </select></div>`)}
+          ${secao('Conselhos visíveis', 'Nada marcado = todos os conselhos',
+            `<div class="flex flex-wrap gap-1.5">${(cat.conselhos || []).map(c => chip('conselhos', c, a.conselhos.includes(c))).join('') || '<span class="text-[10px] opacity-50">Nenhum conselho cadastrado</span>'}</div>`)}
+          ${secao('Congregações visíveis', 'Nada marcado = todas as congregações',
+            `<div class="flex flex-wrap gap-1.5">${(cat.congregacoes || []).map(c => chip('congregacoes', c.nome, a.congregacoes.includes(c.nome))).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação ativa</span>'}</div>`)}
+          ${secao('Módulos liberados', 'Nada marcado = acesso legado (todos os módulos)',
+            `<div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div>`)}
           <button onclick="guSalvarAcessos('${cpf}')" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Gravar acessos</button>
         </div>
       </div>
@@ -1511,6 +1513,7 @@ window.guToggle = btn => {
   btn.style.borderColor = on ? '#8b5cf6' : 'var(--border-color)';
   btn.style.background = on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)';
   btn.style.color = on ? '#a78bfa' : 'var(--text-muted)';
+  btn.querySelector('.gu-chip-ck')?.classList.toggle('hidden', !on);
 };
 window.guTesoureiro = () => el('gu-ac-tes-cong')?.classList.toggle('hidden', !el('gu-ac-tes')?.checked);
 window.guSalvarAcessos = async function(cpf){

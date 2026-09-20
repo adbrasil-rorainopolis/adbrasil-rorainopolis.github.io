@@ -226,11 +226,14 @@
         <div id="mi-bio-desativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="desativarBio()">
           <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-danger);"></i> Desativar digital/FaceID
         </div>
+        <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="irGestaoUsuarios()">
+          <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Gestão de Usuários
+        </div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="sairEFechar()">
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.21</span>
+          <span>SGE Mobile · v1.22</span>
         </div>
       </div>
     </div>
@@ -415,6 +418,8 @@ async function atualizarMenuBio(){
   const tem = !!bioCred()?.id;
   desativar.classList.toggle('hidden', !tem);
   ativar.classList.toggle('hidden', tem || !(await bioDisponivel()));
+  const guMi = $('mi-gestao-usuarios');
+  if (guMi) guMi.classList.toggle('hidden', String(sessao()?.usuario?.perfil || '').toLowerCase() !== 'administrador');
 }
 async function atualizarAgora(){
   fecharMenuEngrenagem();
@@ -425,6 +430,12 @@ async function atualizarAgora(){
   location.reload(true);
 }
 function fecharMenuEngrenagem(){ $('menu-engrenagem').classList.add('hidden'); }
+function irGestaoUsuarios(){
+  fecharMenuEngrenagem();
+  if (window.SGEG) SGEG.G.aba = 'usuarios';
+  if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('usuarios');
+  else mudarVisao('gestao');
+}
 document.addEventListener('click', (e) => {
   const menu = $('menu-engrenagem'), btn = $('btn-engrenagem');
   if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) fecharMenuEngrenagem();
