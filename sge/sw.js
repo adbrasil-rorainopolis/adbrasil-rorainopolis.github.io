@@ -1,6 +1,6 @@
-const CACHE = 'sge-pwa-v23';
+const CACHE = 'sge-pwa-v24';
 const SHELL = ['./', './index.html', './gestao.js',
-  './financas.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png'];
+  './financas.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png', './icons/cabecalho_ad_brasil.png'];
 
 self.addEventListener('install', (e) => {
   // cache: 'reload' ignora o HTTP cache do Pages — o precache sempre baixa a versao publicada

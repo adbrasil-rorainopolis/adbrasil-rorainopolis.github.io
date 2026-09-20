@@ -662,8 +662,48 @@ const RC_TITULOS = {
   'DIZIMOS': 'DÍZIMOS', 'DIZIMOS - TB': 'DÍZIMOS PIX',
   'SAIDAS': 'SAÍDAS', 'SAIDAS - TB': 'SAÍDAS PIX',
 };
+const RC_SECOES = RC_TIPOS.map(t => ({ tipo: t, titulo: RC_TITULOS[t] }));
+const RC_VERIFICA_URL = 'https://cdaniel09917-design.github.io/sge/verificar.html';
+const RCM_CSS = `<style>
+.rcm-doc{font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#000;background:#fff;border:1px solid #000;min-width:540px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:8px;overflow:hidden;position:relative}
+.rcm-doc table{border-collapse:collapse;width:100%}
+.rcm-doc th,.rcm-doc td{border:1px solid #000;padding:2px 4px}
+.rcm-doc .rcm-head{border:1px solid #000;padding:0;background:#fff}
+.rcm-doc .rcm-timbrado{display:block;margin:0 auto;max-width:100%;max-height:78px;object-fit:contain;padding:4px 8px 3px;background:#fff}
+.rcm-doc .rcm-head-flex{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 6px;border-bottom:1px solid #000}
+.rcm-doc .rcm-title{font-size:13px;font-weight:bold;letter-spacing:1.2px;border:1px solid #000;padding:3px 10px;background:#e6e6e6;color:#000;white-space:nowrap}
+.rcm-doc .rcm-meta-box{display:flex;border:1px solid #000}
+.rcm-doc .rcm-meta-item{padding:3px 8px;text-align:center;border-right:1px solid #000;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.rcm-doc .rcm-meta-item:last-child{border-right:none}
+.rcm-doc .rcm-meta-label{font-size:6.5px;font-weight:bold;letter-spacing:.5px;color:#333}
+.rcm-doc .rcm-meta-val{font-size:9.5px;font-weight:bold;text-align:center;white-space:nowrap}
+.rcm-doc .rcm-cong{text-align:center;padding:3px;background:#e6e6e6;font-weight:bold;font-size:10px;letter-spacing:.8px;color:#000}
+.rcm-doc .rcm-cols th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px}
+.rcm-doc td{height:14px;font-size:9px}
+.rcm-doc .rcm-sec{background:#ececec;font-weight:bold;text-align:center;letter-spacing:1px;font-size:8px}
+.rcm-doc .rcm-sub{background:#f2f2f2;font-weight:bold;text-align:right;font-size:8px}
+.rcm-doc .rcm-subt th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px 4px}
+.rcm-doc .rcm-subt td{font-size:8px}
+.rcm-doc .rcm-totais{display:flex;justify-content:space-between;gap:4%;padding:7px;border:1px solid #000;border-top:none}
+.rcm-doc .rcm-saldo{background:#e6e6e6!important;color:#000!important;font-weight:bold}
+.rcm-doc .rcm-visto{display:flex;flex-direction:column;height:64px;border:1px solid #000;margin-top:7px}
+.rcm-doc .rcm-visto>div{padding:3px 5px;font-weight:bold;font-size:7px;letter-spacing:.5px;position:relative;flex:1}
+.rcm-doc .rcm-visto-caixa{border-bottom:1px solid #000}
+.rcm-doc .rcm-visto>div::after{content:'';position:absolute;left:6px;right:6px;bottom:5px;border-bottom:1px solid #000}
+.rcm-doc .rcm-verifica{display:flex;align-items:center;gap:8px;border:1px solid #000;border-top:none;padding:5px 8px;background:#fff}
+.rcm-doc .rcm-verifica canvas,.rcm-doc .rcm-verifica img{width:56px!important;height:56px!important}
+.rcm-doc .rcm-hash{font-size:6.5px;letter-spacing:.4px;color:#333;line-height:1.5;word-break:break-all}
+.rcm-doc .rcm-hash b{font-size:7px}
+.rcm-doc .rcm-rodape{padding:4px 8px;border:1px solid #000;border-top:none;text-align:center;font-size:6.5px;letter-spacing:1px;color:#555;background:#f7f7f7}
+.rcm-doc .rcm-marca{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:5;overflow:hidden}
+.rcm-doc .rcm-marca span{font-size:44px;font-weight:bold;letter-spacing:6px;transform:rotate(-28deg);white-space:nowrap}
+.rcm-doc .rcm-marca.rcm-m-rascunho{display:flex}
+.rcm-doc .rcm-marca.rcm-m-rascunho span{color:rgba(120,120,120,.10)}
+.rcm-doc .rcm-marca.rcm-m-enviado{display:flex}
+.rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
+</style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, abaCentral: false };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, podeEditar: true, modo: 'editar', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
 
 function rcDadosUsuario(){
   const u = sessao()?.usuario || {};
@@ -680,6 +720,33 @@ function rcCongFixa(){ const d = rcDadosUsuario(); return (d.tesoureiro && !d.ad
 const rcMoeda = v => moeda(v);
 const rcEsc = esc;
 
+/* djb2 — mesmo fallback do verificador (verificar.html) */
+function rcmHashSync(texto){
+  let h = 5381;
+  for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) >>> 0;
+  return h.toString(16).toUpperCase().padStart(8, '0');
+}
+async function rcmHashVerificacao(texto){
+  try {
+    if (crypto?.subtle){
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16).toUpperCase();
+    }
+  } catch(e){}
+  return rcmHashSync(texto);
+}
+
+function rcmTotais(){
+  const t = { ent: 0, sai: 0, entDin: 0, entTB: 0, saiDin: 0, saiTB: 0, saldo: 0 };
+  RC.lancamentos.forEach(l => {
+    const sai = l.tipo.includes('SAIDAS'), tb = l.tipo.includes('TB');
+    if (sai){ t.sai += l.valor; tb ? t.saiTB += l.valor : t.saiDin += l.valor; }
+    else { t.ent += l.valor; tb ? t.entTB += l.valor : t.entDin += l.valor; }
+  });
+  t.saldo = t.ent - t.sai;
+  return t;
+}
+
 async function rcCarregarCongregacoes(){
   if (RC.congs) return RC.congs;
   try {
@@ -690,48 +757,60 @@ async function rcCarregarCongregacoes(){
 }
 
 function rcRenderTela(){
-  const u = sessao()?.usuario || {};
   const congFixa = rcCongFixa();
   const hoje = new Date();
   const dataPadrao = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+  const semEdicao = RC.somenteLeitura && !RC.podeEditar;
+  const badge = RC.status === 'enviado'
+    ? '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">Enviado</span>'
+    : '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)">Rascunho</span>';
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
-      ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório recebido — somente leitura</div>` : ''}
-      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="grid grid-cols-2 gap-2">
-          <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
-            <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
-            ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
+      ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório ${RC.status === 'enviado' ? 'enviado' : 'recebido'} — somente leitura${RC.podeEditar ? ' • toque em CORRIGIR para retificar' : ''}</div>` : ''}
+      ${!RC.somenteLeitura && RC.status === 'enviado' && RC.id ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.3)"><i class="fa-solid fa-screwdriver-wrench"></i>Retificação — o relatório segue enviado; GRAVAR salva a nova versão</div>` : ''}
+      <div class="flex items-center gap-2">
+        <div class="flex-1 grid grid-cols-2 gap-1 p-1 rounded-2xl border" style="background:var(--bg-input);border-color:var(--border-color)">
+          <button id="rcm-tab-editar" onclick="rcmModo('editar')" ${semEdicao ? 'disabled' : ''} class="py-2 rounded-xl text-[11px] font-extrabold cursor-pointer" style="color:${semEdicao ? 'var(--text-muted);opacity:.35;cursor:not-allowed' : 'var(--text-muted)'}"><i class="fa-solid fa-pen-to-square mr-1"></i>Editar</button>
+          <button id="rcm-tab-previa" onclick="rcmModo('previa')" class="py-2 rounded-xl text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-file-lines mr-1"></i>Prévia</button>
+        </div>
+        ${badge}
+      </div>
+      <div class="grid grid-cols-3 gap-2">${rcmAcoesHtml()}</div>
+      <div id="rcm-view-editar" class="space-y-3">
+        <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="grid grid-cols-2 gap-2">
+            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
+              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
+            </div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
+              <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
+              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc()")}</div>
           </div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
-            <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
-            ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value")}</div>
+        </div>
+        <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+          <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
+          ${selF('rcm-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), null, "rcmToggleRecibo()")}
+          <div class="grid grid-cols-2 gap-2">
+            <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input id="rcm-valor" type="number" step="0.01" min="0" placeholder="Valor (R$)" inputmode="decimal" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          </div>
+          <input id="rcm-descricao" placeholder="Descrição / Histórico" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
+        </div>
+        <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+          <p class="text-[10px] font-bold uppercase opacity-60 mb-2">Movimento do caixa</p>
+          <div id="rcm-lista"></div>
+          <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
         </div>
       </div>
-      ${!RC.somenteLeitura ? `
-      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
-        <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
-        ${selF('rcm-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), null, "rcmToggleRecibo()")}
-        <div class="grid grid-cols-2 gap-2">
-          <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-          <input id="rcm-valor" type="number" step="0.01" min="0" placeholder="Valor (R$)" inputmode="decimal" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      <div id="rcm-view-previa" class="hidden space-y-1.5">
+        <div class="border rounded-2xl p-2" style="background:var(--bg-card);border-color:var(--border-color);overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <div id="rcm-doc"></div>
         </div>
-        <input id="rcm-descricao" placeholder="Descrição / Histórico" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
-      </div>` : ''}
-      <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
-        <p class="text-[10px] font-bold uppercase opacity-60 mb-2">Movimento do caixa</p>
-        <div id="rcm-lista"></div>
-        <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
+        <p class="text-[9px] opacity-40 text-center">Documento em tamanho de papel — deslize para o lado para conferir tudo</p>
       </div>
-      ${!RC.somenteLeitura ? `
-      <div class="grid grid-cols-3 gap-2">
-        <button onclick="rcmSalvar(false)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1"></i>Rascunho</button>
-        <button onclick="rcmSalvar(true)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0284c7,#38bdf8)"><i class="fa-solid fa-paper-plane mr-1"></i>Enviar</button>
-        <button onclick="rcmNovo()" class="py-2.5 rounded-xl text-xs font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-file-circle-plus mr-1"></i>Novo</button>
-      </div>` : `
-      <button onclick="rcmVoltar()" class="w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer border" style="border-color:var(--border-color)"><i class="fa-solid fa-arrow-left mr-1.5"></i>Voltar à central</button>`}
       <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-center justify-between mb-2">
           <p class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-inbox mr-1"></i>Central de relatórios</p>
@@ -739,11 +818,61 @@ function rcRenderTela(){
         </div>
         <div id="rcm-central"><p class="text-[11px] opacity-50 py-3 text-center">Toque em Atualizar para listar.</p></div>
       </div>
-    </div>`;
+    </div>${RCM_CSS}`;
   rcPopularCongregacoes();
   rcmRenderLista();
+  rcmAplicarModo();
   rcmCentral();
 }
+
+function rcmAcoesHtml(){
+  const B = (fn, icone, rotulo, cor) =>
+    `<button onclick="${fn}" class="py-2.5 rounded-xl text-[10px] font-extrabold text-white cursor-pointer flex flex-col items-center justify-center gap-1" style="background:${cor}"><i class="fa-solid ${icone} text-sm"></i><span>${rotulo}</span></button>`;
+  if (RC.somenteLeitura) return `
+    ${RC.podeEditar ? B('rcmCorrigir()', 'fa-screwdriver-wrench', 'CORRIGIR', 'linear-gradient(135deg,#c2410c,#ea580c)') : ''}
+    ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}
+    ${B('rcmVoltar()', 'fa-arrow-rotate-left', 'VOLTAR', 'linear-gradient(135deg,#334155,#475569)')}`;
+  return `
+    ${B('rcmSalvar(false)', 'fa-floppy-disk', 'GRAVAR', 'linear-gradient(135deg,#047857,#10b981)')}
+    ${B('rcmSalvar(true)', 'fa-paper-plane', 'ENVIAR', 'linear-gradient(135deg,#6d28d9,#8b5cf6)')}
+    ${B('rcmVisualizar()', 'fa-eye', 'VISUALIZAR', 'linear-gradient(135deg,#b45309,#f59e0b)')}
+    ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}
+    ${B('rcmNovo()', 'fa-file-circle-plus', 'NOVO', 'linear-gradient(135deg,#334155,#475569)')}`;
+}
+
+window.rcmModo = function(m){
+  if (m === 'editar' && RC.somenteLeitura){
+    if (RC.podeEditar) return rcmCorrigir();
+    return;
+  }
+  RC.modo = m;
+  rcmAplicarModo();
+};
+
+function rcmAplicarModo(){
+  const ed = el('rcm-view-editar'), pv = el('rcm-view-previa');
+  if (!ed || !pv) return;
+  const previa = RC.modo === 'previa' || RC.somenteLeitura;
+  ed.classList.toggle('hidden', previa);
+  pv.classList.toggle('hidden', !previa);
+  const te = el('rcm-tab-editar'), tp = el('rcm-tab-previa');
+  const ativo = 'linear-gradient(135deg,#b45309,#f59e0b)';
+  if (te){ te.style.background = !previa ? ativo : 'transparent'; te.style.color = !previa ? '#fff' : 'var(--text-muted)'; }
+  if (tp){ tp.style.background = previa ? ativo : 'transparent'; tp.style.color = previa ? '#fff' : 'var(--text-muted)'; }
+  if (previa) rcmRenderDoc();
+}
+
+window.rcmVisualizar = function(){ rcmModo('previa'); };
+
+/* Relatório enviado: reabre edição — salvar_relatorio_caixa permite ao
+   autor/admin gravar nova versão mantendo o status 'enviado' (retificação). */
+window.rcmCorrigir = function(){
+  if (!RC.podeEditar){ toast('Somente o autor ou um administrador pode corrigir este relatório.'); return; }
+  RC.somenteLeitura = false;
+  RC.modo = 'editar';
+  toast('Retificação: ajuste os lançamentos e toque em GRAVAR.');
+  rcRenderTela();
+};
 
 async function rcPopularCongregacoes(){
   const sel = el('rcm-congregacao');
@@ -768,6 +897,7 @@ window.rcmMascaraData = function(inp){
   else if (v.length >= 3) inp.value = v.substring(0,2)+'/'+v.substring(2,4);
   else inp.value = v;
   F.rcData = inp.value;
+  rcmRenderDoc();
 };
 
 window.rcmToggleRecibo = function(){
@@ -790,12 +920,14 @@ window.rcmAdicionar = function(){
   RC.lancamentos.push({ tipo, recibo: isSaida ? '' : recibo, descricao, valor });
   el('rcm-descricao').value = ''; el('rcm-valor').value = ''; el('rcm-recibo').value = '';
   rcmRenderLista();
+  rcmRenderDoc();
 };
 
 window.rcmRemover = function(i){
   if (RC.somenteLeitura) return;
   RC.lancamentos.splice(i, 1);
   rcmRenderLista();
+  rcmRenderDoc();
 };
 
 function rcmRenderLista(){
@@ -832,16 +964,19 @@ function rcmColetar(){
   const sel = el('rcm-congregacao');
   const opt = sel?.options?.[sel.selectedIndex];
   const hoje = new Date();
-  return {
+  const rel = {
     id: RC.id,
-    congregacao: sel?.value || '',
-    conselho: opt?.dataset?.conselho || '',
-    data_relatorio: el('rcm-data')?.value || '',
-    semana: el('rcm-semana')?.value || '',
+    congregacao: sel ? sel.value : RC.meta.congregacao,
+    conselho: sel ? (opt?.dataset?.conselho || '') : RC.meta.conselho,
+    data_relatorio: el('rcm-data')?.value || RC.meta.data,
+    semana: el('rcm-semana')?.value || RC.meta.semana,
     ano: String(hoje.getFullYear()),
     mes: MESES_ORD[hoje.getMonth()],
     lancamentos: RC.lancamentos.map(({tipo, recibo, descricao, valor}) => ({tipo, recibo, descricao, valor})),
   };
+  RC.meta = { congregacao: rel.congregacao, conselho: rel.conselho, data: rel.data_relatorio, semana: rel.semana };
+  F.rcCongregacao = rel.congregacao; F.rcData = rel.data_relatorio; F.rcSemana = rel.semana;
+  return rel;
 }
 
 window.rcmSalvar = async function(enviar){
@@ -854,17 +989,219 @@ window.rcmSalvar = async function(enviar){
     const res = await api('salvar_relatorio_caixa', { relatorio: rel, autor_nome: sessao()?.usuario?.nome || '' }, sessao()?.token);
     if (!res?.ok) { toast(res?.erro || 'Falha ao salvar.'); return; }
     RC.id = res.id || RC.id;
+    RC.status = res.status || RC.status;
+    RC.autor = sessao()?.usuario?.nome || RC.autor;
+    RC.gravadoEm = new Date().toISOString();
     if (enviar){
       const r2 = await api('enviar_relatorio_caixa', { id: RC.id }, sessao()?.token);
-      if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); rcmCentral(); return; }
+      if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); rcRenderTela(); return; }
       RC.status = 'enviado';
       toast('Relatório enviado à central.');
     } else {
-      RC.status = 'rascunho';
-      toast('Rascunho salvo na nuvem.');
+      toast(RC.status === 'enviado' ? 'Retificação gravada — relatório permanece enviado.' : 'Rascunho salvo na nuvem.');
     }
-    rcmCentral();
+    rcRenderTela();
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
+};
+
+/* ---- prévia em formato de documento (mesmo padrão "MOVIMENTO CAIXA" do desktop) ---- */
+function rcmDocHtml(){
+  const rel = rcmColetar();
+  const t = rcmTotais();
+  const marca = RC.status === 'enviado' ? 'rcm-m-enviado' : 'rcm-m-rascunho';
+  const marcaTxt = RC.status === 'enviado' ? 'ENVIADO' : 'RASCUNHO';
+  let rows = '';
+  RC_SECOES.forEach(sec => {
+    const itens = RC.lancamentos.filter(l => l.tipo === sec.tipo)
+      .sort((a,b) => (parseInt(a.recibo)||0) - (parseInt(b.recibo)||0));
+    if (!itens.length) return;
+    const isSaiSec = sec.tipo.includes('SAIDAS');
+    let sub = 0;
+    rows += `<tr><td></td><td colspan="7" class="rcm-sec">${sec.titulo}</td><td></td><td></td></tr>`;
+    itens.forEach(it => {
+      const isSai = it.tipo.includes('SAIDAS');
+      sub += it.valor;
+      rows += `<tr><td style="text-align:center">${rcEsc(it.recibo)}</td><td>${rcEsc(it.descricao)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td style="text-align:right">${isSai ? '' : rcMoeda(it.valor)}</td><td style="text-align:right">${isSai ? rcMoeda(it.valor) : ''}</td></tr>`;
+    });
+    rows += `<tr><td></td><td colspan="7" class="rcm-sub">SUBTOTAL ${sec.titulo}:</td><td style="text-align:right;font-weight:bold">${isSaiSec ? '' : rcMoeda(sub)}</td><td style="text-align:right;font-weight:bold">${isSaiSec ? rcMoeda(sub) : ''}</td></tr>`;
+  });
+  if (!RC.lancamentos.length){
+    rows = `<tr><td></td><td colspan="7" style="text-align:center;color:#777;font-style:italic">Nenhum lançamento efetuado para este movimento.</td><td style="text-align:right">R$ 0,00</td><td style="text-align:right">R$ 0,00</td></tr>`;
+  }
+  const congTxt = rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO';
+  return `<div class="rcm-doc">
+    <div class="rcm-marca ${marca}"><span>${marcaTxt}</span></div>
+    <table class="rcm-main"><thead>
+      <tr><th colspan="10" class="rcm-head">
+        <img class="rcm-timbrado" src="icons/cabecalho_ad_brasil.png" alt="">
+        <div class="rcm-head-flex">
+          <div class="rcm-title">MOVIMENTO CAIXA</div>
+          <div class="rcm-meta-box">
+            <div class="rcm-meta-item"><div class="rcm-meta-label">DATA</div><div class="rcm-meta-val">${rcEsc(rel.data_relatorio) || '—'}</div></div>
+            <div class="rcm-meta-item"><div class="rcm-meta-label">FECHAMENTO</div><div class="rcm-meta-val">${rcEsc(rel.semana)}</div></div>
+          </div>
+        </div>
+        <div class="rcm-cong">${rcEsc(congTxt)}</div>
+      </th></tr>
+      <tr class="rcm-cols"><th style="width:32px">Nº</th><th style="text-align:left">HISTÓRICO</th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:82px">ENTRADAS</th><th style="width:82px">SAÍDAS</th></tr>
+    </thead><tbody>${rows}</tbody></table>
+    <div class="rcm-totais">
+      <div style="width:48%">
+        <table class="rcm-subt" style="margin-bottom:8px"><tr><th colspan="2">DETALHES DO SALDO (BRUTO)</th></tr>
+          <tr><td>TRANSF. BANCÁRIA - TB (PIX)</td><td style="text-align:right;width:70px">${rcMoeda(t.entTB)}</td></tr>
+          <tr><td>DINHEIRO</td><td style="text-align:right">${rcMoeda(t.entDin)}</td></tr></table>
+        <table class="rcm-subt"><tr><th colspan="2">REPASSE PARA O CAMPO (LÍQUIDO)</th></tr>
+          <tr><td style="text-align:center;font-size:7px">DINHEIRO</td><td style="text-align:center;font-size:7px">TRANSFERÊNCIAS</td></tr>
+          <tr><td style="text-align:right">${rcMoeda(t.entDin - t.saiDin)}</td><td style="text-align:right">${rcMoeda(t.entTB - t.saiTB)}</td></tr></table>
+      </div>
+      <div style="width:48%">
+        <table class="rcm-subt"><tr><th style="width:50%">TOTAIS</th><td style="text-align:right;width:25%">${rcMoeda(t.ent)}</td><td style="text-align:right;width:25%">${rcMoeda(t.sai)}</td></tr>
+          <tr><td colspan="3" class="rcm-saldo">SALDO ATUAL<span style="float:right">${rcMoeda(t.saldo)}</span></td></tr></table>
+        <div class="rcm-visto"><div class="rcm-visto-caixa">CAIXA</div><div>VISTO</div></div>
+      </div>
+    </div>
+    <div class="rcm-verifica">
+      <div id="rcm-qr" title="QR de autenticidade"></div>
+      <div class="rcm-hash"><b>VERIFICAÇÃO DE AUTENTICIDADE</b><br><span id="rcm-hash">—</span><br><span style="opacity:.7">Aponte a câmera para conferir a integridade deste documento.</span></div>
+    </div>
+    <div class="rcm-rodape">SGE • AD BRASIL — RELATÓRIO DE PRESTAÇÃO DE CONTAS GERADO ELETRONICAMENTE</div>
+  </div>`;
+}
+
+window.rcmRenderDoc = async function(){
+  const box = el('rcm-doc');
+  if (!box) return;
+  const pv = el('rcm-view-previa');
+  if (pv && pv.classList.contains('hidden')) return;
+  box.innerHTML = rcmDocHtml();
+  const rel = rcmColetar();
+  const t = rcmTotais();
+  const saldoStr = t.saldo.toFixed(2);
+  const base = `SGE-CAIXA|${rel.congregacao}|${rel.data_relatorio}|${rel.semana}|${RC.lancamentos.length}|${saldoStr}`;
+  const hash = await rcmHashVerificacao(base);
+  const hashEl = el('rcm-hash');
+  if (hashEl) hashEl.textContent = 'SGE-CX-' + hash;
+  const qrEl = el('rcm-qr');
+  if (!qrEl) return;
+  try {
+    if (typeof QRCode !== 'undefined'){
+      const params = new URLSearchParams({
+        c: rel.congregacao || '', d: rel.data_relatorio || '', s: rel.semana || '',
+        a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
+        n: String(RC.lancamentos.length), v: saldoStr, h: hash
+      });
+      qrEl.innerHTML = '';
+      new QRCode(qrEl, { text: `${RC_VERIFICA_URL}?${params.toString()}`, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
+    } else {
+      qrEl.innerHTML = '<div style="font-size:6px;color:#555;max-width:56px;text-align:center;line-height:1.3">QR indisponível offline</div>';
+    }
+  } catch(e){ /* QR opcional */ }
+};
+
+function rcmImgData(src){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        res({ data: c.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight });
+      } catch(e){ res(null); }
+    };
+    img.onerror = () => res(null);
+    img.src = src;
+  });
+}
+
+window.rcmPdf = async function(){
+  const JsPDF = window.jspdf && window.jspdf.jsPDF;
+  if (!JsPDF){ toast('Biblioteca de PDF não carregada — verifique a conexão.'); return; }
+  const rel = rcmColetar();
+  const t = rcmTotais();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  let y = 10;
+  const img = await rcmImgData('icons/cabecalho_ad_brasil.png');
+  if (img){
+    const w = 186, h = Math.min(34, img.h * (w / img.w));
+    try { doc.addImage(img.data, 'PNG', 12, y, w, h); y += h + 4; } catch(e){}
+  }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text('MOVIMENTO CAIXA', 105, y, { align: 'center' }); y += 5;
+  doc.setFontSize(10);
+  doc.text(rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO', 105, y, { align: 'center' }); y += 4.5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.text(`DATA: ${rel.data_relatorio || '—'}     FECHAMENTO: ${rel.semana || '—'}`, 105, y, { align: 'center' }); y += 4;
+
+  const body = [];
+  RC_SECOES.forEach(sec => {
+    const itens = RC.lancamentos.filter(l => l.tipo === sec.tipo)
+      .sort((a,b) => (parseInt(a.recibo)||0) - (parseInt(b.recibo)||0));
+    if (!itens.length) return;
+    const isSaiSec = sec.tipo.includes('SAIDAS');
+    let sub = 0;
+    body.push([{ content: sec.titulo, colSpan: 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: [236,236,236] } }]);
+    itens.forEach(it => {
+      const isSai = it.tipo.includes('SAIDAS');
+      sub += it.valor;
+      body.push([it.recibo || '', it.descricao || '', isSai ? '' : rcMoeda(it.valor), isSai ? rcMoeda(it.valor) : '']);
+    });
+    body.push([{ content: 'SUBTOTAL ' + sec.titulo + ':', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
+      { content: isSaiSec ? '' : rcMoeda(sub), styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: isSaiSec ? rcMoeda(sub) : '', styles: { halign: 'right', fontStyle: 'bold' } }]);
+  });
+  if (!body.length) body.push([{ content: 'Nenhum lançamento efetuado para este movimento.', colSpan: 4, styles: { halign: 'center', fontStyle: 'italic', textColor: [120,120,120] } }]);
+  doc.autoTable({
+    startY: y, head: [['Nº', 'HISTÓRICO', 'ENTRADAS', 'SAÍDAS']], body, theme: 'grid',
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8, halign: 'center', fontStyle: 'bold' },
+    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
+    columnStyles: { 0: { cellWidth: 16, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' } },
+    margin: { left: 12, right: 12 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+  doc.autoTable({
+    startY: y, theme: 'grid', tableWidth: 90,
+    head: [[{ content: 'DETALHES DO SALDO (BRUTO)', colSpan: 2, styles: { halign: 'center' } }]],
+    body: [['TRANSF. BANCÁRIA - TB (PIX)', rcMoeda(t.entTB)], ['DINHEIRO', rcMoeda(t.entDin)]],
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
+    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
+    columnStyles: { 1: { halign: 'right' } },
+    margin: { left: 12 },
+  });
+  const yDet = doc.lastAutoTable.finalY;
+  doc.autoTable({
+    startY: y, theme: 'grid', tableWidth: 90,
+    head: [[{ content: 'REPASSE PARA O CAMPO (LÍQUIDO)', colSpan: 2, styles: { halign: 'center' } }]],
+    body: [[{ content: 'DINHEIRO', styles: { halign: 'center', fontSize: 7 } }, { content: 'TRANSFERÊNCIAS', styles: { halign: 'center', fontSize: 7 } }],
+           [rcMoeda(t.entDin - t.saiDin), rcMoeda(t.entTB - t.saiTB)]],
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
+    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25, halign: 'right' },
+    margin: { left: 108 },
+  });
+  const yRep = doc.lastAutoTable.finalY;
+  doc.autoTable({
+    startY: Math.max(yDet, yRep) + 3, theme: 'grid',
+    head: [[{ content: 'TOTAIS', styles: { halign: 'center' } }, { content: 'ENTRADAS', styles: { halign: 'center' } }, { content: 'SAÍDAS', styles: { halign: 'center' } }]],
+    body: [['', rcMoeda(t.ent), rcMoeda(t.sai)],
+           [{ content: 'SALDO ATUAL', colSpan: 2, styles: { fontStyle: 'bold', fillColor: [230,230,230] } }, { content: rcMoeda(t.saldo), styles: { halign: 'right', fontStyle: 'bold', fillColor: [230,230,230] } }]],
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
+    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    margin: { left: 12, right: 12 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+  doc.text('CAIXA: ______________________________          VISTO: ______________________________', 105, y, { align: 'center' });
+  y += 10;
+  const saldoStr = t.saldo.toFixed(2);
+  const base = `SGE-CAIXA|${rel.congregacao}|${rel.data_relatorio}|${rel.semana}|${RC.lancamentos.length}|${saldoStr}`;
+  const hash = await rcmHashVerificacao(base);
+  doc.setFontSize(7);
+  doc.text(`VERIFICAÇÃO DE AUTENTICIDADE: SGE-CX-${hash}`, 105, y, { align: 'center' }); y += 4;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
+  doc.text('SGE • AD BRASIL — RELATÓRIO DE PRESTAÇÃO DE CONTAS GERADO ELETRONICAMENTE', 105, y, { align: 'center' });
+  const nome = [rel.congregacao, rel.semana, rel.data_relatorio].filter(Boolean).join('_').replace(/[\/\\:*?"<>|]/g, '-').replace(/\s+/g, '_');
+  doc.save('MOVIMENTO_CAIXA' + (nome ? '_' + nome : '') + '.pdf');
 };
 
 window.rcmCentral = async function(){
@@ -874,7 +1211,11 @@ window.rcmCentral = async function(){
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
     const lista = res?.relatorios || [];
     if (!lista.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório na central.</p>'; return; }
-    box.innerHTML = lista.map(r => `
+    const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
+    const admin = rcEhAdmin();
+    box.innerHTML = lista.map(r => {
+      const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin;
+      return `
       <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
@@ -882,7 +1223,9 @@ window.rcmCentral = async function(){
         </div>
         <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:${r.status === 'enviado' ? 'rgba(56,189,248,.15);color:#38bdf8' : 'rgba(245,158,11,.15);color:#f59e0b'}">${rcEsc(r.status || 'rascunho')}</span>
         <button onclick="rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
-      </div>`).join('');
+        ${pode ? `<button onclick="rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
+      </div>`;
+    }).join('');
   } catch(e){ box.innerHTML = `<p class="text-[11px] py-3 text-center" style="color:#f87171">${rcEsc(e.message || 'Falha ao carregar.')}</p>`; }
 };
 
@@ -894,25 +1237,40 @@ window.rcmAbrir = async function(id){
     RC.id = r.id;
     RC.lancamentos = Array.isArray(r.lancamentos) ? r.lancamentos : [];
     RC.status = r.status || 'rascunho';
+    RC.autor = r.autor_nome || '';
+    RC.gravadoEm = r.enviado_em || r.atualizado_em || '';
+    RC.meta = { congregacao: r.congregacao || '', conselho: r.conselho || '', data: r.data_relatorio || '', semana: r.semana || '2ª Semana' };
     F.rcCongregacao = r.congregacao || '';
     F.rcData = r.data_relatorio || '';
     F.rcSemana = r.semana || '2ª Semana';
-    // Tesoureiro edita os próprios rascunhos; relatório de terceiro/enviado abre somente leitura
+    // Autor ou admin pode corrigir; relatório de terceiro (não-admin) é sempre somente leitura
     const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const autorCpf = String(r.autor_cpf || '').replace(/\D/g,'');
-    RC.somenteLeitura = (autorCpf && autorCpf !== meuCpf) || r.status === 'enviado';
+    RC.podeEditar = (autorCpf && autorCpf === meuCpf) || rcEhAdmin();
+    RC.somenteLeitura = !RC.podeEditar || RC.status === 'enviado';
+    RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
     rcRenderTela();
   } catch(e){ toast(e.message || 'Erro ao abrir.'); }
 };
 
-window.rcmVoltar = function(){
-  RC.somenteLeitura = false;
-  rcRenderTela();
+window.rcmExcluir = async function(id){
+  if (!confirm('Excluir este relatório definitivamente?')) return;
+  try {
+    const res = await api('excluir_relatorio_caixa', { id }, sessao()?.token);
+    if (!res?.ok){ toast(res?.erro || 'Falha ao excluir.'); return; }
+    if (String(RC.id) === String(id)) rcmNovo(); else rcmCentral();
+    toast('Relatório excluído.');
+  } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
+window.rcmVoltar = function(){ rcmNovo(); };
+
 window.rcmNovo = function(){
-  RC.lancamentos = []; RC.id = null; RC.status = 'rascunho'; RC.somenteLeitura = false;
-  F.rcCongregacao = ''; F.rcData = '';
+  RC.lancamentos = []; RC.id = null; RC.status = 'rascunho';
+  RC.somenteLeitura = false; RC.podeEditar = true; RC.modo = 'editar';
+  RC.autor = ''; RC.gravadoEm = '';
+  RC.meta = { congregacao: '', conselho: '', data: '', semana: '2ª Semana' };
+  F.rcCongregacao = ''; F.rcData = ''; F.rcSemana = '2ª Semana';
   rcRenderTela();
 };
 
