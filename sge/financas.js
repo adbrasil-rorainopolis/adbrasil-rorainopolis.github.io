@@ -797,6 +797,7 @@ function rcRenderTela(){
       <div class="flex items-center gap-2">
         <div class="flex-1 grid grid-cols-5 gap-1.5">${rcmAcoesHtml()}</div>
         ${badge}
+        <button onclick="rcmAjuda()" title="Ajuda — passo a passo" class="w-7 h-7 rounded-full text-[12px] font-extrabold cursor-pointer shrink-0" style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div id="rcm-orientacao" class="hidden rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.10);color:#38bdf8;border:1px solid rgba(56,189,248,.25)"></div>
       ${!RC.somenteLeitura && RC.id && RC.status === 'rascunho' ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.10);color:#f59e0b;border:1px solid rgba(245,158,11,.25)"><i class="fa-solid fa-circle-exclamation"></i>Gravado como rascunho — resta ENVIAR para a central receber</div>` : ''}
@@ -865,6 +866,54 @@ function rcRenderTela(){
           <div id="rcm-doc"></div>
         </div>
         <p class="text-[9px] opacity-40 text-center">Documento em tamanho de papel — deslize para o lado para conferir tudo</p>
+      </div>
+      <div id="rcm-ajuda" class="hidden fixed inset-0 z-[80] items-center justify-center p-5" style="background:rgba(0,0,0,.78);display:none">
+        <div class="rounded-2xl w-full max-w-[430px] max-h-[85vh] flex flex-col" style="background:var(--bg-card);border:1px solid var(--border-color)">
+          <div class="flex items-center gap-2 px-4 py-3 border-b shrink-0" style="border-color:var(--border-color)">
+            <i class="fa-solid fa-circle-question" style="color:var(--color-primary)"></i>
+            <span class="text-xs font-bold flex-1">Ajuda — Central de Relatórios e Caixa</span>
+            <button onclick="rcmFecharAjuda()" class="w-7 h-7 rounded-lg cursor-pointer text-xs" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="p-4 space-y-4 text-[11px] leading-relaxed overflow-y-auto" style="color:var(--text-main)">
+            <div>
+              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-inbox mr-1.5"></i>O que é a Central de Relatórios?</p>
+              <p class="opacity-80">É a caixa de entrada do caixa. Fica no topo da tela e mostra todos os relatórios do seu alcance: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). Use os filtros <b>Todos / Enviados / Rascunhos</b> e a busca por congregação para achar qualquer relatório.</p>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-folder-open mr-1.5"></i>Como continuar um rascunho?</p>
+              <p class="opacity-80">Toque no rascunho na lista da Central. Os dados voltam automaticamente para os campos de edição lá embaixo e você continua exatamente de onde parou — lançamentos, data e congregação.</p>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-file-circle-plus mr-1.5"></i>Como iniciar um novo relatório?</p>
+              <p class="opacity-80">Toque em <b>NOVO</b>. A tela limpa e o sistema sugere automaticamente a <b>próxima semana sem prestação de contas</b> da congregação — se a 2ª Semana já foi enviada, ele já posiciona na 3ª. A faixa azul de orientação confirma o que foi sugerido.</p>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-grip mr-1.5"></i>Guia dos botões de ação</p>
+              <div class="space-y-1.5 opacity-80">
+                <p><span class="inline-block w-20 font-bold" style="color:#94a3b8">NOVO</span> limpa a tela e inicia o próximo relatório (sugere a semana).</p>
+                <p><span class="inline-block w-20 font-bold" style="color:#10b981">GRAVAR</span> salva o rascunho na nuvem sem enviar — dá pra continuar depois.</p>
+                <p><span class="inline-block w-20 font-bold" style="color:#8b5cf6">ENVIAR</span> transmite o relatório finalizado para a administração.</p>
+                <p><span class="inline-block w-20 font-bold" style="color:#f59e0b">PRÉVIA</span> abre na hora o espelho oficial do documento para conferência — não precisa gravar antes.</p>
+                <p><span class="inline-block w-20 font-bold" style="color:#38bdf8">PDF</span> gera o documento oficial para salvar ou compartilhar/imprimir.</p>
+                <p><span class="inline-block w-20 font-bold" style="color:#10b981">+ ADICIONAR</span> joga o lançamento preenchido (dízimo/oferta em espécie ou Pix) para a tabela do movimento.</p>
+              </div>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-list-ol mr-1.5"></i>Passo a passo dos campos</p>
+              <div class="space-y-1.5 opacity-80">
+                <p><b>1.</b> <b>Congregação</b> — de quem é a prestação (o tesoureiro já vem com a dele travada).</p>
+                <p><b>2.</b> <b>Data</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o NOVO já sugere).</p>
+                <p><b>3.</b> <b>Tipo de entrada</b> — dízimo, oferta ordinária, missionária, círculo de oração, domingo à noite ou saída.</p>
+                <p><b>4.</b> <b>Detalhe</b> — a oferta específica ou o nome do dizimista (com sugestão dos membros).</p>
+                <p><b>5.</b> <b>Forma de pagamento</b> — Espécie ou Pix.</p>
+                <p><b>6.</b> <b>Recibo e Valor</b> — número do recibo e valor com máscara de moeda. Depois toque em <b>+ Adicionar lançamento</b>.</p>
+              </div>
+            </div>
+            <div class="rounded-xl px-3 py-2.5" style="background:var(--color-primary-light);border:1px solid var(--border-color)">
+              <p class="opacity-90"><i class="fa-solid fa-lightbulb mr-1.5" style="color:var(--color-primary)"></i><b>Dica:</b> errou um lançamento? Toque nele na lista "Movimento do caixa" para editar só aquele item — valor, recibo ou nome — sem excluir a linha.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>${RCM_CSS}`;
   rcPopularCongregacoes();
@@ -1771,6 +1820,15 @@ window.rcmNovo = async function(){
   const sug = await rcmSugerirSemana();
   const semTxt = sug && sug.prox !== '1ª Semana' ? ` Sugeri a <b>${sug.prox}</b> — próxima semana sem prestação de contas.` : '';
   rcmOrientacao(`<i class="fa-solid fa-circle-info"></i><span>Novo relatório iniciado${cong ? ' para <b>' + rcEsc(cong) + '</b>' : ''}.${semTxt} Preencha os lançamentos, toque em <b>GRAVAR</b>, confira a <b>PRÉVIA</b> e depois <b>ENVIE</b>.</span>`);
+};
+
+window.rcmAjuda = function(){
+  const m = el('rcm-ajuda'); if (!m) return;
+  m.style.display = 'flex'; m.classList.remove('hidden');
+};
+window.rcmFecharAjuda = function(){
+  const m = el('rcm-ajuda'); if (!m) return;
+  m.style.display = 'none'; m.classList.add('hidden');
 };
 
 window.rcmOrientacao = function(html){
