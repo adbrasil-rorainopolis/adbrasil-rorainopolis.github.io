@@ -1211,7 +1211,7 @@ window.rcmEditar = function(i){
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2 pt-3" style="border-top:1px solid var(--border-color)">
-          <button onclick="rcmExcluir(${i})" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:#f8717155;color:#f87171;background:#f8717114"><i class="fa-solid fa-trash mr-1"></i>Excluir</button>
+          <button onclick="rcmExcluirLanc(${i})" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:#f8717155;color:#f87171;background:#f8717114"><i class="fa-solid fa-trash mr-1"></i>Excluir</button>
           <button onclick="rcmSalvarEdicao(${i})" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-check mr-1"></i>Salvar alteração</button>
         </div>
       </div>
@@ -1249,13 +1249,15 @@ window.rcmSalvarEdicao = function(i){
   el('rcm-edita')?.remove();
   rcmRenderLista();
   rcmRenderDoc();
+  toast('Alteração salva.');
 };
 
-window.rcmExcluir = function(i){
+window.rcmExcluirLanc = function(i){
   RC.lancamentos.splice(i, 1);
   el('rcm-edita')?.remove();
   rcmRenderLista();
   rcmRenderDoc();
+  toast('Lançamento excluído.');
 };
 
 function rcmRenderLista(){
