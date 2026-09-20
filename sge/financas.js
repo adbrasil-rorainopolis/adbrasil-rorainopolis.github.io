@@ -726,9 +726,10 @@ function rcRenderTela(){
         <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
       </div>
       ${!RC.somenteLeitura ? `
-      <div class="grid grid-cols-2 gap-2">
-        <button onclick="rcmSalvar(false)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar rascunho</button>
-        <button onclick="rcmSalvar(true)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0284c7,#38bdf8)"><i class="fa-solid fa-paper-plane mr-1.5"></i>Enviar à central</button>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="rcmSalvar(false)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1"></i>Rascunho</button>
+        <button onclick="rcmSalvar(true)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0284c7,#38bdf8)"><i class="fa-solid fa-paper-plane mr-1"></i>Enviar</button>
+        <button onclick="rcmNovo()" class="py-2.5 rounded-xl text-xs font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-file-circle-plus mr-1"></i>Novo</button>
       </div>` : `
       <button onclick="rcmVoltar()" class="w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer border" style="border-color:var(--border-color)"><i class="fa-solid fa-arrow-left mr-1.5"></i>Voltar à central</button>`}
       <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
