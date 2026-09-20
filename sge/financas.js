@@ -826,13 +826,13 @@ function rcRenderTela(){
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
               ${selF('rcm-cat', RC_CATS.map(c => [c.id, c.rotulo]), F.rcCat || 'OFERTA ORDINARIA', 'rcmMudarCategoria()')}</div>
+            <div class="col-span-2" id="rcm-sub-slot"></div>
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
                 <button type="button" id="rcm-f-esp" onclick="rcmForma('ESPECIE')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-money-bill mr-1"></i>Espécie</button>
                 <button type="button" id="rcm-f-pix" onclick="rcmForma('PIX')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-qrcode mr-1"></i>Pix</button>
               </div></div>
           </div>
-          <div id="rcm-sub-slot"></div>
           <div class="grid grid-cols-2 gap-2">
             <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <input id="rcm-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -968,8 +968,8 @@ window.rcmMudarCategoria = function(p){
   const cssI = 'w-full px-2 py-2 rounded-lg border text-xs';
   const cssS = 'background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)';
   if (cat.dizimo){
-    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nome do irmão *</span>
-      <input id="rcm-${pre}irmao" list="rcm-${pre}irmaos" placeholder="Selecione ou digite o nome" autocomplete="off" class="${cssI}" style="${cssS}">
+    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nome do dizimista *</span>
+      <input id="rcm-${pre}irmao" list="rcm-${pre}irmaos" placeholder="Selecione ou digite o dizimista" autocomplete="off" class="${cssI}" style="${cssS}">
       <datalist id="rcm-${pre}irmaos"></datalist>
       <p class="text-[9px] opacity-50 mt-1">Obrigatório — a lista sugere os membros da congregação.</p>`;
     rcmPopularIrmaos(pre);
@@ -1011,7 +1011,7 @@ function rcmLerForm(p){
   let descricao = '';
   if (cat.dizimo){
     const nome = String(el(`rcm-${p}irmao`)?.value || '').trim();
-    if (!nome) return { erro: 'Informe o nome do irmão dizimista.' };
+    if (!nome) return { erro: 'Informe o nome do dizimista.' };
     descricao = `Dízimo — ${nome}`;
   } else if (cat.saida){
     descricao = String(el(`rcm-${p}descricao`)?.value || '').trim();
@@ -1145,12 +1145,13 @@ window.rcmEditar = function(i){
           <div class="space-y-2.5">
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
               ${selF('rcm-ed-cat', RC_CATS.map(c => [c.id, c.rotulo]), (rcCatDeTipo(it.tipo) || RC_CATS[0]).id, "rcmMudarCategoria('ed-')")}</div>
+            <div id="rcm-ed-sub-slot"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
                 <button type="button" id="rcm-ed-f-esp" onclick="rcmForma('ESPECIE','ed-')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-money-bill mr-1"></i>Espécie</button>
                 <button type="button" id="rcm-ed-f-pix" onclick="rcmForma('PIX','ed-')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-qrcode mr-1"></i>Pix</button>
               </div></div>
-            <div id="rcm-ed-sub-slot"></div>
+            
             <div class="grid grid-cols-2 gap-2">
               <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nº Recibo</span>
                 <input id="rcm-ed-recibo" inputmode="numeric" placeholder="Nº Recibo" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
