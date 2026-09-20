@@ -1378,11 +1378,13 @@ window.rcmSalvar = async function(enviar){
   const existente = await rcmExisteSemana(rel);
   if (existente){
     if (existente.status === 'enviado'){
-      if (confirm(`A ${rel.semana} de "${rel.congregacao}" já foi ENVIADA à central.\n\nOK = abrir para retificar\nCancelar = voltar e escolher outra semana`)){
+      if (await rcmConfirmar({ titulo:'Semana já enviada', icone:'fa-paper-plane', cor:'#38bdf8', okTexto:'Abrir p/ retificar',
+        msg:`A ${rel.semana} de "${rcEsc(rel.congregacao)}" já foi <b>ENVIADA</b> à central.<br>Abrir o relatório para retificação?` })){
         await rcmAbrir(existente.id);
         if (RC.podeEditar) rcmCorrigir();
       }
-    } else if (confirm(`Já existe um RASCUNHO da ${rel.semana} de "${rel.congregacao}" (${existente.data_relatorio || 'sem data'}).\n\nOK = abrir para revisar\nCancelar = voltar e escolher outra semana`)){
+    } else if (await rcmConfirmar({ titulo:'Rascunho já existe', icone:'fa-pen', cor:'#f59e0b', okTexto:'Abrir rascunho',
+        msg:`Já existe um <b>RASCUNHO</b> da ${rel.semana} de "${rcEsc(rel.congregacao)}" (${existente.data_relatorio || 'sem data'}).<br>Abrir para revisar e continuar?` })){
       await rcmAbrir(existente.id);
     }
     return;
@@ -1398,7 +1400,8 @@ window.rcmSalvar = async function(enviar){
       if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
     } else if (RC.status === 'enviado'){
       toast('Retificação gravada — relatório permanece enviado.');
-    } else if (confirm('Rascunho gravado na nuvem.\n\nDeseja enviar para a central agora?')){
+    } else if (await rcmConfirmar({ titulo:'Rascunho gravado', icone:'fa-cloud-arrow-up', cor:'#8b5cf6', okTexto:'Enviar agora', naoTexto:'Enviar depois',
+        msg:'Rascunho gravado na nuvem.<br>Deseja enviar para a central agora?' })){
       if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
     } else {
       toast('Rascunho salvo na nuvem.');
@@ -1790,7 +1793,8 @@ window.rcmAbrir = async function(id){
 
 /* Envio rápido de rascunho direto da central. */
 window.rcmEnviarItem = async function(id){
-  if (!confirm('Enviar este relatório para a central?')) return;
+  if (!await rcmConfirmar({ titulo:'Enviar relatório', icone:'fa-paper-plane', cor:'#8b5cf6', okTexto:'Enviar',
+      msg:'Enviar este relatório para a central?' })) return;
   try {
     const res = await api('enviar_relatorio_caixa', { id }, sessao()?.token);
     if (!res?.ok){ toast(res?.erro || 'Falha ao enviar.'); return; }
@@ -1800,8 +1804,35 @@ window.rcmEnviarItem = async function(id){
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
+/* Confirmação elegante no tema do app (substitui a caixa nativa do navegador). */
+window.rcmConfirmar = function(o){
+  return new Promise(resolve => {
+    el('rcm-confirm')?.remove();
+    const cor = o.cor || '#8b5cf6';
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="rcm-confirm" class="fixed inset-0 z-[99] flex items-center justify-center p-5" style="background:rgba(0,0,0,.6);backdrop-filter:blur(3px)">
+        <div class="w-full max-w-sm rounded-2xl p-4 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 24px 60px rgba(0,0,0,.45)">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${cor}22;color:${cor}"><i class="fa-solid ${o.icone || 'fa-circle-question'}"></i></span>
+            <p class="text-[12px] font-extrabold">${o.titulo || 'Confirmar'}</p>
+          </div>
+          <p class="text-[11px] leading-relaxed" style="color:var(--text-muted)">${o.msg || ''}</p>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button id="rcm-cf-nao" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)">${o.naoTexto || 'Cancelar'}</button>
+            <button id="rcm-cf-sim" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:${cor}">${o.okTexto || 'Confirmar'}</button>
+          </div>
+        </div>
+      </div>`);
+    const fim = v => { el('rcm-confirm')?.remove(); resolve(v); };
+    el('rcm-cf-sim').onclick = () => fim(true);
+    el('rcm-cf-nao').onclick = () => fim(false);
+    el('rcm-confirm').addEventListener('click', e => { if (e.target.id === 'rcm-confirm') fim(false); });
+  });
+};
+
 window.rcmExcluir = async function(id){
-  if (!confirm('Excluir este relatório definitivamente?')) return;
+  if (!await rcmConfirmar({ titulo:'Excluir relatório', icone:'fa-trash', cor:'#ef4444', okTexto:'Excluir',
+      msg:'Excluir este relatório <b>definitivamente</b>?<br>Esta ação não pode ser desfeita.' })) return;
   try {
     const res = await api('excluir_relatorio_caixa', { id }, sessao()?.token);
     if (!res?.ok){ toast(res?.erro || 'Falha ao excluir.'); return; }
