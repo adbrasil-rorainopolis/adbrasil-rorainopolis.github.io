@@ -776,7 +776,7 @@ window.renderGestao = function(){
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Gestão Unificada</h2><p class="text-[10px] opacity-60">BI financeiro, projeções e relatórios — mesmos cálculos do desktop</p></div>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
-        ${(perfilAdmin() ? [...ABAS, ['usuarios', 'Usuários', 'fa-user-shield', '#f43f5e']] : ABAS).map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
+        ${(perfilAdmin() ? [...ABAS, ['usuarios', 'Usuários', 'fa-user-shield', '#f43f5e'], ['dispositivos', 'Dispositivos', 'fa-tower-broadcast', '#38bdf8']] : ABAS).map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
       </div>
       <div id="gestao-corpo"><div class="flex items-center justify-center gap-2.5 py-16 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando módulo…</div></div>
     </div>`;
@@ -791,6 +791,7 @@ window.gestaoAba = async function(aba){
     b.style.borderColor = ativo ? 'var(--color-primary)' : 'var(--border-color)';
   });
   if (aba === 'usuarios') return renderAbaUsuarios();
+  if (aba === 'dispositivos') return renderAbaDispositivos();
   if (!G.periodos.length) G.periodos = await listarPeriodos();
   if (aba === 'cruzamento' || aba === 'indicadores' || aba === 'relatorios') renderAbaCruzamento();
   else if (aba === 'mensal') renderAbaMensal();
@@ -1290,6 +1291,54 @@ const guBadge = st => { const m = GU_STATUS[cf(st)] || { rot: st || '-', cor: '#
   return `<span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider" style="color:${m.cor};background:${m.cor}1c;border:1px solid ${m.cor}55"><i class="fa-solid ${m.ico} mr-0.5"></i>${m.rot}</span>`; };
 const guFmtData = v => { const s = String(v || '').trim(); if (!s) return '-'; const d = new Date(s); return isNaN(d) ? s.slice(0, 10) : d.toLocaleDateString('pt-BR'); };
 
+/* ---------- Aba Dispositivos (concorrência — paridade com o desktop) ---------- */
+async function renderAbaDispositivos(){
+  const corpo = el('gestao-corpo');
+  corpo.innerHTML = `<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando aparelhos…</div>`;
+  try {
+    const res = await guApi('listar_dispositivos_admin', {});
+    GU.disp = res.dados || [];
+  } catch (e) {
+    corpo.innerHTML = `<div class="text-center py-10 text-xs" style="color:var(--color-danger)">${esc(e.message || 'Falha ao listar aparelhos.')}</div>`;
+    return;
+  }
+  const cfg = { online: ['#10b981', 'Online'], ausente: ['#f59e0b', 'Ausente'], offline: ['#64748b', 'Desconectado'] };
+  const fmtHb = s => { const d = new Date(String(s || '')); return isNaN(d) ? (s || '-') : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+  const on = (GU.disp || []).filter(d => d.status === 'online').length;
+  corpo.innerHTML = `
+    <div class="space-y-2">
+      <div class="flex items-center gap-2 mb-1">
+        <p class="text-[11px] font-bold flex-1">${on} online agora • ${GU.disp.length} aparelho(s) conhecidos</p>
+        <button onclick="renderAbaDispositivos()" class="px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+      </div>
+      ${GU.disp.map(d => {
+        const [cor, rot] = cfg[d.status] || cfg.offline;
+        const ehPwa = String(d.machine_id || '').startsWith('pwa-');
+        const nome = d.nome_dispositivo || d.hostname || 'Aparelho';
+        return `<div class="border rounded-2xl p-3 flex items-center gap-3 cursor-pointer" style="border-color:var(--border-color);background:var(--bg-card)" onclick="guRenomearDisp('${esc(d.machine_id)}')">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${cor}1c"><i class="fa-solid ${ehPwa ? 'fa-mobile-screen' : 'fa-desktop'}" style="color:${cor}"></i></div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold truncate">${esc(nome)}</p>
+            <p class="text-[9px] opacity-60 truncate">${esc(d.usuario_logado || '-')} • ${esc(d.perfil || '')} • ${esc(d.modulo_ativo || 'SGE')}</p>
+            <p class="text-[9px] opacity-40 truncate font-mono">${esc(String(d.machine_id || '').slice(0, 18))}… · ${fmtHb(d.ultimo_heartbeat)}</p>
+          </div>
+          <span class="text-[9px] font-bold shrink-0" style="color:${cor}"><i class="fa-solid fa-circle text-[6px] mr-1"></i>${rot}</span>
+        </div>`;
+      }).join('') || '<div class="text-center py-10 text-xs opacity-50">Nenhum aparelho registrado ainda.</div>'}
+      <p class="text-[9px] opacity-40 text-center pt-1">Toque num aparelho para dar um nome amigável a ele.</p>
+    </div>`;
+}
+window.guRenomearDisp = async function(machineId){
+  const atual = (GU.disp || []).find(d => d.machine_id === machineId);
+  const nome = prompt('Nome do aparelho (ex.: Celular do Pastor):', atual?.nome_dispositivo || atual?.hostname || '');
+  if (nome === null) return;
+  try {
+    const res = await guApi('renomear_dispositivo_admin', { machine_id: machineId, nome: nome.trim() });
+    toast(res.mensagem || 'Aparelho renomeado.');
+    renderAbaDispositivos();
+  } catch (e) { toast(e.message || 'Falha ao renomear.'); }
+};
+
 function renderAbaUsuarios(){
   const corpo = el('gestao-corpo');
   corpo.innerHTML = `
@@ -1468,6 +1517,7 @@ window.guAcessos = async function(cpf, aprovar){
     GU.aprovar = !!aprovar;
     GU.selCongs = new Set(GU.acessos.congregacoes || []);
     GU.selMods = new Set((GU.acessos.permissoes || []).map(p => p.modulo));
+    GU.selDev = new Set(GU.acessos.dispositivos || []);
     GU.matriz = {};
     (GU.acessos.permissoes || []).forEach(p => {
       if (p.aba === '*') return;
@@ -1514,6 +1564,12 @@ window.guAcessos = async function(cpf, aprovar){
             `<div class="flex flex-wrap gap-1.5 mb-2">${(cat.modulos || []).map(m => chip('modulos', m.id, GU.selMods.has(m.id))).join('')}</div>
              <p class="text-[9px] opacity-50 mb-1.5">Por aba: <b>Ver</b>/<b>Operar</b> • aba sem marcação fica oculta • módulo sem aba marcada libera todas</p>
              <div id="gu-matriz-box"></div>`)}
+          ${secao('Aparelhos autorizados', 'Vazio = entra de qualquer aparelho • com itens, o login só funciona nos listados',
+            `<div id="gu-devs-box" class="flex flex-wrap gap-1.5 mb-2"></div>
+             <div class="flex gap-1.5">
+               <input id="gu-dev-add" placeholder="ID do aparelho (aparece no menu ⚙ do aparelho)" class="flex-1 px-3 py-2 rounded-xl border text-[10px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+               <button type="button" onclick="guAddDev()" class="px-3 py-2 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#0ea5e9"><i class="fa-solid fa-plus"></i></button>
+             </div>`)}
         </div>
         </div>
         <div class="pt-3 pb-2" style="border-top:1px solid var(--border-color)">
@@ -1523,6 +1579,7 @@ window.guAcessos = async function(cpf, aprovar){
     </div>`);
   guRenderCongs();
   guRenderMatriz();
+  guRenderDevs();
 };
 window.guToggle = btn => {
   const on = btn.dataset.on !== '1';
@@ -1585,6 +1642,20 @@ window.guRenderCongs = () => {
   if (cnt) cnt.textContent = `${lista.length} congregações${cons.size ? ' (filtradas por conselho)' : ''}`;
 };
 window.guTesoureiro = () => el('gu-ac-tes-cong')?.classList.toggle('hidden', !el('gu-ac-tes')?.checked);
+/* Aparelhos autorizados (whitelist de device_ids por usuário) */
+window.guRenderDevs = () => {
+  const box = el('gu-devs-box'); if (!box) return;
+  box.innerHTML = [...(GU.selDev || [])].map(d =>
+    `<button type="button" onclick="guDelDev('${esc(d)}')" title="Toque para remover • ${esc(d)}" class="px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold border cursor-pointer" style="border-color:#38bdf855;background:rgba(56,189,248,.1);color:#7dd3fc"><i class="fa-solid fa-mobile-screen mr-1"></i>${esc(d.slice(0, 14))}… <i class="fa-solid fa-xmark ml-1 opacity-60"></i></button>`
+  ).join('') || '<span class="text-[10px] opacity-50">Livre — entra de qualquer aparelho.</span>';
+};
+window.guAddDev = () => {
+  const inp = el('gu-dev-add'); const v = (inp?.value || '').trim();
+  if (!v) return;
+  GU.selDev = GU.selDev || new Set();
+  GU.selDev.add(v); inp.value = ''; guRenderDevs();
+};
+window.guDelDev = d => { GU.selDev?.delete(d); guRenderDevs(); };
 window.guSalvarAcessos = async function(cpf){
   const marcados = g => [...document.querySelectorAll(`.gu-chip[data-grupo="${g}"][data-on="1"]`)].map(b => b.dataset.valor);
   const tes = !!el('gu-ac-tes')?.checked;
@@ -1607,6 +1678,7 @@ window.guSalvarAcessos = async function(cpf){
       cpf, papel,
       conselhos: marcados('conselhos'), congregacoes: [...(GU.selCongs || [])],
       permissoes,
+      dispositivos: [...(GU.selDev || [])],
       tesoureiro: tes, congregacao_tesoureiro: tes ? (el('gu-ac-tes-sel')?.value || '') : '',
     });
     if (GU.aprovar) {

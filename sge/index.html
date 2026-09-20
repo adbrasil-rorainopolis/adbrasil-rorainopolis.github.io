@@ -229,11 +229,14 @@
         <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="irGestaoUsuarios()">
           <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Gestão de Usuários
         </div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
+          <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
+        </div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="sairEFechar()">
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.26</span>
+          <span>SGE Mobile · v1.27</span>
         </div>
       </div>
     </div>
@@ -380,7 +383,7 @@ const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'B
 async function api(action, payload, token){
   const res = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Device-Id': (typeof sgeDeviceId === 'function' ? sgeDeviceId() : ''), ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
     body: JSON.stringify({ action, ...(payload || {}) })
   });
   const data = await res.json().catch(() => ({}));
@@ -488,6 +491,22 @@ const BIO_SESSAO = 'sge_bio_session';
 function sessao(){ try { return JSON.parse(sessionStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
 function salvarSessao(s){ sessionStorage.setItem(CHAVE, JSON.stringify(s)); }
 function limparSessao(){ sessionStorage.removeItem(CHAVE); }
+function sgeDeviceId(){
+  let id = localStorage.getItem('sge_device_id');
+  if (!id) { id = 'pwa-' + (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2))); localStorage.setItem('sge_device_id', id); }
+  return id;
+}
+function sgePlataforma(){
+  const ua = navigator.userAgent || '';
+  const so = /android/i.test(ua) ? 'Android' : (/iphone|ipad|ios/i.test(ua) ? 'iOS' : (/windows/i.test(ua) ? 'Windows' : (/mac os|macintosh/i.test(ua) ? 'macOS' : 'Linux')));
+  return 'PWA ' + so;
+}
+let hbTimer = null;
+function iniciarHeartbeat(){
+  if (hbTimer) return;
+  const enviar = () => { const t = sessao()?.token; if (t && navigator.onLine !== false) api('heartbeat_dispositivo', { device_id: sgeDeviceId(), plataforma: sgePlataforma(), modulo: moduloAtual }, t).catch(() => {}); };
+  enviar(); hbTimer = setInterval(enviar, 40000);
+}
 function bioCred(){ try { return JSON.parse(localStorage.getItem(BIO_CRED) || 'null'); } catch { return null; } }
 function bioSessao(){ try { return JSON.parse(localStorage.getItem(BIO_SESSAO) || 'null'); } catch { return null; } }
 function salvarSessaoBio(s){ localStorage.setItem(BIO_SESSAO, JSON.stringify(s)); }
@@ -594,7 +613,7 @@ $('form-login').addEventListener('submit', async (e) => {
   const btn = $('btn-login-submit'), lbl = $('lbl-btn-login'), erro = $('login-erro');
   erro.classList.add('hidden'); btn.disabled = true; lbl.textContent = 'Entrando…';
   try {
-    const res = await api('login', { cpf: $('login-usuario').value.trim(), senha: $('login-senha').value });
+    const res = await api('login', { cpf: $('login-usuario').value.trim(), senha: $('login-senha').value, device_id: sgeDeviceId(), plataforma: sgePlataforma() });
     if (!res.token) throw new Error(res.erro || 'Falha na autenticação.');
     const nova = { token: res.token, usuario: res.usuario || {} };
     salvarSessao(nova);
@@ -741,6 +760,7 @@ async function carregarFinanceiro(token){
 
 /* ---------- boot: splash → login → app ---------- */
 function entrarNoApp(){
+  iniciarHeartbeat();
   $('login-screen').classList.add('login-hidden');
   $('login-screen').classList.remove('login-visible');
   setTimeout(() => { $('login-screen').style.display = 'none'; }, 650);
