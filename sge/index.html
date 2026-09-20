@@ -229,6 +229,9 @@
         <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="irGestaoUsuarios()">
           <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Gestão de Usuários
         </div>
+        <div id="mi-dispositivos" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irDispositivos()">
+          <i class="fa-solid fa-tower-broadcast text-[12px]" style="color: var(--color-primary);"></i> Dispositivos e concorrência
+        </div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
@@ -236,7 +239,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.35</span>
+          <span>SGE Mobile · v1.36</span>
         </div>
       </div>
     </div>
@@ -421,8 +424,11 @@ async function atualizarMenuBio(){
   const tem = !!bioCred()?.id;
   desativar.classList.toggle('hidden', !tem);
   ativar.classList.toggle('hidden', tem || !(await bioDisponivel()));
+  const ehAdmin = String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador';
   const guMi = $('mi-gestao-usuarios');
-  if (guMi) guMi.classList.toggle('hidden', String(sessao()?.usuario?.perfil || '').toLowerCase() !== 'administrador');
+  if (guMi) guMi.classList.toggle('hidden', !ehAdmin);
+  const dvMi = $('mi-dispositivos');
+  if (dvMi) dvMi.classList.toggle('hidden', !ehAdmin);
 }
 async function atualizarAgora(){
   fecharMenuEngrenagem();
@@ -437,6 +443,12 @@ function irGestaoUsuarios(){
   fecharMenuEngrenagem();
   if (window.SGEG) SGEG.G.aba = 'usuarios';
   if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('usuarios');
+  else mudarVisao('gestao');
+}
+function irDispositivos(){
+  fecharMenuEngrenagem();
+  if (window.SGEG) SGEG.G.aba = 'dispositivos';
+  if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('dispositivos');
   else mudarVisao('gestao');
 }
 document.addEventListener('click', (e) => {

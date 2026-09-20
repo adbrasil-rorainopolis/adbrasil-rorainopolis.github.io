@@ -829,7 +829,7 @@ window.renderGestao = function(){
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Gestão Unificada</h2><p class="text-[10px] opacity-60">BI financeiro, projeções e relatórios — mesmos cálculos do desktop</p></div>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
-        ${(perfilAdmin() ? [...ABAS, ['usuarios', 'Usuários', 'fa-user-shield', '#f43f5e'], ['dispositivos', 'Dispositivos', 'fa-tower-broadcast', '#38bdf8']] : ABAS).map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
+        ${ABAS.map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
       </div>
       <div id="gestao-corpo"><div class="flex items-center justify-center gap-2.5 py-16 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando módulo…</div></div>
     </div>`;
