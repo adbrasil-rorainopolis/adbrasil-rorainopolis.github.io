@@ -1407,14 +1407,11 @@ window.guAbrir = function(cpf){
           ${linhaInfo('Abrangência', u.resumo_acessos)}
           ${u.tesoureiro ? linhaInfo('Tesoureiro de', u.congregacao_tesoureiro || 'sim') : ''}
         </div>
-        ${podeAprovar ? `<div class="mb-3"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Perfil ao aprovar</span>
-          <select id="gu-perfil" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-            <option value="Consultor">Consultor — somente leitura</option>
-            <option value="Operador" selected>Operador — lança e edita</option>
-            <option value="Administrador">Administrador — acesso total</option>
-          </select></div>` : ''}
+        ${podeAprovar ? `<div class="rounded-xl p-3 mb-3 border" style="background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.35)">
+          <p class="text-[10px] opacity-70 mb-2">Defina hierarquia, escopo e módulos — a <b>aprovação é o último passo</b>, para o usuário já nascer com o acesso certo.</p>
+          <button onclick="guAcessos('${u.cpf}',true)" class="w-full py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-user-check mr-1"></i>Configurar acessos e aprovar</button>
+        </div>` : ''}
         <div class="grid grid-cols-2 gap-2">
-          ${podeAprovar ? acaoBtn(`guStatus('${u.cpf}','Aprovado')`, 'Aprovar', 'fa-check', '#059669') : ''}
           ${podeReativar ? acaoBtn(`guStatus('${u.cpf}','Aprovado')`, 'Reativar', 'fa-rotate-left', '#059669') : ''}
           ${podeRecusar ? acaoBtnSec(`guStatus('${u.cpf}','Recusado')`, 'Recusar', 'fa-xmark', '#f43f5e') : ''}
           ${podeBloquear ? acaoBtnSec(`guStatus('${u.cpf}','Bloqueado')`, 'Bloquear', 'fa-ban', '#ef4444') : ''}
@@ -1463,11 +1460,13 @@ window.guSenha = async function(cpf){
 };
 
 /* ---------- Sheet de acessos & escopo ---------- */
-window.guAcessos = async function(cpf){
+window.guAcessos = async function(cpf, aprovar){
   try {
     if (!GU.catalogo) GU.catalogo = await guApi('catalogo_acessos_admin', {});
     GU.acessos = await guApi('obter_acessos_admin', { cpf });
     GU.acessos.cpf = cpf;
+    GU.aprovar = !!aprovar;
+    GU.selCongs = new Set(GU.acessos.congregacoes || []);
   } catch (e) { return toast(e.message || 'Falha ao carregar acessos.'); }
   const a = GU.acessos, cat = GU.catalogo;
   const chip = (grupo, val, marcado) => `<button type="button" onclick="guToggle(this)" data-grupo="${grupo}" data-valor="${esc(val)}" data-on="${marcado ? 1 : 0}" class="gu-chip px-2.5 py-2 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${marcado ? '#8b5cf6' : 'var(--border-color)'};background:${marcado ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${marcado ? '#a78bfa' : 'var(--text-muted)'}"><i class="fa-solid fa-check mr-1 gu-chip-ck${marcado ? '' : ' hidden'}"></i>${esc(val)}</button>`;
@@ -1482,11 +1481,11 @@ window.guAcessos = async function(cpf){
         <div class="overflow-y-auto flex-1 pb-2">
         <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
         <div class="flex items-center gap-2 mb-1">
-          <i class="fa-solid fa-shield-halved text-violet-400"></i>
-          <p class="font-bold text-sm flex-1">Acessos de ${esc(a.nome || cpf)}</p>
+          <i class="fa-solid ${GU.aprovar ? 'fa-user-check text-emerald-400' : 'fa-shield-halved text-violet-400'}"></i>
+          <p class="font-bold text-sm flex-1">${GU.aprovar ? 'Aprovar ' : 'Acessos de '}${esc(a.nome || cpf)}</p>
           <button onclick="guFechar()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <p class="text-[10px] opacity-60 mb-3">Toque nos itens para marcar/desmarcar o que este usuário pode ver e operar.</p>
+        <p class="text-[10px] opacity-60 mb-3">${GU.aprovar ? 'Defina hierarquia e escopo — o usuário só é aprovado ao tocar em Gravar no fim.' : 'Toque nos itens para marcar/desmarcar o que este usuário pode ver e operar.'}</p>
         <div class="space-y-3">
           ${secao('Papel (hierarquia)', 'Consultor lê • Operador lança/edita • Administrador tem acesso total',
             `<select id="gu-ac-papel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -1499,19 +1498,20 @@ window.guAcessos = async function(cpf){
                 <option value="">— selecione a congregação —</option>
                 ${(cat.congregacoes || []).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
               </select></div>`)}
-          ${secao('Conselhos visíveis', 'Nada marcado = todos os conselhos',
+          ${secao('Conselhos visíveis', 'Nada marcado = todos • marque para limitar e filtrar as congregações',
             `<div class="flex flex-wrap gap-1.5">${(cat.conselhos || []).map(c => chip('conselhos', c, a.conselhos.includes(c))).join('') || '<span class="text-[10px] opacity-50">Nenhum conselho cadastrado</span>'}</div>`)}
-          ${secao('Congregações visíveis', 'Nada marcado = todas as congregações',
-            `<div class="flex flex-wrap gap-1.5">${(cat.congregacoes || []).map(c => chip('congregacoes', c.nome, a.congregacoes.includes(c.nome))).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação ativa</span>'}</div>`)}
+          ${secao('Congregações visíveis', 'Nada marcado = todas • marque conselhos acima para filtrar',
+            `<div id="gu-congs-box" class="flex flex-wrap gap-1.5"></div><p id="gu-congs-count" class="text-[9px] opacity-40 mt-1.5"></p>`)}
           ${secao('Módulos liberados', 'Nada marcado = acesso legado (todos os módulos)',
             `<div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div>`)}
         </div>
         </div>
         <div class="pt-3 pb-2" style="border-top:1px solid var(--border-color)">
-          <button onclick="guSalvarAcessos('${cpf}')" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Gravar acessos</button>
+          <button onclick="guSalvarAcessos('${cpf}')" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,${GU.aprovar ? '#059669,#10b981' : '#7c3aed,#8b5cf6'})"><i class="fa-solid ${GU.aprovar ? 'fa-user-check' : 'fa-floppy-disk'} mr-1.5"></i>${GU.aprovar ? 'Gravar e aprovar usuário' : 'Gravar acessos'}</button>
         </div>
       </div>
     </div>`);
+  guRenderCongs();
 };
 window.guToggle = btn => {
   const on = btn.dataset.on !== '1';
@@ -1520,19 +1520,42 @@ window.guToggle = btn => {
   btn.style.background = on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)';
   btn.style.color = on ? '#a78bfa' : 'var(--text-muted)';
   btn.querySelector('.gu-chip-ck')?.classList.toggle('hidden', !on);
+  if (btn.dataset.grupo === 'congregacoes') {
+    on ? GU.selCongs?.add(btn.dataset.valor) : GU.selCongs?.delete(btn.dataset.valor);
+  }
+  if (btn.dataset.grupo === 'conselhos') guRenderCongs();
+};
+/* Congregações filtradas pelos conselhos marcados (seleção persistida em GU.selCongs) */
+window.guRenderCongs = () => {
+  const box = el('gu-congs-box'); if (!box || !GU.catalogo) return;
+  const cons = new Set([...document.querySelectorAll('.gu-chip[data-grupo="conselhos"][data-on="1"]')].map(b => b.dataset.valor));
+  const lista = (GU.catalogo.congregacoes || []).filter(c => !cons.size || cons.has(c.conselho));
+  box.innerHTML = lista.map(c => {
+    const on = GU.selCongs?.has(c.nome);
+    return `<button type="button" onclick="guToggle(this)" data-grupo="congregacoes" data-valor="${esc(c.nome)}" data-on="${on ? 1 : 0}" class="gu-chip px-2.5 py-2 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${on ? '#8b5cf6' : 'var(--border-color)'};background:${on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${on ? '#a78bfa' : 'var(--text-muted)'}"><i class="fa-solid fa-check mr-1 gu-chip-ck${on ? '' : ' hidden'}"></i>${esc(c.nome)}</button>`;
+  }).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação nesse conselho.</span>';
+  const cnt = el('gu-congs-count');
+  if (cnt) cnt.textContent = `${lista.length} congregações${cons.size ? ' (filtradas por conselho)' : ''}`;
 };
 window.guTesoureiro = () => el('gu-ac-tes-cong')?.classList.toggle('hidden', !el('gu-ac-tes')?.checked);
 window.guSalvarAcessos = async function(cpf){
   const marcados = g => [...document.querySelectorAll(`.gu-chip[data-grupo="${g}"][data-on="1"]`)].map(b => b.dataset.valor);
   const tes = !!el('gu-ac-tes')?.checked;
+  const papel = el('gu-ac-papel')?.value || 'Consultor';
   try {
     const res = await guApi('salvar_acessos_admin', {
-      cpf, papel: el('gu-ac-papel')?.value || 'Consultor',
-      conselhos: marcados('conselhos'), congregacoes: marcados('congregacoes'),
+      cpf, papel,
+      conselhos: marcados('conselhos'), congregacoes: [...(GU.selCongs || [])],
       permissoes: marcados('modulos').map(m => ({ modulo: m, aba: '*', acao: '*' })),
       tesoureiro: tes, congregacao_tesoureiro: tes ? (el('gu-ac-tes-sel')?.value || '') : '',
     });
-    toast(res.mensagem || 'Acessos gravados.');
+    if (GU.aprovar) {
+      const r2 = await guApi('alterar_status_usuario', { cpf, status: 'Aprovado', perfil: papel, motivo: '' });
+      toast(r2.mensagem || 'Usuário aprovado com acessos definidos.');
+    } else {
+      toast(res.mensagem || 'Acessos gravados.');
+    }
+    GU.aprovar = false;
     guFechar(); guCarregar();
   } catch (e) { toast(e.message || 'Falha ao gravar acessos.'); }
 };
