@@ -1389,9 +1389,10 @@ window.guAbrir = function(cpf){
   const acaoBtn = (onclick, rot, ico, cor) => `<button onclick="${onclick}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:${cor}"><i class="fa-solid ${ico}"></i>${rot}</button>`;
   const acaoBtnSec = (onclick, rot, ico, cor) => `<button onclick="${onclick}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:${cor}66;color:${cor};background:${cor}14"><i class="fa-solid ${ico}"></i>${rot}</button>`;
 
-  el('gestao-corpo').insertAdjacentHTML('beforeend', `
+  document.body.insertAdjacentHTML('beforeend', `
     <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
-      <div class="w-full max-w-lg rounded-t-3xl p-4 pb-8 max-h-[88vh] overflow-y-auto" style="background:var(--bg-card)">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 max-h-[92dvh] flex flex-col" style="background:var(--bg-card)">
+        <div class="overflow-y-auto flex-1 pb-6">
         <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
         <div class="flex items-center gap-3 mb-3">
           <div class="w-11 h-11 rounded-full flex items-center justify-center font-black" style="background:${(GU_STATUS[st] || {}).cor || '#64748b'}1c;color:${(GU_STATUS[st] || {}).cor || '#64748b'}">${esc((u.nome || '?').charAt(0).toUpperCase())}</div>
@@ -1421,6 +1422,7 @@ window.guAbrir = function(cpf){
           ${podeReenviar ? acaoBtnSec(`guReenviar('${u.cpf}')`, 'Reenviar código', 'fa-envelope', '#38bdf8') : ''}
           ${acaoBtnSec(`guAcessos('${u.cpf}')`, 'Acessos & escopo', 'fa-shield-halved', '#8b5cf6')}
           ${acaoBtnSec(`guSenha('${u.cpf}')`, 'Redefinir senha', 'fa-key', '#f59e0b')}
+        </div>
         </div>
       </div>
     </div>`);
@@ -1474,9 +1476,10 @@ window.guAcessos = async function(cpf){
     <p class="text-[10px] font-bold uppercase opacity-60 mb-0.5">${rot}</p>
     <p class="text-[9px] opacity-50 mb-2">${hint}</p>${inner}</div>`;
   guFechar();
-  el('gestao-corpo').insertAdjacentHTML('beforeend', `
+  document.body.insertAdjacentHTML('beforeend', `
     <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
-      <div class="w-full max-w-lg rounded-t-3xl p-4 pb-8 max-h-[88vh] overflow-y-auto" style="background:var(--bg-card)">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 max-h-[92dvh] flex flex-col" style="background:var(--bg-card)">
+        <div class="overflow-y-auto flex-1 pb-2">
         <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
         <div class="flex items-center gap-2 mb-1">
           <i class="fa-solid fa-shield-halved text-violet-400"></i>
@@ -1502,6 +1505,9 @@ window.guAcessos = async function(cpf){
             `<div class="flex flex-wrap gap-1.5">${(cat.congregacoes || []).map(c => chip('congregacoes', c.nome, a.congregacoes.includes(c.nome))).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação ativa</span>'}</div>`)}
           ${secao('Módulos liberados', 'Nada marcado = acesso legado (todos os módulos)',
             `<div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div>`)}
+        </div>
+        </div>
+        <div class="pt-3 pb-2" style="border-top:1px solid var(--border-color)">
           <button onclick="guSalvarAcessos('${cpf}')" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Gravar acessos</button>
         </div>
       </div>
