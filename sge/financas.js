@@ -1744,15 +1744,15 @@ window.rcmCentralRender = function(){
         ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981"><i class="fa-solid fa-circle-check mr-0.5"></i>enviado</span>'
         : '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>rascunho</span>';
       return `
-      <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
+      <div class="flex items-center gap-2 py-2 border-b cursor-pointer" style="border-color:var(--border-color)" onclick="rcmAbrir('${r.id}')" title="Toque para ${enviado ? 'visualizar' : 'continuar a edição'}">
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
           <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}</p>
         </div>
         ${badgeItem}
-        ${pode && !enviado ? `<button onclick="rcmEnviarItem('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#8b5cf6" title="Enviar à central"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
-        <button onclick="rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
-        ${pode ? `<button onclick="rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
+        ${pode && !enviado ? `<button onclick="event.stopPropagation();rcmEnviarItem('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#8b5cf6" title="Enviar à central"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
+        <button onclick="event.stopPropagation();rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
+        ${pode ? `<button onclick="event.stopPropagation();rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
     }).join('');
 };
