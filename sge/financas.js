@@ -650,19 +650,46 @@ function _fqGrafico(){
 /* Porta mobile do relatório — mesma estrutura de dados do desktop:
    lancamentos: [{tipo, recibo, descricao, valor}] gravados via sge-api. */
 
-const RC_TIPOS = [
-  'OFERTA ORDINARIA', 'OFERTA ORDINARIA - TB',
-  'OFERTA MISSIONARIA', 'OFERTA MISSIONARIA - TB',
-  'DIZIMOS', 'DIZIMOS - TB',
-  'SAIDAS', 'SAIDAS - TB',
+/* Lançamento guiado: filtro principal (categoria) → forma (Pix/Espécie) → subfiltro.
+   O "tipo" gravado continua "ID" (espécie) ou "ID - TB" (pix) — compatível com
+   relatórios antigos e com os totais entTB/entDin. */
+const RC_CATS = [
+  { id: 'DIZIMOS', rotulo: 'Dízimos', titulo: 'DÍZIMOS', dizimo: true },
+  { id: 'OFERTA ORDINARIA', rotulo: 'Oferta Ordinária', titulo: 'OFERTAS', subs: [
+    'Oferta Extraordinária', 'Oferta Ordinária - 3ª Feira', 'Oferta Ordinária - 5ª Feira',
+    'Oferta Ordinária - 6ª Feira', 'Oferta Ordinária - Sábado', 'Oferta da EBD',
+    'Consagração Geral', 'Culto das Crianças', 'Outros'],
+    subsAG: [
+    'Oferta Ordinária do Culto de Assembleia Geral - 2ª Feira',
+    'Oferta Ordinária - Assembleia Geral - Culto de Milagres - 4ª Feira',
+    'Outros cultos de Assembleia Geral'] },
+  { id: 'OFERTA MISSIONARIA', rotulo: 'Oferta Missionária', titulo: 'OFERTA MISSIONÁRIA', subs: [
+    'Oferta da EBD Missionária', 'Oferta do Culto de Missões', 'Oferta Missionária',
+    'Oferta Missionária do Círculo de Oração', 'Santa Ceia Missionária'] },
+  { id: 'CIRCULO DE ORACAO', rotulo: 'Oferta do Círculo de Oração', titulo: 'CÍRCULO DE ORAÇÃO', subs: [
+    'Oferta do Círculo de Oração - 6ª Feira', 'Oferta do Círculo de Oração - Sábado',
+    'Oferta do Culto do Círculo de Oração'] },
+  { id: 'DOMINGO NOITE', rotulo: 'Oferta Ordinária de Domingo à Noite - Outros Departamentos', titulo: 'DOM. NOITE - OUTROS DEPTOS', subs: [
+    'Oferta do Culto da UMAD', 'Culto do Diaconato', 'Culto do Instrumental', 'Culto da Família',
+    'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto Público', 'Outros'] },
+  { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
 ];
-const RC_TITULOS = {
-  'OFERTA ORDINARIA': 'OFERTAS', 'OFERTA ORDINARIA - TB': 'OFERTA PIX',
-  'OFERTA MISSIONARIA': 'OFERTA MISSIONÁRIA', 'OFERTA MISSIONARIA - TB': 'OFERTA MISSIONÁRIA PIX',
-  'DIZIMOS': 'DÍZIMOS', 'DIZIMOS - TB': 'DÍZIMOS PIX',
-  'SAIDAS': 'SAÍDAS', 'SAIDAS - TB': 'SAÍDAS PIX',
-};
+const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
+const RC_TIPOS = RC_CATS.flatMap(c => [c.id, c.id + ' - TB']);
+const RC_TITULOS = {};
+RC_CATS.forEach(c => { RC_TITULOS[c.id] = c.titulo; RC_TITULOS[c.id + ' - TB'] = c.titulo + ' PIX'; });
 const RC_SECOES = RC_TIPOS.map(t => ({ tipo: t, titulo: RC_TITULOS[t] }));
+
+const rcCat = id => RC_CATS.find(c => c.id === id) || RC_CATS[0];
+const rcCatDeTipo = t => RC_CATS.find(c => t === c.id || t === c.id + ' - TB') || null;
+function rcmEhAG(){
+  const nome = el('rcm-congregacao')?.value || RC.meta?.congregacao || '';
+  return /assembleia\s*geral/i.test(nome);
+}
+function rcSubsDaCat(cat){
+  if (!cat?.subs) return [];
+  return (cat.subsAG && rcmEhAG()) ? cat.subs.concat(cat.subsAG) : [...cat.subs];
+}
 const RC_VERIFICA_URL = 'https://cdaniel09917-design.github.io/sge/verificar.html';
 const RCM_CSS = `<style>
 .rcm-doc{font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#000;background:#fff;border:1px solid #000;min-width:540px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:8px;overflow:hidden;position:relative}
@@ -703,7 +730,7 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
 </style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, podeEditar: true, modo: 'editar', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
 
 function rcDadosUsuario(){
   const u = sessao()?.usuario || {};
@@ -781,7 +808,7 @@ function rcRenderTela(){
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
-              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
             <div id="rcm-aviso-semana" class="col-span-2"></div>
@@ -796,12 +823,20 @@ function rcRenderTela(){
         </div>
         <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
           <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
-          ${selF('rcm-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), null, "rcmToggleRecibo()")}
+          <div class="grid grid-cols-2 gap-2">
+            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
+              ${selF('rcm-cat', RC_CATS.map(c => [c.id, c.rotulo]), F.rcCat || 'OFERTA ORDINARIA', 'rcmMudarCategoria()')}</div>
+            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
+              <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
+                <button type="button" id="rcm-f-esp" onclick="rcmForma('ESPECIE')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-money-bill mr-1"></i>Espécie</button>
+                <button type="button" id="rcm-f-pix" onclick="rcmForma('PIX')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-qrcode mr-1"></i>Pix</button>
+              </div></div>
+          </div>
+          <div id="rcm-sub-slot"></div>
           <div class="grid grid-cols-2 gap-2">
             <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <input id="rcm-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           </div>
-          <input id="rcm-descricao" placeholder="Descrição / Histórico" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
         </div>
         <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -832,6 +867,8 @@ function rcRenderTela(){
   rcmAplicarModo();
   rcmCentral();
   rcmAvisoSemana();
+  rcmMudarCategoria();
+  rcmForma(RC.formaSel || 'ESPECIE');
 }
 
 function rcmAcoesHtml(){
@@ -910,25 +947,94 @@ window.rcmMascaraData = function(inp){
   rcmAvisoSemana();
 };
 
-window.rcmToggleRecibo = function(){
-  const saida = el('rcm-tipo').value.includes('SAIDAS');
-  const r = el('rcm-recibo');
-  if (r){ r.disabled = saida; r.value = saida ? '' : r.value; r.placeholder = saida ? 'N/A (Saída)' : 'Nº Recibo'; }
+/* ---- fluxo guiado: categoria -> forma -> subfiltro ---- */
+window.rcmForma = function(f, p){
+  const pre = p || '';
+  const sel = f === 'PIX' ? 'PIX' : 'ESPECIE';
+  if (pre) RC.edForma = sel; else RC.formaSel = sel;
+  const ativo = 'linear-gradient(135deg,var(--color-primary-hover),var(--color-primary))';
+  const esp = el(`rcm-${pre}f-esp`), pix = el(`rcm-${pre}f-pix`);
+  if (esp){ esp.style.background = sel === 'ESPECIE' ? ativo : 'transparent'; esp.style.color = sel === 'ESPECIE' ? 'var(--text-inverse)' : 'var(--text-muted)'; }
+  if (pix){ pix.style.background = sel === 'PIX' ? ativo : 'transparent'; pix.style.color = sel === 'PIX' ? 'var(--text-inverse)' : 'var(--text-muted)'; }
 };
 
-window.rcmAdicionar = function(){
-  const tipo = el('rcm-tipo').value;
-  const recibo = el('rcm-recibo').value.trim();
-  const descricao = el('rcm-descricao').value.trim();
-  const valor = rcmValorNum(el('rcm-valor').value);
-  const isSaida = tipo.includes('SAIDAS');
-  if (!isSaida){
-    if (!recibo){ toast('Informe o número do recibo.'); return; }
-    if (RC.lancamentos.some(l => l.recibo === recibo)){ toast(`O recibo "${recibo}" já foi lançado.`); return; }
+window.rcmMudarCategoria = function(p){
+  const pre = p || '';
+  const cat = rcCat(el(`rcm-${pre}cat`)?.value);
+  if (!pre) F.rcCat = cat.id;
+  const slot = el(`rcm-${pre}sub-slot`); if (!slot) return;
+  const r = el(`rcm-${pre}recibo`);
+  if (r){ r.disabled = !!cat.saida; if (cat.saida) r.value = ''; r.placeholder = cat.saida ? 'N/A (Saída)' : 'Nº Recibo'; }
+  const cssI = 'w-full px-2 py-2 rounded-lg border text-xs';
+  const cssS = 'background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)';
+  if (cat.dizimo){
+    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nome do irmão *</span>
+      <input id="rcm-${pre}irmao" list="rcm-${pre}irmaos" placeholder="Selecione ou digite o nome" autocomplete="off" class="${cssI}" style="${cssS}">
+      <datalist id="rcm-${pre}irmaos"></datalist>
+      <p class="text-[9px] opacity-50 mt-1">Obrigatório — a lista sugere os membros da congregação.</p>`;
+    rcmPopularIrmaos(pre);
+  } else if (cat.saida){
+    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição / Histórico *</span>
+      <input id="rcm-${pre}descricao" placeholder="Ex.: Conta de energia, material de limpeza..." class="${cssI}" style="${cssS}">`;
+  } else {
+    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Detalhe da oferta *</span>
+      ${selF(`rcm-${pre}sub`, rcSubsDaCat(cat).map(s => [s, s]), null, `rcmMudarSub('${pre}')`)}
+      <div id="rcm-${pre}outros-wrap" class="hidden mt-2"><input id="rcm-${pre}outros" placeholder="Descreva o lançamento (obrigatório)" class="${cssI}" style="${cssS}"></div>`;
+    rcmMudarSub(pre);
   }
-  if (!descricao || isNaN(valor) || valor <= 0){ toast('Preencha a descrição e um valor válido.'); return; }
-  RC.lancamentos.push({ tipo, recibo: isSaida ? '' : recibo, descricao, valor });
-  el('rcm-descricao').value = ''; el('rcm-valor').value = ''; el('rcm-recibo').value = '';
+};
+
+window.rcmMudarSub = function(p){
+  const pre = p || '';
+  const sub = el(`rcm-${pre}sub`)?.value || '';
+  const w = el(`rcm-${pre}outros-wrap`);
+  if (w) w.classList.toggle('hidden', !RC_OUTROS.includes(sub));
+};
+
+async function rcmPopularIrmaos(pre){
+  const p = pre || '';
+  const dl = el(`rcm-${p}irmaos`); if (!dl) return;
+  try { await carregarMembros(); } catch(e){}
+  const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim().toLowerCase();
+  const nomes = (F.membros || [])
+    .filter(m => !cong || String(m.congregacao || '').trim().toLowerCase() === cong)
+    .map(m => String(m.nome || '').trim()).filter(Boolean);
+  dl.innerHTML = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(n => `<option value="${rcEsc(n)}">`).join('');
+}
+
+/* Lê o formulário (p='' inclusão, p='ed-' edição) e devolve o lançamento validado */
+function rcmLerForm(p){
+  const cat = rcCat(el(`rcm-${p}cat`)?.value);
+  const forma = ((p ? RC.edForma : RC.formaSel) === 'PIX') ? 'PIX' : 'ESPECIE';
+  const recibo = String(el(`rcm-${p}recibo`)?.value || '').trim();
+  const valor = rcmValorNum(el(`rcm-${p}valor`)?.value);
+  let descricao = '';
+  if (cat.dizimo){
+    const nome = String(el(`rcm-${p}irmao`)?.value || '').trim();
+    if (!nome) return { erro: 'Informe o nome do irmão dizimista.' };
+    descricao = `Dízimo — ${nome}`;
+  } else if (cat.saida){
+    descricao = String(el(`rcm-${p}descricao`)?.value || '').trim();
+    if (!descricao) return { erro: 'Informe a descrição da saída.' };
+  } else {
+    const sub = el(`rcm-${p}sub`)?.value || '';
+    if (RC_OUTROS.includes(sub)){
+      descricao = String(el(`rcm-${p}outros`)?.value || '').trim();
+      if (!descricao) return { erro: 'Descreva o lançamento no campo de texto livre.' };
+    } else if (sub) descricao = sub;
+    else return { erro: 'Selecione o detalhe da oferta.' };
+  }
+  if (!cat.saida && !recibo) return { erro: 'Informe o número do recibo.' };
+  if (isNaN(valor) || valor <= 0) return { erro: 'Informe um valor válido.' };
+  return { tipo: cat.id + (forma === 'PIX' ? ' - TB' : ''), recibo: cat.saida ? '' : recibo, descricao, valor, saida: !!cat.saida };
+}
+
+window.rcmAdicionar = function(){
+  const l = rcmLerForm('');
+  if (l.erro){ toast(l.erro); return; }
+  if (!l.saida && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
+  RC.lancamentos.push({ tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor });
+  ['rcm-valor','rcm-recibo','rcm-outros','rcm-irmao','rcm-descricao'].forEach(id => { const x = el(id); if (x) x.value = ''; });
   rcmRenderLista();
   rcmRenderDoc();
 };
@@ -1037,16 +1143,20 @@ window.rcmEditar = function(i){
             <button onclick="document.getElementById('rcm-edita').remove()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="space-y-2.5">
-            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo</span>
-              ${selF('rcm-ed-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), it.tipo, 'rcmEdToggleRecibo()')}</div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
+              ${selF('rcm-ed-cat', RC_CATS.map(c => [c.id, c.rotulo]), (rcCatDeTipo(it.tipo) || RC_CATS[0]).id, "rcmMudarCategoria('ed-')")}</div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
+              <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
+                <button type="button" id="rcm-ed-f-esp" onclick="rcmForma('ESPECIE','ed-')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-money-bill mr-1"></i>Espécie</button>
+                <button type="button" id="rcm-ed-f-pix" onclick="rcmForma('PIX','ed-')" class="py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-qrcode mr-1"></i>Pix</button>
+              </div></div>
+            <div id="rcm-ed-sub-slot"></div>
             <div class="grid grid-cols-2 gap-2">
               <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nº Recibo</span>
                 <input id="rcm-ed-recibo" inputmode="numeric" placeholder="Nº Recibo" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
               <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor</span>
                 <input id="rcm-ed-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
             </div>
-            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição / Histórico</span>
-              <input id="rcm-ed-descricao" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2 pt-3" style="border-top:1px solid var(--border-color)">
@@ -1055,34 +1165,36 @@ window.rcmEditar = function(i){
         </div>
       </div>
     </div>`);
+  RC.edForma = it.tipo.includes('TB') ? 'PIX' : 'ESPECIE';
+  const catEd = rcCatDeTipo(it.tipo) || RC_CATS[0];
   el('rcm-ed-recibo').value = it.recibo || '';
-  el('rcm-ed-descricao').value = it.descricao || '';
   el('rcm-ed-valor').value = rcMoeda(it.valor);
-  rcmEdToggleRecibo();
-};
-
-window.rcmEdToggleRecibo = function(){
-  const t = el('rcm-ed-tipo'), r = el('rcm-ed-recibo');
-  if (!t || !r) return;
-  const sai = t.value.includes('SAIDAS');
-  r.disabled = sai;
-  if (sai) r.value = '';
-  r.placeholder = sai ? 'N/A (Saída)' : 'Nº Recibo';
+  rcmMudarCategoria('ed-');
+  rcmForma(RC.edForma, 'ed-');
+  if (catEd.dizimo){
+    const mm = /^D.zimo\s*.\s*(.+)$/u.exec(it.descricao || '');
+    const inp = el('rcm-ed-irmao'); if (inp) inp.value = mm ? mm[1] : (it.descricao || '');
+  } else if (catEd.saida){
+    const d = el('rcm-ed-descricao'); if (d) d.value = it.descricao || '';
+  } else {
+    const subs = rcSubsDaCat(catEd);
+    const s = el('rcm-ed-sub');
+    if (subs.includes(it.descricao)){ if (s) s.value = it.descricao; }
+    else {
+      const outro = subs.find(x => RC_OUTROS.includes(x));
+      if (s && outro) s.value = outro;
+      const o = el('rcm-ed-outros'); if (o) o.value = it.descricao || '';
+    }
+    rcmMudarSub('ed-');
+  }
 };
 
 window.rcmSalvarEdicao = function(i){
   const it = RC.lancamentos[i]; if (!it) return;
-  const tipo = el('rcm-ed-tipo').value;
-  const recibo = el('rcm-ed-recibo').value.trim();
-  const descricao = el('rcm-ed-descricao').value.trim();
-  const valor = rcmValorNum(el('rcm-ed-valor').value);
-  const isSaida = tipo.includes('SAIDAS');
-  if (!isSaida){
-    if (!recibo){ toast('Informe o número do recibo.'); return; }
-    if (RC.lancamentos.some((l, j) => j !== i && l.recibo === recibo)){ toast(`O recibo "${recibo}" já foi lançado.`); return; }
-  }
-  if (!descricao || isNaN(valor) || valor <= 0){ toast('Preencha a descrição e um valor válido.'); return; }
-  RC.lancamentos[i] = { tipo, recibo: isSaida ? '' : recibo, descricao, valor };
+  const l = rcmLerForm('ed-');
+  if (l.erro){ toast(l.erro); return; }
+  if (!l.saida && RC.lancamentos.some((x, j) => j !== i && x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
+  RC.lancamentos[i] = { tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor };
   el('rcm-edita')?.remove();
   rcmRenderLista();
   rcmRenderDoc();
