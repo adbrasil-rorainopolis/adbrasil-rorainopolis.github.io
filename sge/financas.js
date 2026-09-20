@@ -1028,9 +1028,9 @@ window.rcmAvisoSemana = async function(){
   if (!b2) return;
   if (!ex){ b2.innerHTML = ''; return; }
   const env = ex.status === 'enviado';
-  b2.innerHTML = `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:${env ? 'rgba(16,185,129,.10)' : 'rgba(245,158,11,.10)'};color:${env ? '#10b981' : '#f59e0b'};border:1px solid ${env ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.25)'}"><i class="fa-solid ${env ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>${env
-    ? 'Esta semana já foi ENVIADA à central — ao gravar você poderá retificar'
-    : 'Já existe um RASCUNHO desta semana — ao gravar você poderá revisá-lo'}</div>`;
+  b2.innerHTML = `<button onclick="rcmAbrir('${rcEsc(ex.id)}')" class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2 cursor-pointer text-left" style="background:${env ? 'rgba(16,185,129,.10)' : 'rgba(245,158,11,.10)'};color:${env ? '#10b981' : '#f59e0b'};border:1px solid ${env ? 'rgba(16,185,129,.35)' : 'rgba(245,158,11,.35)'}"><i class="fa-solid ${env ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i><span class="flex-1">${env
+    ? 'Esta semana já foi ENVIADA à central — toque para visualizar ou retificar'
+    : 'Já existe um RASCUNHO desta semana — toque para revisar'}</span><i class="fa-solid fa-eye"></i></button>`;
 };
 
 /* Marca o relatório carregado como enviado na central. */
