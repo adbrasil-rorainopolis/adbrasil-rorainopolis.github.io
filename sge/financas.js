@@ -1721,6 +1721,10 @@ window.rcmCentral = async function(){
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
     RC.centralLista = res?.relatorios || [];
+    try {
+      const lx = await api('listar_lixeira_relatorios_caixa', null, sessao()?.token);
+      RC.lixeiraLista = lx?.relatorios || [];
+    } catch(e2){ RC.lixeiraLista = []; }
     rcmCentralRender();
   } catch(e){ box.innerHTML = `<p class="text-[11px] py-3 text-center" style="color:#f87171">${rcEsc(e.message || 'Falha ao carregar.')}</p>`; }
 };
@@ -1735,9 +1739,29 @@ window.rcmCentralRender = function(){
   const chips = el('rcm-central-chips');
   if (chips){
     const mk = (id, rot) => `<button onclick="rcmCentralFiltro('${id}')" class="px-2.5 py-1 rounded-full text-[9px] font-extrabold cursor-pointer" style="${f === id ? 'background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:#fff;border:1px solid transparent' : 'background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border-color)'}">${rot}</button>`;
-    chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`);
+    chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`) + mk('lixeira', `<i class="fa-solid fa-trash-can mr-0.5"></i>Lixeira ${(RC.lixeiraLista || []).length}`);
   }
   const busca = String(RC.centralBusca || '').trim().toLowerCase();
+  if (f === 'lixeira'){
+    const lix = (RC.lixeiraLista || []).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
+    if (!lix.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Lixeira vazia — nada excluído.</p>'; return; }
+    const meuCpfL = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
+    const adminL = rcEhAdmin();
+    box.innerHTML = lix.map(r => {
+        const podeL = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpfL || adminL;
+        const dtEx = r.excluido_em ? new Date(r.excluido_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+        return `
+        <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color);opacity:.85">
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold truncate" style="text-decoration:line-through;opacity:.75">${rcEsc(r.congregacao || '—')}</p>
+            <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}${dtEx ? ' • excluído ' + dtEx : ''}</p>
+          </div>
+          <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash-can mr-0.5"></i>excluído</span>
+          ${podeL ? `<button onclick="rcmRestaurar('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#34d399" title="Restaurar"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
+        </div>`;
+      }).join('');
+    return;
+  }
   const fil = lista.filter(r => (f === 'todos' || r.status === f) && (!busca || String(r.congregacao || '').toLowerCase().includes(busca)));
   if (!fil.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório neste filtro.</p>'; return; }
   const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
@@ -1838,6 +1862,18 @@ window.rcmExcluir = async function(id){
     if (!res?.ok){ toast(res?.erro || 'Falha ao excluir.'); return; }
     if (String(RC.id) === String(id)) rcmNovo(); else rcmCentral();
     toast('Relatório excluído.');
+  } catch(e){ toast(e.message || 'Erro de conexão.'); }
+};
+
+/* Restaura relatório da lixeira. */
+window.rcmRestaurar = async function(id){
+  if (!await rcmConfirmar({ titulo:'Restaurar relatório', icone:'fa-rotate-left', cor:'#10b981', okTexto:'Restaurar',
+      msg:'Restaurar este relatório da lixeira?<br>Ele volta para a Central no status em que estava.' })) return;
+  try {
+    const res = await api('restaurar_relatorio_caixa', { id }, sessao()?.token);
+    if (!res?.ok){ toast(res?.erro || 'Falha ao restaurar.'); return; }
+    toast('Relatório restaurado.');
+    rcmCentral();
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
