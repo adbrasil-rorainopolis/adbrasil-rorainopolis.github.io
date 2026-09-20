@@ -1191,25 +1191,63 @@ function rcmImgData(src){
   });
 }
 
+function rcmQrDataUrl(texto, tam){
+  try {
+    if (typeof QRCode === 'undefined') return null;
+    const div = document.createElement('div');
+    new QRCode(div, { text: texto, width: tam || 128, height: tam || 128, correctLevel: QRCode.CorrectLevel.M });
+    const cv = div.querySelector('canvas');
+    if (cv) return cv.toDataURL('image/png');
+    const img = div.querySelector('img');
+    return img && String(img.src).startsWith('data:') ? img.src : null;
+  } catch(e){ return null; }
+}
+
 window.rcmPdf = async function(){
   const JsPDF = window.jspdf && window.jspdf.jsPDF;
   if (!JsPDF){ toast('Biblioteca de PDF não carregada — verifique a conexão.'); return; }
   const rel = rcmColetar();
   const t = rcmTotais();
   const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const ML = 12, CW = 186, CX = ML + CW;
   let y = 10;
+  const fitY = need => { if (y + need > 284){ doc.addPage(); y = 12; } };
+
+  // timbrado
   const img = await rcmImgData('icons/cabecalho_ad_brasil.png');
   if (img){
-    const w = 186, h = Math.min(34, img.h * (w / img.w));
-    try { doc.addImage(img.data, 'PNG', 12, y, w, h); y += h + 4; } catch(e){}
+    const h = Math.min(30, img.h * (CW / img.w));
+    try { doc.addImage(img.data, 'PNG', ML, y, CW, h); y += h + 1; } catch(e){}
   }
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('MOVIMENTO CAIXA', 105, y, { align: 'center' }); y += 5;
-  doc.setFontSize(10);
-  doc.text(rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO', 105, y, { align: 'center' }); y += 4.5;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  doc.text(`DATA: ${rel.data_relatorio || '—'}     FECHAMENTO: ${rel.semana || '—'}`, 105, y, { align: 'center' }); y += 4;
 
+  // cabeçalho do documento: caixa "MOVIMENTO CAIXA" + caixas DATA/FECHAMENTO (modelo desktop)
+  const headH = 11, titleW = 82, metaW = 58;
+  doc.setDrawColor(0); doc.setLineWidth(.3); doc.setTextColor(0);
+  doc.rect(ML, y, CW, headH);
+  doc.setFillColor(230,230,230);
+  doc.rect(ML, y, titleW, headH, 'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text('MOVIMENTO CAIXA', ML + titleW/2, y + headH/2 + 1.7, { align:'center' });
+  const mx = CX - metaW, mw = metaW/2;
+  doc.rect(mx, y, metaW, headH);
+  doc.line(mx + mw, y, mx + mw, y + headH);
+  [['DATA', rel.data_relatorio || '—'], ['FECHAMENTO', rel.semana || '—']].forEach((it, i) => {
+    const cx = mx + mw*i + mw/2;
+    doc.setFontSize(5); doc.setTextColor(70);
+    doc.text(it[0], cx, y + 3, { align:'center' });
+    doc.setFontSize(9); doc.setTextColor(0);
+    doc.text(String(it[1]).toUpperCase(), cx, y + headH - 2.6, { align:'center' });
+  });
+  y += headH;
+
+  // faixa CONGREGAÇÃO
+  doc.setFillColor(230,230,230);
+  doc.rect(ML, y, CW, 7, 'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0);
+  doc.text(rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO', 105, y + 4.9, { align:'center' });
+  y += 7;
+
+  // tabela de lançamentos (10 colunas: Nº + HISTÓRICO + 6 colunas finas + ENTRADAS + SAÍDAS)
   const body = [];
   RC_SECOES.forEach(sec => {
     const itens = RC.lancamentos.filter(l => l.tipo === sec.tipo)
@@ -1217,66 +1255,133 @@ window.rcmPdf = async function(){
     if (!itens.length) return;
     const isSaiSec = sec.tipo.includes('SAIDAS');
     let sub = 0;
-    body.push([{ content: sec.titulo, colSpan: 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: [236,236,236] } }]);
+    body.push([{ content: '', styles: { fillColor: [236,236,236] } },
+      { content: sec.titulo, colSpan: 7, styles: { halign: 'center', fontStyle: 'bold', fillColor: [236,236,236] } },
+      { content: '', styles: { fillColor: [236,236,236] } }, { content: '', styles: { fillColor: [236,236,236] } }]);
     itens.forEach(it => {
       const isSai = it.tipo.includes('SAIDAS');
       sub += it.valor;
-      body.push([it.recibo || '', it.descricao || '', isSai ? '' : rcMoeda(it.valor), isSai ? rcMoeda(it.valor) : '']);
+      body.push([it.recibo || '', it.descricao || '', '', '', '', '', '', '',
+        isSai ? '' : rcMoeda(it.valor), isSai ? rcMoeda(it.valor) : '']);
     });
-    body.push([{ content: 'SUBTOTAL ' + sec.titulo + ':', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
-      { content: isSaiSec ? '' : rcMoeda(sub), styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: isSaiSec ? rcMoeda(sub) : '', styles: { halign: 'right', fontStyle: 'bold' } }]);
+    body.push([{ content: '', styles: { fillColor: [242,242,242] } },
+      { content: 'SUBTOTAL ' + sec.titulo + ':', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
+      { content: isSaiSec ? '' : rcMoeda(sub), styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
+      { content: isSaiSec ? rcMoeda(sub) : '', styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } }]);
   });
-  if (!body.length) body.push([{ content: 'Nenhum lançamento efetuado para este movimento.', colSpan: 4, styles: { halign: 'center', fontStyle: 'italic', textColor: [120,120,120] } }]);
+  if (!body.length) body.push([{ content: 'Nenhum lançamento efetuado para este movimento.', colSpan: 10, styles: { halign: 'center', fontStyle: 'italic', textColor: [120,120,120] } }]);
   doc.autoTable({
-    startY: y, head: [['Nº', 'HISTÓRICO', 'ENTRADAS', 'SAÍDAS']], body, theme: 'grid',
-    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8, halign: 'center', fontStyle: 'bold' },
-    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
-    columnStyles: { 0: { cellWidth: 16, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' } },
-    margin: { left: 12, right: 12 },
+    startY: y,
+    head: [['Nº', 'HISTÓRICO', '', '', '', '', '', '', 'ENTRADAS', 'SAÍDAS']],
+    body, theme: 'grid',
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
+    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25, cellPadding: { top: 1.4, bottom: 1.4, left: 1.6, right: 1.6 }, minCellHeight: 5 },
+    columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 2: { cellWidth: 4 }, 3: { cellWidth: 4 }, 4: { cellWidth: 4 }, 5: { cellWidth: 4 }, 6: { cellWidth: 4 }, 7: { cellWidth: 4 }, 8: { cellWidth: 26, halign: 'right' }, 9: { cellWidth: 26, halign: 'right' } },
+    margin: { left: ML, right: ML },
   });
-  y = doc.lastAutoTable.finalY + 4;
+  y = doc.lastAutoTable.finalY;
+
+  // bloco de totais em duas colunas + caixas de visto (modelo desktop)
+  fitY(50);
+  const yTot = y + 2.5, colW = (CW - 8)/2, colRX = ML + colW + 8;
   doc.autoTable({
-    startY: y, theme: 'grid', tableWidth: 90,
+    startY: yTot, theme: 'grid', tableWidth: colW,
     head: [[{ content: 'DETALHES DO SALDO (BRUTO)', colSpan: 2, styles: { halign: 'center' } }]],
     body: [['TRANSF. BANCÁRIA - TB (PIX)', rcMoeda(t.entTB)], ['DINHEIRO', rcMoeda(t.entDin)]],
-    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
-    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
-    columnStyles: { 1: { halign: 'right' } },
-    margin: { left: 12 },
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 7.5, fontStyle: 'bold' },
+    styles: { fontSize: 7.5, textColor: 0, lineColor: 0, lineWidth: .25, cellPadding: 1.4 },
+    columnStyles: { 1: { halign: 'right', cellWidth: 24 } },
+    margin: { left: ML },
   });
   const yDet = doc.lastAutoTable.finalY;
   doc.autoTable({
-    startY: y, theme: 'grid', tableWidth: 90,
+    startY: yDet + 2.5, theme: 'grid', tableWidth: colW,
     head: [[{ content: 'REPASSE PARA O CAMPO (LÍQUIDO)', colSpan: 2, styles: { halign: 'center' } }]],
-    body: [[{ content: 'DINHEIRO', styles: { halign: 'center', fontSize: 7 } }, { content: 'TRANSFERÊNCIAS', styles: { halign: 'center', fontSize: 7 } }],
+    body: [[{ content: 'DINHEIRO', styles: { halign: 'center', fontSize: 6.5 } }, { content: 'TRANSFERÊNCIAS', styles: { halign: 'center', fontSize: 6.5 } }],
            [rcMoeda(t.entDin - t.saiDin), rcMoeda(t.entTB - t.saiTB)]],
-    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
-    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25, halign: 'right' },
-    margin: { left: 108 },
+    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 7.5, fontStyle: 'bold' },
+    styles: { fontSize: 7.5, textColor: 0, lineColor: 0, lineWidth: .25, halign: 'right', cellPadding: 1.4 },
+    margin: { left: ML },
   });
   const yRep = doc.lastAutoTable.finalY;
   doc.autoTable({
-    startY: Math.max(yDet, yRep) + 3, theme: 'grid',
-    head: [[{ content: 'TOTAIS', styles: { halign: 'center' } }, { content: 'ENTRADAS', styles: { halign: 'center' } }, { content: 'SAÍDAS', styles: { halign: 'center' } }]],
-    body: [['', rcMoeda(t.ent), rcMoeda(t.sai)],
-           [{ content: 'SALDO ATUAL', colSpan: 2, styles: { fontStyle: 'bold', fillColor: [230,230,230] } }, { content: rcMoeda(t.saldo), styles: { halign: 'right', fontStyle: 'bold', fillColor: [230,230,230] } }]],
-    headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 8 },
-    styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25 },
-    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
-    margin: { left: 12, right: 12 },
+    startY: yTot, theme: 'grid', tableWidth: colW,
+    body: [[{ content: 'TOTAIS', styles: { fontStyle: 'bold', fillColor: [230,230,230], halign: 'center' } },
+            { content: rcMoeda(t.ent), styles: { halign: 'right' } },
+            { content: rcMoeda(t.sai), styles: { halign: 'right' } }],
+           [{ content: 'SALDO ATUAL', styles: { fontStyle: 'bold', fillColor: [230,230,230] } },
+            { content: rcMoeda(t.saldo), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230,230,230] } }]],
+    styles: { fontSize: 7.5, textColor: 0, lineColor: 0, lineWidth: .25, cellPadding: 1.4 },
+    columnStyles: { 0: { cellWidth: colW*0.5 }, 1: { cellWidth: colW*0.25 }, 2: { cellWidth: colW*0.25 } },
+    margin: { left: colRX },
   });
-  y = doc.lastAutoTable.finalY + 10;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-  doc.text('CAIXA: ______________________________          VISTO: ______________________________', 105, y, { align: 'center' });
-  y += 10;
+  const yTotR = doc.lastAutoTable.finalY;
+
+  // caixas de assinatura CAIXA/VISTO — caixas com borda, não linhas soltas
+  const sigH = 13, sigY = yTotR + 2.5;
+  doc.setDrawColor(0); doc.setLineWidth(.3);
+  doc.rect(colRX, sigY, colW, sigH*2);
+  doc.line(colRX, sigY + sigH, colRX + colW, sigY + sigH);
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(0);
+  doc.text('CAIXA', colRX + 2, sigY + 3);
+  doc.text('VISTO', colRX + 2, sigY + sigH + 3);
+  doc.setLineWidth(.2);
+  doc.line(colRX + 3, sigY + sigH - 2.5, colRX + colW - 3, sigY + sigH - 2.5);
+  doc.line(colRX + 3, sigY + sigH*2 - 2.5, colRX + colW - 3, sigY + sigH*2 - 2.5);
+  y = Math.max(yRep, sigY + sigH*2) + 3;
+  doc.setLineWidth(.3);
+  doc.rect(ML, yTot - 2, CW, y - yTot - 1);
+
+  // verificação de autenticidade: QR + hash dentro de caixa (modelo desktop)
+  fitY(28);
   const saldoStr = t.saldo.toFixed(2);
   const base = `SGE-CAIXA|${rel.congregacao}|${rel.data_relatorio}|${rel.semana}|${RC.lancamentos.length}|${saldoStr}`;
   const hash = await rcmHashVerificacao(base);
-  doc.setFontSize(7);
-  doc.text(`VERIFICAÇÃO DE AUTENTICIDADE: SGE-CX-${hash}`, 105, y, { align: 'center' }); y += 4;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
-  doc.text('SGE • AD BRASIL — RELATÓRIO DE PRESTAÇÃO DE CONTAS GERADO ELETRONICAMENTE', 105, y, { align: 'center' });
+  let qrSrc = null;
+  try {
+    const params = new URLSearchParams({
+      c: rel.congregacao || '', d: rel.data_relatorio || '', s: rel.semana || '',
+      a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
+      n: String(RC.lancamentos.length), v: saldoStr, h: hash
+    });
+    qrSrc = rcmQrDataUrl(`${RC_VERIFICA_URL}?${params.toString()}`, 128);
+  } catch(e){}
+  const vH = 24;
+  doc.setDrawColor(0); doc.setLineWidth(.3);
+  doc.rect(ML, y, CW, vH);
+  if (qrSrc){ try { doc.addImage(qrSrc, 'PNG', ML + 3, y + 2.5, 19, 19); } catch(e){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(40);
+  doc.text('VERIFICAÇÃO DE AUTENTICIDADE', ML + 26, y + 7);
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(60);
+  doc.text('SGE-CX-' + hash, ML + 26, y + 12);
+  doc.setFontSize(5.5); doc.setTextColor(110);
+  doc.text('Aponte a câmera para conferir a integridade deste documento.', ML + 26, y + 16.5);
+  y += vH;
+
+  // rodapé
+  fitY(8);
+  doc.setFillColor(247,247,247); doc.setDrawColor(0); doc.setLineWidth(.3);
+  doc.rect(ML, y, CW, 6, 'FD');
+  doc.setFont('helvetica','normal'); doc.setFontSize(5.5); doc.setTextColor(85);
+  doc.text('SGE • AD BRASIL — RELATÓRIO DE PRESTAÇÃO DE CONTAS GERADO ELETRONICAMENTE', 105, y + 4.1, { align:'center' });
+
+  // marca d'água do status em todas as páginas
+  try {
+    const marcaTxt = RC.status === 'enviado' ? 'ENVIADO' : 'RASCUNHO';
+    const gs = new doc.GState({ opacity: 0.10 });
+    const total = doc.getNumberOfPages();
+    for (let p = 1; p <= total; p++){
+      doc.setPage(p);
+      doc.saveGraphicsState();
+      doc.setGState(gs);
+      if (RC.status === 'enviado') doc.setTextColor(16,110,60); else doc.setTextColor(120,120,120);
+      doc.setFont('helvetica','bold'); doc.setFontSize(58);
+      doc.text(marcaTxt, 105, 165, { align:'center', angle: -28 });
+      doc.restoreGraphicsState();
+    }
+    doc.setPage(total);
+  } catch(e){}
+
   const nome = [rel.congregacao, rel.semana, rel.data_relatorio].filter(Boolean).join('_').replace(/[\/\\:*?"<>|]/g, '-').replace(/\s+/g, '_');
   doc.save('MOVIMENTO_CAIXA' + (nome ? '_' + nome : '') + '.pdf');
 };
