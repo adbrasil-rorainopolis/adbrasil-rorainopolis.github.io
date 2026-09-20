@@ -164,11 +164,12 @@ window.renderFinanceiro = function(){
       </div>
       <div class="flex gap-2" id="fin-tabs">
         ${['rol','frequencia'].map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
+        ${rcPodeVer() ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba(F.aba || 'rol');
+  finAba(F.aba === 'relatorio' && !rcPodeVer() ? 'rol' : (F.aba || 'rol'));
 };
 
 window.finAba = function(aba){
@@ -179,6 +180,7 @@ window.finAba = function(aba){
     b.style.color = ativa ? '#fff' : 'var(--text-muted)';
     b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
   });
+  if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'frequencia') return finRenderFrequencia();
   finRenderRol();
 };
@@ -644,7 +646,276 @@ function _fqGrafico(){
                 y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: 'rgba(148,163,184,.12)' } } } } });
 }
 
+/* ===================== Relatório de Caixa (Tesouraria) ===================== */
+/* Porta mobile do relatório — mesma estrutura de dados do desktop:
+   lancamentos: [{tipo, recibo, descricao, valor}] gravados via sge-api. */
+
+const RC_TIPOS = [
+  'OFERTA ORDINARIA', 'OFERTA ORDINARIA - TB',
+  'OFERTA MISSIONARIA', 'OFERTA MISSIONARIA - TB',
+  'DIZIMOS', 'DIZIMOS - TB',
+  'SAIDAS', 'SAIDAS - TB',
+];
+const RC_TITULOS = {
+  'OFERTA ORDINARIA': 'OFERTAS', 'OFERTA ORDINARIA - TB': 'OFERTA PIX',
+  'OFERTA MISSIONARIA': 'OFERTA MISSIONÁRIA', 'OFERTA MISSIONARIA - TB': 'OFERTA MISSIONÁRIA PIX',
+  'DIZIMOS': 'DÍZIMOS', 'DIZIMOS - TB': 'DÍZIMOS PIX',
+  'SAIDAS': 'SAÍDAS', 'SAIDAS - TB': 'SAÍDAS PIX',
+};
+
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, abaCentral: false };
+
+function rcDadosUsuario(){
+  const u = sessao()?.usuario || {};
+  const ac = u.acessos || {};
+  return {
+    admin: String(u.perfil || '').toLowerCase() === 'administrador',
+    tesoureiro: !!(u.tesoureiro ?? ac.tesoureiro),
+    congFixa: String(u.congregacao_tesoureiro ?? ac.congregacao_tesoureiro ?? '').trim(),
+  };
+}
+function rcPodeVer(){ const d = rcDadosUsuario(); return d.admin || d.tesoureiro; }
+function rcEhAdmin(){ return rcDadosUsuario().admin; }
+function rcCongFixa(){ const d = rcDadosUsuario(); return (d.tesoureiro && !d.admin) ? d.congFixa : ''; }
+const rcMoeda = v => moeda(v);
+const rcEsc = esc;
+
+async function rcCarregarCongregacoes(){
+  if (RC.congs) return RC.congs;
+  try {
+    const res = await api('listar_congregacoes', null, sessao()?.token);
+    RC.congs = (res?.dados || []).filter(c => c.ativo !== 0 && c.ativo !== false);
+  } catch(e){ RC.congs = []; }
+  return RC.congs;
+}
+
+function rcRenderTela(){
+  const u = sessao()?.usuario || {};
+  const congFixa = rcCongFixa();
+  const hoje = new Date();
+  const dataPadrao = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório recebido — somente leitura</div>` : ''}
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
+            <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+            ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
+          </div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
+            <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
+            ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value")}</div>
+        </div>
+      </div>
+      ${!RC.somenteLeitura ? `
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
+        ${selF('rcm-tipo', RC_TIPOS.map(t => [t, RC_TITULOS[t]]), null, "rcmToggleRecibo()")}
+        <div class="grid grid-cols-2 gap-2">
+          <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <input id="rcm-valor" type="number" step="0.01" min="0" placeholder="Valor (R$)" inputmode="decimal" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        </div>
+        <input id="rcm-descricao" placeholder="Descrição / Histórico" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
+      </div>` : ''}
+      <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase opacity-60 mb-2">Movimento do caixa</p>
+        <div id="rcm-lista"></div>
+        <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
+      </div>
+      ${!RC.somenteLeitura ? `
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="rcmSalvar(false)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar rascunho</button>
+        <button onclick="rcmSalvar(true)" class="py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0284c7,#38bdf8)"><i class="fa-solid fa-paper-plane mr-1.5"></i>Enviar à central</button>
+      </div>` : `
+      <button onclick="rcmVoltar()" class="w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer border" style="border-color:var(--border-color)"><i class="fa-solid fa-arrow-left mr-1.5"></i>Voltar à central</button>`}
+      <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-inbox mr-1"></i>Central de relatórios</p>
+          <button onclick="rcmCentral()" class="text-[10px] font-bold cursor-pointer opacity-70"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+        </div>
+        <div id="rcm-central"><p class="text-[11px] opacity-50 py-3 text-center">Toque em Atualizar para listar.</p></div>
+      </div>
+    </div>`;
+  rcPopularCongregacoes();
+  rcmRenderLista();
+  rcmCentral();
+}
+
+async function rcPopularCongregacoes(){
+  const sel = el('rcm-congregacao');
+  if (!sel) return;
+  const congs = await rcCarregarCongregacoes();
+  const congFixa = rcCongFixa();
+  sel.innerHTML = '<option value="">— Selecione —</option>' +
+    congs.map(c => `<option value="${rcEsc(c.nome)}" data-conselho="${rcEsc(c.conselho || '')}">${rcEsc(c.nome)}</option>`).join('');
+  if (congFixa){
+    if (![...sel.options].some(o => o.value === congFixa)){
+      const o = document.createElement('option'); o.value = congFixa; o.textContent = congFixa; sel.appendChild(o);
+    }
+    sel.value = congFixa;
+  } else if (F.rcCongregacao){
+    sel.value = F.rcCongregacao;
+  }
+}
+
+window.rcmMascaraData = function(inp){
+  let v = inp.value.replace(/\D/g,'').substring(0,8);
+  if (v.length >= 5) inp.value = v.substring(0,2)+'/'+v.substring(2,4)+'/'+v.substring(4,8);
+  else if (v.length >= 3) inp.value = v.substring(0,2)+'/'+v.substring(2,4);
+  else inp.value = v;
+  F.rcData = inp.value;
+};
+
+window.rcmToggleRecibo = function(){
+  const saida = el('rcm-tipo').value.includes('SAIDAS');
+  const r = el('rcm-recibo');
+  if (r){ r.disabled = saida; r.value = saida ? '' : r.value; r.placeholder = saida ? 'N/A (Saída)' : 'Nº Recibo'; }
+};
+
+window.rcmAdicionar = function(){
+  const tipo = el('rcm-tipo').value;
+  const recibo = el('rcm-recibo').value.trim();
+  const descricao = el('rcm-descricao').value.trim();
+  const valor = parseFloat(el('rcm-valor').value);
+  const isSaida = tipo.includes('SAIDAS');
+  if (!isSaida){
+    if (!recibo){ toast('Informe o número do recibo.'); return; }
+    if (RC.lancamentos.some(l => l.recibo === recibo)){ toast(`O recibo "${recibo}" já foi lançado.`); return; }
+  }
+  if (!descricao || isNaN(valor) || valor <= 0){ toast('Preencha a descrição e um valor válido.'); return; }
+  RC.lancamentos.push({ tipo, recibo: isSaida ? '' : recibo, descricao, valor });
+  el('rcm-descricao').value = ''; el('rcm-valor').value = ''; el('rcm-recibo').value = '';
+  rcmRenderLista();
+};
+
+window.rcmRemover = function(i){
+  if (RC.somenteLeitura) return;
+  RC.lancamentos.splice(i, 1);
+  rcmRenderLista();
+};
+
+function rcmRenderLista(){
+  const lista = el('rcm-lista'); if (!lista) return;
+  let somaEnt = 0, somaSai = 0;
+  let html = '';
+  RC_TIPOS.forEach(tipo => {
+    const itens = RC.lancamentos.map((l,i) => ({...l, _i:i})).filter(l => l.tipo === tipo)
+      .sort((a,b) => (parseInt(a.recibo)||0) - (parseInt(b.recibo)||0));
+    if (!itens.length) return;
+    const isSai = tipo.includes('SAIDAS');
+    let sub = 0;
+    html += `<p class="text-[9px] font-extrabold uppercase tracking-wider mt-2.5 mb-1" style="color:${isSai ? '#f87171' : '#34d399'}">${RC_TITULOS[tipo]}</p>`;
+    itens.forEach(it => {
+      sub += it.valor;
+      isSai ? somaSai += it.valor : somaEnt += it.valor;
+      html += `<div class="flex items-center gap-2 py-1.5 border-b" style="border-color:var(--border-color)">
+        ${it.recibo ? `<span class="text-[9px] font-mono opacity-50 w-9 shrink-0">${rcEsc(it.recibo)}</span>` : ''}
+        <span class="flex-1 text-[11px] truncate">${rcEsc(it.descricao)}</span>
+        <span class="text-[11px] font-bold shrink-0" style="color:${isSai ? '#f87171' : '#34d399'}">${rcMoeda(it.valor)}</span>
+        ${RC.somenteLeitura ? '' : `<button onclick="rcmRemover(${it._i})" class="w-6 h-6 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>`}
+      </div>`;
+    });
+    html += `<div class="flex justify-between text-[10px] font-bold py-1 opacity-70"><span>Subtotal ${RC_TITULOS[tipo]}</span><span>${rcMoeda(sub)}</span></div>`;
+  });
+  lista.innerHTML = html || '<p class="text-[11px] opacity-50 italic py-3 text-center">Nenhum lançamento efetuado.</p>';
+  el('rcm-totais').innerHTML = `
+    <div class="flex justify-between"><span class="opacity-70">Total entradas</span><b style="color:#34d399">${rcMoeda(somaEnt)}</b></div>
+    <div class="flex justify-between"><span class="opacity-70">Total saídas</span><b style="color:#f87171">${rcMoeda(somaSai)}</b></div>
+    <div class="flex justify-between text-sm pt-1 border-t" style="border-color:var(--border-color)"><span class="font-bold">Saldo</span><b>${rcMoeda(somaEnt - somaSai)}</b></div>`;
+}
+
+function rcmColetar(){
+  const sel = el('rcm-congregacao');
+  const opt = sel?.options?.[sel.selectedIndex];
+  const hoje = new Date();
+  return {
+    id: RC.id,
+    congregacao: sel?.value || '',
+    conselho: opt?.dataset?.conselho || '',
+    data_relatorio: el('rcm-data')?.value || '',
+    semana: el('rcm-semana')?.value || '',
+    ano: String(hoje.getFullYear()),
+    mes: MESES_ORD[hoje.getMonth()],
+    lancamentos: RC.lancamentos.map(({tipo, recibo, descricao, valor}) => ({tipo, recibo, descricao, valor})),
+  };
+}
+
+window.rcmSalvar = async function(enviar){
+  const rel = rcmColetar();
+  if (!rel.congregacao){ toast('Selecione a congregação do relatório.'); return; }
+  if (!rel.data_relatorio){ toast('Informe a data do relatório.'); return; }
+  const congFixa = rcCongFixa();
+  if (congFixa && rel.congregacao !== congFixa){ toast(`Tesoureiro: relatório só pode ser da congregação ${congFixa}.`); return; }
+  try {
+    const res = await api('salvar_relatorio_caixa', { relatorio: rel, autor_nome: sessao()?.usuario?.nome || '' }, sessao()?.token);
+    if (!res?.ok) { toast(res?.erro || 'Falha ao salvar.'); return; }
+    RC.id = res.id || RC.id;
+    if (enviar){
+      const r2 = await api('enviar_relatorio_caixa', { id: RC.id }, sessao()?.token);
+      if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); rcmCentral(); return; }
+      RC.status = 'enviado';
+      toast('Relatório enviado à central.');
+    } else {
+      RC.status = 'rascunho';
+      toast('Rascunho salvo na nuvem.');
+    }
+    rcmCentral();
+  } catch(e){ toast(e.message || 'Erro de conexão.'); }
+};
+
+window.rcmCentral = async function(){
+  const box = el('rcm-central'); if (!box) return;
+  box.innerHTML = '<div class="flex items-center justify-center gap-2 py-4 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div>';
+  try {
+    const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    const lista = res?.relatorios || [];
+    if (!lista.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório na central.</p>'; return; }
+    box.innerHTML = lista.map(r => `
+      <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
+          <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}</p>
+        </div>
+        <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:${r.status === 'enviado' ? 'rgba(56,189,248,.15);color:#38bdf8' : 'rgba(245,158,11,.15);color:#f59e0b'}">${rcEsc(r.status || 'rascunho')}</span>
+        <button onclick="rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input)" title="Abrir"><i class="fa-solid fa-folder-open"></i></button>
+      </div>`).join('');
+  } catch(e){ box.innerHTML = `<p class="text-[11px] py-3 text-center" style="color:#f87171">${rcEsc(e.message || 'Falha ao carregar.')}</p>`; }
+};
+
+window.rcmAbrir = async function(id){
+  try {
+    const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    const r = (res?.relatorios || []).find(x => String(x.id) === String(id));
+    if (!r){ toast('Relatório não encontrado.'); return; }
+    RC.id = r.id;
+    RC.lancamentos = Array.isArray(r.lancamentos) ? r.lancamentos : [];
+    RC.status = r.status || 'rascunho';
+    F.rcCongregacao = r.congregacao || '';
+    F.rcData = r.data_relatorio || '';
+    F.rcSemana = r.semana || '2ª Semana';
+    // Tesoureiro edita os próprios rascunhos; relatório de terceiro/enviado abre somente leitura
+    const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
+    const autorCpf = String(r.autor_cpf || '').replace(/\D/g,'');
+    RC.somenteLeitura = (autorCpf && autorCpf !== meuCpf) || r.status === 'enviado';
+    rcRenderTela();
+  } catch(e){ toast(e.message || 'Erro ao abrir.'); }
+};
+
+window.rcmVoltar = function(){
+  RC.somenteLeitura = false;
+  rcRenderTela();
+};
+
+window.rcmNovo = function(){
+  RC.lancamentos = []; RC.id = null; RC.status = 'rascunho'; RC.somenteLeitura = false;
+  F.rcCongregacao = ''; F.rcData = '';
+  rcRenderTela();
+};
+
 /* depuração/testes */
-window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F };
+window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC };
 
 })();
