@@ -1467,10 +1467,16 @@ window.guAcessos = async function(cpf, aprovar){
     GU.acessos.cpf = cpf;
     GU.aprovar = !!aprovar;
     GU.selCongs = new Set(GU.acessos.congregacoes || []);
+    GU.selMods = new Set((GU.acessos.permissoes || []).map(p => p.modulo));
+    GU.matriz = {};
+    (GU.acessos.permissoes || []).forEach(p => {
+      if (p.aba === '*') return;
+      const mm = GU.matriz[p.modulo] = GU.matriz[p.modulo] || {};
+      mm[p.aba] = (mm[p.aba] || new Set()).add(p.acao);
+    });
   } catch (e) { return toast(e.message || 'Falha ao carregar acessos.'); }
   const a = GU.acessos, cat = GU.catalogo;
   const chip = (grupo, val, marcado) => `<button type="button" onclick="guToggle(this)" data-grupo="${grupo}" data-valor="${esc(val)}" data-on="${marcado ? 1 : 0}" class="gu-chip px-2.5 py-2 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:${marcado ? '#8b5cf6' : 'var(--border-color)'};background:${marcado ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${marcado ? '#a78bfa' : 'var(--text-muted)'}"><i class="fa-solid fa-check mr-1 gu-chip-ck${marcado ? '' : ' hidden'}"></i>${esc(val)}</button>`;
-  const modulosMarcados = new Set((a.permissoes || []).map(p => p.modulo));
   const secao = (rot, hint, inner) => `<div class="border rounded-xl p-3" style="border-color:var(--border-color)">
     <p class="text-[10px] font-bold uppercase opacity-60 mb-0.5">${rot}</p>
     <p class="text-[9px] opacity-50 mb-2">${hint}</p>${inner}</div>`;
@@ -1505,7 +1511,9 @@ window.guAcessos = async function(cpf, aprovar){
           ${secao('Congregações visíveis', 'Nada marcado = todas • marque conselhos acima para filtrar',
             `<div id="gu-congs-box"></div><p id="gu-congs-count" class="text-[9px] opacity-40 mt-1.5"></p>`)}
           ${secao('Módulos liberados', 'Nada marcado = acesso legado (todos os módulos)',
-            `<div class="flex flex-wrap gap-1.5">${(cat.modulos || []).map(m => chip('modulos', m.id, modulosMarcados.has(m.id))).join('')}</div>`)}
+            `<div class="flex flex-wrap gap-1.5 mb-2">${(cat.modulos || []).map(m => chip('modulos', m.id, GU.selMods.has(m.id))).join('')}</div>
+             <p class="text-[9px] opacity-50 mb-1.5">Por aba: <b>Ver</b>/<b>Operar</b> • aba sem marcação fica oculta • módulo sem aba marcada libera todas</p>
+             <div id="gu-matriz-box"></div>`)}
         </div>
         </div>
         <div class="pt-3 pb-2" style="border-top:1px solid var(--border-color)">
@@ -1514,6 +1522,7 @@ window.guAcessos = async function(cpf, aprovar){
       </div>
     </div>`);
   guRenderCongs();
+  guRenderMatriz();
 };
 window.guToggle = btn => {
   const on = btn.dataset.on !== '1';
@@ -1526,6 +1535,37 @@ window.guToggle = btn => {
     on ? GU.selCongs?.add(btn.dataset.valor) : GU.selCongs?.delete(btn.dataset.valor);
   }
   if (btn.dataset.grupo === 'conselhos') guRenderCongs();
+  if (btn.dataset.grupo === 'modulos') {
+    on ? GU.selMods?.add(btn.dataset.valor) : (GU.selMods?.delete(btn.dataset.valor), delete (GU.matriz || {})[btn.dataset.valor]);
+    guRenderMatriz();
+  }
+};
+/* Matriz granular por módulo: abas/sub-abas × ações (paridade com o wizard desktop) */
+window.guRenderMatriz = () => {
+  const box = el('gu-matriz-box'); if (!box || !GU.catalogo) return;
+  const acoes = GU.catalogo.acoes || [{ id: 'ver', rotulo: 'Ver' }, { id: 'operar', rotulo: 'Operar' }];
+  const pill = (mod, aba, ac) => {
+    const on = !!(GU.matriz?.[mod]?.[aba]?.has(ac.id));
+    return `<button type="button" onclick="guMatrizTog('${mod}','${aba}','${ac.id}')" class="px-2 py-1 rounded-md text-[9px] font-bold border cursor-pointer" style="border-color:${on ? '#8b5cf6' : 'var(--border-color)'};background:${on ? 'rgba(139,92,246,.15)' : 'var(--bg-card)'};color:${on ? '#a78bfa' : 'var(--text-muted)'}">${ac.id === 'ver' ? 'Ver' : 'Operar'}</button>`;
+  };
+  const linha = (mod, abaId, rotulo, sub) => `<div class="flex items-center justify-between gap-2 py-1${sub ? ' pl-3 ml-1 border-l-2' : ''}"${sub ? ' style="border-color:var(--border-color)"' : ''}>
+    <span class="text-[10px] font-semibold">${sub ? '<i class="fa-solid fa-turn-down fa-rotate-90 mr-1 opacity-40"></i>' : ''}${esc(rotulo)}</span>
+    <span class="flex gap-1 shrink-0">${acoes.map(ac => pill(mod, abaId, ac)).join('')}</span></div>`;
+  const mods = (GU.catalogo.modulos || []).filter(m => GU.selMods?.has(m.id));
+  box.innerHTML = mods.map(m => `
+    <div class="mb-2.5"><p class="text-[9px] font-black uppercase tracking-wide mb-1" style="color:#8b5cf6">${esc(m.rotulo)}</p>
+    ${(m.abas || []).length
+      ? (m.abas || []).map(a => linha(m.id, a.id, a.rotulo, false) + (a.subabas || []).map(s => linha(m.id, s.id, s.rotulo, true)).join('')).join('')
+      : '<p class="text-[9px] opacity-40 py-0.5">Acesso integral às abas</p>'}</div>`
+  ).join('') || '<span class="text-[10px] opacity-50">Marque módulos acima para configurar as abas.</span>';
+};
+window.guMatrizTog = (mod, aba, ac) => {
+  GU.matriz = GU.matriz || {};
+  const m = GU.matriz[mod] = GU.matriz[mod] || {};
+  const s = m[aba] = m[aba] || new Set();
+  s.has(ac) ? s.delete(ac) : s.add(ac);
+  if (!s.size) delete m[aba];
+  guRenderMatriz();
 };
 /* Congregações filtradas pelos conselhos marcados (seleção persistida em GU.selCongs) */
 window.guRenderCongs = () => {
@@ -1549,11 +1589,24 @@ window.guSalvarAcessos = async function(cpf){
   const marcados = g => [...document.querySelectorAll(`.gu-chip[data-grupo="${g}"][data-on="1"]`)].map(b => b.dataset.valor);
   const tes = !!el('gu-ac-tes')?.checked;
   const papel = el('gu-ac-papel')?.value || 'Consultor';
+  // Paridade com o wizard desktop: linha-marcador (mod,'*','*') + linhas granulares
+  // + aba-pai 'ver' automática quando uma sub-aba ('dizimistas.x') está marcada.
+  const permissoes = [];
+  [...(GU.selMods || [])].forEach(mod => {
+    permissoes.push({ modulo: mod, aba: '*', acao: '*' });
+    Object.entries(GU.matriz?.[mod] || {}).forEach(([aba, acs]) =>
+      [...acs].forEach(ac => permissoes.push({ modulo: mod, aba, acao: ac })));
+    const emitidas = new Set(permissoes.filter(p => p.modulo === mod).map(p => p.aba));
+    permissoes.filter(p => p.modulo === mod && p.aba.includes('.')).forEach(p => {
+      const pai = p.aba.split('.')[0];
+      if (!emitidas.has(pai)) { permissoes.push({ modulo: mod, aba: pai, acao: 'ver' }); emitidas.add(pai); }
+    });
+  });
   try {
     const res = await guApi('salvar_acessos_admin', {
       cpf, papel,
       conselhos: marcados('conselhos'), congregacoes: [...(GU.selCongs || [])],
-      permissoes: marcados('modulos').map(m => ({ modulo: m, aba: '*', acao: '*' })),
+      permissoes,
       tesoureiro: tes, congregacao_tesoureiro: tes ? (el('gu-ac-tes-sel')?.value || '') : '',
     });
     if (GU.aprovar) {
