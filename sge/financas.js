@@ -165,11 +165,12 @@ window.renderFinanceiro = function(){
       <div class="flex gap-2" id="fin-tabs">
         ${['rol','frequencia'].map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
         ${rcPodeVer() ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
+        ${rcDadosUsuario().admin ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba(F.aba === 'relatorio' && !rcPodeVer() ? 'rol' : (F.aba || 'rol'));
+  finAba((F.aba === 'relatorio' && !rcPodeVer()) || (F.aba === 'prestacao' && !rcDadosUsuario().admin) ? 'rol' : (F.aba || 'rol'));
 };
 
 window.finAba = function(aba){
@@ -181,6 +182,7 @@ window.finAba = function(aba){
     b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
   });
   if (aba === 'relatorio') return rcRenderTela();
+  if (aba === 'prestacao'){ if (!rcDadosUsuario().admin) return finRenderRol(); return prestRender(); }
   if (aba === 'frequencia') return finRenderFrequencia();
   finRenderRol();
 };
@@ -1970,7 +1972,241 @@ window.rcmSugerirSemana = async function(){
   } catch(e){ return null; }
 };
 
+
+/* ===================== Prestação de Contas (Administrador) ===================== */
+const PREST = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: '1\u00aa Semana', sub: 'semanal', bruto: [], saidas: [], bloqueios: [], period: {}, congs: [] };
+const PREST_SEMANAS = ['1\u00aa Semana', '2\u00aa Semana', '3\u00aa Semana', '4\u00aa Semana', '5\u00aa Semana'];
+const _prestChave = v => {
+  let t = String(v || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  t = t.replace(/\b(p\.?p\.?|ponto\s*de\s*pregacao)\b/g, '').replace(/[^a-z0-9]/g, '');
+  return t.replace(/\d+/g, m => String(parseInt(m, 10)));
+};
+const _prestNumSemana = st => parseInt((String(st || '').match(/\d+/) || ['1'])[0], 10);
+const _prestBloqueada = () => PREST.bloqueios.some(b => String(b.ano) === PREST.ano && String(b.mes) === PREST.mes && String(b.semana) === PREST.semana && (b.bloqueado === true || b.bloqueado === 1));
+const PREST_SIT = {
+  'Prestada':    ['#10b981', 'fa-circle-check'],
+  'Pendente':    ['#f59e0b', 'fa-clock'],
+  'Justificada': ['#38bdf8', 'fa-file-circle-check'],
+  'N\u00e3o exigida': ['#64748b', 'fa-circle-minus'],
+};
+
+async function prestCarregarDados(){
+  const tok = sessao()?.token;
+  const [prest, period, congs] = await Promise.all([
+    api('listar_prestacoes_semanais', null, tok),
+    api('listar_periodicidades_prestacao', null, tok),
+    api('listar_congregacoes', null, tok),
+  ]);
+  PREST.bruto = prest.dados || [];
+  PREST.saidas = prest.saidas || [];
+  PREST.bloqueios = prest.bloqueios || [];
+  PREST.period = {};
+  (period.dados || []).forEach(r => { PREST.period[_prestChave(r.congregacao)] = String(r.periodicidade || 'Semanal'); });
+  PREST.congs = (congs.dados || []).filter(c => c.ativo !== 0 && c.ativo !== false)
+    .map(c => ({ nome: String(c.nome || '').trim(), conselho: String(c.conselho || '').trim() || 'Conselho Geral', lider: String(c.lider || '').trim() }))
+    .filter(c => c.nome);
+}
+
+/* Monta as linhas da semana — mesma lógica do desktop (sge_prestacao_contas.carregar_prestacao). */
+function prestLinhas(){
+  const { ano, mes, semana } = PREST;
+  const numSem = _prestNumSemana(semana);
+  const ciclo = SGEG.obterCiclo(ano, mes);
+  const valores = {};
+  PREST.bruto.filter(r => String(r.ano) === ano && String(r.mes) === mes && String(r.semana) === semana)
+    .forEach(r => { valores[_prestChave(r.congregacao)] = r; });
+  return PREST.congs.map(c => {
+    const chave = _prestChave(c.nome);
+    const lanc = valores[chave];
+    const periodicidade = PREST.period[chave] || 'Semanal';
+    const obrigatoria = periodicidade === 'Semanal' || numSem === ciclo.semana_fechamento;
+    const obs = String(lanc ? (lanc.observacao || '') : '');
+    const situacao = obs.toUpperCase() === 'JUSTIFICADA' ? 'Justificada' : lanc ? 'Prestada' : (obrigatoria ? 'Pendente' : 'N\u00e3o exigida');
+    return { ...c, periodicidade, valor: Number(lanc ? lanc.valor_recebido : 0) || 0, observacao: obs, situacao, usuario: lanc ? lanc.usuario : '' };
+  });
+}
+
+async function prestRender(){
+  const corpo = el('fin-sub'); if (!corpo) return;
+  corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando presta\u00e7\u00e3o\u2026</div>';
+  try { await prestCarregarDados(); }
+  catch(e){ corpo.innerHTML = `<div class="text-center py-10 text-xs" style="color:var(--color-danger)">${esc(e.message || 'Falha ao carregar.')}</div>`; return; }
+  if (PREST.sub === 'periodicidade') return prestRenderPeriodicidade();
+  prestRenderSemanal();
+}
+
+function prestTopoHtml(){
+  const ciclo = SGEG.obterCiclo(PREST.ano, PREST.mes);
+  const anos = [+PREST.ano - 1, +PREST.ano, +PREST.ano + 1].map(String);
+  const semanas = PREST_SEMANAS.slice(0, ciclo.total_semanas);
+  if (!semanas.includes(PREST.semana)) PREST.semana = semanas[0];
+  return `
+    <div class="flex gap-2 mb-3">
+      ${['semanal', 'periodicidade'].map(t => `<button onclick="prestSub('${t}')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="${PREST.sub === t ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${t === 'semanal' ? 'Prestação Semanal' : 'Periodicidade'}</button>`).join('')}
+    </div>
+    ${PREST.sub === 'semanal' ? `
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      ${selF('prest-mes', MESES_ORD.map(m => [m, m]), PREST.mes, 'prestMuda()')}
+      ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
+    </div>
+    <div class="flex gap-1.5 mb-3" id="prest-semanas">
+      ${semanas.map(sem => `<button onclick="prestSemana('${sem}')" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${_prestNumSemana(sem)}\u00aa</button>`).join('')}
+    </div>` : ''}`;
+}
+window.prestSub = t => { PREST.sub = t; prestRender(); };
+window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; prestRender(); };
+window.prestSemana = sem => { PREST.semana = sem; prestRender(); };
+
+function prestRenderSemanal(){
+  const corpo = el('fin-sub');
+  const linhas = prestLinhas();
+  const bloq = _prestBloqueada();
+  const saidasSem = PREST.saidas.filter(x => String(x.ano) === PREST.ano && String(x.mes) === PREST.mes && String(x.semana) === PREST.semana);
+  const entradas = linhas.reduce((a, l) => a + l.valor, 0);
+  const totSaidas = saidasSem.reduce((a, x) => a + (Number(x.valor) || 0), 0);
+  const cont = { Prestada: 0, Pendente: 0, Justificada: 0, 'N\u00e3o exigida': 0 };
+  linhas.forEach(l => { cont[l.situacao] = (cont[l.situacao] || 0) + 1; });
+  const grupos = {};
+  linhas.forEach(l => { (grupos[l.conselho] = grupos[l.conselho] || []).push(l); });
+
+  corpo.innerHTML = prestTopoHtml() + `
+    ${bloq ? '<div class="mb-3 px-3 py-2 rounded-xl text-[11px] font-bold text-center" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-lock mr-1"></i>Semana bloqueada para edição</div>' : ''}
+    <div class="grid grid-cols-3 gap-2 mb-3">
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Entradas</div><div class="text-sm font-extrabold text-emerald-500">${moeda(entradas)}</div></div>
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Saídas</div><div class="text-sm font-extrabold text-red-400">${moeda(totSaidas)}</div></div>
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Líquido</div><div class="text-sm font-extrabold valor-ouro">${moeda(entradas - totSaidas)}</div></div>
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Prestadas</div><div class="text-sm font-extrabold text-emerald-500">${cont.Prestada}</div></div>
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Pendentes</div><div class="text-sm font-extrabold text-amber-500">${cont.Pendente}</div></div>
+      <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Justificadas</div><div class="text-sm font-extrabold text-sky-400">${cont.Justificada}</div></div>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <button onclick="prestCopiarPendencias()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar Pendências</button>
+      <button onclick="prestRender()" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+    </div>
+    ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana</p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
+    ${Object.keys(grupos).map(cons => `
+      <p class="text-[10px] font-extrabold uppercase tracking-widest mt-3 mb-1.5" style="color:var(--text-muted)">${esc(cons)}</p>
+      ${grupos[cons].map(l => {
+        const [cor, ico] = PREST_SIT[l.situacao] || PREST_SIT['N\u00e3o exigida'];
+        return `<div class="rounded-xl border p-3 mb-2 flex items-center gap-3 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color)" onclick="prestEditar('${esc(l.nome).replace(/'/g, "\\'")}')">
+          <div class="flex-1 min-w-0">
+            <p class="text-[12px] font-bold truncate">${esc(l.nome)}</p>
+            <p class="text-[9.5px] opacity-60 truncate">${esc(l.lider || 'Sem líder')} · ${esc(l.periodicidade)}</p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-[12px] font-extrabold ${l.valor > 0 ? 'valor-ouro' : 'opacity-40'}">${l.valor > 0 ? moeda(l.valor) : '—'}</p>
+            <span class="text-[8.5px] font-extrabold uppercase" style="color:${cor}"><i class="fa-solid ${ico} mr-0.5"></i>${l.situacao}</span>
+          </div>
+        </div>`;
+      }).join('')}`).join('')}
+    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>Saídas manuais e bloqueio de semana: disponíveis no desktop.</p>`;
+}
+
+/* ---------- Edição do valor recebido (sheet) ---------- */
+window.prestEditar = function(nomeCong){
+  const l = prestLinhas().find(x => x.nome === nomeCong);
+  if (!l) return;
+  if (_prestBloqueada()){ toast('Semana bloqueada — edição liberada só no desktop.'); return; }
+  const old = el('prest-sheet'); if (old) old.remove();
+  const sh = document.createElement('div');
+  sh.id = 'prest-sheet';
+  sh.className = 'fixed inset-0 z-[97]';
+  sh.style.background = 'rgba(2,6,23,.8)';
+  sh.innerHTML = `
+    <div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-5 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color)">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(245,158,11,.12)"><i class="fa-solid fa-clipboard-check text-amber-500"></i></div>
+        <div class="flex-1 min-w-0"><p class="text-xs font-bold truncate">${esc(l.nome)}</p><p class="text-[10px] opacity-60">${esc(l.conselho)} · ${esc(PREST.semana)} · ${esc(PREST.mes)}/${esc(PREST.ano)}</p></div>
+        <button onclick="el('prest-sheet').remove()" class="w-8 h-8 rounded-full border flex items-center justify-center opacity-70 cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor recebido (R$)</span>
+        <input id="prest-valor" type="text" inputmode="decimal" value="${l.valor > 0 ? l.valor.toFixed(2).replace('.', ',') : ''}" placeholder="0,00" class="w-full px-3 py-3 rounded-xl border text-lg font-bold text-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+      <label class="flex items-center gap-2.5 text-[11px] font-semibold cursor-pointer select-none">
+        <input id="prest-just" type="checkbox" ${l.situacao === 'Justificada' ? 'checked' : ''} class="w-4 h-4">
+        Justificar sem valor (não houve arrecadação / dispensada)
+      </label>
+      <div class="flex gap-2 pt-1">
+        <button id="prest-btn-salvar" onclick="prestSalvar('${esc(l.nome).replace(/'/g, "\\'")}', '${esc(l.conselho).replace(/'/g, "\\'")}')" class="flex-1 py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-solid fa-check mr-1"></i>Salvar</button>
+        <button onclick="el('prest-sheet').remove()" class="px-5 py-3 rounded-xl text-xs font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(sh);
+  setTimeout(() => el('prest-valor')?.focus(), 80);
+};
+
+window.prestSalvar = async function(nomeCong, conselho){
+  const just = el('prest-just').checked;
+  const valor = just ? 0 : parseValor(el('prest-valor').value);
+  const btn = el('prest-btn-salvar');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
+  try {
+    const res = await api('salvar_prestacao_semanal', {
+      ano: PREST.ano, mes: PREST.mes, semana: PREST.semana,
+      congregacao: nomeCong, conselho,
+      valor_recebido: valor, observacao: just ? 'JUSTIFICADA' : '',
+      usuario: sessao()?.usuario?.nome || '',
+    }, sessao()?.token);
+    toast(res.mensagem || 'Prestação salva.');
+    el('prest-sheet')?.remove();
+    prestRender();
+  } catch(e){ toast(e.message || 'Falha ao salvar.'); }
+  finally { if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Salvar'; } }
+};
+
+/* ---------- Copiar pendências (texto WhatsApp — paridade desktop) ---------- */
+window.prestCopiarPendencias = async function(){
+  const linhas = prestLinhas().filter(l => l.situacao === 'Pendente');
+  let txt;
+  if (!linhas.length){
+    txt = 'Não há pendências para o período selecionado.';
+  } else {
+    const grupos = {};
+    linhas.forEach(l => (grupos[l.conselho] = grupos[l.conselho] || []).push(l));
+    const partes = ['*PENDÊNCIAS DE PRESTAÇÃO*', `${PREST.semana} - ${PREST.mes}/${PREST.ano}`, ''];
+    for (const [cons, itens] of Object.entries(grupos)){
+      partes.push(`*${cons}*`);
+      itens.forEach(i => partes.push(`- ${i.nome}` + (i.lider ? ` (${i.lider})` : '')));
+      partes.push('');
+    }
+    txt = partes.join('\n').trim();
+  }
+  try { await navigator.clipboard.writeText(txt); toast('Pendências copiadas!'); }
+  catch { toast(txt); }
+};
+
+/* ---------- Sub-aba Periodicidade ---------- */
+function prestRenderPeriodicidade(){
+  const corpo = el('fin-sub');
+  corpo.innerHTML = prestTopoHtml() + `
+    <p class="text-[10px] opacity-60 mb-2 leading-relaxed">Congregações <b>Mensais</b> só são exigidas na semana de fechamento do ciclo; <b>Semanais</b> em toda semana.</p>
+    ${PREST.congs.map(c => {
+      const atual = PREST.period[_prestChave(c.nome)] || 'Semanal';
+      return `<div class="rounded-xl border p-3 mb-2 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex-1 min-w-0"><p class="text-[12px] font-bold truncate">${esc(c.nome)}</p><p class="text-[9.5px] opacity-60 truncate">${esc(c.conselho)}</p></div>
+        <select data-cong="${esc(c.nome)}" class="prest-period-sel px-2 py-1.5 rounded-lg border text-[11px] font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <option value="Semanal" ${atual === 'Semanal' ? 'selected' : ''}>Semanal</option>
+          <option value="Mensal" ${atual === 'Mensal' ? 'selected' : ''}>Mensal</option>
+        </select>
+      </div>`;
+    }).join('')}
+    <button id="prest-btn-period" onclick="prestSalvarPeriodicidades()" class="w-full mt-2 py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar periodicidades</button>
+    <div class="pb-4"></div>`;
+}
+
+window.prestSalvarPeriodicidades = async function(){
+  const configuracoes = [...document.querySelectorAll('.prest-period-sel')]
+    .map(sel => ({ congregacao: sel.dataset.cong, periodicidade: sel.value }));
+  const btn = el('prest-btn-period');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
+  try {
+    const res = await api('salvar_periodicidades_prestacao', { configuracoes }, sessao()?.token);
+    toast(res.mensagem || 'Periodicidades salvas.');
+    prestRender();
+  } catch(e){ toast(e.message || 'Falha ao salvar.'); }
+  finally { if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i>Salvar periodicidades'; } }
+};
+
 /* depuração/testes */
-window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC };
+window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST };
 
 })();
