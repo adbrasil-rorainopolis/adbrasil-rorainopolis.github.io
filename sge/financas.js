@@ -2116,7 +2116,7 @@ window.prestEditar = function(nomeCong){
         <button onclick="document.getElementById('prest-sheet').remove()" class="w-8 h-8 rounded-full border flex items-center justify-center opacity-70 cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor recebido (R$)</span>
-        <input id="prest-valor" type="text" inputmode="decimal" value="${l.valor > 0 ? l.valor.toFixed(2).replace('.', ',') : ''}" placeholder="0,00" class="w-full px-3 py-3 rounded-xl border text-lg font-bold text-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+        <input id="prest-valor" type="text" inputmode="decimal" value="${l.valor > 0 ? rcMoeda(l.valor) : ''}" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="w-full px-3 py-3 rounded-xl border text-lg font-bold text-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <label class="flex items-center gap-2.5 text-[11px] font-semibold cursor-pointer select-none">
         <input id="prest-just" type="checkbox" ${l.situacao === 'Justificada' ? 'checked' : ''} class="w-4 h-4">
         Justificar sem valor (não houve arrecadação / dispensada)
