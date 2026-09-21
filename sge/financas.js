@@ -1002,6 +1002,11 @@ async function rcPopularCongregacoes(){
     }
     sel.value = congFixa;
   } else if (F.rcCongregacao){
+    // relatório aberto da central pode ter congregação fora da lista local
+    // (acento diferente, congregação nova...) — cria a opção pra não perder o valor
+    if (![...sel.options].some(o => o.value === F.rcCongregacao)){
+      const o = document.createElement('option'); o.value = F.rcCongregacao; o.textContent = F.rcCongregacao; sel.appendChild(o);
+    }
     sel.value = F.rcCongregacao;
   }
 }
@@ -1326,8 +1331,8 @@ function rcmColetar(){
   const hoje = new Date();
   const rel = {
     id: RC.id,
-    congregacao: sel ? sel.value : RC.meta.congregacao,
-    conselho: sel ? (opt?.dataset?.conselho || '') : RC.meta.conselho,
+    congregacao: (sel && sel.value) || RC.meta.congregacao,
+    conselho: (sel && sel.value) ? (opt?.dataset?.conselho || '') : RC.meta.conselho,
     data_relatorio: el('rcm-data')?.value || RC.meta.data,
     semana: el('rcm-semana')?.value || RC.meta.semana,
     ano: String(hoje.getFullYear()),
