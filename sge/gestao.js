@@ -1459,6 +1459,7 @@ function guRenderLista(){
       <i class="fa-solid fa-magnifying-glass text-[11px] opacity-50"></i>
       <input id="gu-busca" value="${esc(GU.busca)}" oninput="guBuscar()" placeholder="Nome, CPF, e-mail…" class="flex-1 bg-transparent py-2 text-xs outline-none" style="color:var(--text-main)">
     </div>
+    <button onclick="guNovoUsuario()" class="px-3 rounded-xl border cursor-pointer" style="border-color:rgba(5,150,105,.5);color:#10b981;background:rgba(5,150,105,.1)" title="Cadastro manual"><i class="fa-solid fa-user-plus text-xs"></i></button>
     <button onclick="guCarregar()" class="px-3 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)" title="Atualizar"><i class="fa-solid fa-rotate text-xs"></i></button>
   </div>`;
 
@@ -1494,6 +1495,7 @@ window.guAbrir = function(cpf){
   const st = cf(u.status);
   const linhaInfo = (rot, val) => `<div class="flex justify-between gap-3 py-1.5 border-b" style="border-color:var(--border-color)"><span class="text-[10px] uppercase font-bold opacity-55">${rot}</span><span class="text-[11px] font-semibold text-right">${esc(val || '-')}</span></div>`;
   const podeAprovar = st === 'email_confirmado', podeRecusar = st === 'email_confirmado' || st === 'pendente';
+  const podeAprovarSemEmail = st === 'pendente';
   const podeBloquear = st === 'aprovado', podeReativar = st === 'bloqueado' || st === 'inativo';
   const podeReenviar = st === 'pendente';
   const acaoBtn = (onclick, rot, ico, cor) => `<button onclick="${onclick}" class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:${cor}"><i class="fa-solid ${ico}"></i>${rot}</button>`;
@@ -1520,6 +1522,13 @@ window.guAbrir = function(cpf){
         ${podeAprovar ? `<div class="rounded-xl p-3 mb-3 border" style="background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.35)">
           <p class="text-[10px] opacity-70 mb-2">Defina hierarquia, escopo e módulos — a <b>aprovação é o último passo</b>, para o usuário já nascer com o acesso certo.</p>
           <button onclick="guAcessos('${u.cpf}',true)" class="w-full py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-user-check mr-1"></i>Configurar acessos e aprovar</button>
+        </div>` : ''}
+        ${podeAprovarSemEmail ? `<div class="rounded-xl p-3 mb-3 border" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.35)">
+          <p class="text-[10px] opacity-70 mb-2">E-mail ainda <b>não confirmado</b> — se foi digitado errado, corrija e reenvie o código, ou aprove direto pela administração.</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="guCorrigirEmail('${u.cpf}')" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#d97706,#f59e0b)"><i class="fa-solid fa-envelope-open-text mr-1"></i>Corrigir e-mail</button>
+            <button onclick="guAcessos('${u.cpf}',true)" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-user-check mr-1"></i>Aprovar sem e-mail</button>
+          </div>
         </div>` : ''}
         <div class="grid grid-cols-2 gap-2">
           ${podeReativar ? acaoBtn(`guStatus('${u.cpf}','Aprovado')`, 'Reativar', 'fa-rotate-left', '#059669') : ''}
@@ -1549,6 +1558,68 @@ window.guStatus = async function(cpf, status){
     toast(res.mensagem || 'Status atualizado.');
     guFechar(); guCarregar();
   } catch (e) { toast(e.message || 'Falha ao alterar status.'); }
+};
+
+window.guCorrigirEmail = async function(cpf){
+  const u = (GU.lista || []).find(x => x.cpf === cpf);
+  const novo = prompt(`E-mail atual: ${u?.email || '-'}\nDigite o e-mail correto para ${u?.nome || cpf}:`, u?.email || '');
+  if (novo === null) return;
+  const email = novo.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return toast('E-mail inválido.');
+  try {
+    const res = await guApi('corrigir_email_admin', { cpf, email, reenviar: true });
+    toast(res.mensagem || 'E-mail corrigido.');
+    guFechar(); guCarregar();
+  } catch (e) { toast(e.message || 'Falha ao corrigir e-mail.'); }
+};
+
+window.guNovoUsuario = function(){
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="gu-sheet" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)guFechar()">
+      <div class="w-full max-w-lg rounded-t-3xl p-4 max-h-[92dvh] flex flex-col" style="background:var(--bg-card)">
+        <div class="overflow-y-auto flex-1 pb-6">
+        <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-user-plus text-emerald-400"></i>
+          <p class="font-bold text-sm flex-1">Cadastro manual</p>
+          <button onclick="guFechar()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="space-y-2.5">
+          <input id="gu-nu-nome" placeholder="Nome completo *" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <div class="grid grid-cols-2 gap-2.5">
+            <input id="gu-nu-cpf" placeholder="CPF *" inputmode="numeric" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input id="gu-nu-nasc" placeholder="Nascimento DD/MM/AAAA" inputmode="numeric" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          </div>
+          <input id="gu-nu-email" type="email" placeholder="E-mail *" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <div class="grid grid-cols-2 gap-2.5">
+            <input id="gu-nu-tel" placeholder="Telefone" inputmode="tel" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input id="gu-nu-senha" placeholder="Senha inicial *" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          </div>
+          <select id="gu-nu-perfil" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <option value="Consultor">Consultor</option><option value="Operador">Operador</option><option value="Administrador">Administrador</option>
+          </select>
+          <label class="flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer" style="border-color:var(--border-color)">
+            <input id="gu-nu-aprovar" type="checkbox" checked class="w-4 h-4 accent-emerald-500">
+            <span class="text-[11px] font-bold">Aprovar imediatamente <span class="opacity-55 font-normal">(desmarque p/ enviar código por e-mail)</span></span>
+          </label>
+          <button onclick="guSalvarNovo()" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-user-plus mr-1.5"></i>Cadastrar usuário</button>
+        </div>
+        </div>
+      </div>
+    </div>`);
+};
+
+window.guSalvarNovo = async function(){
+  const v = id => el(id)?.value.trim() || '';
+  const dados = { nome: v('gu-nu-nome'), cpf: v('gu-nu-cpf'), data_nascimento: v('gu-nu-nasc'),
+    email: v('gu-nu-email'), telefone: v('gu-nu-tel'), senha: el('gu-nu-senha')?.value || '',
+    perfil: v('gu-nu-perfil') || 'Consultor', aprovar: el('gu-nu-aprovar')?.checked !== false };
+  if (!dados.nome || !dados.email || dados.senha.length < 6) return toast('Preencha nome, e-mail e senha (mín. 6).');
+  try {
+    const res = await guApi('cadastro_manual_admin', dados);
+    toast(res.mensagem || 'Usuário cadastrado.');
+    if (res.ok !== false) { guFechar(); guCarregar(); }
+  } catch (e) { toast(e.message || 'Falha ao cadastrar.'); }
 };
 
 window.guReenviar = async function(cpf){
@@ -1743,7 +1814,9 @@ window.guSalvarAcessos = async function(cpf){
       tesoureiro: tes, congregacao_tesoureiro: tes ? (el('gu-ac-tes-sel')?.value || '') : '',
     });
     if (GU.aprovar) {
-      const r2 = await guApi('alterar_status_usuario', { cpf, status: 'Aprovado', perfil: papel, motivo: '' });
+      const alvo = (GU.lista || []).find(x => x.cpf === cpf);
+      const semEmail = cf(alvo?.status) === 'pendente';
+      const r2 = await guApi('alterar_status_usuario', { cpf, status: 'Aprovado', perfil: papel, motivo: semEmail ? 'Aprovado sem confirmação de e-mail' : '', aprovar_sem_email: semEmail });
       toast(r2.mensagem || 'Usuário aprovado com acessos definidos.');
     } else {
       toast(res.mensagem || 'Acessos gravados.');
