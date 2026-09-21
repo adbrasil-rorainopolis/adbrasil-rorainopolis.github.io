@@ -246,7 +246,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.58</span>
+          <span>SGE Mobile · v1.59</span>
         </div>
       </div>
     </div>
@@ -1192,7 +1192,29 @@ iniciarSequencia();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
-  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  // Marca quando o usuário digitou em qualquer campo — impede reload automático
+// no meio de um relatório/cadastro (o SW novo assume controle via skipWaiting).
+let __sgeDigitouAlgo = false;
+document.addEventListener('input', () => { __sgeDigitouAlgo = true; }, true);
+
+function avisarAtualizacaoPronta(){
+  if ($('toast-atualizacao')) return;
+  const t = document.createElement('div');
+  t.id = 'toast-atualizacao';
+  t.className = 'fixed left-4 right-4 z-[98] rounded-2xl p-3.5 flex items-center gap-3 shadow-2xl cursor-pointer';
+  t.style.cssText = 'bottom: 88px; background: var(--bg-card); border: 1px solid var(--color-primary);';
+  t.innerHTML =
+    '<i class="fa-solid fa-circle-arrow-down text-lg" style="color: var(--color-primary);"></i>' +
+    '<div class="flex-1"><div class="text-xs font-bold">Nova versão instalada</div>' +
+    '<div class="text-[10px]" style="color: var(--text-muted);">Toque para atualizar — seu preenchimento atual não será perdido se não tocar.</div></div>' +
+    '<span class="text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white" style="background: var(--color-primary);">Atualizar</span>';
+  t.onclick = () => location.reload();
+  document.body.appendChild(t);
+}
+navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (__sgeDigitouAlgo) { avisarAtualizacaoPronta(); return; }
+    location.reload();
+  });
 }
 </script>
 </body>
