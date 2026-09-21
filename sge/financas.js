@@ -684,6 +684,19 @@ const RC_SECOES = RC_TIPOS.map(t => ({ tipo: t, titulo: RC_TITULOS[t] }));
 
 const rcCat = id => RC_CATS.find(c => c.id === id) || RC_CATS[0];
 const rcCatDeTipo = t => RC_CATS.find(c => t === c.id || t === c.id + ' - TB') || null;
+
+/* Descrição da linha no documento: a seção já identifica o tipo, então o
+   prefixo redundante sai — "Dízimo — João" vira "João" em DÍZIMOS, e
+   "Oferta Missionária — Maria" vira "Maria" em OFERTA MISSIONÁRIA.
+   O texto gravado no banco permanece completo. */
+function rcDescricaoDoc(it, titulo){
+  let d = String(it.descricao || '');
+  const tit = String(titulo || '').toUpperCase();
+  const re = tit.startsWith('DÍZIMO') ? /^d[íi]zimo\s*[—–-]\s*/i
+           : tit.startsWith('OFERTA MISSIONÁRIA') ? /^oferta\s+mission[áa]ria\s*[—–-]\s*/i : null;
+  if (re){ const c = d.replace(re, '').trim(); if (c) d = c; }
+  return d;
+}
 function rcmEhAG(){
   const nome = el('rcm-congregacao')?.value || RC.meta?.congregacao || '';
   return /assembleia\s*geral/i.test(nome);
@@ -1293,7 +1306,7 @@ function rcmRenderLista(){
       isSai ? somaSai += it.valor : somaEnt += it.valor;
       html += `<div class="flex items-center gap-2 py-1.5 border-b ${RC.somenteLeitura ? '' : 'cursor-pointer'}" style="border-color:var(--border-color)" ${RC.somenteLeitura ? '' : `onclick="rcmEditar(${it._i})"`}>
         ${it.recibo ? `<span class="text-[9px] font-mono opacity-50 w-9 shrink-0">${rcEsc(it.recibo)}</span>` : ''}
-        <span class="flex-1 text-[11px] truncate">${rcEsc(it.descricao)}</span>
+        <span class="flex-1 text-[11px] truncate">${rcEsc(rcDescricaoDoc(it, RC_TITULOS[tipo]))}</span>
         <span class="text-[11px] font-bold shrink-0" style="color:${isSai ? '#f87171' : '#34d399'}">${rcMoeda(it.valor)}</span>
         ${RC.somenteLeitura ? '' : `<span class="w-6 h-6 rounded-lg text-[9px] shrink-0 flex items-center justify-center" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-pen"></i></span>`}
       </div>`;
@@ -1444,7 +1457,7 @@ function rcmDocHtml(){
     itens.forEach(it => {
       const isSai = it.tipo.includes('SAIDAS');
       sub += it.valor;
-      rows += `<tr><td style="text-align:center">${rcEsc(it.recibo)}</td><td>${rcEsc(it.descricao)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td style="text-align:right">${isSai ? '' : rcMoeda(it.valor)}</td><td style="text-align:right">${isSai ? rcMoeda(it.valor) : ''}</td></tr>`;
+      rows += `<tr><td style="text-align:center">${rcEsc(it.recibo)}</td><td>${rcEsc(rcDescricaoDoc(it, sec.titulo))}</td><td></td><td></td><td></td><td></td><td></td><td></td><td style="text-align:right">${isSai ? '' : rcMoeda(it.valor)}</td><td style="text-align:right">${isSai ? rcMoeda(it.valor) : ''}</td></tr>`;
     });
     rows += `<tr><td></td><td colspan="7" class="rcm-sub">SUBTOTAL ${sec.titulo}:</td><td style="text-align:right;font-weight:bold">${isSaiSec ? '' : rcMoeda(sub)}</td><td style="text-align:right;font-weight:bold">${isSaiSec ? rcMoeda(sub) : ''}</td></tr>`;
   });
@@ -1607,7 +1620,7 @@ window.rcmPdf = async function(){
     itens.forEach(it => {
       const isSai = it.tipo.includes('SAIDAS');
       sub += it.valor;
-      body.push([it.recibo || '', it.descricao || '', '', '', '', '', '', '',
+      body.push([it.recibo || '', rcDescricaoDoc(it, sec.titulo), '', '', '', '', '', '',
         isSai ? '' : rcMoeda(it.valor), isSai ? rcMoeda(it.valor) : '']);
     });
     body.push([{ content: '', styles: { fillColor: [242,242,242] } },
