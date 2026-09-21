@@ -711,8 +711,13 @@ const RCM_CSS = `<style>
 .rcm-doc table{border-collapse:collapse;width:100%}
 .rcm-doc th,.rcm-doc td{border:1px solid #000;padding:2px 4px}
 .rcm-doc .rcm-head{border:1px solid #000;padding:0;background:#fff}
-.rcm-doc .rcm-timbrado{display:block;margin:0 auto;max-width:100%;max-height:78px;object-fit:contain;padding:4px 8px 3px;background:#fff}
-.rcm-doc .rcm-head-flex{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 6px;border-bottom:1px solid #000}
+.rcm-doc .rcm-head-top{display:flex;align-items:stretch}
+.rcm-doc .rcm-timbrado-wrap{flex:1;min-width:0;display:flex;align-items:center;padding:4px 4px 3px 8px}
+.rcm-doc .rcm-timbrado{display:block;width:100%;max-width:440px;max-height:64px;object-fit:contain;object-position:left center}
+.rcm-doc .rcm-qr-box{display:flex;align-items:center;gap:4px;padding:4px 6px 3px 4px;border-left:1px solid #000;background:#fff}
+.rcm-doc .rcm-qr-box canvas,.rcm-doc .rcm-qr-box img{width:52px!important;height:52px!important}
+.rcm-doc .rcm-qr-key{writing-mode:vertical-rl;transform:rotate(180deg);font-size:5.5px;letter-spacing:.8px;color:#777;font-family:'Courier New',monospace;white-space:nowrap}
+.rcm-doc .rcm-head-flex{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 6px;border-top:1px solid #000;border-bottom:1px solid #000}
 .rcm-doc .rcm-title{font-size:13px;font-weight:bold;letter-spacing:1.2px;border:1px solid #000;padding:3px 10px;background:#e6e6e6;color:#000;white-space:nowrap}
 .rcm-doc .rcm-meta-box{display:flex;border:1px solid #000}
 .rcm-doc .rcm-meta-item{padding:3px 8px;text-align:center;border-right:1px solid #000;background:#fff;display:flex;flex-direction:column;justify-content:center}
@@ -732,10 +737,7 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-visto>div{padding:3px 5px;font-weight:bold;font-size:7px;letter-spacing:.5px;position:relative;flex:1}
 .rcm-doc .rcm-visto-caixa{border-bottom:1px solid #000}
 .rcm-doc .rcm-visto>div::after{content:'';position:absolute;left:6px;right:6px;bottom:5px;border-bottom:1px solid #000}
-.rcm-doc .rcm-verifica{display:flex;align-items:center;gap:8px;border:1px solid #000;border-top:none;padding:5px 8px;background:#fff}
-.rcm-doc .rcm-verifica canvas,.rcm-doc .rcm-verifica img{width:56px!important;height:56px!important}
-.rcm-doc .rcm-hash{font-size:6.5px;letter-spacing:.4px;color:#333;line-height:1.5;word-break:break-all}
-.rcm-doc .rcm-hash b{font-size:7px}
+
 .rcm-doc .rcm-rodape{padding:4px 8px;border:1px solid #000;border-top:none;text-align:center;font-size:6.5px;letter-spacing:1px;color:#555;background:#f7f7f7}
 .rcm-doc .rcm-marca{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:5;overflow:hidden}
 .rcm-doc .rcm-marca span{font-size:44px;font-weight:bold;letter-spacing:6px;transform:rotate(-28deg);white-space:nowrap}
@@ -1474,7 +1476,10 @@ function rcmDocHtml(){
     <div class="rcm-marca ${marca}"><span>${marcaTxt}</span></div>
     <table class="rcm-main"><thead>
       <tr><th colspan="10" class="rcm-head">
-        <img class="rcm-timbrado" src="icons/cabecalho_ad_brasil.png" alt="">
+        <div class="rcm-head-top">
+          <div class="rcm-timbrado-wrap"><img class="rcm-timbrado" src="icons/cabecalho_ad_brasil.png" alt=""></div>
+          <div class="rcm-qr-box"><div id="rcm-qr" title="QR de autenticidade"></div><span class="rcm-qr-key" id="rcm-hash">—</span></div>
+        </div>
         <div class="rcm-head-flex">
           <div class="rcm-title">MOVIMENTO CAIXA</div>
           <div class="rcm-meta-box">
@@ -1500,10 +1505,6 @@ function rcmDocHtml(){
           <tr><td colspan="3" class="rcm-saldo">SALDO ATUAL<span style="float:right">${rcMoeda(t.saldo)}</span></td></tr></table>
         <div class="rcm-visto"><div class="rcm-visto-caixa">CAIXA</div><div>VISTO</div></div>
       </div>
-    </div>
-    <div class="rcm-verifica">
-      <div id="rcm-qr" title="QR de autenticidade"></div>
-      <div class="rcm-hash"><b>VERIFICAÇÃO DE AUTENTICIDADE</b><br><span id="rcm-hash">—</span><br><span style="opacity:.7">Aponte a câmera para conferir a integridade deste documento.</span></div>
     </div>
     <div class="rcm-rodape">SGE • AD BRASIL — RELATÓRIO DE PRESTAÇÃO DE CONTAS GERADO ELETRONICAMENTE</div>
   </div>`;
@@ -1577,12 +1578,37 @@ window.rcmPdf = async function(){
   let y = 10;
   const fitY = need => { if (y + need > 284){ doc.addPage(); y = 12; } };
 
-  // timbrado
+  // verificação: hash/QR calculados antes do cabeçalho — o QR vai no canto superior direito
+  const saldoStr = t.saldo.toFixed(2);
+  const base = `SGE-CAIXA|${rel.congregacao}|${rel.data_relatorio}|${rel.semana}|${RC.lancamentos.length}|${saldoStr}`;
+  const hash = await rcmHashVerificacao(base);
+  let qrSrc = null;
+  try {
+    const params = new URLSearchParams({
+      c: rel.congregacao || '', d: rel.data_relatorio || '', s: rel.semana || '',
+      a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
+      n: String(RC.lancamentos.length), v: saldoStr, h: hash
+    });
+    qrSrc = rcmQrDataUrl(`${RC_VERIFICA_URL}?${params.toString()}`, 128);
+  } catch(e){}
+
+  // timbrado à esquerda + QR no canto superior direito (mesmo layout do documento)
   const img = await rcmImgData('icons/cabecalho_ad_brasil.png');
+  const qrBoxW = 24, qx = CX - qrBoxW;
+  const timbW = CW - qrBoxW;
+  let headTopH = 26;
   if (img){
-    const h = Math.min(30, img.h * (CW / img.w));
-    try { doc.addImage(img.data, 'PNG', ML, y, CW, h); y += h + 1; } catch(e){}
+    const h = Math.min(30, img.h * (timbW / img.w));
+    try { doc.addImage(img.data, 'PNG', ML, y, timbW, h); } catch(e){}
+    headTopH = Math.max(headTopH, h);
   }
+  doc.setDrawColor(0); doc.setLineWidth(.3);
+  doc.line(qx, y, qx, y + headTopH);
+  if (qrSrc){ try { doc.addImage(qrSrc, 'PNG', qx + 1.2, y + (headTopH - 19)/2, 19, 19); } catch(e){} }
+  doc.setFont('helvetica','normal'); doc.setFontSize(4.5); doc.setTextColor(120);
+  doc.text('SGE-CX-' + hash, qx + qrBoxW - 1.6, y + headTopH - 2, { angle: 90 });
+  doc.setTextColor(0);
+  y += headTopH + 1;
 
   // cabeçalho do documento: caixa "MOVIMENTO CAIXA" + caixas DATA/FECHAMENTO (modelo desktop)
   const headH = 11, titleW = 82, metaW = 58;
@@ -1695,32 +1721,6 @@ window.rcmPdf = async function(){
   y = Math.max(yRep, sigY + sigH*2) + 3;
   doc.setLineWidth(.3);
   doc.rect(ML, yTot - 2, CW, y - yTot - 1);
-
-  // verificação de autenticidade: QR + hash dentro de caixa (modelo desktop)
-  fitY(28);
-  const saldoStr = t.saldo.toFixed(2);
-  const base = `SGE-CAIXA|${rel.congregacao}|${rel.data_relatorio}|${rel.semana}|${RC.lancamentos.length}|${saldoStr}`;
-  const hash = await rcmHashVerificacao(base);
-  let qrSrc = null;
-  try {
-    const params = new URLSearchParams({
-      c: rel.congregacao || '', d: rel.data_relatorio || '', s: rel.semana || '',
-      a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
-      n: String(RC.lancamentos.length), v: saldoStr, h: hash
-    });
-    qrSrc = rcmQrDataUrl(`${RC_VERIFICA_URL}?${params.toString()}`, 128);
-  } catch(e){}
-  const vH = 24;
-  doc.setDrawColor(0); doc.setLineWidth(.3);
-  doc.rect(ML, y, CW, vH);
-  if (qrSrc){ try { doc.addImage(qrSrc, 'PNG', ML + 3, y + 2.5, 19, 19); } catch(e){} }
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(40);
-  doc.text('VERIFICAÇÃO DE AUTENTICIDADE', ML + 26, y + 7);
-  doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(60);
-  doc.text('SGE-CX-' + hash, ML + 26, y + 12);
-  doc.setFontSize(5.5); doc.setTextColor(110);
-  doc.text('Aponte a câmera para conferir a integridade deste documento.', ML + 26, y + 16.5);
-  y += vH;
 
   // rodapé
   fitY(8);
