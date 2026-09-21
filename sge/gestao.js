@@ -1356,7 +1356,7 @@ const GU_STATUS = {
   recusado:         { rot: 'Recusado',          cor: '#f43f5e', ico: 'fa-circle-xmark' },
 };
 const GU_FILTROS = [['Todos','Todos'], ['Email_Confirmado','Aguardando'], ['Pendente','Pendentes'], ['Aprovado','Aprovados'], ['Bloqueado','Bloqueados'], ['Inativo','Inativos'], ['Recusado','Recusados']];
-const GU_LINK_BASE = 'https://adbrasil-rorainopolis.github.io/sge/cadastro';
+const GU_LINK_BASE = 'https://adbrasil-rorainopolis.github.io/sge/';
 const GU = { lista: null, filtro: 'Todos', busca: '', sub: 'usuarios', catalogo: null, acessos: null, linkCong: '' };
 const guApi = (action, payload) => api(action, payload, sessao()?.token);
 const guBadge = st => { const m = GU_STATUS[cf(st)] || { rot: st || '-', cor: '#64748b', ico: 'fa-circle' };
@@ -1847,7 +1847,7 @@ async function guRenderLink(){
     <div class="border rounded-2xl p-4 space-y-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(56,189,248,.12)"><i class="fa-solid fa-link text-sky-400"></i></div>
-        <div><p class="text-xs font-bold">Link de cadastro externo</p><p class="text-[10px] opacity-60">Envie pelo WhatsApp — a pessoa se cadastra e você aprova aqui.</p></div>
+        <div><p class="text-xs font-bold">Link do aplicativo SGE</p><p class="text-[10px] opacity-60">Envie pelo WhatsApp — a pessoa instala o app e se cadastra na tela de login. Você aprova aqui.</p></div>
       </div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação de origem (opcional)</span>
         <select id="gu-link-cong" onchange="guLinkMuda()" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -1861,7 +1861,7 @@ async function guRenderLink(){
         <button onclick="guLinkWhats()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-brands fa-whatsapp mr-1"></i>WhatsApp</button>
         <button onclick="window.open(el('gu-link-txt').value,'_blank')" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Abrir</button>
       </div>
-      <p class="text-[9px] opacity-45 leading-relaxed">O link genérico cadastra sem congregação de origem. Com congregação, o cadastro já nasce vinculado a ela.</p>
+      <p class="text-[9px] opacity-45 leading-relaxed">O link abre o app na tela de login — a pessoa toca em "Cadastre-se" e preenche lá dentro. O seletor de congregação marca a origem do convite; a vinculação definitiva é feita na aprovação.</p>
     </div>`;
   guLinkMuda();
 }
@@ -1876,7 +1876,7 @@ window.guLinkCopiar = async () => {
 };
 window.guLinkWhats = () => {
   const v = el('gu-link-txt')?.value || GU_LINK_BASE;
-  window.open(`https://wa.me/?text=${encodeURIComponent('Cadastre-se no SGE AD Brasil pelo link: ' + v)}`, '_blank');
+  window.open(`https://wa.me/?text=${encodeURIComponent('Instale o SGE AD Brasil e cadastre-se na tela de login pelo link: ' + v)}`, '_blank');
 };
 
 /* API de depuração/testes */
