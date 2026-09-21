@@ -246,7 +246,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.59</span>
+          <span>SGE Mobile · v1.60</span>
         </div>
       </div>
     </div>
@@ -1014,8 +1014,23 @@ function renderModulo(mod){
 }
 
 /* ---------- Panorama (dashboard real) ---------- */
+const VERSICULOS_DASH = [
+  ['Onde estiver o teu tesouro, aí estará o teu coração.', 'Mateus 6:21'],
+  ['Tudo seja feito com decência e ordem.', '1 Coríntios 14:40'],
+  ['Deus ama quem contribui com alegria.', '2 Coríntios 9:7'],
+  ['Cada um administre aos outros o dom que recebeu.', '1 Pedro 4:10'],
+  ['Seja fiel no pouco e também no muito.', 'Lucas 16:10'],
+  ['Os planos bem elaborados levam à fartura.', 'Provérbios 21:5'],
+  ['Sirvam ao Senhor com alegria.', 'Salmos 100:2'],
+  ['Há maior felicidade em dar do que em receber.', 'Atos 20:35'],
+];
+
 function renderPanorama(){
   const s = sessao(); const u = s?.usuario || {};
+  const primeiroNome = String(u.nome || 'Usuário').split(' ')[0];
+  const hora = new Date().getHours();
+  const saudacao = hora < 6 ? 'Boa madrugada' : hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const [vTexto, vRef] = VERSICULOS_DASH[Math.floor(Date.now() / 1800000) % VERSICULOS_DASH.length];
   $('dash-conteudo').innerHTML = `
     <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color: var(--border-color);">
       <div class="logo-sge-icone w-10 h-10 shrink-0" style="color: var(--color-primary);"></div>
@@ -1025,6 +1040,19 @@ function renderPanorama(){
         <span class="inline-block mt-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full" style="background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-light);">${u.perfil || 'Operador'}</span>
       </div>
       <button onclick="sairDoApp()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
+    </div>
+    <div class="mb-3">
+      <p class="text-base font-extrabold leading-tight">${saudacao}, ${primeiroNome}!</p>
+      <p class="text-[11px]" style="color: var(--text-muted);">O que você deseja gerenciar ou verificar hoje?</p>
+    </div>
+    <div class="rounded-2xl p-4 border mb-3" style="background: var(--bg-card); border-color: var(--border-color);">
+      <div class="flex items-start gap-2.5">
+        <i class="fa-solid fa-book-open text-sm mt-0.5 shrink-0" style="color: var(--color-primary);"></i>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] italic leading-relaxed opacity-90">“${vTexto}”</p>
+          <p class="text-[10px] font-bold mt-1.5" style="color: var(--color-primary);">— ${vRef}</p>
+        </div>
+      </div>
     </div>
     <div class="grid grid-cols-2 gap-3 mb-3">
       <div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
