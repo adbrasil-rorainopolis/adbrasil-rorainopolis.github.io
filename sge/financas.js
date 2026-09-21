@@ -1974,13 +1974,9 @@ window.rcmSugerirSemana = async function(){
 
 
 /* ===================== Prestação de Contas (Administrador) ===================== */
-const PREST = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: '1\u00aa Semana', sub: 'semanal', bruto: [], saidas: [], bloqueios: [], period: {}, congs: [] };
-const PREST_SEMANAS = ['1\u00aa Semana', '2\u00aa Semana', '3\u00aa Semana', '4\u00aa Semana', '5\u00aa Semana'];
-const _prestChave = v => {
-  let t = String(v || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  t = t.replace(/\b(p\.?p\.?|ponto\s*de\s*pregacao)\b/g, '').replace(/[^a-z0-9]/g, '');
-  return t.replace(/\d+/g, m => String(parseInt(m, 10)));
-};
+const PREST = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: '1\u00ba. SEMANA', sub: 'semanal', bruto: [], saidas: [], bloqueios: [], period: {}, congs: [] };
+const PREST_SEMANAS = ['1\u00ba. SEMANA', '2\u00ba. SEMANA', '3\u00ba. SEMANA', '4\u00ba. SEMANA', '5\u00ba. SEMANA'];
+const _prestChave = v => String(v || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const _prestNumSemana = st => parseInt((String(st || '').match(/\d+/) || ['1'])[0], 10);
 const _prestBloqueada = () => PREST.bloqueios.some(b => String(b.ano) === PREST.ano && String(b.mes) === PREST.mes && String(b.semana) === PREST.semana && (b.bloqueado === true || b.bloqueado === 1));
 const PREST_SIT = {
@@ -2050,7 +2046,7 @@ function prestTopoHtml(){
       ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
     </div>
     <div class="flex gap-1.5 mb-3" id="prest-semanas">
-      ${semanas.map(sem => `<button onclick="prestSemana('${sem}')" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${_prestNumSemana(sem)}\u00aa</button>`).join('')}
+      ${semanas.map(sem => `<button onclick="prestSemana('${sem}')" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${_prestNumSemana(sem)}\u00ba</button>`).join('')}
     </div>` : ''}`;
 }
 window.prestSub = t => { PREST.sub = t; prestRender(); };
