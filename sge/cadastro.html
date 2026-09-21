@@ -73,6 +73,7 @@
             <button class="btn" id="btn-enviar" type="submit">Solicitar acesso</button>
         </form>
         <div class="link-acesso">Já possui cadastro ou trocou de dispositivo? <a id="lnk-acesso">Clique aqui para baixar o app</a></div>
+        <div class="link-acesso" style="margin-top:8px">Já solicitei acesso e tenho o código? <a id="lnk-tenho-codigo">Digitar código</a></div>
     </div>
 
     <!-- ETAPA 1b: acesso por CPF + senha (reinstalação / troca de aparelho) -->
@@ -88,6 +89,7 @@
     <!-- ETAPA 2: código de 6 dígitos -->
     <div class="corpo hidden" id="etapa-codigo">
         <div id="msg-codigo"></div>
+        <div class="campo hidden" id="campo-cod-cpf"><label>Seu CPF</label><input id="f-cod-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00"></div>
         <p style="font-size:13px;color:#8a94a8;line-height:1.6;margin-bottom:16px">
             Enviamos um código de confirmação para <b id="cod-email" style="color:#e8ecf3"></b>.
             Digite-o abaixo — ele vale por 30 minutos.
@@ -154,6 +156,7 @@ function ligarBotaoDownload(getCredenciais) {
     if (!btn) return;
     btn.addEventListener('click', async () => {
         const { cpf, senha } = getCredenciais();
+        if (!cpf || !senha) return;
         btn.disabled = true; btn.textContent = 'Baixando…';
         try {
             const resp = await fetch(API, {
@@ -210,7 +213,23 @@ function mascaraTel(el){ el.addEventListener('input', () => {
     el.value = v;
 });}
 mascaraCPF($('f-cpf')); mascaraData($('f-nasc')); mascaraTel($('f-tel'));
+mascaraCPF($('f-cod-cpf'));
 $('f-codigo').addEventListener('input', () => { $('f-codigo').value = $('f-codigo').value.replace(/\D/g,'').slice(0,6); });
+
+// CPF usado na etapa do código: o da sessão atual ou o digitado manualmente
+// (quando a página foi recarregada e o usuário voltou pelo link "Digitar código").
+function cpfDoCodigo(){ return cpfCadastro || $('f-cod-cpf').value.trim(); }
+function irParaCodigo(emailExibicao, mensagem, mostrarCpf){
+    cpfCadastro = '';
+    senhaCadastro = '';
+    $('cod-email').textContent = emailExibicao;
+    $('campo-cod-cpf').classList.toggle('hidden', !mostrarCpf);
+    $('etapa-form').classList.add('hidden');
+    $('etapa-acesso').classList.add('hidden');
+    $('etapa-codigo').classList.remove('hidden');
+    msg('msg-codigo', mensagem || '', 'ok');
+    (mostrarCpf ? $('f-cod-cpf') : $('f-codigo')).focus();
+}
 
 function msg(id, texto, tipo){
     const el = $(id);
@@ -244,10 +263,22 @@ $('form-cadastro').addEventListener('submit', async ev => {
         if (r.ok) {
             cpfCadastro = cpf;
             senhaCadastro = senha;
-            $('cod-email').textContent = email;
+            $('cod-email').textContent = r.email_mascarado || email;
+            $('campo-cod-cpf').classList.add('hidden');
             msg('msg-codigo', r.mensagem, r.email_enviado ? 'ok' : 'erro');
             $('etapa-form').classList.add('hidden');
             $('etapa-codigo').classList.remove('hidden');
+            $('f-codigo').focus();
+        } else if (r.pendente) {
+            // Cadastro já existe e aguarda o código (ex.: página recarregada ou
+            // e-mail corrigido pelo admin). Pula direto para a etapa do código.
+            cpfCadastro = cpf;
+            senhaCadastro = senha;
+            $('cod-email').textContent = r.email_mascarado || 'o e-mail cadastrado';
+            $('campo-cod-cpf').classList.add('hidden');
+            $('etapa-form').classList.add('hidden');
+            $('etapa-codigo').classList.remove('hidden');
+            msg('msg-codigo', 'Este CPF já tem um cadastro aguardando confirmação. Digite o código recebido ou toque em Reenviar.', 'ok');
             $('f-codigo').focus();
         } else {
             msg('msg-form', r.erro || 'Não foi possível concluir o cadastro.', 'erro');
@@ -264,12 +295,26 @@ $('btn-confirmar').addEventListener('click', async () => {
     if (codigo.length !== 6) { msg('msg-codigo','Digite os 6 dígitos do código.','erro'); return; }
     const btn = $('btn-confirmar'); btn.disabled = true; btn.textContent = 'Confirmando…';
     try {
-        const r = await chamar('confirmar_codigo_cadastro', { cpf: cpfCadastro, codigo });
+        const cpf = cpfDoCodigo();
+        if (!cpf) { msg('msg-codigo','Informe seu CPF.','erro'); return; }
+        const r = await chamar('confirmar_codigo_cadastro', { cpf, codigo });
         if (r.ok) {
+            cpfCadastro = cpf;
             $('etapa-codigo').classList.add('hidden');
             $('etapa-fim').classList.remove('hidden');
             $('dl-fim').innerHTML = blocoDownload(true);
-            ligarBotaoDownload(() => ({ cpf: cpfCadastro, senha: senhaCadastro }));
+            ligarBotaoDownload(() => {
+                if (!senhaCadastro) {
+                    // Retomada por CPF: a senha não está na sessão — manda para a
+                    // etapa de acesso com o CPF preenchido.
+                    $('etapa-fim').classList.add('hidden');
+                    $('etapa-acesso').classList.remove('hidden');
+                    $('a-cpf').value = cpfCadastro;
+                    $('a-senha').focus();
+                    return { cpf: '', senha: '' };
+                }
+                return { cpf: cpfCadastro, senha: senhaCadastro };
+            });
         } else {
             msg('msg-codigo', r.erro || 'Código inválido.', 'erro');
         }
@@ -280,14 +325,21 @@ $('btn-confirmar').addEventListener('click', async () => {
 });
 
 $('lnk-reenviar').addEventListener('click', async () => {
-    if (!cpfCadastro) return;
+    const cpf = cpfDoCodigo();
+    if (!cpf) { msg('msg-codigo','Informe seu CPF para reenviar o código.','erro'); $('f-cod-cpf').focus(); return; }
     msg('msg-codigo','Enviando novo código…','ok');
     try {
-        const r = await chamar('reenviar_codigo_cadastro', { cpf: cpfCadastro });
+        const r = await chamar('reenviar_codigo_cadastro', { cpf });
         msg('msg-codigo', r.mensagem || r.erro || '', r.ok ? 'ok' : 'erro');
     } catch(e) {
         msg('msg-codigo','Falha de conexão. Tente novamente.','erro');
     }
+});
+
+// Recuperação: "já solicitei e tenho o código" — entra direto na etapa do
+// código pedindo o CPF (cobre página recarregada/expirada).
+$('lnk-tenho-codigo').addEventListener('click', () => {
+    irParaCodigo('o e-mail do seu cadastro', 'Informe seu CPF e o código de 6 dígitos recebido por e-mail.', true);
 });
 
 // --- Acesso por CPF + senha: reinstalação / troca de dispositivo ---
