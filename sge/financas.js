@@ -182,7 +182,7 @@ window.finAba = function(aba){
     b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
   });
   if (aba === 'relatorio') return rcRenderTela();
-  if (aba === 'prestacao'){ if (!rcDadosUsuario().admin) return finRenderRol(); return prestRender(); }
+  if (aba === 'prestacao'){ if (!rcDadosUsuario().admin) return finRenderRol(); return window.prestRender(); }
   if (aba === 'frequencia') return finRenderFrequencia();
   finRenderRol();
 };
@@ -2022,7 +2022,7 @@ function prestLinhas(){
   });
 }
 
-async function prestRender(){
+window.prestRender = async function(){
   const corpo = el('fin-sub'); if (!corpo) return;
   corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando presta\u00e7\u00e3o\u2026</div>';
   try { await prestCarregarDados(); }
@@ -2049,9 +2049,9 @@ function prestTopoHtml(){
       ${semanas.map(sem => `<button onclick="prestSemana('${sem}')" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${_prestNumSemana(sem)}\u00ba</button>`).join('')}
     </div>` : ''}`;
 }
-window.prestSub = t => { PREST.sub = t; prestRender(); };
-window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; prestRender(); };
-window.prestSemana = sem => { PREST.semana = sem; prestRender(); };
+window.prestSub = t => { PREST.sub = t; window.prestRender(); };
+window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
+window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
 
 function prestRenderSemanal(){
   const corpo = el('fin-sub');
@@ -2077,7 +2077,7 @@ function prestRenderSemanal(){
     </div>
     <div class="grid grid-cols-2 gap-2 mb-3">
       <button onclick="prestCopiarPendencias()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar Pendências</button>
-      <button onclick="prestRender()" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+      <button onclick="window.prestRender()" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
     </div>
     ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana</p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
     ${Object.keys(grupos).map(cons => `
@@ -2113,7 +2113,7 @@ window.prestEditar = function(nomeCong){
       <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(245,158,11,.12)"><i class="fa-solid fa-clipboard-check text-amber-500"></i></div>
         <div class="flex-1 min-w-0"><p class="text-xs font-bold truncate">${esc(l.nome)}</p><p class="text-[10px] opacity-60">${esc(l.conselho)} · ${esc(PREST.semana)} · ${esc(PREST.mes)}/${esc(PREST.ano)}</p></div>
-        <button onclick="el('prest-sheet').remove()" class="w-8 h-8 rounded-full border flex items-center justify-center opacity-70 cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="document.getElementById('prest-sheet').remove()" class="w-8 h-8 rounded-full border flex items-center justify-center opacity-70 cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor recebido (R$)</span>
         <input id="prest-valor" type="text" inputmode="decimal" value="${l.valor > 0 ? l.valor.toFixed(2).replace('.', ',') : ''}" placeholder="0,00" class="w-full px-3 py-3 rounded-xl border text-lg font-bold text-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
@@ -2123,9 +2123,10 @@ window.prestEditar = function(nomeCong){
       </label>
       <div class="flex gap-2 pt-1">
         <button id="prest-btn-salvar" onclick="prestSalvar('${esc(l.nome).replace(/'/g, "\\'")}', '${esc(l.conselho).replace(/'/g, "\\'")}')" class="flex-1 py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-solid fa-check mr-1"></i>Salvar</button>
-        <button onclick="el('prest-sheet').remove()" class="px-5 py-3 rounded-xl text-xs font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)">Fechar</button>
+        <button onclick="document.getElementById('prest-sheet').remove()" class="px-5 py-3 rounded-xl text-xs font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)">Fechar</button>
       </div>
     </div>`;
+  sh.addEventListener('click', e => { if (e.target === sh) sh.remove(); });
   document.body.appendChild(sh);
   setTimeout(() => el('prest-valor')?.focus(), 80);
 };
@@ -2144,7 +2145,7 @@ window.prestSalvar = async function(nomeCong, conselho){
     }, sessao()?.token);
     toast(res.mensagem || 'Prestação salva.');
     el('prest-sheet')?.remove();
-    prestRender();
+    window.prestRender();
   } catch(e){ toast(e.message || 'Falha ao salvar.'); }
   finally { if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Salvar'; } }
 };
@@ -2197,7 +2198,7 @@ window.prestSalvarPeriodicidades = async function(){
   try {
     const res = await api('salvar_periodicidades_prestacao', { configuracoes }, sessao()?.token);
     toast(res.mensagem || 'Periodicidades salvas.');
-    prestRender();
+    window.prestRender();
   } catch(e){ toast(e.message || 'Falha ao salvar.'); }
   finally { if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i>Salvar periodicidades'; } }
 };
