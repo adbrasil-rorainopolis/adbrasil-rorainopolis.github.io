@@ -308,7 +308,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
   const temEscopo = conselhosAlvo.size > 0 || congsAlvo.size > 0;
 
   const semanas = [], porCongregacao = {}, porConselho = {};
-  let totEnt = 0, totDiz = 0, totOf = 0, totDesp = 0, saldoCampo = 0, saldoAnt = 0;
+  let totEnt = 0, totDiz = 0, totOf = 0, totDesp = 0, totMiss = 0, saldoCampo = 0, saldoAnt = 0;
 
   for (let n = 1; n <= 5; n++){
     let aba = null;
@@ -348,6 +348,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
     for (const r of regsProcessar){
       const nomeC = String(r.congregacao || 'Não informada').trim() || 'Não informada';
       const cons = String(r.conselho || '').trim() || await identificarConselho(nomeC, r.numero);
+      for (const [kE, vE] of Object.entries(r.detalhes_entradas || {})) if (/miss/i.test(String(kE).split(/\s[-—–:]\s/)[0])) totMiss += num(vE);
       for (const [mapa, chave] of [[porCongregacao, nomeC], [porConselho, cons || 'Não informado']]){
         const acc = mapa[chave] = mapa[chave] || { entradas: 0, dizimos: 0, ofertas: 0, despesas: 0 };
         acc.entradas += num(r.total_entradas); acc.dizimos += num(r.dizimos); acc.ofertas += num(r.ofertas); acc.despesas += num(r.total_despesas);
@@ -372,6 +373,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
   }
   return {
     ano: String(ano), mes: mesNome, entradas: totEnt, dizimos: totDiz, ofertas: totOf,
+    ofertas_missionarias: totMiss, escopo_restrito: temEscopo,
     despesas: totDesp, saldo_liquido: totEnt - totDesp, saldo_campo: saldoCampo,
     saldo_mes_anterior: saldoAnt, saldo_inicial_mes: saldoInicialMes,
     semanas, semanas_com_dados: semanasComDados,
@@ -692,8 +694,14 @@ async function analisarMes(ano, mes){
   if (semanasFora.length) ins('atencao', `Há movimento lançado em semana fora do ciclo configurado (${semanasTotal} fechamentos): ${semanasFora.map(s => s.semana).join(', ')}.`);
   ins('info', `Projeção para o próximo mês: ${moeda(projecao.proximo_mes_entradas)} de entradas (confiança ${projecao.confianca}, base ${nHist} meses).`);
 
+  // Visão restrita (congregação/conselho filtrado ou escopo limitado do usuário):
+  // oculta cards de despesa/resultado/caixa e os feedbacks ligados a eles.
+  const escopoRestrito = !!(atual.escopo_restrito || atual.escopo_resumo);
+  const insightsVis = escopoRestrito ? insights.filter(i => !/despesa|resultado|saldo|caixa|margem|d[eé]ficit|super[aá]vit/i.test(i.texto)) : insights;
+
   return { sucesso: true, periodo: { ano: String(anoI), mes: mesNome, mes_indice: mesIdx },
-    atual, comparativos, projecao, ciclo, insights, escopo_resumo: atual.escopo_resumo || '',
+    atual, comparativos, projecao, ciclo, insights: insightsVis, escopo_resumo: atual.escopo_resumo || '',
+    escopo_restrito: escopoRestrito,
     serie_anual: Object.entries(resumos).sort((a, b) => +a[0] - +b[0]).map(([i, r]) => ({ mes: ORDEM_MESES[+i - 1], mes_indice: +i, entradas: r.entradas, despesas: r.despesas, saldo: r.saldo_liquido, semanas_com_dados: r.semanas_com_dados })) };
 }
 
@@ -1191,20 +1199,23 @@ window.gestaoMensalCarregar = async function(){
   const pick = (chave, fb) => temEquiv && equiv[chave] !== null && equiv[chave] !== undefined ? equiv[chave] : fb;
   const saldoIni = num(a.saldo_inicial_mes ?? a.saldo_mes_anterior), caixa = num(a.saldo_campo);
   const temCaixa = Math.abs(caixa) > EPS || Math.abs(saldoIni) > EPS;
+  const restrito = !!res.escopo_restrito;
   const kcard = (t2, v, varr, cor, inv = false, det = '') => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-start justify-between gap-2"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p>${varr === false ? '' : seloVar(varr, inv)}</div><p class="mt-1 text-base font-black tabular-nums ${cor}">${v}</p>${det ? `<p class="text-[10px] opacity-50 mt-1">${det}</p>` : ''}</div>`;
   el('mm-kpis').innerHTML =
     kcard('Entradas', moeda(a.entradas), pick('var_entradas_equiv', ant.var_entradas), 'text-emerald-500', false, sub)
     + kcard('Dízimos', moeda(a.dizimos), pick('var_dizimos_equiv', ant.var_dizimos), 'text-sky-500', false, sub)
     + kcard('Ofertas', moeda(a.ofertas), pick('var_ofertas_equiv', ant.var_ofertas), 'text-amber-500', false, sub)
-    + kcard('Despesas', moeda(a.despesas), pick('var_despesas_equiv', ant.var_despesas), 'text-red-500', true, sub)
-    + (perfilConsultor() ? '' : kcard('Resultado', moeda(a.saldo_liquido), pick('var_resultado_equiv', ant.var_saldo), num(a.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500', false, sub)
-    + kcard('Caixa da Semana', moeda(caixa), false, caixa >= 0 ? 'text-emerald-500' : 'text-red-500', false, temCaixa ? `Inicial: ${moeda(saldoIni)}` : ''));
+    + (restrito
+      ? kcard('Ofertas Missionárias', moeda(a.ofertas_missionarias), false, 'text-violet-400', false, sub)
+      : kcard('Despesas', moeda(a.despesas), pick('var_despesas_equiv', ant.var_despesas), 'text-red-500', true, sub)
+      + (perfilConsultor() ? '' : kcard('Resultado', moeda(a.saldo_liquido), pick('var_resultado_equiv', ant.var_saldo), num(a.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500', false, sub)
+      + kcard('Caixa da Semana', moeda(caixa), false, caixa >= 0 ? 'text-emerald-500' : 'text-red-500', false, temCaixa ? `Inicial: ${moeda(saldoIni)}` : '')));
   const mmAnt = anual.media_mensal_anteriores || anual.media_mensal || {};
   const mcard = (t2, v, det, cor = 'text-sky-400') => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-bold tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
   el('mm-medias').innerHTML =
     mcard('Média semanal do mês', moeda(a.media_semanal_entradas), `${seloVar(anual.var_semanal_entradas)} vs média do ano (${moeda(anual.media_semanal_entradas)})`)
     + mcard('Média mensal do ano', moeda(mmAnt.entradas), `${seloVar(anual.var_entradas_anteriores ?? anual.var_entradas)} mês atual vs média (fechados)`)
-    + mcard('Média semanal desp. (ano)', moeda(anual.media_semanal_despesas), `${anual.semanas_contabilizadas || 0} semanas contabilizadas`, 'text-red-400')
+    + (restrito ? '' : mcard('Média semanal desp. (ano)', moeda(anual.media_semanal_despesas), `${anual.semanas_contabilizadas || 0} semanas contabilizadas`, 'text-red-400'))
     + mcard(yoy.dados ? `Mesmo mês em ${+res.periodo.ano - 1}` : 'Comparativo anual', yoy.dados ? moeda(yoy.dados.entradas) : 'Sem dados', yoy.dados ? `${seloVar(yoy.var_entradas)} entradas vs ${res.periodo.mes}/${res.periodo.ano}` : `Nenhum registro em ${esc(yoy.rotulo || '-')}`);
 
   const cardsProj = [];
@@ -1230,10 +1241,10 @@ function graficosMensal(res){
   if (ctxS){
     const sems = a.semanas || [], media = num(anual.media_semanal_entradas);
     if (G.grafMS) G.grafMS.destroy();
-    G.grafMS = new Chart(ctxS, { data: { labels: sems.map(s => s.semana), datasets: [
-      { type: 'bar', label: 'Entradas', data: sems.map(s => s.entradas), backgroundColor: '#10b981bb', borderColor: '#10b981', borderWidth: 1, borderRadius: 6 },
-      { type: 'bar', label: 'Despesas', data: sems.map(s => s.despesas), backgroundColor: '#ef4444bb', borderColor: '#ef4444', borderWidth: 1, borderRadius: 6 },
-      { type: 'line', label: 'Média semanal do ano', data: sems.map(() => media), borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false } ] },
+    const dsS = [{ type: 'bar', label: 'Entradas', data: sems.map(s => s.entradas), backgroundColor: '#10b981bb', borderColor: '#10b981', borderWidth: 1, borderRadius: 6 }];
+    if (!res.escopo_restrito) dsS.push({ type: 'bar', label: 'Despesas', data: sems.map(s => s.despesas), backgroundColor: '#ef4444bb', borderColor: '#ef4444', borderWidth: 1, borderRadius: 6 });
+    dsS.push({ type: 'line', label: 'Média semanal do ano', data: sems.map(() => media), borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false });
+    G.grafMS = new Chart(ctxS, { data: { labels: sems.map(s => s.semana), datasets: dsS },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moeda(c.raw)}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } } } } });
   }
   const ctxE = el('mm-graf-evo')?.getContext('2d');
