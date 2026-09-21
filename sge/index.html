@@ -239,7 +239,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.50</span>
+          <span>SGE Mobile · v1.51</span>
         </div>
       </div>
     </div>
@@ -771,6 +771,52 @@ async function carregarFinanceiro(token){
 }
 
 /* ---------- boot: splash → login → app ---------- */
+/* ---------- push: admin recebe aviso quando chega relatorio de caixa ---------- */
+const VAPID_PUBLICA = 'BODG5cg2PBUhOZrxSSp_4n3j3fYxGUDq7v9Z2VwcFiEnzHSxOSbYYY9rwc9PqjSfxcabSpMIHkFWciT4H3Lww-k';
+
+function b64ParaUint8(b64){
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+function pushSuportado(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+async function inscreverPush(){
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ParaUint8(VAPID_PUBLICA) });
+  await api('registrar_push', { inscricao: sub.toJSON() }, sessao()?.token);
+}
+
+function prepararPushAdmin(){
+  try {
+    const u = sessao()?.usuario || {};
+    if (!/administrador/i.test(u.perfil || '')) return;
+    if (!pushSuportado()) return;
+    if (Notification.permission === 'granted') { inscreverPush().catch(() => {}); return; }
+    if (Notification.permission !== 'default' || $('push-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'push-banner';
+    banner.className = 'fixed left-4 right-4 z-50 rounded-xl p-3 flex items-center gap-3 shadow-lg';
+    banner.style.cssText = 'bottom: 88px; background: var(--bg-card); border: 1px solid var(--border-color);';
+    banner.innerHTML =
+      '<div class="flex-1"><div class="text-sm font-semibold">Notificacoes de relatorio</div>' +
+      '<div class="text-xs" style="color: var(--text-muted);">Receba um aviso quando um relatorio de caixa for enviado.</div></div>' +
+      '<button class="text-xs font-semibold px-3 py-2 rounded-lg" style="background: var(--color-primary); color:#fff;">Ativar</button>' +
+      '<button class="text-xs px-2 py-2" style="color: var(--text-muted);">X</button>';
+    banner.querySelectorAll('button')[0].onclick = async () => {
+      try {
+        if ((await Notification.requestPermission()) === 'granted') await inscreverPush();
+      } catch (erro) { /* sem suporte ou negado */ }
+      banner.remove();
+    };
+    banner.querySelectorAll('button')[1].onclick = () => banner.remove();
+    document.body.appendChild(banner);
+  } catch (erro) { /* push e opcional */ }
+}
 function entrarNoApp(){
   iniciarHeartbeat();
   $('login-screen').classList.add('login-hidden');
@@ -781,6 +827,7 @@ function entrarNoApp(){
   moduloAtual = 'dashboard';
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
   renderPanorama();
+  prepararPushAdmin();
 }
 
 function mostrarLogin(){
