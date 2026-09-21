@@ -705,7 +705,7 @@ function rcSubsDaCat(cat){
   if (!cat?.subs) return [];
   return (cat.subsAG && rcmEhAG()) ? cat.subs.concat(cat.subsAG) : [...cat.subs];
 }
-const RC_VERIFICA_URL = 'https://cdaniel09917-design.github.io/sge/verificar.html';
+const RC_VERIFICA_URL = 'https://adbrasil-rorainopolis.github.io/sge/verificar.html';
 const RCM_CSS = `<style>
 .rcm-doc{font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#000;background:#fff;border:1px solid #000;min-width:540px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:8px;overflow:hidden;position:relative}
 .rcm-doc table{border-collapse:collapse;width:100%}

@@ -1356,7 +1356,7 @@ const GU_STATUS = {
   recusado:         { rot: 'Recusado',          cor: '#f43f5e', ico: 'fa-circle-xmark' },
 };
 const GU_FILTROS = [['Todos','Todos'], ['Email_Confirmado','Aguardando'], ['Pendente','Pendentes'], ['Aprovado','Aprovados'], ['Bloqueado','Bloqueados'], ['Inativo','Inativos'], ['Recusado','Recusados']];
-const GU_LINK_BASE = 'https://cdaniel09917-design.github.io/sge/cadastro';
+const GU_LINK_BASE = 'https://adbrasil-rorainopolis.github.io/sge/cadastro';
 const GU = { lista: null, filtro: 'Todos', busca: '', sub: 'usuarios', catalogo: null, acessos: null, linkCong: '' };
 const guApi = (action, payload) => api(action, payload, sessao()?.token);
 const guBadge = st => { const m = GU_STATUS[cf(st)] || { rot: st || '-', cor: '#64748b', ico: 'fa-circle' };
