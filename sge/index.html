@@ -239,7 +239,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.54</span>
+          <span>SGE Mobile · v1.55</span>
         </div>
       </div>
     </div>
@@ -291,11 +291,152 @@
           </button>
           <div class="text-center pt-1">
             <span class="text-xs opacity-75">Não tem uma conta?</span>
-            <a href="javascript:void(0)" onclick="emBreve('Cadastro')" class="text-xs font-bold hover:underline transition ml-1 cursor-pointer" style="color: var(--color-info);">Cadastre-se</a>
+            <a href="javascript:void(0)" onclick="abrirNovoCadastro()" class="text-xs font-bold hover:underline transition ml-1 cursor-pointer" style="color: var(--color-info);">Cadastre-se</a>
           </div>
         </div>
       </form>
     </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NOVO CADASTRO (mesmo modelo do desktop) ============ -->
+<div id="modal-novo-cadastro" class="fixed inset-0 z-[95] hidden" style="background: rgba(2,6,23,.85); backdrop-filter: blur(6px);">
+  <div class="absolute inset-x-0 bottom-0 top-8 rounded-t-3xl flex flex-col overflow-hidden" style="background: var(--bg-surface); border: 1px solid var(--border-color);">
+    <div class="flex items-center gap-3 px-4 py-3 border-b shrink-0" style="border-color: var(--border-color);">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-sky-400" style="background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.3);">
+        <i class="fa-solid fa-user-plus text-sm"></i>
+      </div>
+      <div class="flex-1">
+        <h3 class="font-bold text-sm" style="color: var(--color-primary);">Solicitar Novo Cadastro</h3>
+        <p class="text-[10px] opacity-60">Preencha seus dados para solicitar acesso ao SGE</p>
+      </div>
+      <button type="button" onclick="fecharNovoCadastro()" class="w-8 h-8 rounded-full border flex items-center justify-center opacity-70 cursor-pointer" style="border-color: var(--border-color);">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form id="form-novo-cadastro" onsubmit="processarNovoCadastro(event)" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 text-xs">
+      <div>
+        <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Nome Completo *</label>
+        <input type="text" id="cad-nome" required placeholder="Nome completo do irmão(ã)..." class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">CPF *</label>
+          <input type="text" id="cad-cpf" required placeholder="000.000.000-00" inputmode="numeric" maxlength="14" oninput="formatarCpfInput(this)" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Nascimento *</label>
+          <input type="text" id="cad-nascimento" required placeholder="DD/MM/AAAA" inputmode="numeric" oninput="formatarDataInput(this)" maxlength="10" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Sexo *</label>
+          <select id="cad-sexo" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Telefone / WhatsApp *</label>
+          <input type="text" id="cad-telefone" required placeholder="(95) 90000-0000" inputmode="tel" oninput="formatarTelefoneInput(this)" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">E-mail *</label>
+        <input type="email" id="cad-email" required placeholder="seuemail@exemplo.com" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+      </div>
+
+      <div class="pt-2 border-t flex items-center justify-between" style="border-color: var(--border-color);">
+        <span class="font-bold text-[11px]" style="color: var(--color-primary);"><i class="fa-solid fa-map-location-dot mr-1"></i> Endereço Residencial</span>
+        <span class="text-[9px] opacity-60">Auto-preenchimento via CEP</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">CEP</label>
+          <input type="text" id="cad-cep" placeholder="69375-000" inputmode="numeric" oninput="formatarCepInput(this)" onblur="consultarCepApi(this.value)" maxlength="9" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm font-mono" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Cidade / UF *</label>
+          <input type="text" id="cad-cidade" value="Rorainópolis - RR" required class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Bairro *</label>
+          <input type="text" id="cad-bairro" required placeholder="Ex: Centro" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Número</label>
+          <input type="text" id="cad-numero" placeholder="Nº ou S/N" inputmode="numeric" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+      </div>
+      <div>
+        <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Rua / Logradouro / Avenida *</label>
+        <input type="text" id="cad-rua" required placeholder="Ex: Av. Dra. Yandara..." class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+      </div>
+      <div>
+        <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Complemento / Ponto de Referência</label>
+        <input type="text" id="cad-complemento" placeholder="Apto, Casa, Próximo ao templo..." class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+      </div>
+
+      <div class="pt-2 border-t" style="border-color: var(--border-color);">
+        <span class="font-bold text-[11px]" style="color: var(--color-primary);"><i class="fa-solid fa-key mr-1"></i> Senha de Acesso</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Senha *</label>
+          <input type="password" id="cad-senha" required placeholder="Mínimo 6 caracteres" minlength="6" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-[10px] mb-1 opacity-80">Confirmar *</label>
+          <input type="password" id="cad-confirma-senha" required placeholder="Repita a senha" minlength="6" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+        </div>
+      </div>
+
+      <div id="cadastro-feedback" class="hidden p-3 rounded-xl text-xs font-semibold text-center leading-relaxed"></div>
+
+      <div class="flex gap-2 pt-2 pb-4">
+        <button type="submit" id="btn-cad-submit" class="flex-1 py-3 px-4 bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer text-sm">
+          <i class="fa-solid fa-check"></i> Concluir e Solicitar Acesso
+        </button>
+        <button type="button" onclick="fecharNovoCadastro()" class="py-3 px-5 border rounded-xl font-semibold text-sm cursor-pointer" style="background: var(--bg-card); border-color: var(--border-color);">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODAL: CÓDIGO DE 6 DÍGITOS (pós-cadastro) ============ -->
+<div id="modal-codigo-cadastro" class="fixed inset-0 z-[96] hidden items-center justify-center p-4" style="background: rgba(2,6,23,.88); backdrop-filter: blur(6px);">
+  <div class="w-full max-w-sm rounded-3xl p-6 border flex flex-col gap-4" style="background: var(--bg-card); border-color: var(--border-color); color: var(--text-main);">
+    <div class="text-center border-b pb-3" style="border-color: var(--border-color);">
+      <div class="w-11 h-11 mx-auto rounded-2xl flex items-center justify-center text-sky-400 mb-2" style="background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.3);">
+        <i class="fa-solid fa-envelope-circle-check text-lg"></i>
+      </div>
+      <h3 class="font-bold text-base uppercase tracking-wider" style="color: var(--color-primary);">Confirmar E-mail</h3>
+      <p class="text-[10.5px] opacity-70 leading-relaxed mt-1">
+        Enviamos um código de <strong>6 dígitos</strong> para<br>
+        <strong id="codigo-cad-email" class="text-sky-400"></strong><br>
+        Digite-o abaixo para confirmar seu e-mail.
+      </p>
+    </div>
+    <input id="codigo-cad-input" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+      oninput="this.value = this.value.replace(/\D/g, '').slice(0, 6)"
+      class="w-full border rounded-xl px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] focus:outline-none"
+      style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-main);">
+    <div id="codigo-cad-feedback" class="hidden p-2.5 rounded-xl text-[11px] font-semibold text-center leading-relaxed"></div>
+    <div class="flex flex-col gap-2">
+      <button id="btn-codigo-confirmar" type="button" onclick="confirmarCodigoCadastro()" class="w-full py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs cursor-pointer">
+        <i class="fa-solid fa-check mr-1"></i> Confirmar Código
+      </button>
+      <div class="flex gap-2">
+        <button id="btn-codigo-reenviar" type="button" onclick="reenviarCodigoCadastro()" class="flex-1 py-2 border rounded-xl font-semibold text-[11px] cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-color);">
+          <i class="fa-solid fa-rotate-right mr-1"></i> Reenviar Código
+        </button>
+        <button type="button" onclick="fecharCodigoCadastro()" class="flex-1 py-2 border rounded-xl font-semibold text-[11px] cursor-pointer" style="background: var(--bg-surface); border-color: var(--border-color);">
+          Confirmar Depois
+        </button>
+      </div>
+    </div>
+    <p class="text-[9.5px] opacity-50 text-center leading-relaxed">O código vale por 30 minutos.<br>Sem a confirmação, o cadastro não segue para aprovação.</p>
   </div>
 </div>
 
@@ -408,6 +549,186 @@ function toast(msg){
   setTimeout(() => t.remove(), 2600);
 }
 function emBreve(recurso){ toast(recurso + ' disponível em breve no mobile — use o app desktop por ora.'); }
+
+/* ---------- Novo cadastro (mesmo modelo do desktop, via Edge Function) ---------- */
+function formatarCpfInput(input){
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 11) v = v.substring(0, 11);
+  if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+  input.value = v;
+}
+function formatarDataInput(input){
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 8) v = v.substring(0, 8);
+  if (v.length > 4)      v = v.replace(/(\d{2})(\d{2})(\d{1,4})/, '$1/$2/$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{1,2})/, '$1/$2');
+  input.value = v;
+}
+function formatarTelefoneInput(input){
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 11) v = v.substring(0, 11);
+  if (v.length > 10)      v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  else if (v.length > 6)  v = v.replace(/(\d{2})(\d{4})(\d{1,4})/, '($1) $2-$3');
+  else if (v.length > 2)  v = v.replace(/(\d{2})(\d{1,5})/, '($1) $2');
+  input.value = v;
+}
+function formatarCepInput(input){
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 8) v = v.substring(0, 8);
+  input.value = v.length > 5 ? v.replace(/(\d{5})(\d{1,3})/, '$1-$2') : v;
+}
+async function consultarCepApi(cepValor){
+  const cepLimpo = String(cepValor || '').replace(/\D/g, '');
+  if (cepLimpo.length !== 8) return;
+  try {
+    const res = await fetch('https://viacep.com.br/ws/' + cepLimpo + '/json/');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && !data.erro){
+      const elCidade = $('cad-cidade'), elBairro = $('cad-bairro'), elRua = $('cad-rua'), elNumero = $('cad-numero');
+      if (elCidade && data.localidade && data.uf) elCidade.value = data.localidade + ' - ' + data.uf;
+      if (elBairro && data.bairro) elBairro.value = data.bairro;
+      if (elRua && data.logradouro) elRua.value = data.logradouro;
+      if (elNumero && !elNumero.value) elNumero.focus();
+    }
+  } catch(e) { console.warn('Consulta CEP offline ou indisponível:', e); }
+}
+
+function cadFeedback(el, texto, tipo){
+  if (!el) return;
+  el.textContent = texto || '';
+  el.classList.remove('hidden');
+  const cores = { erro: '#fca5a5', sucesso: '#86efac', info: '#7dd3fc' };
+  const fundos = { erro: 'rgba(239,68,68,.12)', sucesso: 'rgba(34,197,94,.12)', info: 'rgba(56,189,248,.12)' };
+  const bordas = { erro: 'rgba(239,68,68,.4)', sucesso: 'rgba(34,197,94,.4)', info: 'rgba(56,189,248,.4)' };
+  el.style.color = cores[tipo] || cores.info;
+  el.style.background = fundos[tipo] || fundos.info;
+  el.style.border = '1px solid ' + (bordas[tipo] || bordas.info);
+}
+
+let _codigoCadastroCpf = '';
+
+function abrirNovoCadastro(){
+  const m = $('modal-novo-cadastro');
+  if (!m) return;
+  const fb = $('cadastro-feedback'); if (fb) fb.classList.add('hidden');
+  m.classList.remove('hidden');
+  const el = $('cad-nome'); if (el) el.focus();
+}
+function fecharNovoCadastro(){
+  const m = $('modal-novo-cadastro');
+  if (m) m.classList.add('hidden');
+}
+function abrirCodigoCadastro(cpf, email, mensagem){
+  _codigoCadastroCpf = cpf || '';
+  const elEmail = $('codigo-cad-email'); if (elEmail) elEmail.textContent = email || '';
+  const input = $('codigo-cad-input'); if (input) input.value = '';
+  const fb = $('codigo-cad-feedback'); if (fb) fb.classList.add('hidden');
+  const m = $('modal-codigo-cadastro');
+  if (m){ m.classList.remove('hidden'); m.classList.add('flex'); }
+  if (mensagem) toast(mensagem);
+  if (input) setTimeout(() => input.focus(), 80);
+}
+function fecharCodigoCadastro(){
+  const m = $('modal-codigo-cadastro');
+  if (m){ m.classList.add('hidden'); m.classList.remove('flex'); }
+}
+
+async function processarNovoCadastro(e){
+  e.preventDefault();
+  const btn = $('btn-cad-submit');
+  const fb = $('cadastro-feedback');
+  const senha = $('cad-senha').value;
+  const confirma = $('cad-confirma-senha').value;
+  if (senha !== confirma){
+    cadFeedback(fb, 'As senhas não conferem. Digite a mesma senha nos dois campos.', 'erro');
+    return;
+  }
+  const rua = $('cad-rua').value.trim();
+  const numero = $('cad-numero').value.trim();
+  const bairro = $('cad-bairro').value.trim();
+  const cidade = $('cad-cidade').value.trim();
+  const cep = $('cad-cep').value.trim();
+  const complemento = $('cad-complemento').value.trim();
+  const partesEnd = [];
+  if (rua) partesEnd.push(rua + ', Nº ' + (numero || 'S/N'));
+  if (complemento) partesEnd.push('Comp: ' + complemento);
+  if (bairro) partesEnd.push('Bairro: ' + bairro);
+  if (cidade) partesEnd.push(cidade);
+  if (cep) partesEnd.push('CEP: ' + cep);
+  const dados = {
+    nome: $('cad-nome').value.trim(),
+    cpf: $('cad-cpf').value.trim(),
+    data_nascimento: $('cad-nascimento').value.trim(),
+    sexo: $('cad-sexo').value,
+    telefone: $('cad-telefone').value.trim(),
+    email: $('cad-email').value.trim(),
+    endereco: partesEnd.join(' - '),
+    senha
+  };
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Enviando...'; }
+  cadFeedback(fb, 'Enviando cadastro...', 'info');
+  try {
+    const res = await api('cadastro_externo', dados);
+    if (res.ok){
+      const cpfEnviado = dados.cpf;
+      const emailEnviado = dados.email;
+      cadFeedback(fb, res.mensagem || 'Cadastro recebido!', 'sucesso');
+      if (res.mensagem && res.mensagem.indexOf('código de 6 dígitos') >= 0){
+        fecharNovoCadastro();
+        abrirCodigoCadastro(cpfEnviado, emailEnviado, res.mensagem);
+      } else {
+        setTimeout(fecharNovoCadastro, 2200);
+      }
+    } else {
+      cadFeedback(fb, res.mensagem || 'Não foi possível concluir o cadastro.', 'erro');
+    }
+  } catch(err){
+    cadFeedback(fb, 'Falha ao enviar cadastro: ' + err.message, 'erro');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Concluir e Solicitar Acesso'; }
+  }
+}
+
+async function confirmarCodigoCadastro(){
+  const input = $('codigo-cad-input');
+  const fb = $('codigo-cad-feedback');
+  const btn = $('btn-codigo-confirmar');
+  const codigo = (input.value || '').replace(/\D/g, '');
+  if (codigo.length !== 6){ cadFeedback(fb, 'Digite o código de 6 dígitos recebido no e-mail.', 'erro'); return; }
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Confirmando...'; }
+  cadFeedback(fb, 'Verificando código...', 'info');
+  try {
+    const res = await api('confirmar_codigo_cadastro', { cpf: _codigoCadastroCpf, codigo });
+    if (res.ok){
+      cadFeedback(fb, res.mensagem || 'E-mail confirmado com sucesso!', 'sucesso');
+      setTimeout(fecharCodigoCadastro, 3200);
+    } else {
+      cadFeedback(fb, res.mensagem || 'Código incorreto ou expirado.', 'erro');
+    }
+  } catch(err){
+    cadFeedback(fb, 'Falha na confirmação: ' + err.message, 'erro');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Confirmar Código'; }
+  }
+}
+
+async function reenviarCodigoCadastro(){
+  const fb = $('codigo-cad-feedback');
+  const btn = $('btn-codigo-reenviar');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Reenviando...'; }
+  cadFeedback(fb, 'Reenviando código por e-mail...', 'info');
+  try {
+    const res = await api('reenviar_codigo_cadastro', { cpf: _codigoCadastroCpf });
+    cadFeedback(fb, res.mensagem || 'Código reenviado.', res.ok ? 'sucesso' : 'erro');
+  } catch(err){
+    cadFeedback(fb, 'Falha ao reenviar: ' + err.message, 'erro');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right mr-1"></i> Reenviar Código'; }
+  }
+}
 
 /* ---------- tema (mesma chave do desktop) ---------- */
 function aplicarTema(tema){
