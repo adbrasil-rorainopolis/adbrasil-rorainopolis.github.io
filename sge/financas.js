@@ -675,6 +675,8 @@ const RC_CATS = [
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
 ];
 const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
+// Sub que exige o nome do ofertante na descrição (mantenedor missionário).
+const RC_SUB_MANTENEDOR = 'Oferta Missionária';
 const RC_TIPOS = RC_CATS.flatMap(c => [c.id, c.id + ' - TB']);
 const RC_TITULOS = {};
 RC_CATS.forEach(c => { RC_TITULOS[c.id] = c.titulo; RC_TITULOS[c.id + ' - TB'] = c.titulo + ' PIX'; });
@@ -1042,7 +1044,10 @@ window.rcmMudarSub = function(p){
   const pre = p || '';
   const sub = el(`rcm-${pre}sub`)?.value || '';
   const w = el(`rcm-${pre}outros-wrap`);
-  if (w) w.classList.toggle('hidden', !RC_OUTROS.includes(sub));
+  const mantenedor = sub === RC_SUB_MANTENEDOR;
+  if (w) w.classList.toggle('hidden', !(RC_OUTROS.includes(sub) || mantenedor));
+  const inp = el(`rcm-${pre}outros`);
+  if (inp) inp.placeholder = mantenedor ? 'Nome do mantenedor missionário (obrigatório)' : 'Descreva o lançamento (obrigatório)';
 };
 
 async function rcmPopularIrmaos(pre){
@@ -1072,7 +1077,11 @@ function rcmLerForm(p){
     if (!descricao) return { erro: 'Informe a descrição da saída.' };
   } else {
     const sub = el(`rcm-${p}sub`)?.value || '';
-    if (RC_OUTROS.includes(sub)){
+    if (sub === RC_SUB_MANTENEDOR){
+      const nome = String(el(`rcm-${p}outros`)?.value || '').trim();
+      if (!nome) return { erro: 'Informe o nome do mantenedor missionário.' };
+      descricao = `Oferta Missionária — ${nome}`;
+    } else if (RC_OUTROS.includes(sub)){
       descricao = String(el(`rcm-${p}outros`)?.value || '').trim();
       if (!descricao) return { erro: 'Descreva o lançamento no campo de texto livre.' };
     } else if (sub) descricao = sub;
@@ -1234,7 +1243,11 @@ window.rcmEditar = function(i){
   } else {
     const subs = rcSubsDaCat(catEd);
     const s = el('rcm-ed-sub');
-    if (subs.includes(it.descricao)){ if (s) s.value = it.descricao; }
+    const mMant = /^Oferta Missionária\s*[-—–:]\s*(.+)$/u.exec(it.descricao || '');
+    if (mMant && subs.includes(RC_SUB_MANTENEDOR)){
+      if (s) s.value = RC_SUB_MANTENEDOR;
+      const o = el('rcm-ed-outros'); if (o) o.value = mMant[1];
+    } else if (subs.includes(it.descricao)){ if (s) s.value = it.descricao; }
     else {
       const outro = subs.find(x => RC_OUTROS.includes(x));
       if (s && outro) s.value = outro;
