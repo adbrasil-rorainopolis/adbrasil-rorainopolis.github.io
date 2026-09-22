@@ -855,7 +855,15 @@ function rcRenderTela(){
               </div></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
               ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
-            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Semanas do período <span id="rcm-grid-periodo" class="normal-case font-semibold opacity-70"></span></span>
+            <div class="col-span-2">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-bold uppercase opacity-60">Semanas do mês</span>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="rcmMesGrid(-1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
+                  <span id="rcm-grid-periodo" class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)"></span>
+                  <button onclick="rcmMesGrid(1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
               <div id="rcm-grid-semanas" class="grid grid-cols-5 gap-1.5"></div></div>
           </div>
         </div>
@@ -1410,7 +1418,7 @@ window.rcmAvisoSemana = async function(){
     congregacao: el('rcm-congregacao')?.value || '',
     semana: el('rcm-semana')?.value || '',
     data_relatorio: el('rcm-data')?.value || '',
-    mes: MESES_ORD[hoje.getMonth()], ano: String(hoje.getFullYear()),
+    ..._rcPeriodoRelatorio(),
   };
   rcmGridSemanas();
   const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
@@ -1434,10 +1442,21 @@ window.rcmAvisoSemana = async function(){
 
 /* Admin: fecha (até a semana) ou reabre (a partir dela) — vale p/ Relatório de Caixa e Prestação. */
 /* Período exibido no grid: mês/ano da DATA do relatório (fallback: mês corrente). */
-const _rcPeriodoAtual = () => {
+const _rcPeriodoRelatorio = () => {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(el('rcm-data')?.value || F.rcData || '').trim());
   return m ? { ano: m[3], mes: MESES_ORD[+m[2] - 1] }
            : { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()] };
+};
+/* Filtro do grid: independe da data do relatório (admin navega entre meses). */
+const _rcPeriodoAtual = () => RC.periodoGrid || _rcPeriodoRelatorio();
+window.rcmMesGrid = function(dir){
+  const p = { ..._rcPeriodoAtual() };
+  let i = MESES_ORD.indexOf(p.mes); if (i < 0) i = new Date().getMonth();
+  let a = +p.ano; i += dir;
+  if (i < 0){ i = 11; a--; } if (i > 11){ i = 0; a++; }
+  RC.periodoGrid = { ano: String(a), mes: MESES_ORD[i] };
+  RC._bloqCarregou = 0;
+  rcmGridSemanas();
 };
 
 /* Grid semanal: verde = aberta, vermelho = fechada. Toque seleciona a semana do relatório;
@@ -1460,14 +1479,14 @@ window.rcmGridSemanas = function(){
       (admin ? `<i onclick="event.stopPropagation();rcmToggleSemana(${w})" class="fa-solid ${fechada ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fechada ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fechada ? '#ef4444' : '#10b981'}"></i>` : '') +
       `</button>`;
   }).join('');
-  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Mês: campo <b>Data</b> do relatório · toque no <b>cadeado</b> p/ fechar até aquela semana ou reabrir a partir dela</p>`;
+  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar até aquela semana ou reabrir a partir dela</p>`;
 };
 
 window.rcmTocarSemana = function(w){
   const sem = w + 'ª Semana';
   const sel = el('rcm-semana'); if (sel) sel.value = sem;
   F.rcSemana = sem;
-  const p = _rcPeriodoAtual();
+  const p = _rcPeriodoRelatorio();
   if (rcSemanaFechada(p.ano, p.mes, sem) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin()))
     toast('Semana financeira fechada — tente a semana seguinte.');
   rcmRenderDoc(); rcmAvisoSemana();
@@ -1487,7 +1506,9 @@ window.rcmToggleSemana = async function(w){
       ? `Reabrir a partir da <b>${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros voltam a poder lançar desta semana em diante.`
       : `Fechar <b>até a ${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros não poderão lançar Relatório de Caixa nem Prestação desta semana e das anteriores.` });
   if (!ok) return;
-  const r = await api('definir_bloqueio_semana', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada }, sessao()?.token);
+  let r;
+  try { r = await api('definir_bloqueio_semana', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
+  catch(e){ toast(e.message || 'Falha ao alterar o bloqueio.'); return; }
   if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
   toast(fechada ? `Reaberto a partir da ${sem}.` : `Fechado até a ${sem}.`);
   await rcSincronizarBloqueios();
