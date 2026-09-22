@@ -760,7 +760,7 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
 </style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
 
 function rcDadosUsuario(){
   const u = sessao()?.usuario || {};
@@ -847,7 +847,7 @@ function rcRenderTela(){
               <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria();rcmSugerirSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
-            <div id="rcm-aviso-semana" class="col-span-2"></div>
+            <div id="rcm-aviso-semana" class="col-span-2 space-y-1.5"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
               <div class="relative">
                 <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" readonly onclick="rcmAbrirCalendario()" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 pr-8 rounded-lg border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -1373,6 +1373,7 @@ function rcmPeriodoChave(o){
 async function rcmExisteSemana(rel){
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    if (res?.bloqueios) RC.bloqueios = res.bloqueios;
     const chave = rcmPeriodoChave(rel);
     return (res?.relatorios || []).find(r =>
       String(r.id) !== String(rel.id || '') &&
@@ -1383,7 +1384,19 @@ async function rcmExisteSemana(rel){
   } catch(e){ return null; }
 }
 
-/* Aviso ao vivo: semana já tem rascunho/enviado? */
+/* Semana financeira fechada? Fechar a semana N trava 1..N (trava compartilhada com a Prestação). */
+const _rcSemanaNum = x => { const m = /(\d+)/.exec(String(x || '')); return m ? +m[1] : 0; };
+function rcSemanaFechada(ano, mes, semana){
+  const n = _rcSemanaNum(semana); if (!n) return false;
+  return (RC.bloqueios || []).some(b => String(b.ano) === String(ano)
+    && String(b.mes || '').toLowerCase() === String(mes || '').toLowerCase()
+    && (b.bloqueado === true || +b.bloqueado === 1) && _rcSemanaNum(b.semana) >= n);
+}
+async function rcSincronizarBloqueios(){
+  try { const res = await api('listar_relatorios_caixa', null, sessao()?.token); if (res?.bloqueios) RC.bloqueios = res.bloqueios; } catch(e){}
+}
+
+/* Aviso ao vivo: semana já tem rascunho/enviado? + banner de semana fechada + toggle admin */
 let _rcmAvisoSeq = 0;
 window.rcmAvisoSemana = async function(){
   const seq = ++_rcmAvisoSeq;
@@ -1397,16 +1410,46 @@ window.rcmAvisoSemana = async function(){
     data_relatorio: el('rcm-data')?.value || '',
     mes: MESES_ORD[hoje.getMonth()], ano: String(hoje.getFullYear()),
   };
-  if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){ box.innerHTML = ''; return; }
+  const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
+  const htmlTrava = fd =>
+    (fd ? `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">Semana financeira fechada — tente a semana seguinte${admin ? ' (admin pode retificar)' : ''}</span></div>` : '')
+    + (admin && rel.semana ? `<button onclick="rcmAlternarBloqueio()" class="w-full rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2 cursor-pointer text-left" style="background:rgba(100,116,139,.10);color:#94a3b8;border:1px dashed rgba(148,163,184,.4)"><i class="fa-solid ${fd ? 'fa-lock-open' : 'fa-lock'}"></i><span class="flex-1">${fd ? `Reabrir a partir da ${rel.semana}` : `Fechar até a ${rel.semana}`} (admin)</span></button>` : '');
+  if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){
+    box.innerHTML = htmlTrava(rel.semana ? rcSemanaFechada(rel.ano, rel.mes, rel.semana) : false); return;
+  }
   const ex = await rcmExisteSemana(rel);
   if (seq !== _rcmAvisoSeq) return;
   const b2 = el('rcm-aviso-semana');
   if (!b2) return;
-  if (!ex){ b2.innerHTML = ''; return; }
+  const fechada = rcSemanaFechada(rel.ano, rel.mes, rel.semana);
+  if (!ex){ b2.innerHTML = htmlTrava(fechada); return; }
   const env = ex.status === 'enviado';
-  b2.innerHTML = `<button onclick="rcmAbrir('${rcEsc(ex.id)}')" class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2 cursor-pointer text-left" style="background:${env ? 'rgba(16,185,129,.10)' : 'rgba(245,158,11,.10)'};color:${env ? '#10b981' : '#f59e0b'};border:1px solid ${env ? 'rgba(16,185,129,.35)' : 'rgba(245,158,11,.35)'}"><i class="fa-solid ${env ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i><span class="flex-1">${env
+  b2.innerHTML = htmlTrava(fechada) + `<button onclick="rcmAbrir('${rcEsc(ex.id)}')" class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2 cursor-pointer text-left" style="background:${env ? 'rgba(16,185,129,.10)' : 'rgba(245,158,11,.10)'};color:${env ? '#10b981' : '#f59e0b'};border:1px solid ${env ? 'rgba(16,185,129,.35)' : 'rgba(245,158,11,.35)'}"><i class="fa-solid ${env ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i><span class="flex-1">${env
     ? 'Esta semana já foi ENVIADA à central — toque para visualizar ou retificar'
     : 'Já existe um RASCUNHO desta semana — toque para revisar'}</span><i class="fa-solid fa-eye"></i></button>`;
+};
+
+/* Admin: fecha (até a semana) ou reabre (a partir dela) — vale p/ Relatório de Caixa e Prestação. */
+window.rcmAlternarBloqueio = async function(){
+  const semana = el('rcm-semana')?.value || '';
+  if (!semana){ toast('Selecione a semana.'); return; }
+  const hoje = new Date();
+  const ano = String(hoje.getFullYear()), mes = MESES_ORD[hoje.getMonth()];
+  const fechada = rcSemanaFechada(ano, mes, semana);
+  const ok = await rcmConfirmar({
+    titulo: fechada ? 'Reabrir semana' : 'Fechar semana',
+    icone: fechada ? 'fa-lock-open' : 'fa-lock',
+    cor: fechada ? '#10b981' : '#ef4444',
+    okTexto: fechada ? 'Reabrir' : 'Fechar',
+    msg: fechada
+      ? `Reabrir a partir da <b>${rcEsc(semana)}</b> de ${mes}/${ano}?<br>Tesoureiros voltam a poder lançar esta semana e as seguintes.`
+      : `Fechar <b>até a ${rcEsc(semana)}</b> de ${mes}/${ano}?<br>Tesoureiros não poderão lançar Relatório de Caixa nem Prestação desta semana e das anteriores.` });
+  if (!ok) return;
+  const r = await api('definir_bloqueio_semana', { ano, mes, semana, bloqueado: !fechada }, sessao()?.token);
+  if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
+  toast(fechada ? 'Semana reaberta.' : `Fechado até a ${semana}.`);
+  await rcSincronizarBloqueios();
+  rcmAvisoSemana();
 };
 
 /* Marca o relatório carregado como enviado na central. */
@@ -1424,6 +1467,9 @@ window.rcmSalvar = async function(enviar){
   if (!rel.data_relatorio){ toast('Informe a data do relatório.'); return; }
   const congFixa = rcCongFixa();
   if (congFixa && rel.congregacao !== congFixa){ toast(`Tesoureiro: relatório só pode ser da congregação ${congFixa}.`); return; }
+  if (rcSemanaFechada(rel.ano, rel.mes, rel.semana) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
+    toast('Semana financeira fechada — tente a semana seguinte.'); rcmAvisoSemana(); return;
+  }
   /* Trava anti-duplicata: mesma congregação + semana + período já tem relatório? */
   const existente = await rcmExisteSemana(rel);
   if (existente){
@@ -1769,6 +1815,7 @@ window.rcmCentral = async function(){
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
     RC.centralLista = res?.relatorios || [];
+    if (res?.bloqueios) RC.bloqueios = res.bloqueios;
     try {
       const lx = await api('listar_lixeira_relatorios_caixa', null, sessao()?.token);
       RC.lixeiraLista = lx?.relatorios || [];
@@ -1865,6 +1912,8 @@ window.rcmAbrir = async function(id){
 
 /* Envio rápido de rascunho direto da central. */
 window.rcmEnviarItem = async function(id){
+  const _r = (RC.centralLista || []).find(x => String(x.id) === String(id));
+  if (_r && rcSemanaFechada(_r.ano, _r.mes, _r.semana) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){ toast('Semana financeira fechada — tente a semana seguinte.'); return; }
   if (!await rcmConfirmar({ titulo:'Enviar relatório', icone:'fa-paper-plane', cor:'#8b5cf6', okTexto:'Enviar',
       msg:'Enviar este relatório para a central?' })) return;
   try {
