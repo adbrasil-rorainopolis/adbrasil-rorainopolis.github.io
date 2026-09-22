@@ -848,7 +848,7 @@ function rcRenderTela(){
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
             <div id="rcm-aviso-semana" class="col-span-2 space-y-1.5"></div>
-            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data da Prestação de Contas</span>
               <div class="relative">
                 <input id="rcm-data" value="${esc(F.rcData || dataPadrao)}" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" readonly onclick="rcmAbrirCalendario()" oninput="rcmMascaraData(this)" class="w-full px-2 py-2 pr-8 rounded-lg border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
                 <i class="fa-solid fa-calendar-days absolute right-2.5 top-1/2 text-xs opacity-50" style="transform:translateY(-50%);pointer-events:none"></i>
@@ -857,12 +857,12 @@ function rcRenderTela(){
               ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
             <div class="col-span-2">
               <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-bold uppercase opacity-60">Semanas do mês</span>
-                <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira</span>
+                ${sgeEhAdmin() ? `<div class="flex items-center gap-1.5">
                   <button onclick="rcmMesGrid(-1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
                   <span id="rcm-grid-periodo" class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)"></span>
                   <button onclick="rcmMesGrid(1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
-                </div>
+                </div>` : `<span id="rcm-grid-periodo" class="text-[10px] font-semibold opacity-60"></span>`}
               </div>
               <div id="rcm-grid-semanas" class="grid grid-cols-5 gap-1.5"></div></div>
           </div>
@@ -946,7 +946,7 @@ function rcRenderTela(){
               <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-list-ol mr-1.5"></i>Passo a passo dos campos</p>
               <div class="space-y-1.5 opacity-80">
                 <p><b>1.</b> <b>Congregação</b> — de quem é a prestação (o tesoureiro já vem com a dele travada).</p>
-                <p><b>2.</b> <b>Data</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o NOVO já sugere).</p>
+                <p><b>2.</b> <b>Data da Prestação</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o NOVO já sugere).</p>
                 <p><b>3.</b> <b>Tipo de entrada</b> — dízimo, oferta ordinária, missionária, círculo de oração, domingo à noite ou saída.</p>
                 <p><b>4.</b> <b>Detalhe</b> — a oferta específica ou o nome do dizimista (com sugestão dos membros).</p>
                 <p><b>5.</b> <b>Forma de pagamento</b> — Espécie ou Pix.</p>
@@ -1448,8 +1448,9 @@ const _rcPeriodoRelatorio = () => {
            : { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()] };
 };
 /* Filtro do grid: independe da data do relatório (admin navega entre meses). */
-const _rcPeriodoAtual = () => RC.periodoGrid || _rcPeriodoRelatorio();
+const _rcPeriodoAtual = () => sgeEhAdmin() ? (RC.periodoGrid || _rcPeriodoRelatorio()) : _rcPeriodoRelatorio();
 window.rcmMesGrid = function(dir){
+  if (!sgeEhAdmin()) return;
   const p = { ..._rcPeriodoAtual() };
   let i = MESES_ORD.indexOf(p.mes); if (i < 0) i = new Date().getMonth();
   let a = +p.ano; i += dir;
