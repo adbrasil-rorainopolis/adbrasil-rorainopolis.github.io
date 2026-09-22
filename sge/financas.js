@@ -2170,12 +2170,42 @@ function prestTopoHtml(){
       ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
     </div>
     <div class="flex gap-1.5 mb-3" id="prest-semanas">
-      ${semanas.map(sem => `<button onclick="prestSemana('${sem}')" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${_prestNumSemana(sem)}\u00ba</button>`).join('')}
+      ${semanas.map(sem => {
+        const n = _prestNumSemana(sem);
+        const fech = PREST.bloqueios.some(b => String(b.ano) === PREST.ano && String(b.mes) === PREST.mes && _prestNumSemana(b.semana) === n && (b.bloqueado === true || b.bloqueado === 1));
+        const adm = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
+        return `<div class="flex-1 relative">
+          <button onclick="prestSemana('${sem}')" class="w-full py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${PREST.semana === sem ? 'background:var(--color-primary);color:#fff;border-color:transparent' : fech ? 'background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.45);color:#f87171' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${n}\u00ba</button>
+          ${adm ? `<i onclick="event.stopPropagation();prestToggleSemana(${n})" class="fa-solid ${fech ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fech ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fech ? '#ef4444' : '#10b981'}"></i>` : ''}
+        </div>`;
+      }).join('')}
     </div>` : ''}`;
 }
 window.prestSub = t => { PREST.sub = t; window.prestRender(); };
 window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
 window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
+
+/* Admin: cadeado no chip fecha até a semana / reabre a partir dela (trava da Prestação). */
+window.prestToggleSemana = async function(n){
+  const sem = PREST_SEMANAS[n - 1] || (n + 'º. SEMANA');
+  const fechada = PREST.bloqueios.some(b => String(b.ano) === PREST.ano && String(b.mes) === PREST.mes && _prestNumSemana(b.semana) === n && (b.bloqueado === true || b.bloqueado === 1));
+  const ok = await rcmConfirmar({
+    titulo: fechada ? 'Reabrir semana' : 'Fechar semana',
+    icone: fechada ? 'fa-lock-open' : 'fa-lock',
+    cor: fechada ? '#10b981' : '#ef4444',
+    okTexto: fechada ? 'Reabrir' : 'Fechar',
+    msg: fechada
+      ? `Reabrir a partir da <b>${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros voltam a poder lançar a Prestação desta semana em diante.`
+      : `Fechar <b>até a ${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros não poderão lançar a Prestação desta semana e das anteriores.` });
+  if (!ok) return;
+  let r;
+  try { r = await api('definir_bloqueio_semana', { ano: PREST.ano, mes: PREST.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
+  catch(e){ toast(e.message || 'Falha ao alterar o bloqueio.'); return; }
+  if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
+  toast(fechada ? `Reaberto a partir da ${sem}.` : `Fechado até a ${sem}.`);
+  try { const prest = await api('listar_prestacoes_semanais', null, sessao()?.token); PREST.bloqueios = prest.bloqueios || []; } catch(e){}
+  window.prestRender();
+};
 
 function prestRenderSemanal(){
   const corpo = el('fin-sub');
@@ -2190,7 +2220,7 @@ function prestRenderSemanal(){
   linhas.forEach(l => { (grupos[l.conselho] = grupos[l.conselho] || []).push(l); });
 
   corpo.innerHTML = prestTopoHtml() + `
-    ${bloq ? '<div class="mb-3 px-3 py-2 rounded-xl text-[11px] font-bold text-center" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-lock mr-1"></i>Semana bloqueada para edição</div>' : ''}
+    ${bloq ? `<div class="mb-3 px-3 py-2 rounded-xl text-[11px] font-bold text-center" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-lock mr-1"></i>Semana bloqueada para edição${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? ' · cadeado na semana reabre' : ''}</div>` : ''}
     <div class="grid grid-cols-3 gap-2 mb-3">
       <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Entradas</div><div class="text-sm font-extrabold text-emerald-500">${moeda(entradas)}</div></div>
       <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Saídas</div><div class="text-sm font-extrabold text-red-400">${moeda(totSaidas)}</div></div>
@@ -2219,14 +2249,14 @@ function prestRenderSemanal(){
           </div>
         </div>`;
       }).join('')}`).join('')}
-    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>Saídas manuais e bloqueio de semana: disponíveis no desktop.</p>`;
+    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar até ela ou reabrir a partir dela.<br>' : ''}Saídas manuais: disponíveis no desktop.</p>`;
 }
 
 /* ---------- Edição do valor recebido (sheet) ---------- */
 window.prestEditar = function(nomeCong){
   const l = prestLinhas().find(x => x.nome === nomeCong);
   if (!l) return;
-  if (_prestBloqueada()){ toast('Semana bloqueada — edição liberada só no desktop.'); return; }
+  if (_prestBloqueada() && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){ toast('Semana bloqueada — edição liberada só no desktop.'); return; }
   const old = el('prest-sheet'); if (old) old.remove();
   const sh = document.createElement('div');
   sh.id = 'prest-sheet';
