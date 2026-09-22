@@ -65,6 +65,7 @@ window.renderSecretaria = function(){
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(244,114,182,.12)"><i class="fa-solid fa-dove text-lg text-pink-400"></i></div>
       <div class="flex-1 min-w-0"><h2 class="font-cinzel font-bold text-base leading-tight">Relatório Espiritual</h2>
         <p class="text-[10px]" style="color:var(--text-muted)">Movimento mensal do campo · Setor 14</p></div>
+      <button onclick="espAjuda()" title="Ajuda — como os valores são calculados" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0 text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)" >?</button>
       <button onclick="espCarregar(true)" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)" title="Atualizar"><i class="fa-solid fa-rotate"></i></button>
       ${espPodeEditar() ? `<button onclick="espAbrirForm()" class="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer shrink-0 text-white" style="background:var(--color-primary)" title="Lançar mês"><i class="fa-solid fa-plus"></i></button>` : ''}
     </div>
@@ -86,9 +87,65 @@ window.renderSecretaria = function(){
     <div class="rounded-2xl border p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <p class="text-[9px] font-extrabold uppercase tracking-wide opacity-60 mb-2">Meses lançados</p>
       <div id="espm-tabela" class="space-y-1.5"></div>
+    </div>
+    <div id="espm-ajuda" class="hidden fixed inset-0 z-[80] items-center justify-center p-5" style="background:rgba(0,0,0,.78);display:none">
+      <div class="rounded-2xl w-full max-w-[430px] max-h-[85vh] flex flex-col" style="background:var(--bg-card);border:1px solid var(--border-color)">
+        <div class="flex items-center gap-2 px-4 py-3 border-b shrink-0" style="border-color:var(--border-color)">
+          <i class="fa-solid fa-circle-question" style="color:var(--color-primary)"></i>
+          <span class="text-xs font-bold flex-1">Ajuda — Relatório Espiritual</span>
+          <button onclick="espFecharAjuda()" class="w-7 h-7 rounded-lg cursor-pointer text-xs" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-4 text-[11px] leading-relaxed overflow-y-auto" style="color:var(--text-main)">
+          <div>
+            <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-dove mr-1.5"></i>O que é esta tela?</p>
+            <p class="opacity-80">É o <b>Relatório Espiritual mensal do campo</b> — o mesmo formulário de papel que a secretaria preenchia, digitalizado. Cada mês guarda ~50 indicadores: cultos, decisões, batismos, evangelismo, jovens e ação social. Jan–Ago/2026 já vieram importados dos relatórios físicos.</p>
+          </div>
+          <div>
+            <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-calculator mr-1.5"></i>Os 6 cards — o que cada um soma</p>
+            <div class="space-y-1.5 opacity-80">
+              <p><b style="color:#38bdf8">Cultos</b> — Doutrina + Público + Ar Livre + Em Lares + E.B.D.</p>
+              <p><b style="color:#f472b6">Decisões</b> — Senhores + Senhoras + Adolescentes + Jovens + Crianças</p>
+              <p><b style="color:#34d399">Reconcil.</b> — as mesmas 5 faixas de pessoas reconciliadas</p>
+              <p><b style="color:#818cf8">Batismos</b> — Espírito Santo (5 faixas) + Nas Águas (4 faixas)</p>
+              <p><b style="color:#fbbf24">Evangel.</b> — Visitas (Hospitais + Casa em Casa + Presídios + Desviados) + Alcance (Abordadas + Folhetos + Pontos + Cruzadas)</p>
+              <p><b style="color:#f97316">Doações</b> — Cestas + Roupas + Reformas + Casas Construídas</p>
+            </div>
+            <p class="opacity-60 mt-1.5">Com "Todos os meses" marcado, os cards mostram o <b>acumulado do ano</b>; num mês específico, só aquele mês.</p>
+          </div>
+          <div>
+            <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-chart-column mr-1.5"></i>O gráfico — 12 indicadores mais detalhados</p>
+            <div class="space-y-1.5 opacity-80">
+              <p><b style="color:#fb923c">Pentecostal</b> — Tarde Aviv. + Consagração + Campanhas + Vigílias + Milagres + Curas + Renovações</p>
+              <p><b style="color:#a78bfa">Bat. Esp. Santo</b> e <b style="color:#818cf8">Bat. nas Águas</b> — separados (nos cards aparecem somados)</p>
+              <p><b style="color:#fbbf24">Visitas</b> e <b style="color:#f59e0b">Alcance Evang.</b> — separados (nos cards aparecem somados)</p>
+              <p><b style="color:#22d3ee">Jovens</b> / <b style="color:#2dd4bf">Adolescentes</b> — masculino + feminino de cada faixa</p>
+              <p><b style="color:#e879f9">Cerimônias</b> — Bodas + 15 anos + Noivados + Casamentos + Apres. Crianças + Óbitos</p>
+            </div>
+            <p class="opacity-60 mt-1.5">Jovens, Adolescentes e Cerimônias ficam <b>fora</b> dos cards — são demografia/eventos, não movimento. Toque num chip pra trocar o indicador; ▮/∿ alterna colunas e linhas.</p>
+          </div>
+          <div>
+            <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-arrow-trend-up mr-1.5"></i>Selos ▲/▼ nos meses</p>
+            <p class="opacity-80">Variação contra o <b>mês anterior</b>: <b style="color:#34d399">▲50%</b> cresceu · <b style="color:#f87171">▼20%</b> caiu · <b>=</b> empatou. O primeiro mês não tem selo.</p>
+          </div>
+          <div>
+            <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-file-lines mr-1.5"></i>Espelho e PDF</p>
+            <p class="opacity-80">Toque num mês pra abrir o <b>espelho</b> — o relatório idêntico ao papel oficial, com todas as tabelas e totais. O botão <b>PDF</b> lá dentro exporta o documento pronto.</p>
+          </div>
+          <div>
+            <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-pen mr-1.5"></i>Quem lança e edita</p>
+            <p class="opacity-80">O <b>+</b> e o lápis só aparecem pra <b>Administrador</b> e quem tem <b>Secretaria → Espiritual: Operar</b>. Consultor e Membro só visualizam.</p>
+          </div>
+          <div class="rounded-xl px-3 py-2.5" style="background:var(--color-primary-light);border:1px solid var(--border-color)">
+            <p class="opacity-90"><i class="fa-solid fa-lightbulb mr-1.5" style="color:var(--color-primary)"></i><b>Dica:</b> pra conferir de onde veio um número, abra o espelho do mês — cada card é a soma das linhas da tabela correspondente no formulário oficial.</p>
+          </div>
+        </div>
+      </div>
     </div>`;
   espCarregar();
 };
+
+window.espAjuda = function(){ const m = el('espm-ajuda'); if (m) { m.classList.remove('hidden'); m.style.display = 'flex'; } };
+window.espFecharAjuda = function(){ const m = el('espm-ajuda'); if (m) { m.classList.add('hidden'); m.style.display = 'none'; } };
 
 window.espCarregar = async function(forcar){
   if (ESP.carregando) return;
