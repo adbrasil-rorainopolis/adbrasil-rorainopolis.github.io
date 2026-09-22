@@ -50,7 +50,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const moeda = v => brl(num(v));
 const cf = s => String(s ?? '').toLowerCase();
-function perfilConsultor(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'consultor'; }
+function perfilConsultor(){ const p = String(sessao()?.usuario?.perfil || '').trim().toLowerCase(); return p === 'consultor' || p === 'membro'; }
 function perfilAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'administrador'; }
 function variacaoPct(atual, base){ if (base === null || base === undefined || Math.abs(num(base)) < EPS) return null; return +(((num(atual) - num(base)) / Math.abs(num(base))) * 100).toFixed(1); }
 function mediaArr(vals){ return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0; }
@@ -1612,7 +1612,7 @@ window.guNovoUsuario = function(){
             <input id="gu-nu-senha" placeholder="Senha inicial *" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           </div>
           <select id="gu-nu-perfil" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-            <option value="Consultor">Consultor</option><option value="Operador">Operador</option><option value="Administrador">Administrador</option>
+            <option value="Consultor">Consultor</option><option value="Operador">Operador</option><option value="Administrador">Administrador</option><option value="Membro">Membro Comum</option>
           </select>
           <label class="flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer" style="border-color:var(--border-color)">
             <input id="gu-nu-aprovar" type="checkbox" checked class="w-4 h-4 accent-emerald-500">
@@ -1691,9 +1691,9 @@ window.guAcessos = async function(cpf, aprovar){
         </div>
         <p class="text-[10px] opacity-60 mb-3">${GU.aprovar ? 'Defina hierarquia e escopo — o usuário só é aprovado ao tocar em Gravar no fim.' : 'Toque nos itens para marcar/desmarcar o que este usuário pode ver e operar.'}</p>
         <div class="space-y-3">
-          ${secao('Papel (hierarquia)', 'Consultor lê • Operador lança/edita • Administrador tem acesso total',
+          ${secao('Papel (hierarquia)', 'Membro pacote padrão • Consultor lê • Operador lança/edita • Administrador acesso total',
             `<select id="gu-ac-papel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              ${['Consultor','Operador','Administrador'].map(p => `<option value="${p}" ${a.perfil === p ? 'selected' : ''}>${p}</option>`).join('')}
+              ${['Membro','Consultor','Operador','Administrador'].map(p => `<option value="${p}" ${a.perfil === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>`)}
           ${secao('Tesouraria', 'Se marcado, o usuário lança o Relatório de Caixa da congregação fixa',
             `<label class="flex items-center gap-2 text-xs font-bold cursor-pointer"><input type="checkbox" id="gu-ac-tes" ${a.tesoureiro ? 'checked' : ''} onchange="guTesoureiro()" class="w-4 h-4 accent-amber-500"> É tesoureiro (Relatório de Caixa)</label>

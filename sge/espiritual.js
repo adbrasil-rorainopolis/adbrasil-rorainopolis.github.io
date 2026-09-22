@@ -40,7 +40,7 @@ const ESP = { meses: [], selMes: 'todos', selInd: 'cultos', formato: 'bar', graf
 function espPodeEditar(){
   if (sgeEhAdmin()) return true;
   const ac = sgeAcessos();
-  if (!ac.configurado) return String(sessao()?.usuario?.perfil || '').toLowerCase() !== 'consultor';
+  if (!ac.configurado) { const p = String(sessao()?.usuario?.perfil || '').toLowerCase(); return p !== 'consultor' && p !== 'membro'; }
   return (ac.permissoes || []).some(p => p.modulo === 'secretaria'
     && (p.aba === '*' || p.aba === 'espiritual') && (p.acao === '*' || p.acao === 'operar'));
 }
