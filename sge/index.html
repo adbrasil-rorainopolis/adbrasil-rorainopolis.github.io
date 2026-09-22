@@ -246,7 +246,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.65</span>
+          <span>SGE Mobile · v1.66</span>
         </div>
       </div>
     </div>
@@ -882,6 +882,7 @@ async function sgeSincronizarAcessos(){
     salvarSessao(s);
     aplicarPermissoesNav();
     if (moduloAtual === 'financeiro' && typeof renderFinanceiro === 'function') renderFinanceiro();
+    if (moduloAtual === 'dashboard') renderPanorama();
     if (moduloAtual === 'gestao' && typeof renderGestao === 'function') renderGestao();
   } catch { /* offline ou função antiga: mantém as permissões da sessão */ }
 }
@@ -1086,6 +1087,8 @@ function renderPanorama(){
   const hora = new Date().getHours();
   const saudacao = hora < 6 ? 'Boa madrugada' : hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const [vTexto, vRef] = VERSICULOS_DASH[Math.floor(Date.now() / 1800000) % VERSICULOS_DASH.length];
+  // Escopos granulares do Dashboard (matriz de permissões)
+  const D = aba => sgeAbaPermitida('dashboard', aba);
   $('dash-conteudo').innerHTML = `
     <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color: var(--border-color);">
       <div class="logo-sge-icone w-10 h-10 shrink-0" style="color: var(--color-primary);"></div>
@@ -1096,11 +1099,11 @@ function renderPanorama(){
       </div>
       <button onclick="sairDoApp()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
     </div>
-    <div class="mb-3">
+    ${D('saudacao') ? `<div class="mb-3">
       <p class="text-base font-extrabold leading-tight">${saudacao}, ${primeiroNome}!</p>
       <p class="text-[11px]" style="color: var(--text-muted);">O que você deseja gerenciar ou verificar hoje?</p>
-    </div>
-    <div class="rounded-2xl p-4 border mb-3" style="background: var(--bg-card); border-color: var(--border-color);">
+    </div>` : ''}
+    ${D('versiculo') ? `<div class="rounded-2xl p-4 border mb-3" style="background: var(--bg-card); border-color: var(--border-color);">
       <div class="flex items-start gap-2.5">
         <i class="fa-solid fa-book-open text-sm mt-0.5 shrink-0" style="color: var(--color-primary);"></i>
         <div class="flex-1 min-w-0">
@@ -1108,45 +1111,46 @@ function renderPanorama(){
           <p class="text-[10px] font-bold mt-1.5" style="color: var(--color-primary);">— ${vRef}</p>
         </div>
       </div>
-    </div>
+    </div>` : ''}
     <div class="grid grid-cols-2 gap-3 mb-3">
-      <div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+      ${D('congregacoes') ? `<div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
         <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1.5" style="color: var(--text-muted);">Congregações</div>
         <div class="text-2xl font-extrabold valor-ouro" id="n-congs">—</div>
-      </div>
-      <div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+      </div>` : ''}
+      ${D('membros') ? `<div class="rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
         <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1.5" style="color: var(--text-muted);">Dizimistas</div>
         <div class="text-2xl font-extrabold valor-ouro" id="n-membros">—</div>
-      </div>
-      <div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+      </div>` : ''}
+      ${D('financeiro') ? `<div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
         <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1" style="color: var(--text-muted);">Resumo Financeiro</div>
         <div class="text-[11px] mb-1" style="color: var(--text-muted);" id="fin-periodo">—</div>
         <div id="fin-corpo"><div class="flex items-center gap-2.5 text-xs py-2" style="color: var(--text-muted);"><div class="spin"></div>Carregando…</div></div>
-      </div>
-      <div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
+      </div>` : ''}
+      ${D('congregacoes') ? `<div class="col-span-2 rounded-2xl p-4 border" style="background: var(--bg-card); border-color: var(--border-color);">
         <div class="text-[10px] font-extrabold uppercase tracking-widest mb-1" style="color: var(--text-muted);">Congregações ativas</div>
         <div id="lista-congs"><div class="flex items-center gap-2.5 text-xs py-2" style="color: var(--text-muted);"><div class="spin"></div>Carregando…</div></div>
-      </div>
+      </div>` : ''}
     </div>`;
   carregarDashboard(s.token);
 }
 
 async function carregarDashboard(token){
-  api('listar_congregacoes', null, token).then(res => {
+  const elCongs = $('n-congs'), elLista = $('lista-congs');
+  if (elCongs || elLista) api('listar_congregacoes', null, token).then(res => {
     const lista = (res.dados || []).filter(c => c.ativo !== 0 && c.ativo !== false);
-    $('n-congs').textContent = lista.length;
-    $('lista-congs').innerHTML = lista.length
+    if (elCongs) elCongs.textContent = lista.length;
+    if (elLista) elLista.innerHTML = lista.length
       ? lista.map(c => `<div class="flex justify-between items-center py-2.5 text-[13px]" style="border-top: 1px dashed var(--border-color);"><span>${c.nome || '—'}</span><span class="text-[11px]" style="color: var(--text-muted);">${c.conselho || ''}</span></div>`).join('')
       : '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhuma congregação cadastrada.</div>';
-  }).catch(() => { $('n-congs').textContent = '—'; $('lista-congs').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Indisponível.</div>'; });
+  }).catch(() => { if (elCongs) elCongs.textContent = '—'; if (elLista) elLista.innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Indisponível.</div>'; });
 
-  api('listar_membros', null, token).then(res => {
+  if ($('n-membros')) api('listar_membros', null, token).then(res => {
     // paridade desktop: nao excluido E (nunca inativado OU reativado)
     const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
     $('n-membros').textContent = ativos.length;
-  }).catch(() => { $('n-membros').textContent = '—'; });
+  }).catch(() => { if ($('n-membros')) $('n-membros').textContent = '—'; });
 
-  carregarFinanceiro(token);
+  if ($('fin-corpo')) carregarFinanceiro(token);
 }
 
 async function carregarFinanceiro(token){
