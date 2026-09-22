@@ -857,7 +857,7 @@ function rcRenderTela(){
               ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
             <div class="col-span-2">
               <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira</span>
+                <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira do RC</span>
                 ${sgeEhAdmin() ? `<div class="flex items-center gap-1.5">
                   <button onclick="rcmMesGrid(-1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
                   <span id="rcm-grid-periodo" class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)"></span>
@@ -1493,7 +1493,7 @@ window.rcmTocarSemana = function(w){
   rcmRenderDoc(); rcmAvisoSemana();
 };
 
-/* Admin: tocar no cadeado fecha até a semana / reabre a partir dela (RC + Prestação). */
+/* Admin: tocar no cadeado fecha até a semana / reabre a partir dela (trava exclusiva do RC). */
 window.rcmToggleSemana = async function(w){
   const sem = w + 'ª Semana';
   const p = _rcPeriodoAtual();
@@ -1508,7 +1508,7 @@ window.rcmToggleSemana = async function(w){
       : `Fechar <b>até a ${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros não poderão lançar Relatório de Caixa nem Prestação desta semana e das anteriores.` });
   if (!ok) return;
   let r;
-  try { r = await api('definir_bloqueio_semana', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
+  try { r = await api('definir_bloqueio_semana_rc', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
   catch(e){ toast(e.message || 'Falha ao alterar o bloqueio.'); return; }
   if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
   toast(fechada ? `Reaberto a partir da ${sem}.` : `Fechado até a ${sem}.`);
