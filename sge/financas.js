@@ -1457,9 +1457,10 @@ window.rcmGridSemanas = function(){
       ? 'background:rgba(239,68,68,.14);color:#ef4444;border:1px solid rgba(239,68,68,.45)'
       : 'background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.35)';
     return `<button onclick="rcmTocarSemana(${w})" class="relative py-2 rounded-xl text-[10px] font-extrabold cursor-pointer" style="${cor}${ativa ? ';outline:2px solid var(--color-primary);outline-offset:1px' : ''}">${w}ª` +
-      (admin ? `<i onclick="event.stopPropagation();rcmToggleSemana(${w})" class="fa-solid ${fechada ? 'fa-lock' : 'fa-lock-open'} absolute -top-1.5 -right-1 w-5 h-5 rounded-full text-[9px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1px solid ${fechada ? 'rgba(239,68,68,.5)' : 'rgba(16,185,129,.4)'};color:${fechada ? '#ef4444' : '#10b981'}"></i>` : '') +
+      (admin ? `<i onclick="event.stopPropagation();rcmToggleSemana(${w})" class="fa-solid ${fechada ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fechada ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fechada ? '#ef4444' : '#10b981'}"></i>` : '') +
       `</button>`;
   }).join('');
+  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Mês: campo <b>Data</b> do relatório · toque no <b>cadeado</b> p/ fechar até aquela semana ou reabrir a partir dela</p>`;
 };
 
 window.rcmTocarSemana = function(w){
