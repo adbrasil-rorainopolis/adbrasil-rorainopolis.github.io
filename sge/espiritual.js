@@ -4,6 +4,7 @@
    ============================================================ */
 (function(){
 'use strict';
+const el = id => document.getElementById(id);
 
 const ESP_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const ESP_GRUPOS = [
