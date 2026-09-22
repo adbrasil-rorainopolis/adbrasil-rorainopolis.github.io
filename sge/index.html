@@ -246,7 +246,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.64</span>
+          <span>SGE Mobile · v1.65</span>
         </div>
       </div>
     </div>
@@ -831,6 +831,60 @@ const BIO_SESSAO = 'sge_bio_session';
 function sessao(){ try { return JSON.parse(sessionStorage.getItem(CHAVE) || 'null'); } catch { return null; } }
 function salvarSessao(s){ sessionStorage.setItem(CHAVE, JSON.stringify(s)); }
 function limparSessao(){ sessionStorage.removeItem(CHAVE); }
+
+/* ---------- RBAC mobile — paridade com moduloPermitido/abaPermitida do desktop ---------- */
+function sgeAcessos(){ return sessao()?.usuario?.acessos || {}; }
+function sgeEhAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'administrador'; }
+function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {}; return !!(u.tesoureiro ?? ac.tesoureiro); }
+function sgeModuloPermitido(mod){
+  if (mod === 'dashboard') return true;
+  const ac = sgeAcessos();
+  if (mod === 'financeiro' && sgeTesoureiro()) return true;
+  if (!ac.configurado) return true;
+  return (ac.permissoes || []).some(p => p.modulo === mod);
+}
+function sgeAbaPermitida(mod, aba){
+  const ac = sgeAcessos(), perms = ac.permissoes || [];
+  if (mod === 'financeiro' && aba === 'relatorio')
+    return sgeEhAdmin() || sgeTesoureiro() || perms.some(p => p.modulo === 'financeiro' && (p.aba === 'relatorio' || String(p.aba || '').startsWith('relatorio.')));
+  if (!ac.configurado) return true;
+  if (mod === 'financeiro' && sgeTesoureiro() && !perms.some(p => p.modulo === 'financeiro')) return false;
+  const regras = perms.filter(p => p.modulo === mod && p.aba !== '*');
+  if (!regras.length) return true;
+  return regras.some(p => p.aba === aba || String(p.aba || '').startsWith(aba + '.'));
+}
+/* Sub-abas de Dizimistas (financeiro) — paridade com subAbasPermitidasDizimistas */
+function sgeSubAbaDizPermitida(sub){
+  const ac = sgeAcessos(), perms = ac.permissoes || [];
+  if (!ac.configurado) return true;
+  const regras = perms.filter(p => p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas.'));
+  if (!regras.length) return true;
+  return regras.some(p => p.aba === 'dizimistas.' + sub);
+}
+function aplicarPermissoesNav(){
+  document.querySelectorAll('.sidebar-nav-btn[data-mod]').forEach(b => {
+    b.classList.toggle('hidden', !sgeModuloPermitido(b.dataset.mod));
+  });
+  if (!sgeModuloPermitido(moduloAtual)) mudarVisao('dashboard');
+}
+/* Recarrega a matriz do servidor — aplica mudanças da administração sem exigir
+   novo login, e completa sessões antigas que não têm `acessos`. */
+async function sgeSincronizarAcessos(){
+  try {
+    const s = sessao(); if (!s?.token) return;
+    const r = await api('obter_meus_acessos', null, s.token);
+    if (!r?.ok) return;
+    s.usuario = { ...(s.usuario || {}),
+      tesoureiro: !!r.tesoureiro,
+      congregacao_tesoureiro: r.congregacao_tesoureiro || s.usuario?.congregacao_tesoureiro || '',
+      acessos: { conselhos: r.conselhos || [], congregacoes: r.congregacoes || [], permissoes: r.permissoes || [],
+        configurado: !!r.configurado, tesoureiro: !!r.tesoureiro, congregacao_tesoureiro: r.congregacao_tesoureiro || '' } };
+    salvarSessao(s);
+    aplicarPermissoesNav();
+    if (moduloAtual === 'financeiro' && typeof renderFinanceiro === 'function') renderFinanceiro();
+    if (moduloAtual === 'gestao' && typeof renderGestao === 'function') renderGestao();
+  } catch { /* offline ou função antiga: mantém as permissões da sessão */ }
+}
 function sgeDeviceId(){
   let id = localStorage.getItem('sge_device_id');
   if (!id) { id = 'pwa-' + (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2))); localStorage.setItem('sge_device_id', id); }
@@ -984,6 +1038,7 @@ function sairDoApp(){
 let moduloAtual = 'dashboard';
 function mudarVisao(mod){
   if (mod === moduloAtual) return;
+  if (!sgeModuloPermitido(mod)) return;
   moduloAtual = mod;
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === mod));
   const conteudo = $('dash-conteudo');
@@ -1182,6 +1237,8 @@ function entrarNoApp(){
   document.body.classList.add('app-aberto');
   moduloAtual = 'dashboard';
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
+  aplicarPermissoesNav();
+  sgeSincronizarAcessos();
   renderPanorama();
   prepararPushAdmin();
 }

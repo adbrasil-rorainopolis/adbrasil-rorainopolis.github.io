@@ -163,17 +163,28 @@ window.renderFinanceiro = function(){
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas — somente leitura</p></div>
       </div>
       <div class="flex gap-2" id="fin-tabs">
-        ${['rol','frequencia'].map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
-        ${rcPodeVer() ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
-        ${rcDadosUsuario().admin ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
+        ${['rol','frequencia'].filter(finAbaPermitida).map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
+        ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
+        ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba((F.aba === 'relatorio' && !rcPodeVer()) || (F.aba === 'prestacao' && !rcDadosUsuario().admin) ? 'rol' : (F.aba || 'rol'));
+  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','relatorio','prestacao'].find(finAbaPermitida) || 'rol'));
 };
 
+/* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
+   rol/frequencia = sub-abas de dizimistas; relatorio/prestacao = abas diretas. */
+function finAbaPermitida(t){
+  if (t === 'rol') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('membros');
+  if (t === 'frequencia') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('frequencia');
+  if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
+  if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
+  return false;
+}
+
 window.finAba = function(aba){
+  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','relatorio','prestacao'].find(finAbaPermitida) || 'rol';
   F.aba = aba;
   document.querySelectorAll('#fin-tabs .fin-tab').forEach(b => {
     const ativa = b.dataset.aba === aba;
@@ -182,7 +193,7 @@ window.finAba = function(aba){
     b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
   });
   if (aba === 'relatorio') return rcRenderTela();
-  if (aba === 'prestacao'){ if (!rcDadosUsuario().admin) return finRenderRol(); return window.prestRender(); }
+  if (aba === 'prestacao') return window.prestRender();
   if (aba === 'frequencia') return finRenderFrequencia();
   finRenderRol();
 };
@@ -760,7 +771,7 @@ function rcDadosUsuario(){
     congFixa: String(u.congregacao_tesoureiro ?? ac.congregacao_tesoureiro ?? '').trim(),
   };
 }
-function rcPodeVer(){ const d = rcDadosUsuario(); return d.admin || d.tesoureiro; }
+function rcPodeVer(){ return sgeAbaPermitida('financeiro','relatorio'); }
 function rcEhAdmin(){ return rcDadosUsuario().admin; }
 function rcCongFixa(){ const d = rcDadosUsuario(); return (d.tesoureiro && !d.admin) ? d.congFixa : ''; }
 const rcMoeda = v => moeda(v);
