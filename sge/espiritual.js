@@ -181,22 +181,26 @@ window.espRender = function(){
     });
   }
 
-  // Cards dos meses
+  // Cards dos meses (com comparativo vs mês anterior)
   const tb = el('espm-tabela');
   if (tb) tb.innerHTML = filtrados.length ? filtrados.map(m => {
-    const dec = ESP_METRICAS[2][4](m), rec = ESP_METRICAS[3][4](m), bt = ESP_METRICAS[4][4](m) + ESP_METRICAS[5][4](m);
-    const ev = ESP_METRICAS[6][4](m) + ESP_METRICAS[7][4](m);
-    return `<div class="rounded-xl border px-3 py-2.5" style="border-color:var(--border-color)">
+    const idx = ESP.meses.findIndex(x => x.id === m.id);
+    const prev = idx > 0 ? ESP.meses[idx - 1] : {};
+    const stats = [
+      [ESP_METRICAS[0][4](m), ESP_METRICAS[0][4](prev), '#38bdf8', 'cultos'],
+      [ESP_METRICAS[2][4](m), ESP_METRICAS[2][4](prev), '#f472b6', 'decisões'],
+      [ESP_METRICAS[3][4](m), ESP_METRICAS[3][4](prev), '#34d399', 'reconcil.'],
+      [ESP_METRICAS[4][4](m) + ESP_METRICAS[5][4](m), ESP_METRICAS[4][4](prev) + ESP_METRICAS[5][4](prev), '#818cf8', 'batismos'],
+      [ESP_METRICAS[6][4](m) + ESP_METRICAS[7][4](m), ESP_METRICAS[6][4](prev) + ESP_METRICAS[7][4](prev), '#fbbf24', 'evangelismo'],
+    ];
+    return `<div class="rounded-xl border px-3 py-2.5 cursor-pointer" style="border-color:var(--border-color)" onclick="espAbrirEspelho('${m.id}')">
       <div class="flex items-center gap-2">
         <p class="flex-1 text-[12px] font-extrabold">${m.mes} <span class="opacity-50 font-semibold">${m.ano}</span></p>
-        ${espPodeEditar() ? `<button onclick="espAbrirForm('${m.id}')" class="w-7 h-7 rounded-lg border text-[10px] cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-pen"></i></button>` : ''}
+        <i class="fa-solid fa-file-lines text-[10px] opacity-40"></i>
+        ${espPodeEditar() ? `<button onclick="event.stopPropagation();espAbrirForm('${m.id}')" class="w-7 h-7 rounded-lg border text-[10px] cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-pen"></i></button>` : ''}
       </div>
       <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[9px]" style="color:var(--text-muted)">
-        <span><b style="color:#38bdf8">${ESP_METRICAS[0][4](m)}</b> cultos</span>
-        <span><b style="color:#f472b6">${dec}</b> decisões</span>
-        <span><b style="color:#34d399">${rec}</b> reconcil.</span>
-        <span><b style="color:#818cf8">${bt}</b> batismos</span>
-        <span><b style="color:#fbbf24">${ev}</b> evangelismo</span>
+        ${stats.map(([v, ant, cor, rot]) => `<span><b style="color:${cor}">${v}</b> ${rot} ${_espDelta(v, ant)}</span>`).join('')}
       </div>
     </div>`;
   }).join('') : `<div class="rounded-xl border border-dashed p-6 text-center" style="border-color:var(--border-color)">
@@ -204,6 +208,142 @@ window.espRender = function(){
       <p class="text-[11px] opacity-50">Nenhum mês lançado neste período.</p>
       ${espPodeEditar() ? `<button onclick="espAbrirForm()" class="mt-3 px-4 py-2 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:var(--color-primary)">Lançar agora</button>` : ''}
     </div>`;
+};
+
+/* Comparativo mês a mês: badge ▲/▼ vs mês anterior. */
+function _espDelta(v, ant){
+  if (!ant || ant <= 0) return '';
+  const d = Math.round((v - ant) / ant * 100);
+  if (d === 0) return '<span class="opacity-40">=</span>';
+  return d > 0 ? `<b style="color:#34d399">▲${d}%</b>` : `<b style="color:#f87171">▼${Math.abs(d)}%</b>`;
+}
+
+/* Espelho fiel do relatório físico na tela. */
+const _espLinha = (rot, v) => `<tr><td class="py-0.5 pr-2">${rot}</td><td class="py-0.5 text-right font-bold w-12">${String(v).padStart(2, '0')}</td></tr>`;
+const _espTotal = v => `<tr class="border-t" style="border-color:#94a3b8"><td class="py-0.5 pr-2 font-extrabold">TOTAL</td><td class="py-0.5 text-right font-extrabold">${String(v).padStart(2, '0')}</td></tr>`;
+const _espBloco = (titulo, linhas, total) => `<div class="border border-slate-400">
+  <p class="px-2 py-1 text-[9px] font-extrabold uppercase bg-slate-100 text-slate-700 border-b border-slate-400">${titulo}</p>
+  <table class="w-full text-[10px] text-slate-800">${linhas.map(([r, v]) => _espLinha(r, v)).join('')}${total !== null ? _espTotal(total) : ''}</table></div>`;
+
+window.espAbrirEspelho = function(id){
+  const m = ESP.meses.find(x => x.id === id);
+  if (!m) return;
+  const tot = ks => _som(m, ks);
+  const K = { cultos: ['cultos_doutrina','cultos_publico','cultos_ar_livre','cultos_em_lares','cultos_ebd'],
+    pent: ['pent_tarde_avivamento','pent_consagracao_geral','pent_campanhas_oracao','pent_vigilias','pent_milagres','pent_curas_divinas','pent_renovacoes'],
+    dec: ['dec_senhores','dec_senhoras','dec_adolescentes','dec_jovens','dec_criancas'],
+    rec: ['rec_senhores','rec_senhoras','rec_adolescentes','rec_jovens','rec_criancas'],
+    bes: ['bes_senhores','bes_senhoras','bes_adolescentes','bes_jovens','bes_criancas'],
+    bag: ['bag_senhores','bag_senhoras','bag_adolescentes','bag_jovens'],
+    vis: ['ev_hospitais','ev_casa_em_casa','ev_presidios','ev_desviados'],
+    out: ['ev_abordadas','ev_folhetos','ev_pontos_pregacao','ev_cruzadas'],
+    cer: ['cer_bodas','cer_anivers15','cer_noivados','cer_casamentos','cer_apres_criancas','cer_obitos'],
+    doa: ['doa_cestas','doa_roupas','doa_reformas','doa_casas'] };
+  el('esp-espelho')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="esp-espelho" class="fixed inset-0 z-[99] flex items-end justify-center" style="background:rgba(0,0,0,.6);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-md rounded-t-3xl max-h-[94vh] flex flex-col bg-slate-50" style="border:1px solid var(--border-color)">
+        <div class="flex items-center gap-2.5 p-3 border-b border-slate-300 shrink-0">
+          <button onclick="document.getElementById('esp-espelho').remove()" class="w-8 h-8 rounded-xl border border-slate-300 text-xs cursor-pointer shrink-0 text-slate-600"><i class="fa-solid fa-arrow-left"></i></button>
+          <p class="flex-1 text-[12px] font-extrabold text-slate-800">Espelho — ${m.mes}/${m.ano}</p>
+          <button onclick="espExportarPdf('${m.id}')" class="px-3 h-8 rounded-xl text-[10px] font-bold text-white cursor-pointer shrink-0" style="background:#0284c7"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>
+          <button onclick="document.getElementById('esp-espelho').remove()" class="w-8 h-8 rounded-xl border border-slate-300 text-xs cursor-pointer shrink-0 text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-y-auto p-3">
+          <div class="bg-white border-2 border-slate-500 text-slate-900 p-3 space-y-2 text-[10px]">
+            <div class="text-center leading-tight">
+              <p class="text-[11px] font-extrabold">IGREJA EVANGÉLICA ASSEMBLEIA DE DEUS</p>
+              <p class="text-[8px]">Sede Nacional · Presidente: Pastor Isamar Pessoa Ramalho</p>
+              <p class="text-[9px] font-bold">AD BRASIL RORAINÓPOLIS - SETOR 14</p>
+            </div>
+            <p class="text-center text-[11px] font-extrabold border-y-2 border-slate-500 py-1">RELATÓRIO ESPIRITUAL</p>
+            <table class="w-full text-[9px] border border-slate-400">
+              <tr><td class="border border-slate-400 px-1.5 py-0.5"><b>CAMPO:</b> ${m.campo || 'RORAINÓPOLIS'}</td><td class="border border-slate-400 px-1.5 py-0.5 w-20"><b>SETOR:</b> ${m.setor || '14'}</td></tr>
+              <tr><td class="border border-slate-400 px-1.5 py-0.5"><b>MÊS:</b> ${String(m.mes || '').toUpperCase()}</td><td class="border border-slate-400 px-1.5 py-0.5"><b>ANO:</b> ${m.ano}</td></tr>
+              <tr><td class="border border-slate-400 px-1.5 py-0.5" colspan="2"><b>ENDEREÇO:</b> ${m.endereco || '—'}</td></tr>
+            </table>
+            <p class="text-center text-[10px] font-extrabold border-y-2 border-slate-500 py-0.5">MOVIMENTO ESPIRITUAL</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Cultos', [['Doutrina',m.cultos_doutrina],['Público',m.cultos_publico],['Ar Livre',m.cultos_ar_livre],['Em Lares',m.cultos_em_lares],['E.B.D.',m.cultos_ebd]], tot(K.cultos))}
+              ${_espBloco('Pentecostal/Outros', [['Tarde Aviv.',m.pent_tarde_avivamento],['Consagração',m.pent_consagracao_geral],['Camp. Oração',m.pent_campanhas_oracao],['Vigílias',m.pent_vigilias],['Milagres',m.pent_milagres],['Curas Divinas',m.pent_curas_divinas],['Renovações',m.pent_renovacoes]], null)}
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Decisões', [['Senhores',m.dec_senhores],['Senhoras',m.dec_senhoras],['Adolescentes',m.dec_adolescentes],['Jovens',m.dec_jovens],['Crianças',m.dec_criancas]], tot(K.dec))}
+              ${_espBloco('Reconciliações', [['Senhores',m.rec_senhores],['Senhoras',m.rec_senhoras],['Adolescentes',m.rec_adolescentes],['Jovens',m.rec_jovens],['Crianças',m.rec_criancas]], tot(K.rec))}
+            </div>
+            <p class="text-center text-[10px] font-extrabold border-y-2 border-slate-500 py-0.5">BATISMOS</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Espírito Santo', [['Senhores',m.bes_senhores],['Senhoras',m.bes_senhoras],['Adolescentes',m.bes_adolescentes],['Jovens',m.bes_jovens],['Crianças',m.bes_criancas]], tot(K.bes))}
+              ${_espBloco('Nas Águas', [['Senhores',m.bag_senhores],['Senhoras',m.bag_senhoras],['Adolescentes',m.bag_adolescentes],['Jovens',m.bag_jovens]], tot(K.bag))}
+            </div>
+            <p class="text-center text-[10px] font-extrabold border-y-2 border-slate-500 py-0.5">EVANGELISMO</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Visitas', [['Hospitais/Pessoas',m.ev_hospitais],['Casa em Casa',m.ev_casa_em_casa],['Presídios',m.ev_presidios],['Desviados',m.ev_desviados]], tot(K.vis))}
+              ${_espBloco('Outros', [['Pessoas Abordadas',m.ev_abordadas],['Folhetos',m.ev_folhetos],['Pontos Pregação',m.ev_pontos_pregacao],['Cruzadas Evang.',m.ev_cruzadas]], tot(K.out))}
+            </div>
+            <p class="text-center text-[10px] font-extrabold border-y-2 border-slate-500 py-0.5">DEPARTAMENTO DE JOVENS E ADOLESCENTES</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Jovens', [['Masculino',m.jovens_masc],['Feminino',m.jovens_fem]], (+m.jovens_masc||0)+(+m.jovens_fem||0))}
+              ${_espBloco('Adolescentes', [['Masculino',m.adol_masc],['Feminino',m.adol_fem]], (+m.adol_masc||0)+(+m.adol_fem||0))}
+            </div>
+            <p class="text-center text-[10px] font-extrabold border-y-2 border-slate-500 py-0.5">MOVIMENTO SOCIAL</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${_espBloco('Cerimônias', [['Bodas Ouro/Prata',m.cer_bodas],['Anivers. 15 Anos',m.cer_anivers15],['Noivados',m.cer_noivados],['Casamentos',m.cer_casamentos],['Apres. Crianças',m.cer_apres_criancas],['Óbitos/Fúnebre',m.cer_obitos]], tot(K.cer))}
+              ${_espBloco('Doações', [['Cestas Básicas',m.doa_cestas],['Peças de Roupas',m.doa_roupas],['Reformas de Casas',m.doa_reformas],['Casas Construídas',m.doa_casas]], tot(K.doa))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  el('esp-espelho').addEventListener('click', e => { if (e.target.id === 'esp-espelho') el('esp-espelho').remove(); });
+};
+
+/* Exporta o espelho em PDF (jsPDF + autotable já carregados). */
+window.espExportarPdf = function(id){
+  const m = ESP.meses.find(x => x.id === id);
+  if (!m) return;
+  if (typeof window.jspdf === 'undefined') { toast('Biblioteca de PDF não carregou.'); return; }
+  const doc = new window.jspdf.jsPDF();
+  const cx = doc.internal.pageSize.getWidth() / 2;
+  let y = 12;
+  doc.setFontSize(12); doc.setFont(undefined, 'bold');
+  doc.text('IGREJA EVANGELICA ASSEMBLEIA DE DEUS', cx, y, { align: 'center' }); y += 5;
+  doc.setFontSize(8); doc.setFont(undefined, 'normal');
+  doc.text('Sede Nacional - Presidente: Pastor Isamar Pessoa Ramalho', cx, y, { align: 'center' }); y += 4;
+  doc.setFont(undefined, 'bold');
+  doc.text('AD BRASIL RORAINOPOLIS - SETOR 14', cx, y, { align: 'center' }); y += 7;
+  doc.setFontSize(11);
+  doc.text('RELATORIO ESPIRITUAL', cx, y, { align: 'center' }); y += 5;
+  doc.setFontSize(8); doc.setFont(undefined, 'normal');
+  doc.text(`CAMPO: ${m.campo || 'RORAINOPOLIS'}    SETOR: ${m.setor || '14'}    MES: ${String(m.mes).toUpperCase()}    ANO: ${m.ano}`, cx, y, { align: 'center' }); y += 4;
+  doc.text(`ENDERECO: ${m.endereco || '—'}`, cx, y, { align: 'center' }); y += 2;
+  const tab = (titulo, linhas, total) => {
+    doc.autoTable({ startY: y + 2, head: [[titulo, '']], body: linhas.concat(total !== null ? [['TOTAL', total]] : []),
+      theme: 'grid', styles: { fontSize: 7.5, cellPadding: 1.2 }, headStyles: { fillColor: [226, 232, 240], textColor: 20, fontStyle: 'bold', halign: 'center' },
+      columnStyles: { 1: { halign: 'right', cellWidth: 18 } }, margin: { left: 14, right: 14 },
+      didParseCell: d => { if (d.row.raw[0] === 'TOTAL') d.cell.styles.fontStyle = 'bold'; } });
+    y = doc.lastAutoTable.finalY;
+  };
+  const L = (r, v) => [r, String(v).padStart(2, '0')];
+  tab('CULTOS', [L('Doutrina',m.cultos_doutrina),L('Publico',m.cultos_publico),L('Ar Livre',m.cultos_ar_livre),L('Em Lares',m.cultos_em_lares),L('E.B.D.',m.cultos_ebd)], _som(m,['cultos_doutrina','cultos_publico','cultos_ar_livre','cultos_em_lares','cultos_ebd']));
+  tab('MOVIMENTO PENTECOSTAL', [L('Tarde de Avivamento',m.pent_tarde_avivamento),L('Consagracao Geral',m.pent_consagracao_geral),L('Campanhas de Oracao',m.pent_campanhas_oracao),L('Vigilias',m.pent_vigilias),L('Milagres',m.pent_milagres),L('Curas Divinas',m.pent_curas_divinas),L('Renovacoes',m.pent_renovacoes)], null);
+  tab('DECISOES', [L('Senhores',m.dec_senhores),L('Senhoras',m.dec_senhoras),L('Adolescentes',m.dec_adolescentes),L('Jovens',m.dec_jovens),L('Criancas',m.dec_criancas)], _som(m,['dec_senhores','dec_senhoras','dec_adolescentes','dec_jovens','dec_criancas']));
+  tab('RECONCILIACOES', [L('Senhores',m.rec_senhores),L('Senhoras',m.rec_senhoras),L('Adolescentes',m.rec_adolescentes),L('Jovens',m.rec_jovens),L('Criancas',m.rec_criancas)], _som(m,['rec_senhores','rec_senhoras','rec_adolescentes','rec_jovens','rec_criancas']));
+  tab('BATISMO - ESPIRITO SANTO', [L('Senhores',m.bes_senhores),L('Senhoras',m.bes_senhoras),L('Adolescentes',m.bes_adolescentes),L('Jovens',m.bes_jovens),L('Criancas',m.bes_criancas)], _som(m,['bes_senhores','bes_senhoras','bes_adolescentes','bes_jovens','bes_criancas']));
+  tab('BATISMO - NAS AGUAS', [L('Senhores',m.bag_senhores),L('Senhoras',m.bag_senhoras),L('Adolescentes',m.bag_adolescentes),L('Jovens',m.bag_jovens)], _som(m,['bag_senhores','bag_senhoras','bag_adolescentes','bag_jovens']));
+  tab('EVANGELISMO - VISITAS', [L('Hospitais/Pessoas',m.ev_hospitais),L('Casa em Casa',m.ev_casa_em_casa),L('Presidios',m.ev_presidios),L('Desviados',m.ev_desviados)], _som(m,['ev_hospitais','ev_casa_em_casa','ev_presidios','ev_desviados']));
+  tab('EVANGELISMO - OUTROS', [L('Pessoas Abordadas',m.ev_abordadas),L('Folhetos Distribuidos',m.ev_folhetos),L('Pontos de Pregacao',m.ev_pontos_pregacao),L('Cruzadas Evangelisticas',m.ev_cruzadas)], _som(m,['ev_abordadas','ev_folhetos','ev_pontos_pregacao','ev_cruzadas']));
+  tab('DEPARTAMENTO - JOVENS', [L('Masculino',m.jovens_masc),L('Feminino',m.jovens_fem)], (+m.jovens_masc||0)+(+m.jovens_fem||0));
+  tab('DEPARTAMENTO - ADOLESCENTES', [L('Masculino',m.adol_masc),L('Feminino',m.adol_fem)], (+m.adol_masc||0)+(+m.adol_fem||0));
+  tab('MOVIMENTO SOCIAL - CERIMONIAS', [L('Bodas Ouro/Prata',m.cer_bodas),L('Anivers. 15 Anos',m.cer_anivers15),L('Noivados',m.cer_noivados),L('Casamentos',m.cer_casamentos),L('Apres. Criancas',m.cer_apres_criancas),L('Obitos/Funebre',m.cer_obitos)], _som(m,['cer_bodas','cer_anivers15','cer_noivados','cer_casamentos','cer_apres_criancas','cer_obitos']));
+  tab('MOVIMENTO SOCIAL - DOACOES', [L('Cestas Basicas',m.doa_cestas),L('Pecas de Roupas',m.doa_roupas),L('Reformas de Casas',m.doa_reformas),L('Casas Construidas',m.doa_casas)], _som(m,['doa_cestas','doa_roupas','doa_reformas','doa_casas']));
+  y = doc.lastAutoTable.finalY + 14;
+  doc.setFontSize(8);
+  doc.line(25, y, 85, y); doc.line(125, y, 185, y);
+  doc.text('Secretario(a) do Campo', 55, y + 4, { align: 'center' });
+  doc.text('Pastor(a) do Campo', 155, y + 4, { align: 'center' });
+  doc.save(`Relatorio Espiritual_${m.mes}_${m.ano}.pdf`);
+  toast('PDF de ' + m.mes + '/' + m.ano + ' gerado.');
 };
 
 window.espAbrirForm = function(id){
