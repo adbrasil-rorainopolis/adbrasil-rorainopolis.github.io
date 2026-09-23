@@ -47,7 +47,7 @@ function comTempoRelativo(iso) {
   return d.toLocaleDateString('pt-BR');
 }
 
-function comPostHtml(p) {
+function comPostHtml(p, semAcoes) {
   const t = COM_TEMPLATES[p.template] || COM_TEMPLATES.aviso;
   const ex = p.extras || {};
   const nome = ex.remetente_nome || 'Secretaria do Campo';
@@ -98,15 +98,47 @@ function comPostHtml(p) {
       h += `<div class="mt-2.5 rounded-xl px-3 py-2 flex items-center gap-3 text-[11px]" style="background:var(--bg-input)"><i class="fa-solid ${COM_CARD_ICONES[c.tipo] || 'fa-circle-info'}" style="color:${c.tipo === 'meta' ? 'var(--color-success)' : 'var(--color-primary)'}"></i><span><b>${comEsc(c.valor)}</b></span></div>`;
     }
   });
-  h += `<div class="flex items-center gap-1 mt-3 pt-2.5 border-t" style="border-color:var(--border-color)">
-    <button onclick="comEmBreve()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-heart"></i><span>${p.curtidas || 0}</span></button>
+  if (!semAcoes) h += `<div class="flex items-center gap-1 mt-3 pt-2.5 border-t" style="border-color:var(--border-color)">
+    <button onclick="comReagir('${comEsc(p.id)}','❤️',this)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-heart"></i><span data-com-curtidas="${comEsc(p.id)}">${p.curtidas || 0}</span></button>
     <button onclick="comEmBreve()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-comment"></i><span>${p.comentarios || 0}</span></button>
     <button onclick="comEmBreve()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer ml-auto" style="color:var(--text-muted)"><i class="fa-solid fa-share-nodes"></i>Compartilhar</button>
-  </div></div>`;
+  </div>`;
+  h += '</div>';
   return `<div class="border rounded-2xl overflow-hidden mb-3" style="background:var(--bg-card);border-color:${p.fixado ? 'var(--color-primary)' : 'var(--border-color)'}">${h}</div>`;
 }
 
-window.comEmBreve = function(){ toast('Curtidas e comentários chegam na próxima etapa do piloto.'); };
+window.comEmBreve = function(){ toast('Comentários e compartilhar chegam na próxima etapa do piloto.'); };
+
+const COM_REACOES = ['❤️', '🙏', '👏', '🔥', '😮', '🎉'];
+window.comReagir = function(id, emoji, btn) {
+  const p = COM.posts.find(x => x.id === id);
+  if (!p) return;
+  p.curtidas = (p.curtidas || 0) + 1;
+  p.extras = p.extras || {};
+  p.extras.reacoes = p.extras.reacoes || {};
+  p.extras.reacoes[emoji] = (p.extras.reacoes[emoji] || 0) + 1;
+  const cnt = document.getElementById('com-story-curtidas');
+  if (cnt) cnt.textContent = p.curtidas;
+  const feedCnt = document.querySelector(`[data-com-curtidas="${id}"]`);
+  if (feedCnt) feedCnt.textContent = p.curtidas;
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    const f = document.createElement('span');
+    f.textContent = emoji;
+    f.style.cssText = `position:fixed;left:${r.left + r.width / 2 - 14}px;top:${r.top - 8}px;font-size:30px;z-index:95;pointer-events:none;animation:comReacaoFloat .9s ease-out forwards`;
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 1000);
+  }
+  api('reagir_post_comunidade', { id, emoji }, sessao()?.token).then(res => {
+    if (res && res.curtidas != null) {
+      p.curtidas = res.curtidas;
+      const c = document.getElementById('com-story-curtidas');
+      if (c) c.textContent = res.curtidas;
+      const fc = document.querySelector(`[data-com-curtidas="${id}"]`);
+      if (fc) fc.textContent = res.curtidas;
+    }
+  }).catch(() => {});
+};
 
 window.comFiltro = function(f){ COM.filtro = f; comRenderFeed(); };
 
@@ -210,10 +242,16 @@ function comStoryRender() {
         <p class="text-[9px] text-white/60">${comTempoRelativo(p.criado_em)} • ${comEsc(alvo)}</p></div>
         <button onclick="comFecharStory()" class="w-9 h-9 flex items-center justify-center text-white/80 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
       </div>
-      <div class="flex-1 overflow-y-auto px-3 pb-3 flex relative">
+      <div class="flex-1 overflow-y-auto px-3 pb-1 flex relative">
         <div class="absolute inset-y-0 left-0 w-1/4 z-10" onclick="comStoryAnt()"></div>
         <div class="absolute inset-y-0 right-0 w-1/4 z-10" onclick="comStoryProx()"></div>
-        <div class="my-auto w-full rounded-2xl overflow-hidden" style="background:var(--bg-card)">${comPostHtml(p)}</div>
+        <div class="my-auto w-full rounded-2xl overflow-hidden" style="background:var(--bg-card)">${comPostHtml(p, true)}</div>
+      </div>
+      <div class="px-3 pb-3 pt-1 flex items-center gap-1">
+        ${COM_REACOES.map(e => `<button onclick="comReagir('${comEsc(p.id)}','${e}',this)" class="text-xl cursor-pointer px-0.5" style="background:none;border:none;line-height:1.4">${e}</button>`).join('')}
+        <button onclick="comReagir('${comEsc(p.id)}','❤️',this)" class="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl cursor-pointer" style="background:rgba(255,255,255,.08);border:none;color:#fff">
+          <i class="fa-solid fa-heart" style="color:#fb7185"></i><span id="com-story-curtidas" class="text-xs font-bold">${p.curtidas || 0}</span>
+        </button>
       </div>
     </div>`;
 }
@@ -243,7 +281,7 @@ window.renderComunidade = async function() {
     return;
   }
   conteudo.innerHTML = `
-    <style>@keyframes comStoryProg{from{width:0}to{width:100%}}</style>
+    <style>@keyframes comStoryProg{from{width:0}to{width:100%}}@keyframes comReacaoFloat{0%{opacity:1;transform:translateY(0) scale(.6)}60%{opacity:1;transform:translateY(-46px) scale(1.25)}100%{opacity:0;transform:translateY(-80px) scale(1)}}</style>
     <div class="flex items-center gap-3 pb-3 border-b mb-3" style="border-color:var(--border-color)">
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:var(--color-primary-light)"><i class="fa-solid fa-users text-lg" style="color:var(--color-primary)"></i></div>
       <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Comunidade</h2><p class="text-[10px] opacity-60">Feed interno da igreja — avisos e vida comunitária</p></div>
