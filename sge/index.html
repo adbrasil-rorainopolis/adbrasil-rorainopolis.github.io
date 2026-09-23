@@ -208,24 +208,28 @@
         <i class="fa-solid fa-gear text-base"></i>
       </button>
       <div id="menu-engrenagem" class="hidden absolute right-0 top-11 w-60 rounded-2xl p-2 space-y-1 shadow-2xl z-50" style="background: var(--menu-bg); box-shadow: 0 20px 50px -12px rgba(0,0,0,0.30), 0 0 0 1px var(--border-color); backdrop-filter: blur(12px);">
-        <div class="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest opacity-50 flex items-center justify-between" style="color: var(--text-muted);">
-          <span>Tema</span><span id="lbl-tema-ativo-nome" class="normal-case tracking-normal font-semibold"></span>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="toggleSubmenuTema()">
+          <i class="fa-solid fa-palette text-[12px]" style="color: var(--color-primary);"></i> Tema
+          <span id="lbl-tema-ativo-nome" class="ml-auto text-[10px] font-semibold opacity-70"></span>
+          <i class="fa-solid fa-chevron-down text-[9px] transition-transform" id="chev-tema" style="color: var(--text-muted);"></i>
         </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('sacro-claro')">
-          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 border border-amber-700/30 shrink-0"></span> Sacro Dourado
-          <i class="fa-solid fa-check ml-auto text-[10px] tema-check" data-tema="sacro-claro" style="color: var(--color-primary);"></i>
-        </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('dark-operacional')">
-          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700 shrink-0"></span> Operacional Noturno
-          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="dark-operacional" style="color: var(--color-primary);"></i>
-        </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('verde-oliva')">
-          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-900 border border-emerald-500/30 shrink-0"></span> Verde Eclesiástico
-          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="verde-oliva" style="color: var(--color-primary);"></i>
-        </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('azul-real')">
-          <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-sky-500 to-blue-900 border border-sky-400/30 shrink-0"></span> Azul Real Nobre
-          <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
+        <div id="submenu-tema" class="hidden pl-4 space-y-0.5">
+          <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('sacro-claro')">
+            <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 border border-amber-700/30 shrink-0"></span> Dourado
+            <i class="fa-solid fa-check ml-auto text-[10px] tema-check" data-tema="sacro-claro" style="color: var(--color-primary);"></i>
+          </div>
+          <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('dark-operacional')">
+            <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700 shrink-0"></span> Noturno
+            <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="dark-operacional" style="color: var(--color-primary);"></i>
+          </div>
+          <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('verde-oliva')">
+            <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-900 border border-emerald-500/30 shrink-0"></span> Oliva
+            <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="verde-oliva" style="color: var(--color-primary);"></i>
+          </div>
+          <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fixarTema('azul-real')">
+            <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-sky-500 to-blue-900 border border-sky-400/30 shrink-0"></span> Marinho
+            <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
+          </div>
         </div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="atualizarAgora()">
           <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
@@ -249,7 +253,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.85</span>
+          <span>SGE Mobile · v1.86</span>
         </div>
       </div>
     </div>
@@ -538,7 +542,7 @@ const MODULOS = {
   membro_estudos:     { nome: 'Estudos',             icone: 'fa-book-open',          cor: '#8b5cf6' },
   membro_financeiro:  { nome: 'Meu Financeiro',      icone: 'fa-hand-holding-heart', cor: '#10b981' },
 };
-const NOMES_TEMA = { 'sacro-claro':'Sacro Dourado', 'dark-operacional':'Operacional Noturno', 'verde-oliva':'Verde Eclesiástico', 'azul-real':'Azul Real Nobre' };
+const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho' };
 
 const $ = id => document.getElementById(id);
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
@@ -757,6 +761,11 @@ function aplicarTema(tema){
   const lbl = $('lbl-tema-ativo-nome'); if (lbl) lbl.textContent = NOMES_TEMA[tema] || tema;
 }
 function fixarTema(tema){ aplicarTema(tema); fecharMenuEngrenagem(); }
+function toggleSubmenuTema(){
+  const sub = $('submenu-tema'), chev = $('chev-tema');
+  sub.classList.toggle('hidden');
+  if (chev) chev.style.transform = sub.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
 function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); }
 async function atualizarMenuBio(){
   const ativar = $('mi-bio-ativar'), desativar = $('mi-bio-desativar');
