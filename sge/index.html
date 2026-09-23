@@ -27,6 +27,7 @@
 <script src="financas.js"></script>
 <script src="espiritual.js"></script>
 <script src="comunidade.js"></script>
+<script src="membro.js"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -248,7 +249,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.83</span>
+          <span>SGE Mobile · v1.84</span>
         </div>
       </div>
     </div>
@@ -532,6 +533,10 @@ const MODULOS = {
   secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
   missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
   comunidade: { nome: 'Comunidade',                icone: 'fa-users',         cor: '#f59e0b' },
+  membro_inicio:      { nome: 'Início',              icone: 'fa-house',              cor: 'var(--color-primary)' },
+  membro_congregacao: { nome: 'Minha Congregação',   icone: 'fa-house-chimney',      cor: '#06b6d4' },
+  membro_estudos:     { nome: 'Estudos',             icone: 'fa-book-open',          cor: '#8b5cf6' },
+  membro_financeiro:  { nome: 'Meu Financeiro',      icone: 'fa-hand-holding-heart', cor: '#10b981' },
 };
 const NOMES_TEMA = { 'sacro-claro':'Sacro Dourado', 'dark-operacional':'Operacional Noturno', 'verde-oliva':'Verde Eclesiástico', 'azul-real':'Azul Real Nobre' };
 
@@ -846,6 +851,7 @@ function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {
 function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
   if (mod === 'comunidade') return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
+  if (mod.startsWith('membro_')) return typeof sgeModoPodeAlternar === 'function' && sgeModoPodeAlternar() && sgeModoAtual() === 'membro';
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
   if (!ac.configurado) return true;
@@ -1066,6 +1072,10 @@ function renderModulo(mod){
   if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
   if (mod === 'secretaria' && typeof renderSecretaria === 'function') return renderSecretaria();
   if (mod === 'comunidade' && typeof renderComunidade === 'function') return renderComunidade();
+  if (mod === 'membro_inicio' && typeof renderMembroInicio === 'function') return renderMembroInicio();
+  if (mod === 'membro_congregacao' && typeof renderMembroCongregacao === 'function') return renderMembroCongregacao();
+  if (mod === 'membro_estudos' && typeof renderMembroEstudos === 'function') return renderMembroEstudos();
+  if (mod === 'membro_financeiro' && typeof renderMembroFinanceiro === 'function') return renderMembroFinanceiro();
   $('dash-conteudo').innerHTML = `
     <div class="flex flex-col items-center justify-center text-center pt-16 gap-4">
       <div class="w-20 h-20 rounded-3xl flex items-center justify-center" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
@@ -1251,9 +1261,11 @@ function entrarNoApp(){
   document.body.classList.add('app-aberto');
   moduloAtual = 'dashboard';
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
+  if (typeof sgeAplicarModoNav === 'function') sgeAplicarModoNav();
+  if (typeof sgeModoAtual === 'function' && sgeModoAtual() === 'membro') { moduloAtual = ''; mudarVisao('membro_inicio'); }
   aplicarPermissoesNav();
   sgeSincronizarAcessos();
-  renderPanorama();
+  if (moduloAtual === 'dashboard') renderPanorama();
   prepararPushAdmin();
 }
 
