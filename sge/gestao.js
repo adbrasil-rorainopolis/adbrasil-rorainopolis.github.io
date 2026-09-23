@@ -1884,6 +1884,41 @@ window.guLinkWhats = () => {
   window.open(`https://wa.me/?text=${encodeURIComponent('Instale o SGE AD Brasil e cadastre-se na tela de login pelo link: ' + v)}`, '_blank');
 };
 
+/* ============================================================
+   MÓDULO ACESSOS — ferramentas administrativas desacopladas da
+   Gestão Unificada. Reutiliza renderAbaUsuarios/renderAbaDispositivos
+   (escrevem no #gestao-corpo deste módulo). Só admin chega aqui.
+   ============================================================ */
+window.ACESSOS = { aba: 'usuarios' };
+
+window.renderAcessos = function(){
+  el('dash-conteudo').innerHTML = `
+    <div class="space-y-3">
+      <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
+        <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left text-sm" style="color:var(--text-muted)"></i></button>
+        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(244,63,94,.12)"><i class="fa-solid fa-user-shield text-lg" style="color:#f43f5e"></i></div>
+        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Acessos e permissões</h2><p class="text-[10px] opacity-60">Ferramentas administrativas — usuários, papéis e aparelhos</p></div>
+      </div>
+      <div class="flex gap-1.5">
+        <button onclick="acessosAba('usuarios')" id="acessos-nav-usuarios" class="acessos-nav flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-users-gear mr-1.5"></i>Usuários</button>
+        <button onclick="acessosAba('dispositivos')" id="acessos-nav-dispositivos" class="acessos-nav flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-tower-broadcast mr-1.5"></i>Aparelhos</button>
+      </div>
+      <div id="gestao-corpo"><div class="flex items-center justify-center gap-2.5 py-16 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div></div>
+    </div>`;
+  acessosAba(ACESSOS.aba);
+};
+
+window.acessosAba = function(aba){
+  ACESSOS.aba = aba;
+  document.querySelectorAll('.acessos-nav').forEach(b => {
+    const ativo = b.id === `acessos-nav-${aba}`;
+    b.style.background = ativo ? 'rgba(244,63,94,.12)' : 'var(--bg-card)';
+    b.style.borderColor = ativo ? '#f43f5e' : 'var(--border-color)';
+  });
+  if (aba === 'usuarios') return renderAbaUsuarios();
+  if (aba === 'dispositivos') return renderAbaDispositivos();
+};
+
 /* API de depuração/testes */
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
   listarPeriodos, mapaConselhos, obterCiclo, salvarCiclo, listarDespesas, adicionarDespesa,

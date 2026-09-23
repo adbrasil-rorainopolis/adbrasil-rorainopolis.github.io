@@ -242,11 +242,8 @@
         </div>
 
         <div id="menu-sec-admin" class="hidden px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Administração</div>
-        <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irGestaoUsuarios()">
-          <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Usuários e permissões
-        </div>
-        <div id="mi-dispositivos" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irDispositivos()">
-          <i class="fa-solid fa-tower-broadcast text-[12px]" style="color: var(--color-primary);"></i> Aparelhos conectados
+        <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irAcessos()">
+          <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Acessos e permissões
         </div>
 
         <div class="px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Conta</div>
@@ -264,9 +261,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.90'); toast('Versão copiada: v1.90')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.91'); toast('Versão copiada: v1.91')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.90</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.91</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -555,6 +552,7 @@ const MODULOS = {
   secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
   missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
   comunidade: { nome: 'Comunidade',                icone: 'fa-users',         cor: '#f59e0b' },
+  acessos:    { nome: 'Acessos e permissões',       icone: 'fa-user-shield',    cor: '#f43f5e' },
   membro_inicio:      { nome: 'Início',              icone: 'fa-house',              cor: 'var(--color-primary)' },
   membro_congregacao: { nome: 'Minha Congregação',   icone: 'fa-house-chimney',      cor: '#06b6d4' },
   membro_estudos:     { nome: 'Estudos',             icone: 'fa-book-open',          cor: '#8b5cf6' },
@@ -804,8 +802,6 @@ async function atualizarMenuBio(){
   const ehAdmin = String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador';
   const guMi = $('mi-gestao-usuarios');
   if (guMi) guMi.classList.toggle('hidden', !ehAdmin);
-  const dvMi = $('mi-dispositivos');
-  if (dvMi) dvMi.classList.toggle('hidden', !ehAdmin);
   const secA = $('menu-sec-admin');
   if (secA) secA.classList.toggle('hidden', !ehAdmin);
 }
@@ -825,19 +821,22 @@ function sgeSairDoModoMembroSePreciso(){
     moduloAtual = '';
   }
 }
+function irAcessos(){
+  fecharMenuEngrenagem();
+  sgeSairDoModoMembroSePreciso();
+  mudarVisao('acessos');
+}
 function irGestaoUsuarios(){
   fecharMenuEngrenagem();
   sgeSairDoModoMembroSePreciso();
-  if (window.SGEG) SGEG.G.aba = 'usuarios';
-  if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('usuarios');
-  else mudarVisao('gestao');
+  if (window.ACESSOS) ACESSOS.aba = 'usuarios';
+  mudarVisao('acessos');
 }
 function irDispositivos(){
   fecharMenuEngrenagem();
   sgeSairDoModoMembroSePreciso();
-  if (window.SGEG) SGEG.G.aba = 'dispositivos';
-  if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('dispositivos');
-  else mudarVisao('gestao');
+  if (window.ACESSOS) ACESSOS.aba = 'dispositivos';
+  mudarVisao('acessos');
 }
 document.addEventListener('click', (e) => {
   const menu = $('menu-engrenagem'), btn = $('btn-engrenagem');
@@ -899,6 +898,7 @@ function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {
 function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
   if (mod === 'comunidade') return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
+  if (mod === 'acessos') return sgeEhAdmin();
   if (mod.startsWith('membro_')) return typeof sgeModoPodeAlternar === 'function' && sgeModoPodeAlternar() && sgeModoAtual() === 'membro';
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
@@ -1124,6 +1124,7 @@ function renderModulo(mod){
   if (mod === 'membro_congregacao' && typeof renderMembroCongregacao === 'function') return renderMembroCongregacao();
   if (mod === 'membro_estudos' && typeof renderMembroEstudos === 'function') return renderMembroEstudos();
   if (mod === 'membro_financeiro' && typeof renderMembroFinanceiro === 'function') return renderMembroFinanceiro();
+  if (mod === 'acessos' && typeof renderAcessos === 'function') return renderAcessos();
   $('dash-conteudo').innerHTML = `
     <div class="flex flex-col items-center justify-center text-center pt-16 gap-4">
       <div class="w-20 h-20 rounded-3xl flex items-center justify-center" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
