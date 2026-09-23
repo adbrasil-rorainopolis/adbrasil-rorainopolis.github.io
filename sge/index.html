@@ -264,9 +264,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.88'); toast('Versão copiada: v1.88')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.89'); toast('Versão copiada: v1.89')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.88</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.89</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -818,14 +818,23 @@ async function atualizarAgora(){
   location.reload(true);
 }
 function fecharMenuEngrenagem(){ $('menu-engrenagem').classList.add('hidden'); }
+function sgeSairDoModoMembroSePreciso(){
+  if (typeof sgeModoAtual === 'function' && sgeModoAtual() === 'membro') {
+    localStorage.setItem('sge_modo', 'gestao');
+    sgeAplicarModoNav();
+    moduloAtual = '';
+  }
+}
 function irGestaoUsuarios(){
   fecharMenuEngrenagem();
+  sgeSairDoModoMembroSePreciso();
   if (window.SGEG) SGEG.G.aba = 'usuarios';
   if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('usuarios');
   else mudarVisao('gestao');
 }
 function irDispositivos(){
   fecharMenuEngrenagem();
+  sgeSairDoModoMembroSePreciso();
   if (window.SGEG) SGEG.G.aba = 'dispositivos';
   if (moduloAtual === 'gestao' && typeof gestaoAba === 'function') gestaoAba('dispositivos');
   else mudarVisao('gestao');
