@@ -26,7 +26,10 @@ const COM_TEMPLATES = {
   aniversario: { emoji: '🎂', cor: '#ef4444', tag: 'Aniversário' },
 };
 const COM_CARD_ICONES = { local: 'fa-location-dot', data: 'fa-calendar-day', hora: 'fa-clock', meta: 'fa-flag-checkered' };
-const COM = { posts: [], filtro: 'todos', carregou: false };
+const COM = { posts: [], filtro: 'todos', carregou: false, vistos: new Set() };
+const COM_STORY_GRAD = 'linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)';
+const COM_STORY_SEG = 6000;
+let comStoryT = null;
 
 const comEsc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -107,6 +110,115 @@ window.comEmBreve = function(){ toast('Curtidas e comentários chegam na próxim
 
 window.comFiltro = function(f){ COM.filtro = f; comRenderFeed(); };
 
+/* ---------- Stories (estilo Instagram) ---------- */
+function comStoryGrupos() {
+  const mapa = new Map();
+  COM.posts.forEach(p => {
+    const ex = p.extras || {};
+    const nome = ex.remetente_nome || p.remetente || 'Secretaria do Campo';
+    if (!mapa.has(nome)) mapa.set(nome, { nome, avatar: ex.remetente_avatar || 'SC', cor: ex.remetente_cor || '#0ea5e9', posts: [] });
+    mapa.get(nome).posts.push(p);
+  });
+  // fixados primeiro, depois por post mais recente
+  return [...mapa.values()].sort((a, b) => {
+    const fa = a.posts.some(p => p.fixado), fb = b.posts.some(p => p.fixado);
+    if (fa !== fb) return fb - fa;
+    return new Date(b.posts[0]?.criado_em || 0) - new Date(a.posts[0]?.criado_em || 0);
+  });
+}
+
+function comStoriesHtml() {
+  const grupos = comStoryGrupos();
+  if (!grupos.length) return '';
+  return `<div class="flex gap-3 overflow-x-auto pb-2 mb-1 px-0.5" style="scrollbar-width:none">` + grupos.map((g, gi) => {
+    const visto = COM.vistos.has(g.nome);
+    const anel = visto ? 'var(--border-color)' : COM_STORY_GRAD;
+    return `<button onclick="comAbrirStory(${gi})" class="flex flex-col items-center gap-1 shrink-0 cursor-pointer" style="background:none;border:none">
+      <span class="w-[62px] h-[62px] rounded-full p-[3px]" style="background:${anel}">
+        <span class="w-full h-full rounded-full flex items-center justify-center text-white text-xs font-bold border-2" style="background:linear-gradient(135deg,${g.cor},${g.cor}bb);border-color:var(--bg-card)">${comEsc(g.avatar)}</span>
+      </span>
+      <span class="text-[9px] font-bold w-[62px] truncate text-center" style="color:var(--text-muted)">${comEsc(g.nome.split(' ')[0])}</span>
+    </button>`;
+  }).join('') + '</div>';
+}
+
+let comStory = null; // {grupo, idx}
+window.comAbrirStory = function(gi, idx) {
+  const grupos = comStoryGrupos();
+  const g = grupos[gi];
+  if (!g) return;
+  comStory = { g, gi, idx: idx || 0 };
+  COM.vistos.add(g.nome);
+  comStoryRender();
+  comStoryTimer();
+};
+window.comFecharStory = function() {
+  comStory = null;
+  clearTimeout(comStoryT);
+  const v = document.getElementById('com-story-view');
+  if (v) v.remove();
+  comRenderFeed(); // atualiza anéis "vistos"
+};
+window.comStoryProx = function() {
+  if (!comStory) return;
+  if (comStory.idx < comStory.g.posts.length - 1) { comStory.idx++; comStoryRender(); comStoryTimer(); }
+  else {
+    const grupos = comStoryGrupos();
+    if (comStory.gi < grupos.length - 1) comAbrirStory(comStory.gi + 1);
+    else comFecharStory();
+  }
+};
+window.comStoryAnt = function() {
+  if (!comStory) return;
+  if (comStory.idx > 0) { comStory.idx--; comStoryRender(); comStoryTimer(); }
+  else if (comStory.gi > 0) {
+    const gAnt = comStoryGrupos()[comStory.gi - 1];
+    comAbrirStory(comStory.gi - 1, (gAnt?.posts.length || 1) - 1);
+  }
+};
+function comStoryTimer() {
+  clearTimeout(comStoryT);
+  comStoryT = setTimeout(() => { if (comStory) comStoryProx(); }, COM_STORY_SEG);
+}
+function comStoryRender() {
+  const { g, idx } = comStory;
+  const p = g.posts[idx];
+  if (!p) return comFecharStory();
+  let v = document.getElementById('com-story-view');
+  if (!v) {
+    v = document.createElement('div');
+    v.id = 'com-story-view';
+    v.className = 'fixed inset-0 z-[70] flex flex-col';
+    v.style.background = 'rgba(8,10,16,.97)';
+    document.body.appendChild(v);
+    // pausa ao segurar o dedo
+    v.addEventListener('touchstart', () => clearTimeout(comStoryT), { passive: true });
+    v.addEventListener('touchend', () => { if (comStory) comStoryTimer(); }, { passive: true });
+  }
+  const barras = g.posts.map((_, i) => {
+    const estilo = i === idx ? 'animation:comStoryProg ' + COM_STORY_SEG + 'ms linear forwards' : (i > idx ? 'width:0' : '');
+    return `<span class="flex-1 h-[3px] rounded-full overflow-hidden" style="background:rgba(255,255,255,.25)"><span class="block h-full rounded-full ${i < idx ? 'w-full' : ''}" style="background:#fff;${estilo}"></span></span>`;
+  }).join('');
+  const ex = p.extras || {};
+  const alvo = ex.publico_label || 'Todo o campo';
+  v.innerHTML = `
+    <div class="max-w-md w-full mx-auto flex flex-col h-full">
+      <div class="flex gap-1 px-3 pt-3">${barras}</div>
+      <div class="flex items-center gap-2.5 px-3 py-2.5">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style="background:linear-gradient(135deg,${g.cor},${g.cor}bb)">${comEsc(g.avatar)}</div>
+        <div class="min-w-0 flex-1"><p class="font-bold text-xs text-white truncate">${comEsc(g.nome)} <i class="fa-solid fa-circle-check text-sky-400 text-[9px]"></i></p>
+        <p class="text-[9px] text-white/60">${comTempoRelativo(p.criado_em)} • ${comEsc(alvo)}</p></div>
+        <button onclick="comFecharStory()" class="w-9 h-9 flex items-center justify-center text-white/80 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="flex-1 overflow-y-auto px-3 pb-3 flex relative">
+        <div class="absolute inset-y-0 left-0 w-1/4 z-10" onclick="comStoryAnt()"></div>
+        <div class="absolute inset-y-0 right-0 w-1/4 z-10" onclick="comStoryProx()"></div>
+        <div class="my-auto w-full rounded-2xl overflow-hidden" style="background:var(--bg-card)">${comPostHtml(p)}</div>
+      </div>
+    </div>`;
+}
+/* ---------- fim stories ---------- */
+
 function comRenderFeed() {
   const box = document.getElementById('com-feed');
   if (!box) return;
@@ -116,7 +228,8 @@ function comRenderFeed() {
   const chips = ['todos', ...remetentes].map(f =>
     `<button onclick="comFiltro('${comEsc(f)}')" class="px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer" style="${COM.filtro === f ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input);color:var(--text-muted)'}">${f === 'todos' ? 'Todos' : comEsc(f)}</button>`).join('');
   box.innerHTML =
-    `<div class="flex gap-2 overflow-x-auto pb-2 mb-1" style="scrollbar-width:none">${chips}</div>`
+    comStoriesHtml()
+    + `<div class="flex gap-2 overflow-x-auto pb-2 mb-1" style="scrollbar-width:none">${chips}</div>`
     + (filtrados.length
         ? filtrados.map(comPostHtml).join('')
         : `<div class="border-2 border-dashed rounded-2xl p-8 text-center" style="border-color:var(--border-color)"><i class="fa-solid fa-users text-2xl opacity-30 mb-2 block"></i><p class="text-xs font-bold opacity-60">Nenhum post${COM.filtro !== 'todos' ? ' deste remetente' : ''} ainda</p><p class="text-[10px] opacity-40 mt-1">Os avisos publicados no painel do desktop aparecem aqui.</p></div>`);
@@ -130,6 +243,7 @@ window.renderComunidade = async function() {
     return;
   }
   conteudo.innerHTML = `
+    <style>@keyframes comStoryProg{from{width:0}to{width:100%}}</style>
     <div class="flex items-center gap-3 pb-3 border-b mb-3" style="border-color:var(--border-color)">
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:var(--color-primary-light)"><i class="fa-solid fa-users text-lg" style="color:var(--color-primary)"></i></div>
       <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Comunidade</h2><p class="text-[10px] opacity-60">Feed interno da igreja — avisos e vida comunitária</p></div>
