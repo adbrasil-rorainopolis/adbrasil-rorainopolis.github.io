@@ -248,7 +248,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.80</span>
+          <span>SGE Mobile · v1.81</span>
         </div>
       </div>
     </div>
@@ -481,6 +481,10 @@
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
         <i class="fa-solid fa-globe text-base text-orange-400"></i><span class="text-[9px] font-bold">Missões</span>
       </button>
+      <button onclick="mudarVisao('comunidade')" data-mod="comunidade" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Comunidade">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-users text-base text-amber-400"></i><span class="text-[9px] font-bold">Comunid.</span>
+      </button>
     </div>
   </nav>
 
@@ -527,6 +531,7 @@ const MODULOS = {
   governanca: { nome: 'Congregações & Lideranças', icone: 'fa-church',        cor: '#38bdf8' },
   secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
   missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
+  comunidade: { nome: 'Comunidade',                icone: 'fa-users',         cor: '#f59e0b' },
 };
 const NOMES_TEMA = { 'sacro-claro':'Sacro Dourado', 'dark-operacional':'Operacional Noturno', 'verde-oliva':'Verde Eclesiástico', 'azul-real':'Azul Real Nobre' };
 
