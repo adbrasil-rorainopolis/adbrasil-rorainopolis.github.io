@@ -5,8 +5,13 @@
    ============================================================ */
 const COM_CPF_PILOTO = '04421351229';
 function comPermitidoMobile() {
-  const u = sessao()?.usuario || {};
-  return String(u.cpf || u.Cpf || '').replace(/\D/g, '') === COM_CPF_PILOTO;
+  const dig = v => String(v || '').replace(/\D/g, '');
+  const fontes = [
+    sessao()?.usuario?.cpf, sessao()?.usuario?.Cpf, sessao()?.cpf,
+    (typeof bioSessao === 'function' ? bioSessao()?.usuario?.cpf : ''),
+    (typeof bioCred === 'function' ? bioCred()?.cpf : ''),
+  ];
+  return fontes.some(c => dig(c) === COM_CPF_PILOTO);
 }
 
 const COM_TEMPLATES = {
