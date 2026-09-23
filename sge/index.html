@@ -26,6 +26,7 @@
 <script src="gestao.js"></script>
 <script src="financas.js"></script>
 <script src="espiritual.js"></script>
+<script src="comunidade.js"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -247,7 +248,7 @@
           <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
         </div>
         <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.78</span>
+          <span>SGE Mobile · v1.79</span>
         </div>
       </div>
     </div>
@@ -839,6 +840,7 @@ function sgeEhAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toL
 function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {}; return !!(u.tesoureiro ?? ac.tesoureiro); }
 function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
+  if (mod === 'comunidade') return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
   if (!ac.configurado) return true;
@@ -1058,6 +1060,7 @@ function renderModulo(mod){
   if (mod === 'gestao' && typeof renderGestao === 'function') return renderGestao();
   if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
   if (mod === 'secretaria' && typeof renderSecretaria === 'function') return renderSecretaria();
+  if (mod === 'comunidade' && typeof renderComunidade === 'function') return renderComunidade();
   $('dash-conteudo').innerHTML = `
     <div class="flex flex-col items-center justify-center text-center pt-16 gap-4">
       <div class="w-20 h-20 rounded-3xl flex items-center justify-center" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
