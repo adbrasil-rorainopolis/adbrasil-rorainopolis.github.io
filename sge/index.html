@@ -208,6 +208,15 @@
         <i class="fa-solid fa-gear text-base"></i>
       </button>
       <div id="menu-engrenagem" class="hidden absolute right-0 top-11 w-60 rounded-2xl p-2 space-y-1 shadow-2xl z-50" style="background: var(--menu-bg); box-shadow: 0 20px 50px -12px rgba(0,0,0,0.30), 0 0 0 1px var(--border-color); backdrop-filter: blur(12px);">
+        <div class="px-3.5 pt-2.5 pb-2 flex items-center gap-3 border-b mb-1" style="border-color: var(--border-color);">
+          <div id="menu-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));">?</div>
+          <div class="min-w-0 flex-1">
+            <p id="menu-usuario-nome" class="font-bold text-xs truncate">Usuário</p>
+            <p id="menu-usuario-perfil" class="text-[9px]" style="color: var(--text-muted);"></p>
+          </div>
+        </div>
+
+        <div class="px-3.5 pt-1 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Aparência</div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="toggleSubmenuTema()">
           <i class="fa-solid fa-palette text-[12px]" style="color: var(--color-primary);"></i> Tema
           <span id="lbl-tema-ativo-nome" class="ml-auto text-[10px] font-semibold opacity-70"></span>
@@ -231,29 +240,38 @@
             <i class="fa-solid fa-check ml-auto text-[10px] tema-check hidden" data-tema="azul-real" style="color: var(--color-primary);"></i>
           </div>
         </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="atualizarAgora()">
-          <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
-        </div>
-        <div id="mi-bio-ativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="ativarBioPeloMenu()">
-          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-primary);"></i> Ativar digital/FaceID
-        </div>
-        <div id="mi-bio-desativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="desativarBio()">
-          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-danger);"></i> Desativar digital/FaceID
-        </div>
-        <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color);" onclick="irGestaoUsuarios()">
+
+        <div id="menu-sec-admin" class="hidden px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Administração</div>
+        <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irGestaoUsuarios()">
           <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Gestão de Usuários
         </div>
         <div id="mi-dispositivos" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irDispositivos()">
           <i class="fa-solid fa-tower-broadcast text-[12px]" style="color: var(--color-primary);"></i> Dispositivos e concorrência
         </div>
+
+        <div class="px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Conta</div>
+        <div id="mi-bio-ativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="ativarBioPeloMenu()">
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-primary);"></i> Ativar digital/FaceID
+        </div>
+        <div id="mi-bio-desativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="desativarBio()">
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--text-muted);"></i> Desativar digital/FaceID
+        </div>
+
+        <div class="px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Sistema</div>
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="atualizarAgora()">
+          <i class="fa-solid fa-rotate text-[11px]" style="color: var(--color-primary);"></i> Atualizar aplicativo
+        </div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="sairEFechar()">
-          <i class="fa-solid fa-right-from-bracket text-[11px]" style="color: var(--color-danger);"></i> Sair da sessão e fechar aplicativo
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.88'); toast('Versão copiada: v1.88')" title="Toque para copiar a versão">
+          <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.88</span>
+          <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
-        <div class="px-3.5 pt-1 pb-1.5 text-[10px] font-bold opacity-80" style="color: var(--color-primary);">
-          <span>SGE Mobile · v1.87</span>
+
+        <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" style="border-top: 1px solid var(--border-color); color: var(--text-muted);" onclick="sairEFechar()">
+          <i class="fa-solid fa-right-from-bracket text-[11px] opacity-70"></i> Sair da sessão
         </div>
       </div>
     </div>
@@ -766,7 +784,17 @@ function toggleSubmenuTema(){
   sub.classList.toggle('hidden');
   if (chev) chev.style.transform = sub.classList.contains('hidden') ? '' : 'rotate(180deg)';
 }
-function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); }
+function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); preencherMenuPerfil(); }
+function preencherMenuPerfil(){
+  const u = sessao()?.usuario || {};
+  const nome = u.nome || 'Usuário';
+  const iniciais = nome.split(' ').filter(Boolean).slice(0,2).map(x => x[0].toUpperCase()).join('') || '?';
+  const perfil = String(u.perfil || '').replace(/^./, c => c.toUpperCase());
+  const av = $('menu-avatar'), nm = $('menu-usuario-nome'), pf = $('menu-usuario-perfil');
+  if (av) av.textContent = iniciais;
+  if (nm) nm.textContent = nome;
+  if (pf) pf.textContent = perfil + (u.congregacao ? ' · ' + u.congregacao : '');
+}
 async function atualizarMenuBio(){
   const ativar = $('mi-bio-ativar'), desativar = $('mi-bio-desativar');
   if (!ativar || !desativar) return;
@@ -778,6 +806,8 @@ async function atualizarMenuBio(){
   if (guMi) guMi.classList.toggle('hidden', !ehAdmin);
   const dvMi = $('mi-dispositivos');
   if (dvMi) dvMi.classList.toggle('hidden', !ehAdmin);
+  const secA = $('menu-sec-admin');
+  if (secA) secA.classList.toggle('hidden', !ehAdmin);
 }
 async function atualizarAgora(){
   fecharMenuEngrenagem();
