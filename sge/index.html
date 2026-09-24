@@ -98,12 +98,15 @@
     position: fixed; left: 0; right: 0; top: 57px; bottom: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
+  html { overflow-x: hidden; overflow-x: clip; }
   .app-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-    display: none;
+    display: none; width: 100%; max-width: 100vw;
   }
   body.app-aberto .app-nav { display: block; }
   #tela-app { padding-top: 57px; padding-bottom: 96px; min-height: 100vh; min-height: 100dvh; }
+  #dash-conteudo { overflow-x: clip; }
+  #dash-conteudo select { max-width: 100%; }
   .font-cinzel { font-family: 'Cinzel', serif; }
   .theme-transition { transition: background-color .35s ease, border-color .35s ease, color .35s ease; }
   canvas#linhas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
@@ -262,9 +265,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.100'); toast('Versão copiada: v1.100')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.101'); toast('Versão copiada: v1.101')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.100</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.101</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 

@@ -273,13 +273,13 @@ window.gestaoEscopoCongregacao = (pfx, recarregar) => {
   _mmFiltroGravar(); recarregar();
 };
 const _filtroEscopoUI = pfx => `
-      <div class="flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
-        ${selHtml(`${pfx}-conselho`, [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('${pfx}', gestaoMensalCarregar)`)}
-        ${selHtml(`${pfx}-congregacao`, [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('${pfx}', gestaoMensalCarregar)`)}</div>`;
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
+        ${selHtml(`${pfx}-conselho`, [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('${pfx}', gestaoMensalCarregar)`, 'flex-1 min-w-28')}
+        ${selHtml(`${pfx}-congregacao`, [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('${pfx}', gestaoMensalCarregar)`, 'flex-1 min-w-28')}</div>`;
 const _filtroEscopoUIFluxo = () => `
-      <div class="flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
-        ${selHtml('fx-conselho', [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('fx', gestaoFluxoCarregar)`)}
-        ${selHtml('fx-congregacao', [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('fx', gestaoFluxoCarregar)`)}</div>`;
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
+        ${selHtml('fx-conselho', [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('fx', gestaoFluxoCarregar)`, 'flex-1 min-w-28')}
+        ${selHtml('fx-congregacao', [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('fx', gestaoFluxoCarregar)`, 'flex-1 min-w-28')}</div>`;
 
 /* ---------- Ciclo financeiro (localStorage — paridade com JSON por estação) ---------- */
 const CHAVE_CICLO = 'sge_ciclo_config';
@@ -1005,7 +1005,7 @@ const seloVar = (v, invertido = false) => {
   const bom = invertido ? v <= 0 : v >= 0;
   return `<span class="${bom ? 'text-emerald-500' : 'text-red-500'} text-[10px] font-bold"><i class="fa-solid ${v >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-0.5"></i>${v >= 0 ? '+' : ''}${num(v).toFixed(1)}%</span>`;
 };
-const selHtml = (id, opts, val, onchange) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+const selHtml = (id, opts, val, onchange, cls) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs ${cls || ''}" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
 
 window.renderGestao = function(){
   el('dash-conteudo').innerHTML = `
