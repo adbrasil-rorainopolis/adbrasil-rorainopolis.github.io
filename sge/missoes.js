@@ -208,7 +208,7 @@ async function carregarMisArrecadacao(){
     CONTAS_MIS.forEach(c => cur[c.chave] += v[c.chave]);
     cur.total_missoes += v.total_missoes;
   }
-  const linhas = Object.values(linhasMap).sort((a, b) => b.total_missoes - a.total_missoes);
+  const linhas = Object.values(linhasMap).sort((a, b) => ordemCongregacaoIdxG(a.nome, a.conselho) - ordemCongregacaoIdxG(b.nome, b.conselho));
   const tot = linhas.reduce((a, l) => {
     CONTAS_MIS.forEach(c => a[c.chave] += l[c.chave]); a.total_missoes += l.total_missoes; return a;
   }, { ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
@@ -401,7 +401,7 @@ async function _popularConselhosMis(idSel, valor){
   const sel = $m(idSel); if (!sel) return;
   /* Conselhos vistos nos dados (histórico por ano) + mapa atual */
   const { porConselho } = await SGEG.mapaConselhos();
-  sel.innerHTML = '<option value="Todos">Todos os conselhos</option>' + Object.keys(porConselho).sort((a, b) => a.localeCompare(b, 'pt-BR')).map(c => `<option value="${escM(c)}">${escM(c)}</option>`).join('');
+  sel.innerHTML = '<option value="Todos">Todos os conselhos</option>' + ordenarConselhosG(Object.keys(porConselho)).map(c => `<option value="${escM(c)}">${escM(c)}</option>`).join('');
   sel.value = valor || 'Todos';
 }
 async function _popularCongsMis(){
@@ -409,7 +409,7 @@ async function _popularCongsMis(){
   const { porConselho } = await SGEG.mapaConselhos();
   const cons = $m('mh-conselho')?.value || 'Todos';
   const lista = cons === 'Todos' ? Object.values(porConselho).flat() : (porConselho[cons] || []);
-  const unicas = [...new Set(lista)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const unicas = ordenarCongregacoesG([...new Set(lista)]);
   cong.innerHTML = '<option value="Todas">Todas</option>' + unicas.map(c => `<option value="${escM(c)}">${escM(c)}</option>`).join('');
   cong.value = M.hist.congregacao || 'Todas';
 }
@@ -539,7 +539,7 @@ function _renderResultadosM(){
   _renderGraficoM(series);
   const tbody = $m('mis-hist-tbody');
   if (tbody){
-    const linhas = Object.values(porCong).sort((a, b) => b.total_missoes - a.total_missoes);
+    const linhas = Object.values(porCong).sort((a, b) => ordemCongregacaoIdxG(a.nome, a.conselho) - ordemCongregacaoIdxG(b.nome, b.conselho));
     tbody.innerHTML = linhas.length ? linhas.map(l => `
       <tr class="border-b" style="border-color:var(--border-color)">
         <td class="py-2 pr-2"><span class="font-semibold">${escM(l.nome)}</span><span class="block text-[9px] opacity-50">${escM(l.conselho)}</span></td>

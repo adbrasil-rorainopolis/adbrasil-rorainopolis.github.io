@@ -522,8 +522,8 @@ function _fqAnos(){
 async function _fqPopularFiltros(){
   try {
     await carregarMembros();
-    const cons = [...new Set((F.membros || []).map(m => String(m.conselho || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    const congs = [...new Set((F.membros || []).map(m => _nomeCongExib(m.congregacao)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const cons = ordenarConselhosG([...new Set((F.membros || []).map(m => String(m.conselho || '').trim()).filter(Boolean))]);
+    const congs = ordenarCongregacoesG([...new Set((F.membros || []).map(m => _nomeCongExib(m.congregacao)).filter(Boolean))]);
     const sc = el('fq-conselho'), sg = el('fq-congregacao');
     if (sc) sc.innerHTML = '<option value="Todos">Todos</option>' + cons.map(c => `<option ${c === F.fq.conselho ? 'selected' : ''}>${esc(c)}</option>`).join('');
     if (sg) sg.innerHTML = '<option value="Todas">Todas</option>' + congs.map(c => `<option ${c === F.fq.congregacao ? 'selected' : ''}>${esc(c)}</option>`).join('');

@@ -173,6 +173,31 @@ const ALIAS_CONGS_G = {
   'p.p. - anauá': 'P.P. - Vicinal 02 - Anauá', 'p.p. - vicinal 05': 'P.P. - Vicinal 05 - Deus Forte',
   'p.p - vicinal 1 -': 'P.P - Vicinal 01 - Só o Senhor é Deus',
 };
+
+/* Ordem oficial do campo — mesma sequência de MAPA_CONSELHOS_CONGREGACOES
+   (modulos/constantes.py). Listas de conselhos/congregações NUNCA usam
+   ordem alfabética nem a ordem em que a API devolve. */
+const MAPA_OFICIAL_CONGS = {"Assembleia Geral": ["Assembleia Geral", "Obreiros"], "Conselho 1": ["Sede", "Filadélfia", "P.P - Cidade Nova", "Vicinal 06 - Monte Sinai", "P.P. - Vicinal Pesqueiro", "P.P. - BR 174 - El Shaday", "Vicinal 11 - Nova Canaã", "Vicinal 11 - Monte Moriá"], "Conselho 2": ["Nova Aliança", "Jesus é Rei", "P.P. Vicinal 25 - Videira", "Vicinal 13 - Galileia", "P.P. - Vicinal 41 - Ebenezer", "Vicinal 42 - Manancial", "Vicinal 43 - Leão de Judá", "Vicinal 44 - Atos 2"], "Conselho 3": ["Monte Carmelo", "Maranata", "Boa Esperança", "P.P. - Vicinal 02 - Anauá", "Vicinal 34 - Monte Gerezim", "P.P. - Vicinal 04 - Monte Sião", "Vicinal 09 - Monte Horebe", "P.P. - BR 174 - Nova Jerusalem"], "Conselho 4": ["Novo Horizonte", "Jardim Floresta", "Park das Orquídeas", "P.P. - Bairro dos Trabalhadores", "Vicinal 19 - Lirios dos Vales", "Vicinal 10 - Betel", "Vicinal 10 - Peniel", "Vicinal 12 - Getsêmani", "Vicinal 14 - Deus é Fiel"], "Conselho 5": ["Rosa de Saron", "Novo Éden", "El Dourado", "P.P. - Chacaras União", "P.P - Vicinal 01 - Só o Senhor é Deus", "Vicinal 01 - Monte das Oliveiras", "Vicinal 03 - Monte Hermom", "P.P. - Vicinal 05 - Deus Forte"]};
+const ORDEM_OFICIAL_CONSELHOS = Object.keys(MAPA_OFICIAL_CONGS);
+const _ORDEM_CONGS_IDX = (() => {
+  const idx = {};
+  ORDEM_OFICIAL_CONSELHOS.forEach((cons, ci) => (MAPA_OFICIAL_CONGS[cons] || []).forEach((nome, ni) => {
+    const k = chaveNormalizada(nome); if (!(k in idx)) idx[k] = ci * 1000 + ni;
+  }));
+  return idx;
+})();
+function ordemConselhoIdxG(cons){ const i = ORDEM_OFICIAL_CONSELHOS.indexOf(cons); return i >= 0 ? i : 99; }
+function ordemCongregacaoIdxG(nome, conselho){
+  const k = chaveNormalizada(nome);
+  if (conselho && MAPA_OFICIAL_CONGS[conselho]){
+    const ci = ORDEM_OFICIAL_CONSELHOS.indexOf(conselho);
+    const ni = (MAPA_OFICIAL_CONGS[conselho] || []).findIndex(n => chaveNormalizada(n) === k);
+    if (ni >= 0) return ci * 1000 + ni;
+  }
+  return (k in _ORDEM_CONGS_IDX) ? _ORDEM_CONGS_IDX[k] : 99000;
+}
+function ordenarConselhosG(lista){ return (lista || []).slice().sort((a, b) => ordemConselhoIdxG(a) - ordemConselhoIdxG(b) || String(a).localeCompare(String(b), 'pt-BR')); }
+function ordenarCongregacoesG(lista){ return (lista || []).slice().sort((a, b) => ordemCongregacaoIdxG(a) - ordemCongregacaoIdxG(b) || String(a).localeCompare(String(b), 'pt-BR')); }
 let _cacheCanonCongs = null;
 async function canonCongregacoes(){
   if (_cacheCanonCongs) return _cacheCanonCongs;
@@ -221,7 +246,7 @@ function _mmFiltroInit(){ if (!G.filtroMensal) G.filtroMensal = _mmFiltroLer(); 
 async function _popularFiltrosEscopo(pfx){
   const selC = el(`${pfx}-conselho`); if (!selC) return;
   const { porConselho } = await mapaConselhos();
-  const conselhos = Object.keys(porConselho).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const conselhos = ordenarConselhosG(Object.keys(porConselho));
   selC.innerHTML = '<option value="Todos">Todos os conselhos</option>' + conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   if (!conselhos.includes(G.filtroMensal.conselho)) G.filtroMensal.conselho = 'Todos';
   selC.value = G.filtroMensal.conselho;
@@ -232,7 +257,7 @@ function _popularCongsEscopo(pfx){
   mapaConselhos().then(({ porConselho }) => {
     const cons = el(`${pfx}-conselho`)?.value || 'Todos';
     const lista = cons === 'Todos' ? Object.values(porConselho).flat() : (porConselho[cons] || []);
-    const unicas = [...new Set(lista)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const unicas = ordenarCongregacoesG([...new Set(lista)]);
     cong.innerHTML = '<option value="Todas">Todas as congregações</option>' + unicas.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
     if (!unicas.includes(G.filtroMensal.congregacao)) G.filtroMensal.congregacao = 'Todas';
     cong.value = G.filtroMensal.congregacao;
@@ -541,6 +566,10 @@ async function consultarCruzamento(anoIni, mesIni, anoFim, mesFim, { conselho = 
   totais.pct_dizimos = totais.entradas > 0 ? totais.dizimos / totais.entradas * 100 : 0;
   totais.pct_ofertas = totais.entradas > 0 ? totais.ofertas / totais.entradas * 100 : 0;
   totais.missoes = Object.entries(totais.contas_detalhe_entradas).reduce((a, [k, v]) => a + (CONTAS_MISSOES.has(cf(k)) ? num(v) : 0), 0);
+
+  /* Ordem oficial das congregações dentro de cada período (não alfabética) */
+  const _ordLinha = r => [+String(r.ano || 0).slice(0, 4), indiceMes(r.mes) || 0, parseInt(String(r.semana || ''), 10) || 9, ordemCongregacaoIdxG(r.congregacao)];
+  linhas.sort((a, b) => { const ka = _ordLinha(a), kb = _ordLinha(b); for (let i = 0; i < 4; i++){ if (ka[i] !== kb[i]) return ka[i] - kb[i]; } return 0; });
 
   return { periodos: series.map(s => s.periodo), series, linhas, totais,
     contas_selecionadas: temContas ? contasAlvo : [], semanas_selecionadas: semanasAlvo, filtro_semanas_ativo: filtroSemanas };
@@ -981,7 +1010,7 @@ window.gestaoMudaConselho = async () => {
   const sel = el('gf-conselho'), cong = el('gf-congregacao');
   const { porConselho } = await mapaConselhos();
   const lista = sel.value === 'Todos' ? Object.values(porConselho).flat() : (porConselho[sel.value] || []);
-  cong.innerHTML = '<option value="Todas">Todas</option>' + [...new Set(lista)].sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  cong.innerHTML = '<option value="Todas">Todas</option>' + ordenarCongregacoesG([...new Set(lista)]).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 };
 function _lerFiltros(){
   const f = G.filtros;
@@ -994,7 +1023,7 @@ function _lerFiltros(){
 async function _popularConselhos(){
   const { porConselho } = await mapaConselhos();
   const sel = el('gf-conselho'); if (!sel) return;
-  sel.innerHTML = '<option value="Todos">Todos</option>' + Object.keys(porConselho).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.innerHTML = '<option value="Todos">Todos</option>' + ordenarConselhosG(Object.keys(porConselho)).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value = G.filtros.conselho || 'Todos';
   await gestaoMudaConselho();
   el('gf-congregacao').value = G.filtros.congregacao || 'Todas';
@@ -1728,8 +1757,8 @@ window.guAcessos = async function(cpf, aprovar){
             <div id="gu-ac-tes-cong" class="mt-2 ${a.tesoureiro ? '' : 'hidden'}">
               <select id="gu-ac-tes-sel" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
                 <option value="">— selecione a congregação —</option>
-                ${[...new Set((cat.congregacoes || []).map(c => c.conselho || 'Sem conselho'))].sort().map(g =>
-                  `<optgroup label="${esc(g)}">${(cat.congregacoes || []).filter(c => (c.conselho || 'Sem conselho') === g).map(c => `<option value="${esc(c.nome)}" ${c.nome === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</optgroup>`
+                ${ordenarConselhosG([...new Set((cat.congregacoes || []).map(c => c.conselho || 'Sem conselho'))]).map(g =>
+                  `<optgroup label="${esc(g)}">${ordenarCongregacoesG((cat.congregacoes || []).filter(c => (c.conselho || 'Sem conselho') === g).map(c => c.nome)).map(n => `<option value="${esc(n)}" ${n === a.congregacao_tesoureiro ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`
                 ).join('')}
               </select></div>`)}
           ${secao('Conselhos visíveis', 'Nada marcado = todos • marque para limitar e filtrar as congregações',
@@ -1811,8 +1840,8 @@ window.guRenderCongs = () => {
   };
   const grupos = {};
   lista.forEach(c => { const g = c.conselho || 'Sem conselho'; (grupos[g] = grupos[g] || []).push(c); });
-  box.innerHTML = Object.keys(grupos).sort((x, y) => x === 'Sem conselho' ? 1 : y === 'Sem conselho' ? -1 : x.localeCompare(y)).map(g =>
-    `<div class="mb-2.5"><p class="text-[9px] font-black uppercase tracking-wide mb-1" style="color:#8b5cf6">${esc(g)}</p><div class="flex flex-wrap gap-1.5">${grupos[g].map(chipCong).join('')}</div></div>`
+  box.innerHTML = ordenarConselhosG(Object.keys(grupos).filter(g => g !== 'Sem conselho')).concat(grupos['Sem conselho'] ? ['Sem conselho'] : []).map(g =>
+    `<div class="mb-2.5"><p class="text-[9px] font-black uppercase tracking-wide mb-1" style="color:#8b5cf6">${esc(g)}</p><div class="flex flex-wrap gap-1.5">${ordenarCongregacoesG(grupos[g].map(c => c.nome)).map(n => chipCong(grupos[g].find(c => c.nome === n))).join('')}</div></div>`
   ).join('') || '<span class="text-[10px] opacity-50">Nenhuma congregação nesse conselho.</span>';
   const cnt = el('gu-congs-count');
   if (cnt) cnt.textContent = `${lista.length} congregações${cons.size ? ' (filtradas por conselho)' : ''}`;
