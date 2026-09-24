@@ -153,6 +153,85 @@ const _memStatusBadge = st => {
 };
 const _memKpi = (titulo, valor, cor) => `<div class="border rounded-xl p-2.5 flex-1 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase opacity-60 truncate">${titulo}</p><p class="mt-0.5 text-sm font-bold truncate" style="color:${cor}">${valor}</p></div>`;
 let _memFinCache = null;
+let _memFinDoAno = [], _memFinAno = '', _memFinMembro = null;
+
+/* ---------- PDF: extrato anual e recibo por lançamento ----------
+   Gera só a partir dos dados do _memFinCache (escopo do próprio membro,
+   devolvido pela API) — nunca aceita id de membro arbitrário. */
+const _memStatusRot = st => {
+  const s = String(st || '').toLowerCase();
+  return s === 'conferido' ? 'Conferido' : s === 'enviado' ? 'Registrado' : 'Em registro';
+};
+const _memPdfCab = (doc, titulo, sub) => {
+  const larg = doc.internal.pageSize.getWidth();
+  doc.setFillColor(15, 122, 77); doc.rect(0, 0, larg, 22, 'F');
+  doc.setTextColor(190, 235, 210); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+  doc.text('SGE AD BRASIL — PORTAL DO MEMBRO', larg / 2, 7, { align: 'center' });
+  doc.setTextColor(255, 255, 255); doc.setFontSize(13);
+  doc.text(titulo, larg / 2, 14, { align: 'center' });
+  if (sub) { doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(215, 240, 227); doc.text(sub, larg / 2, 19.5, { align: 'center' }); }
+};
+const _memPdfRodape = (doc) => {
+  const larg = doc.internal.pageSize.getWidth(), alt = doc.internal.pageSize.getHeight();
+  doc.setFontSize(7); doc.setTextColor(120, 130, 145);
+  doc.text(`Documento gerado pelo Portal do Membro em ${new Date().toLocaleString('pt-BR')} — confere com os registros da tesouraria.`, larg / 2, alt - 6, { align: 'center' });
+};
+
+window.memFinPdfExtrato = function(){
+  const m = _memFinMembro, ano = _memFinAno, lista = _memFinDoAno;
+  if (!m) { toast('Financeiro não carregado.'); return; }
+  if (!lista.length) { toast('Sem contribuições para exportar.'); return; }
+  if (typeof window.jspdf === 'undefined') { toast('Biblioteca de PDF não carregou.'); return; }
+  const doc = new window.jspdf.jsPDF();
+  const larg = doc.internal.pageSize.getWidth();
+  _memPdfCab(doc, `Extrato de Contribuições — ${ano}`, `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
+  const corpo = [...lista].sort((a, b) => (a._p - b._p) || (a._s - b._s))
+    .map(l => [l.mes, l.semana, _memFormaPagto(l.detalhes_parcelas), _memStatusRot(l.status), l.data_envio || '-', brl(l._v)]);
+  doc.autoTable({
+    startY: 27,
+    head: [['Mês', 'Semana', 'Forma', 'Status', 'Registrado em', 'Valor']],
+    body: corpo,
+    styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 122, 77] },
+    alternateRowStyles: { fillColor: [232, 244, 238] },
+    columnStyles: { 1: { halign: 'center', cellWidth: 26 }, 2: { halign: 'center', cellWidth: 27 }, 3: { halign: 'center', cellWidth: 24 }, 5: { halign: 'right', cellWidth: 26 } },
+  });
+  const total = lista.reduce((t, l) => t + l._v, 0);
+  let y = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(15, 122, 77);
+  doc.text(`TOTAL ${ano}: ${brl(total)}   ·   ${lista.length} contribuição(ões)`, larg - 14, y, { align: 'right' });
+  _memPdfRodape(doc);
+  doc.save(`extrato-contribuicoes-${ano}-${String(m.id || 'membro')}.pdf`);
+};
+
+window.memFinPdfRecibo = function(idx){
+  const m = _memFinMembro, l = _memFinDoAno[idx];
+  if (!m || !l) { toast('Lançamento não encontrado.'); return; }
+  if (typeof window.jspdf === 'undefined') { toast('Biblioteca de PDF não carregou.'); return; }
+  const doc = new window.jspdf.jsPDF();
+  const larg = doc.internal.pageSize.getWidth();
+  _memPdfCab(doc, 'Comprovante de Contribuição', `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
+  let y = 34;
+  doc.setTextColor(95, 107, 122); doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text(`Referência: ${l.semana} — ${l.mes}/${l.ano}`, larg / 2, y, { align: 'center' }); y += 10;
+  doc.setFillColor(232, 244, 238); doc.roundedRect(larg / 2 - 45, y, 90, 22, 3, 3, 'F');
+  doc.setTextColor(15, 122, 77); doc.setFontSize(17); doc.setFont(undefined, 'bold');
+  doc.text(brl(l._v), larg / 2, y + 14, { align: 'center' }); y += 32;
+  doc.autoTable({
+    startY: y,
+    body: [
+      ['Membro', String(m.nome || '-')],
+      ['Congregação', `${m.congregacao || '-'}  ·  ${m.conselho || '-'}`],
+      ['Período', `${l.semana} — ${l.mes}/${l.ano}`],
+      ['Forma', _memFormaPagto(l.detalhes_parcelas)],
+      ['Status', _memStatusRot(l.status)],
+      ['Registrado em', l.data_envio || '-'],
+    ],
+    styles: { fontSize: 9 }, theme: 'plain',
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40, textColor: [95, 107, 122] } },
+  });
+  _memPdfRodape(doc);
+  doc.save(`comprovante-${l.mes}-${l.ano}-${_memNumSemana(l.semana)}sem.pdf`);
+};
 
 window.renderMembroFinanceiro = async function(anoSel) {
   const c = $('dash-conteudo');
@@ -185,6 +264,8 @@ window.renderMembroFinanceiro = async function(anoSel) {
   const anos = [...new Set(lancs.map(l => String(l.ano)))].sort((a, b) => +b - +a);
   const ano = String(anoSel || anos[0] || new Date().getFullYear());
   const doAno = lancs.filter(l => String(l.ano) === ano);
+  doAno.forEach((l, i) => { l._i = i; });
+  _memFinDoAno = doAno; _memFinAno = ano; _memFinMembro = m;
   const totalAno = doAno.reduce((t, l) => t + l._v, 0);
   const totalGeral = lancs.reduce((t, l) => t + l._v, 0);
   const mesesGrp = {};
@@ -197,7 +278,10 @@ window.renderMembroFinanceiro = async function(anoSel) {
       ${_memKpi('Contribuições', doAno.length, '#0ea5e9')}
       ${_memKpi('Acumulado geral', brl(totalGeral), '#f59e0b')}
     </div>
-    ${anos.length > 1 ? `<div class="flex flex-wrap gap-1.5 mb-3">${anos.map(a => `<button onclick="renderMembroFinanceiro('${a}')" class="px-3 py-1.5 rounded-xl border text-[11px] font-bold" style="border-color:var(--border-color);${a === ano ? 'background:var(--color-primary);color:#fff' : 'color:var(--text-muted)'}">${a}</button>`).join('')}</div>` : ''}
+    <div class="flex flex-wrap items-center gap-1.5 mb-3">
+      ${anos.length > 1 ? anos.map(a => `<button onclick="renderMembroFinanceiro('${a}')" class="px-3 py-1.5 rounded-xl border text-[11px] font-bold" style="border-color:var(--border-color);${a === ano ? 'background:var(--color-primary);color:#fff' : 'color:var(--text-muted)'}">${a}</button>`).join('') : ''}
+      ${doAno.length ? `<button onclick="memFinPdfExtrato()" class="ml-auto px-3 py-1.5 rounded-xl text-[11px] font-bold text-white" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-file-pdf mr-1"></i>Extrato ${ano}</button>` : ''}
+    </div>
     ${doAno.length ? mesesOrd.map(mes => memCard(`
       <div class="flex items-center justify-between mb-2"><p class="text-[9px] font-bold uppercase tracking-wider" style="color:#10b981">${mes} ${ano}</p><p class="text-[10px] font-bold opacity-60">${brl(mesesGrp[mes].reduce((t, l) => t + l._v, 0))}</p></div>
       <div class="divide-y" style="border-color:var(--border-color)">${mesesGrp[mes].map(l => `
@@ -206,6 +290,7 @@ window.renderMembroFinanceiro = async function(anoSel) {
           <div class="flex-1 min-w-0"><p class="text-[11px] font-bold">${memEsc(l.semana)}</p><p class="text-[9px] opacity-50">${_memFormaPagto(l.detalhes_parcelas)}${l.data_envio ? ' · ' + memEsc(l.data_envio) : ''}</p></div>
           <p class="text-[11px] font-bold shrink-0" style="color:#10b981">${brl(l._v)}</p>
           ${_memStatusBadge(l.status)}
+          <button onclick="memFinPdfRecibo(${l._i})" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#10b98115" title="Comprovante PDF"><i class="fa-solid fa-file-pdf text-[10px]" style="color:#10b981"></i></button>
         </div>`).join('')}</div>`)).join('')
       : memEmBreve('fa-receipt', '#10b981', 'Nenhuma contribuição em ' + ano, 'Quando a tesouraria registrar seus dízimos e ofertas em Lançamentos Semanais, eles aparecem aqui automaticamente.')}`;
 };
