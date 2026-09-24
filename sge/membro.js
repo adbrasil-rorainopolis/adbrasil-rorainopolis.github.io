@@ -136,10 +136,75 @@ window.renderMembroEstudos = function() {
 };
 
 /* ---------- MEU FINANCEIRO ---------- */
-window.renderMembroFinanceiro = function() {
+const _memNumSemana = s => { const m = String(s || '').match(/\d+/); return m ? +m[0] : 99; };
+const _memParseValor = v => { if (typeof v === 'number') return v; let s = String(v ?? '0').replace(/[^\d.,-]/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); return parseFloat(s) || 0; };
+const _memFormaPagto = det => {
+  try {
+    const ps = typeof det === 'string' ? JSON.parse(det || '[]') : (det || []);
+    const e = ps.reduce((a, i) => a + _memParseValor(i?.especie), 0);
+    const x = ps.reduce((a, i) => a + _memParseValor(i?.pix), 0);
+    return e > 0 && x > 0 ? 'Misto' : x > 0 ? 'PIX / Transf.' : 'Espécie';
+  } catch { return 'Espécie'; }
+};
+const _memStatusBadge = st => {
+  const s = String(st || '').toLowerCase();
+  const [rot, cor] = s === 'conferido' ? ['Conferido', '#10b981'] : s === 'enviado' ? ['Registrado', '#0ea5e9'] : ['Em registro', '#f59e0b'];
+  return `<span class="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0" style="background:${cor}22;color:${cor}">${rot}</span>`;
+};
+const _memKpi = (titulo, valor, cor) => `<div class="border rounded-xl p-2.5 flex-1 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase opacity-60 truncate">${titulo}</p><p class="mt-0.5 text-sm font-bold truncate" style="color:${cor}">${valor}</p></div>`;
+let _memFinCache = null;
+
+window.renderMembroFinanceiro = async function(anoSel) {
   const c = $('dash-conteudo');
   if (!c) return;
   c.innerHTML = `
     ${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
-    ${memEmBreve('fa-shield-halved', '#10b981', 'Contribuições pessoais', 'Em breve: seu histórico de dízimos e ofertas com comprovantes. Visível somente para você — nenhum outro usuário acessa seus valores.')}`;
+    ${memCard(`<p class="text-[11px] opacity-50 text-center py-8"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Carregando suas contribuições…</p>`)}`;
+  if (!_memFinCache) {
+    try {
+      _memFinCache = await api('meu_financeiro', {}, sessao()?.token);
+    } catch (e) {
+      c.innerHTML = `${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+        ${memCard(`<p class="text-[11px] opacity-60 text-center py-8">${memEsc(e?.data?.erro || e?.message || 'Falha ao carregar seu financeiro.')}</p>`)}`;
+      return;
+    }
+  }
+  const r = _memFinCache;
+  if (!r?.vinculado || !r.membro) {
+    c.innerHTML = `${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+      ${memCard(`<div class="flex flex-col items-center text-center py-6 gap-2">
+        <i class="fa-solid fa-link-slash text-2xl" style="color:#f59e0b;opacity:.6"></i>
+        <p class="text-xs font-bold">Cadastro de membro não localizado</p>
+        <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">Seu usuário ainda não está vinculado a um cadastro de membro (telefone ou nome idênticos). Procure a secretaria da tesouraria.</p></div>`)}`;
+    return;
+  }
+  const m = r.membro;
+  const lancs = (r.lancamentos || []).map(l => ({ ...l, _v: _memParseValor(l.valor), _p: (+l.ano || 0) * 100 + (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(l.mes) : 0), _s: _memNumSemana(l.semana) }))
+    .sort((a, b) => (b._p - a._p) || (b._s - a._s));
+  const anos = [...new Set(lancs.map(l => String(l.ano)))].sort((a, b) => +b - +a);
+  const ano = String(anoSel || anos[0] || new Date().getFullYear());
+  const doAno = lancs.filter(l => String(l.ano) === ano);
+  const totalAno = doAno.reduce((t, l) => t + l._v, 0);
+  const totalGeral = lancs.reduce((t, l) => t + l._v, 0);
+  const mesesGrp = {};
+  doAno.forEach(l => { (mesesGrp[l.mes] = mesesGrp[l.mes] || []).push(l); });
+  const mesesOrd = Object.keys(mesesGrp).sort((a, b) => (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(b) - MESES_ORD.indexOf(a) : 0));
+  c.innerHTML = `
+    ${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', `${memEsc(m.nome)} · ${memEsc(m.congregacao || '')}`)}
+    <div class="flex gap-2 mb-3">
+      ${_memKpi(`Total ${ano}`, brl(totalAno), '#10b981')}
+      ${_memKpi('Contribuições', doAno.length, '#0ea5e9')}
+      ${_memKpi('Acumulado geral', brl(totalGeral), '#f59e0b')}
+    </div>
+    ${anos.length > 1 ? `<div class="flex flex-wrap gap-1.5 mb-3">${anos.map(a => `<button onclick="renderMembroFinanceiro('${a}')" class="px-3 py-1.5 rounded-xl border text-[11px] font-bold" style="border-color:var(--border-color);${a === ano ? 'background:var(--color-primary);color:#fff' : 'color:var(--text-muted)'}">${a}</button>`).join('')}</div>` : ''}
+    ${doAno.length ? mesesOrd.map(mes => memCard(`
+      <div class="flex items-center justify-between mb-2"><p class="text-[9px] font-bold uppercase tracking-wider" style="color:#10b981">${mes} ${ano}</p><p class="text-[10px] font-bold opacity-60">${brl(mesesGrp[mes].reduce((t, l) => t + l._v, 0))}</p></div>
+      <div class="divide-y" style="border-color:var(--border-color)">${mesesGrp[mes].map(l => `
+        <div class="flex items-center gap-2.5 py-2.5">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background:#10b98115"><i class="fa-solid fa-hand-holding-heart text-[10px]" style="color:#10b981"></i></div>
+          <div class="flex-1 min-w-0"><p class="text-[11px] font-bold">${memEsc(l.semana)}</p><p class="text-[9px] opacity-50">${_memFormaPagto(l.detalhes_parcelas)}${l.data_envio ? ' · ' + memEsc(l.data_envio) : ''}</p></div>
+          <p class="text-[11px] font-bold shrink-0" style="color:#10b981">${brl(l._v)}</p>
+          ${_memStatusBadge(l.status)}
+        </div>`).join('')}</div>`)).join('')
+      : memEmBreve('fa-receipt', '#10b981', 'Nenhuma contribuição em ' + ano, 'Quando a tesouraria registrar seus dízimos e ofertas em Lançamentos Semanais, eles aparecem aqui automaticamente.')}`;
 };
