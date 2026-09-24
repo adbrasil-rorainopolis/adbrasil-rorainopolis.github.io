@@ -252,7 +252,7 @@ function renderMisHistorico(){
     <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2">
         <span class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-filter text-orange-400 mr-1.5"></i>Filtros</span>
-        <button onclick="abrirModalMetasM()" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-bullseye text-emerald-400 mr-1"></i>Metas anuais</button>
+        ${(typeof sgeAbaPermitida !== 'function' || sgeAbaPermitida('missoes', 'metas')) ? `<button onclick="abrirModalMetasM()" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-bullseye text-emerald-400 mr-1"></i>Metas anuais</button>` : ''}
       </div>
       <div>
         <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Modo de análise</span>
@@ -680,6 +680,7 @@ function _renderMetasM(d){
   }).join('');
 }
 window.abrirModalMetasM = function(){
+  if (typeof sgeAbaPermitida === 'function' && !sgeAbaPermitida('missoes', 'metas')){ toast('Metas Anuais não está liberada para o seu perfil.'); return; }
   if (M.metas === null){ toast('Metas ficam disponíveis após atualização do servidor.'); return; }
   const old = $m('modal-mis-metas'); if (old) old.remove();
   const anosOpts = [...new Set(M.periodos.map(p => String(p.ano)))].sort();

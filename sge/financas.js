@@ -288,7 +288,7 @@ window.dzCarregar = async function(){
           <div class="flex gap-1">
             <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Histórico de Dízimos"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
-            ${['administrador','operador'].includes(String(sessao()?.usuario?.perfil || '').toLowerCase()) ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
+            ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
           </div>
         </div>
       </div>`;
