@@ -1904,7 +1904,7 @@ window.guNovoUsuario = function(){
           <input id="gu-nu-email" type="email" placeholder="E-mail *" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           <div class="grid grid-cols-2 gap-2.5">
             <input id="gu-nu-tel" placeholder="Telefone" inputmode="tel" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-            <input id="gu-nu-senha" placeholder="Senha inicial *" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input id="gu-nu-senha" placeholder="Senha inicial * (8+ c/ maiúsc., núm. e especial)" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           </div>
           <select id="gu-nu-perfil" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <option value="Consultor">Consultor</option><option value="Operador">Operador</option><option value="Administrador">Administrador</option><option value="Membro">Membro Comum</option>
@@ -1925,7 +1925,8 @@ window.guSalvarNovo = async function(){
   const dados = { nome: v('gu-nu-nome'), cpf: v('gu-nu-cpf'), data_nascimento: v('gu-nu-nasc'),
     email: v('gu-nu-email'), telefone: v('gu-nu-tel'), senha: el('gu-nu-senha')?.value || '',
     perfil: v('gu-nu-perfil') || 'Consultor', aprovar: el('gu-nu-aprovar')?.checked !== false };
-  if (!dados.nome || !dados.email || dados.senha.length < 6) return toast('Preencha nome, e-mail e senha (mín. 6).');
+  if (!dados.nome || !dados.email) return toast('Preencha nome e e-mail.');
+  if (!guSenhaForte(dados.senha)) return toast('Senha fraca: use 8+ caracteres com maiúscula, minúscula, número e caractere especial.');
   try {
     const res = await guApi('cadastro_manual_admin', dados);
     toast(res.mensagem || 'Usuário cadastrado.');
@@ -1940,11 +1941,16 @@ window.guReenviar = async function(cpf){
   } catch (e) { toast(e.message || 'Falha ao reenviar.'); }
 };
 
+/* Política de senha forte (mesma regra do cadastro externo e da API):
+   8+ caracteres, maiúscula, minúscula, número e caractere especial. */
+const guSenhaForte = s => typeof s === 'string' && s.length >= 8
+  && /[a-z]/.test(s) && /[A-Z]/.test(s) && /\d/.test(s) && /[^A-Za-z0-9]/.test(s);
+
 window.guSenha = async function(cpf){
   const u = (GU.lista || []).find(x => x.cpf === cpf);
-  const senha = prompt(`Nova senha para ${u?.nome || cpf} (mín. 6 caracteres):`);
+  const senha = prompt(`Nova senha para ${u?.nome || cpf}.\nRegra: 8+ caracteres, com maiúscula, minúscula, número e caractere especial:`);
   if (senha === null) return;
-  if (senha.trim().length < 6) return toast('Senha muito curta (mín. 6).');
+  if (!guSenhaForte(senha.trim())) return toast('Senha fraca: use 8+ caracteres com maiúscula, minúscula, número e caractere especial.');
   try {
     const res = await guApi('redefinir_senha_admin', { cpf, nova_senha: senha.trim() });
     toast(res.mensagem || 'Senha redefinida.');

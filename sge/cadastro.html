@@ -44,6 +44,19 @@
     .passos-pwa { text-align: left; margin-top: 10px; }
     .passos-pwa div { display: flex; gap: 8px; margin-bottom: 6px; font-size: 11.5px; color: #8a94a8; }
     .passos-pwa b { color: #d9b45b; }
+    /* Medidor de força da senha */
+    .forca-barra { display: flex; gap: 4px; margin-top: 8px; }
+    .forca-seg { flex: 1; height: 5px; border-radius: 3px; background: #243048; transition: background .25s; }
+    .forca-seg.f1 { background: #ef4444; }
+    .forca-seg.f2 { background: #f59e0b; }
+    .forca-seg.f3 { background: #10b981; }
+    .forca-txt { font-size: 10px; font-weight: 700; letter-spacing: .5px; margin-top: 5px; text-transform: uppercase; min-height: 12px; }
+    .forca-txt.fraca { color: #ef4444; }
+    .forca-txt.moderada { color: #f59e0b; }
+    .forca-txt.forte { color: #10b981; }
+    .senha-regras { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+    .senha-regras span { font-size: 10px; color: #5a6478; transition: color .2s; }
+    .senha-regras span.ok { color: #10b981; }
 </style>
 </head>
 <body>
@@ -68,8 +81,18 @@
                 <div class="campo"><label>Telefone</label><input id="f-tel" inputmode="tel" maxlength="15" placeholder="(00) 00000-0000"></div>
             </div>
             <div class="campo"><label>E-mail</label><input id="f-email" type="email" required maxlength="120"></div>
-            <div class="campo"><label>Senha (mín. 6)</label><input id="f-senha" type="password" required minlength="6" autocomplete="new-password"></div>
-            <div class="campo"><label>Confirmar senha</label><input id="f-senha2" type="password" required minlength="6" autocomplete="new-password"></div>
+            <div class="campo"><label>Senha (mín. 8)</label><input id="f-senha" type="password" required minlength="8" autocomplete="new-password">
+                <div class="forca-barra" id="forca-barra"><div class="forca-seg"></div><div class="forca-seg"></div><div class="forca-seg"></div></div>
+                <div class="forca-txt" id="forca-txt"></div>
+                <div class="senha-regras" id="senha-regras">
+                    <span data-r="tam8">• 8+ caracteres</span>
+                    <span data-r="maius">• letra maiúscula</span>
+                    <span data-r="minus">• letra minúscula</span>
+                    <span data-r="num">• número</span>
+                    <span data-r="esp">• caractere especial (!@#$%…)</span>
+                </div>
+            </div>
+            <div class="campo"><label>Confirmar senha</label><input id="f-senha2" type="password" required minlength="8" autocomplete="new-password"></div>
             <button class="btn" id="btn-enviar" type="submit">Solicitar acesso</button>
         </form>
         <div class="link-acesso">Já possui cadastro ou trocou de dispositivo? <a id="lnk-acesso">Clique aqui para baixar o app</a></div>
@@ -246,12 +269,51 @@ async function chamar(action, dados){
     return { status: resp.status, ...j };
 }
 
+// --- Força de senha: mínimo "moderada" para cadastrar ---
+// Regras: 8+ caracteres, maiúscula, minúscula, número e caractere especial.
+// 0 vazia · 1 fraca (bloqueia) · 2 moderada · 3 forte (12+ com tudo).
+function avaliarSenha(s) {
+    const c = {
+        tam8: s.length >= 8,
+        maius: /[A-Z]/.test(s),
+        minus: /[a-z]/.test(s),
+        num: /\d/.test(s),
+        esp: /[^A-Za-z0-9]/.test(s),
+    };
+    const minOk = c.tam8 && c.maius && c.minus && c.num && c.esp;
+    const nivel = !s ? 0 : (!minOk ? 1 : (s.length >= 12 ? 3 : 2));
+    return { nivel, c, minOk };
+}
+const SENHA_NIVEIS = ['', 'Fraca', 'Moderada', 'Forte'];
+const SENHA_CLASSES = ['', 'fraca', 'moderada', 'forte'];
+function atualizarForcaSenha() {
+    const s = $('f-senha').value;
+    const { nivel, c } = avaliarSenha(s);
+    document.querySelectorAll('#forca-barra .forca-seg').forEach((sg, i) => {
+        sg.className = 'forca-seg' + (i < nivel ? ' f' + nivel : '');
+    });
+    const txt = $('forca-txt');
+    txt.textContent = s ? `Força da senha: ${SENHA_NIVEIS[nivel]}` : '';
+    txt.className = 'forca-txt ' + (SENHA_CLASSES[nivel] || '');
+    document.querySelectorAll('#senha-regras span').forEach(sp => {
+        const ok = !!c[sp.dataset.r];
+        sp.classList.toggle('ok', ok);
+        sp.textContent = `${ok ? '✓' : '•'} ${sp.textContent.replace(/^[✓•] /, '')}`;
+    });
+}
+$('f-senha').addEventListener('input', atualizarForcaSenha);
+
 $('form-cadastro').addEventListener('submit', async ev => {
     ev.preventDefault();
     msg('msg-form','');
     const nome = $('f-nome').value.trim(), cpf = $('f-cpf').value.trim(),
           nasc = $('f-nasc').value.trim(), email = $('f-email').value.trim(),
           senha = $('f-senha').value, senha2 = $('f-senha2').value;
+    if (!avaliarSenha(senha).minOk) {
+        msg('msg-form','Senha fraca — não é permitida. Use 8+ caracteres com letra maiúscula, minúscula, número e caractere especial.','erro');
+        $('f-senha').focus();
+        return;
+    }
     if (senha !== senha2) { msg('msg-form','As senhas digitadas não são iguais.','erro'); return; }
     const btn = $('btn-enviar'); btn.disabled = true; btn.textContent = 'Enviando…';
     try {
