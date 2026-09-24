@@ -2385,10 +2385,11 @@ async function orcGravarDados(lista){
   await api('salvar_config_sge', { chave: ORC_CHAVE, valor: JSON.stringify({ orcamentos: lista, versao: 1 }) }, sessao()?.token);
 }
 function orcTotais(o){
-  const itens = o.itens || [];
+  const itens = (o.itens || []).slice().sort((a, b) =>
+    String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || '')));
   const total = itens.reduce((a, i) => a + num(i.valor), 0);
   const prev = num(o.valor_previsto);
-  return { ...o, total_itens: itens.length, total_saidas: total,
+  return { ...o, itens, total_itens: itens.length, total_saidas: total,
     saldo_previsto: prev ? prev - total : null };
 }
 const orcHora = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; };
