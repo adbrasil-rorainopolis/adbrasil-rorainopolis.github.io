@@ -271,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.116'); toast('Versão copiada: v1.116')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.117'); toast('Versão copiada: v1.117')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.116</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.117</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -498,6 +498,35 @@
   </div>
 </div>
 <div id="sge-manutencao-banner" class="hidden fixed top-0 left-0 right-0 z-[250] text-center text-[10px] font-bold py-1.5 tracking-wide" style="background: #dc2626; color: #fff;">🚧 MODO MANUTENÇÃO ATIVO — usuários gerais estão bloqueados</div>
+
+<!-- ============ MODAL TRAVA — ativação exige 2 admins por senha + 2 tokens de e-mail ============ -->
+<div id="modal-trava" class="hidden fixed inset-0 z-[290] items-center justify-center p-5" style="background:rgba(15,23,42,.55);backdrop-filter:blur(4px)">
+  <div class="w-full max-w-sm rounded-3xl p-5 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 30px 80px -20px rgba(0,0,0,.5)">
+    <div class="text-center">
+      <div class="text-3xl mb-1 select-none">🚧</div>
+      <h3 class="font-bold text-sm" style="color:var(--text-accent,var(--color-primary))">Ativar modo manutenção</h3>
+      <p class="text-[10px] mt-1 leading-relaxed" style="color:var(--text-muted)">Exige aprovação de <b>2 administradores por senha</b> + <b>2 tokens</b> enviados por e-mail.</p>
+    </div>
+    <div id="trava-etapa1" class="space-y-2.5">
+      <input id="trava-senha1" type="password" placeholder="Sua senha (admin solicitante)" class="w-full px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="trava-cpf2" inputmode="numeric" maxlength="14" placeholder="CPF do 2º admin" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="trava-senha2" type="password" placeholder="Senha do 2º admin" class="px-3 py-2.5 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      </div>
+      <button id="btn-trava-solicitar" onclick="travaSolicitar()" class="btn-entrar w-full py-2.5 rounded-xl text-xs font-bold">Enviar tokens por e-mail</button>
+    </div>
+    <div id="trava-etapa2" class="hidden space-y-2.5">
+      <p id="trava-emails" class="text-[10px] text-center" style="color:var(--text-muted)"></p>
+      <div class="grid grid-cols-2 gap-2">
+        <input id="trava-tok1" inputmode="numeric" maxlength="6" placeholder="Token 1" class="px-3 py-2.5 rounded-xl border text-center text-base font-bold tracking-widest outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="trava-tok2" inputmode="numeric" maxlength="6" placeholder="Token 2" class="px-3 py-2.5 rounded-xl border text-center text-base font-bold tracking-widest outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      </div>
+      <button id="btn-trava-confirmar" onclick="travaConfirmar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white" style="background:#dc2626">🚧 Ativar manutenção</button>
+      <p class="text-[9px] text-center" style="color:var(--text-muted)">A confirmação só vale neste dispositivo — os tokens expiram em 15 min.</p>
+    </div>
+    <button onclick="travaFechar()" class="w-full py-2 text-[11px] font-semibold" style="color:var(--text-muted)">Cancelar</button>
+  </div>
+</div>
 
   <nav class="app-nav w-full border-t theme-transition" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
     <div class="flex items-stretch justify-around px-1">
@@ -953,15 +982,51 @@ async function sgeAlternarManutencao(){
   fecharMenuEngrenagem();
   if (!sgeEhAdmin()) { toast('A trava de manutenção é exclusiva do Administrador.'); return; }
   const ativa = await sgeManutencaoAtiva();
-  const msg = ativa
-    ? 'Desativar o modo manutenção?\n\nTodos os usuários voltam a acessar o sistema normalmente.'
-    : 'Ativar o modo manutenção?\n\nTodos os usuários gerais serão bloqueados e verão apenas a tela de manutenção. Somente administradores manterão acesso.';
-  if (!confirm(msg)) return;
+  if (!ativa) { sgeAbrirModalTrava(); return; } // ativar exige o ritual (2 admins + tokens)
+  if (!confirm('Desativar o modo manutenção?\n\nTodos os usuários voltam a acessar o sistema normalmente.')) return;
   try {
-    const r = await api('salvar_config_sge', { chave: 'modo_manutencao', valor: ativa ? '0' : '1' }, sessao()?.token);
-    if (r?.ok) { toast(ativa ? 'Manutenção desativada — acesso liberado.' : '🚧 Modo manutenção ativado.'); sgeVerificarManutencao(); }
-    else toast(r?.erro || 'Falha ao alterar o modo manutenção.');
+    const r = await api('salvar_config_sge', { chave: 'modo_manutencao', valor: '0' }, sessao()?.token);
+    if (r?.ok) { toast('Manutenção desativada — acesso liberado.'); sgeVerificarManutencao(); }
+    else toast(r?.erro || 'Falha ao desativar a manutenção.');
   } catch { toast('Sem conexão com o servidor.'); }
+}
+
+/* ---------- modal da trava: senha de 2 admins → 2 tokens de e-mail ---------- */
+function sgeAbrirModalTrava(){
+  $('trava-etapa1').classList.remove('hidden');
+  $('trava-etapa2').classList.add('hidden');
+  ['trava-senha1','trava-cpf2','trava-senha2','trava-tok1','trava-tok2'].forEach(i => { const e = $(i); if (e) e.value = ''; });
+  const m = $('modal-trava'); m.classList.remove('hidden'); m.classList.add('flex');
+}
+function travaFechar(){ const m = $('modal-trava'); m.classList.add('hidden'); m.classList.remove('flex'); }
+async function travaSolicitar(){
+  const b = $('btn-trava-solicitar'); b.disabled = true; b.textContent = 'Enviando tokens…';
+  try {
+    const r = await api('solicitar_trava_manutencao', {
+      senha1: $('trava-senha1').value,
+      cpf2: $('trava-cpf2').value.trim(),
+      senha2: $('trava-senha2').value,
+    }, sessao()?.token);
+    if (!r?.ok) { toast(r?.erro || 'Falha ao solicitar a trava.'); return; }
+    $('trava-emails').textContent = `Tokens enviados: ${r.email1 || '?'} e ${r.email2 || '?'}`;
+    $('trava-etapa1').classList.add('hidden');
+    $('trava-etapa2').classList.remove('hidden');
+    toast(r.mensagem || 'Tokens enviados por e-mail.');
+  } catch { toast('Sem conexão com o servidor.'); }
+  finally { b.disabled = false; b.textContent = 'Enviar tokens por e-mail'; }
+}
+async function travaConfirmar(){
+  const b = $('btn-trava-confirmar'); b.disabled = true;
+  try {
+    const r = await api('confirmar_trava_manutencao', {
+      token1: $('trava-tok1').value.trim(),
+      token2: $('trava-tok2').value.trim(),
+    }, sessao()?.token);
+    if (!r?.ok) { toast(r?.erro || 'Tokens inválidos.'); return; }
+    travaFechar(); toast('🚧 ' + (r.mensagem || 'Modo manutenção ativado.'));
+    sgeVerificarManutencao();
+  } catch { toast('Sem conexão com o servidor.'); }
+  finally { b.disabled = false; }
 }
 function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {}; return !!(u.tesoureiro ?? ac.tesoureiro); }
 function sgeModuloPermitido(mod){
