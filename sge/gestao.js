@@ -606,6 +606,50 @@ async function mediaReferencia(filtros, dados){
    ============================================================================ */
 const _mediaCampos = rs => Object.fromEntries(['entradas','dizimos','ofertas','despesas','saldo_liquido'].map(c => [c, rs.length ? rs.reduce((a, r) => a + r[c], 0) / rs.length : 0]));
 
+/* Todos os meses importados anteriores ao mês analisado (multi-ano), em ordem
+   cronológica. Reutiliza os resumos já carregados do ano vigente. */
+async function historicoMesesFechados(anoI, mesIdx, consF, congF, resumosAno){
+  const idxLim = anoI * 12 + (mesIdx - 1);
+  const lista = [];
+  try {
+    const periodos = await listarPeriodos();
+    const vistos = new Set();
+    await Promise.all(periodos.map(async p => {
+      const a = +p.ano, m = indiceMes(p.mes);
+      if (!Number.isFinite(a) || m < 1 || m > 12) return;
+      const idx = a * 12 + m - 1;
+      if (idx >= idxLim || vistos.has(idx)) return;
+      vistos.add(idx);
+      const r = (a === anoI && resumosAno) ? resumosAno[m] : await resumoMes(a, ORDEM_MESES[m - 1], consF, congF);
+      if (r && r.tem_dados) lista.push({ idx, ano: a, mesIdx: m, r });
+    }));
+  } catch(e){}
+  if (!lista.length && resumosAno){
+    for (const [i, r] of Object.entries(resumosAno)){
+      if (+i < mesIdx && r.tem_dados) lista.push({ idx: anoI * 12 + +i - 1, ano: anoI, mesIdx: +i, r });
+    }
+  }
+  lista.sort((a, b) => a.idx - b.idx);
+  return lista;
+}
+
+/* Perfil intra-mensal histórico: participação média de cada posição de semana
+   no total do mês. Só entram meses com o mesmo ciclo e todas as semanas com
+   movimento — meses parciais distorceriam a distribuição. */
+function perfilSemanalHistorico(histResumos, cicloAlvo, campo){
+  const soma = [0, 0, 0, 0, 0]; let usados = 0;
+  for (const h of histResumos){
+    if (obterCiclo(h.ano, ORDEM_MESES[h.mesIdx - 1]).total_semanas !== cicloAlvo) continue;
+    const sems = h.r.semanas.slice(0, cicloAlvo);
+    if (sems.filter(s => s.tem_dados).length < cicloAlvo) continue;
+    const total = sems.reduce((a, s) => a + num(s[campo]), 0);
+    if (total <= EPS) continue;
+    usados++;
+    sems.forEach((s, k) => { soma[k] += num(s[campo]) / total; });
+  }
+  return { perfil: usados ? soma.map(v => v / usados) : null, meses: usados };
+}
+
 async function analisarMes(ano, mes){
   const anoI = parseInt(ano, 10);
   if (!Number.isFinite(anoI)) return { sucesso: false, mensagem: 'Ano inválido para análise mensal.' };
@@ -651,16 +695,35 @@ async function analisarMes(ano, mes){
     vEquivRes = variacaoPct(entAtualP - despAtualP, entAntP - despAntP);
   }
 
-  const razoes = mesesHist.filter(r => r.entradas > EPS).map(r => r.despesas / r.entradas);
+  /* ---- Histórico multi-ano (2023+ importado) para as projeções ---- */
+  const histResumos = await historicoMesesFechados(anoI, mesIdx, consF, congF, resumos);
+  const idxObsSem = atual.semanas.slice(0, semanasTotal).map((s, i) => s.tem_dados ? i : -1).filter(i => i >= 0);
+  const razoes = histResumos.filter(h => num(h.r.entradas) > EPS).map(h => num(h.r.despesas) / num(h.r.entradas));
   const razaoDespEnt = razoes.length ? mediaArr(razoes) : 1;
-  const entradasProj = entAtualP + atual.media_semanal_entradas * faltantes;
+
+  /* Fechamento do mês: combina o ritmo do próprio mês com o escalonamento pelo
+     perfil semanal histórico — se as semanas já fechadas costumam concentrar
+     X% do total mensal, o acumulado projeta o fechamento por essa proporção. */
+  const estimarFechamento = (parcial, mediaSemMes, campo) => {
+    const estimRitmo = parcial + mediaSemMes * faltantes;
+    const { perfil, meses: nPerfil } = perfilSemanalHistorico(histResumos, semanasTotal, campo);
+    if (!perfil || parcial <= EPS) return { valor: estimRitmo, fonte: 'ritmo semanal do mês' };
+    const cumObs = idxObsSem.reduce((a, k) => a + perfil[k], 0);
+    if (cumObs < 0.02) return { valor: estimRitmo, fonte: 'ritmo semanal do mês' };
+    const estimPerfil = parcial / cumObs;
+    const w = Math.min(0.7, nPerfil / 10);
+    return { valor: w * estimPerfil + (1 - w) * estimRitmo, fonte: `perfil histórico (${nPerfil} meses)` };
+  };
+  const estFechEnt = estimarFechamento(entAtualP, num(atual.media_semanal_entradas), 'entradas');
+  const estFechDesp = estimarFechamento(despAtualP, num(atual.media_semanal_despesas), 'despesas');
+  const entradasProj = estFechEnt.valor;
   const caixaDisp = atual.saldo_inicial_mes + entradasProj;
-  const despesasProj = Math.max(despAtualP, Math.min(entradasProj * razaoDespEnt, caixaDisp));
+  const despesasProj = Math.max(despAtualP, Math.min(Math.max(estFechDesp.valor, entradasProj * razaoDespEnt), Math.max(caixaDisp, despAtualP)));
 
   const projecao = {
     mes_em_andamento: faltantes > 0, semanas_restantes: faltantes,
     fechamento_entradas: +entradasProj.toFixed(2), fechamento_despesas: +despesasProj.toFixed(2),
-    base_semanal_usada: 'ritmo semanal do mês', razao_desp_ent: +razaoDespEnt.toFixed(4),
+    base_semanal_usada: estFechEnt.fonte, razao_desp_ent: +razaoDespEnt.toFixed(4),
   };
   projecao.fechamento_saldo = +(projecao.fechamento_entradas - projecao.fechamento_despesas).toFixed(2);
 
@@ -674,22 +737,63 @@ async function analisarMes(ano, mes){
     var_entradas_equiv: vEquivEnt, var_despesas_equiv: vEquivDesp, var_dizimos_equiv: vEquivDiz,
     var_ofertas_equiv: vEquivOf, var_resultado_equiv: vEquivRes };
 
-  const taxas = mesesHist.filter(r => r.semanas_com_dados).map(r => r.entradas / r.semanas_com_dados);
-  const nHist = taxas.length;
-  const movel3 = mesesHist.length ? mediaArr(mesesHist.slice(-3).map(r => r.entradas)) : 0;
-  const [pNome, pAno] = mesIdx < 12 ? [ORDEM_MESES[mesIdx], anoI] : ['Janeiro', anoI + 1];
+  /* Próximo mês: taxa semanal combinando três estimadores —
+     sazonalidade (mesmo mês em anos anteriores, peso por recência),
+     tendência (regressão dos últimos ≤12 meses) e média móvel de 3 meses. */
+  const pMesIdxNum = mesIdx < 12 ? mesIdx + 1 : 1;
+  const [pNome, pAno] = [ORDEM_MESES[pMesIdxNum - 1], pMesIdxNum === 1 ? anoI + 1 : anoI];
+  const taxaSemMes = (h, campo) => num(h.r[campo]) / Math.max(1, num(h.r.semanas_com_dados));
+  const projTaxaSemanal = campo => {
+    const taxas = histResumos.map(h => taxaSemMes(h, campo));
+    const n = taxas.length;
+    if (!n) return null;
+    const janela = taxas.slice(-12);
+    const [a, b] = polyfit1(janela.map((_, i) => i), janela);
+    const tendencia = Math.max(0, a * janela.length + b);
+    const movel = mediaArr(taxas.slice(-3));
+    /* Índice sazonal do mês-alvo: razão entre a taxa do mesmo mês e a média
+       do próprio ano — remove a deriva de nível (crescimento) e isola o
+       efeito do mês. Aplicado sobre o nível recente (média 6m). */
+    const idxSazonais = [];
+    for (const h of histResumos.filter(h => h.mesIdx === pMesIdxNum)){
+      const doAno = histResumos.filter(x => x.ano === h.ano);
+      if (doAno.length < 6) continue;
+      const mediaAno = mediaArr(doAno.map(x => taxaSemMes(x, campo)));
+      if (mediaAno > EPS) idxSazonais.push(taxaSemMes(h, campo) / mediaAno);
+    }
+    let sazonal = null;
+    if (idxSazonais.length){
+      const nivel = mediaArr(taxas.slice(-6));
+      const pesos = idxSazonais.map((_, i) => i + 1);
+      const idxS = idxSazonais.reduce((acc, v, i) => acc + v * pesos[i], 0) / pesos.reduce((acc, v) => acc + v, 0);
+      sazonal = Math.max(0, nivel * Math.min(1.6, Math.max(0.5, idxS)));
+    }
+    let taxa;
+    if (sazonal !== null && idxSazonais.length >= 2) taxa = 0.5 * sazonal + 0.3 * tendencia + 0.2 * movel;
+    else if (sazonal !== null) taxa = 0.35 * sazonal + 0.4 * tendencia + 0.25 * movel;
+    else taxa = n >= 3 ? 0.7 * tendencia + 0.3 * movel : movel;
+    return { taxa: Math.max(0, taxa), nSazonal: idxSazonais.length };
+  };
   const semanasProx = obterCiclo(pAno, pNome).total_semanas;
-  let taxaProx;
-  if (nHist >= 3){ const xs = taxas.map((_, i) => i); const [a, b] = polyfit1(xs, taxas); taxaProx = Math.max(0, a * nHist + b); }
-  else if (nHist) taxaProx = mediaArr(taxas);
-  else taxaProx = num(atual.media_semanal_entradas);
-  const projEntProx = taxaProx * semanasProx, projDespProx = projEntProx * razaoDespEnt;
+  const projEnt = projTaxaSemanal('entradas');
+  const projDespT = projTaxaSemanal('despesas');
+  const taxaProx = projEnt ? projEnt.taxa : num(atual.media_semanal_entradas);
+  const projEntProx = taxaProx * semanasProx;
+  const projDespProx = projDespT ? projDespT.taxa * semanasProx : projEntProx * razaoDespEnt;
+  const nHist = histResumos.length;
+  const movel3 = nHist ? mediaArr(histResumos.slice(-3).map(h => num(h.r.entradas))) : 0;
+  /* Confiança: volume de histórico, presença de sazonalidade e dispersão (CV)
+     da taxa semanal — séries estáveis e com vários anos geram alta confiança. */
+  const taxasEnt = histResumos.map(h => taxaSemMes(h, 'entradas'));
+  const mediaT = mediaArr(taxasEnt);
+  const cv = mediaT > EPS ? Math.sqrt(mediaArr(taxasEnt.map(v => (v - mediaT) ** 2))) / mediaT : 9;
+  const confianca = nHist >= 12 && (projEnt?.nSazonal || 0) >= 2 && cv < 0.35 ? 'alta' : nHist >= 6 ? 'moderada' : 'baixa';
   Object.assign(projecao, {
     proximo_mes_entradas: +projEntProx.toFixed(2), proximo_mes_despesas: +projDespProx.toFixed(2),
     proximo_mes_saldo: +(projEntProx - projDespProx).toFixed(2), proximo_mes_rotulo: `${pNome}/${pAno}`,
     semanas_proximo_mes: semanasProx, taxa_semanal_projetada: +taxaProx.toFixed(2),
     media_movel_3m_entradas: +movel3.toFixed(2),
-    confianca: nHist >= 6 ? 'alta' : nHist >= 3 ? 'moderada' : 'baixa', meses_historico: nHist,
+    confianca, meses_historico: nHist, meses_sazonais: projEnt?.nSazonal || 0,
   });
 
   const comparativos = {
@@ -787,13 +891,30 @@ async function mediaSemanalAno(anoI, mesIdx, consF, congF){
   return sem ? ent / sem : 0;
 }
 async function mediaSemanaPosicao(anoI, mesIdx, semanaAtual, consF, congF){
+  /* Média ponderada por recência da mesma posição de semana em todo o
+     histórico importado (multi-ano) — meses recentes pesam mais. */
   const vals = [];
-  for (let m = 1; m < mesIdx; m++){
-    const r = await resumoMes(anoI, ORDEM_MESES[m - 1], consF, congF);
-    const sems = (r || {}).semanas || [];
-    if (semanaAtual <= sems.length && sems[semanaAtual - 1].tem_dados) vals.push(num(sems[semanaAtual - 1].entradas));
-  }
-  return vals.length ? [mediaArr(vals), vals.length] : [0, 0];
+  const idxLim = anoI * 12 + (mesIdx - 1);
+  try {
+    const periodos = await listarPeriodos();
+    const vistos = new Set();
+    await Promise.all(periodos.map(async p => {
+      const a = +p.ano, m = indiceMes(p.mes);
+      if (!Number.isFinite(a) || m < 1 || m > 12) return;
+      const idx = a * 12 + m - 1;
+      if (idx >= idxLim || vistos.has(idx)) return;
+      vistos.add(idx);
+      const r = await resumoMes(a, ORDEM_MESES[m - 1], consF, congF);
+      const sems = (r || {}).semanas || [];
+      if (semanaAtual <= sems.length && sems[semanaAtual - 1].tem_dados)
+        vals.push({ idx, v: num(sems[semanaAtual - 1].entradas) });
+    }));
+  } catch(e){}
+  if (!vals.length) return [0, 0];
+  vals.sort((a, b) => a.idx - b.idx);
+  const pesos = vals.map((_, i) => i + 1);
+  const media = vals.reduce((acc, x, i) => acc + x.v * pesos[i], 0) / pesos.reduce((a, b) => a + b, 0);
+  return [media, vals.length];
 }
 async function calcularFluxo(ano, mes){
   const anoI = parseInt(ano, 10);
@@ -1282,7 +1403,7 @@ window.gestaoMensalCarregar = async function(){
 
   const cardsProj = [];
   if (proj.mes_em_andamento) cardsProj.push(`<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid fa-hourglass-half text-violet-400"></i>Fechamento projetado do mês</div><p class="text-lg font-bold mt-2 text-emerald-500 tabular-nums">${moeda(proj.fechamento_entradas)}</p><p class="text-[10px] opacity-60 mt-1">${proj.semanas_restantes} sem. restantes × ${esc(proj.base_semanal_usada)} • despesas prev. ${moeda(proj.fechamento_despesas)}${perfilConsultor() ? '' : ` • saldo ${moeda(proj.fechamento_saldo)}`}</p></div>`);
-  cardsProj.push(`<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid fa-arrow-trend-up text-sky-400"></i>Projeção próximo mês (${esc(proj.proximo_mes_rotulo || '-')})</div><p class="text-lg font-bold mt-2 text-sky-400 tabular-nums">${moeda(proj.proximo_mes_entradas)}</p><p class="text-[10px] opacity-60 mt-1">taxa semanal ${moeda(proj.taxa_semanal_projetada)} × ${proj.semanas_proximo_mes} semanas • confiança ${esc(proj.confianca)} (base ${proj.meses_historico} meses) • média móvel 3m ${moeda(proj.media_movel_3m_entradas)}</p></div>`);
+  cardsProj.push(`<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid fa-arrow-trend-up text-sky-400"></i>Projeção próximo mês (${esc(proj.proximo_mes_rotulo || '-')})</div><p class="text-lg font-bold mt-2 text-sky-400 tabular-nums">${moeda(proj.proximo_mes_entradas)}</p><p class="text-[10px] opacity-60 mt-1">taxa semanal ${moeda(proj.taxa_semanal_projetada)} × ${proj.semanas_proximo_mes} semanas • confiança ${esc(proj.confianca)} (base ${proj.meses_historico} meses${proj.meses_sazonais ? ` • sazonal ${proj.meses_sazonais} ano(s)` : ''}) • média móvel 3m ${moeda(proj.media_movel_3m_entradas)}</p></div>`);
   el('mm-projecoes').innerHTML = cardsProj.join('');
 
   const icoTipo = { positivo: ['fa-circle-check', 'text-emerald-500'], atencao: ['fa-triangle-exclamation', 'text-amber-500'], negativo: ['fa-circle-xmark', 'text-red-500'], neutro: ['fa-circle-info', 'text-sky-400'], info: ['fa-lightbulb', 'text-violet-400'] };
