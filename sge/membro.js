@@ -123,7 +123,10 @@ window.renderMembroInicio = function() {
     </div>
     ${memCard(`<p class="text-[9px] font-bold uppercase tracking-wider mb-2 opacity-60">Novidades pra você</p>
       <div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="mudarVisao('membro_financeiro')"><i class="fa-solid fa-hand-holding-heart text-sm w-5 text-center" style="color:#10b981"></i><p class="text-[11px] flex-1"><b>Meu Financeiro</b> — suas contribuições registradas pela tesouraria</p><i class="fa-solid fa-chevron-right text-[9px] opacity-40"></i></div>
-      <div class="flex items-center gap-2.5"><i class="fa-solid fa-helmet-safety text-sm w-5 text-center" style="color:#f59e0b"></i><p class="text-[11px] flex-1 opacity-60">Novos módulos em construção — em breve pra você</p></div>`)}
+      ${_memEhPiloto()
+        ? `<div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="mudarVisao('membro_comunidade')"><i class="fa-solid fa-users text-sm w-5 text-center" style="color:#e11d48"></i><p class="text-[11px] flex-1"><b>Comunidade</b> — feed interno já disponível pra você</p><i class="fa-solid fa-chevron-right text-[9px] opacity-40"></i></div>
+           <div class="flex items-center gap-2.5 cursor-pointer" onclick="mudarVisao('membro_estudos')"><i class="fa-solid fa-book-open text-sm w-5 text-center" style="color:#8b5cf6"></i><p class="text-[11px] flex-1"><b>Estudos</b> — palavra do dia, leitura anual e devocionais</p><i class="fa-solid fa-chevron-right text-[9px] opacity-40"></i></div>`
+        : `<div class="flex items-center gap-2.5"><i class="fa-solid fa-helmet-safety text-sm w-5 text-center" style="color:#f59e0b"></i><p class="text-[11px] flex-1 opacity-60">Novos módulos em construção — em breve pra você</p></div>`}`)}
     ${memEmBreve('fa-calendar-week', '#d97706', 'Sua semana', 'Em breve: seus cultos, escalas e eventos da sua congregação reunidos aqui.')}`;
 };
 
@@ -136,22 +139,84 @@ window.renderMembroCongregacao = function() {
     ${memEmConstrucao('Minha Congregação', 'Em construção: suas escalas de louvor/culto, avisos direcionados e agenda da congregação.')}`;
 };
 
-/* ---------- COMUNIDADE do membro (em construção — só piloto vê na nav) ---------- */
+/* ---------- COMUNIDADE do membro ----------
+   Piloto (CPF mestre): feed real — mesmo módulo da gestão (stories, reações).
+   Demais membros: placeholder "Em breve". */
 window.renderMembroComunidade = function() {
   const c = $('dash-conteudo');
   if (!c) return;
+  if (_memEhPiloto() && typeof renderComunidade === 'function') { renderComunidade(); return; }
   c.innerHTML = `
     ${memHeader('fa-users', '#e11d48', 'Comunidade', 'Módulo em construção')}
     ${memEmConstrucao('Comunidade', 'Em construção: feed de avisos, cultos e posts do campo direcionados a você.')}`;
 };
 
-/* ---------- ESTUDOS (em construção — só piloto vê na nav) ---------- */
-window.renderMembroEstudos = function() {
+/* ---------- ESTUDOS ----------
+   Piloto: Palavra do dia + plano de leitura anual + devocionais publicados
+   na Comunidade (template 'devocional'). Demais membros: "Em breve". */
+const EST_LIVROS = [
+  ['Gn',50],['Êx',40],['Lv',27],['Nm',36],['Dt',34],['Js',24],['Jz',21],['Rt',4],
+  ['1Sm',31],['2Sm',24],['1Rs',22],['2Rs',25],['1Cr',29],['2Cr',36],['Ed',10],['Ne',13],
+  ['Et',10],['Jó',42],['Sl',150],['Pv',31],['Ec',12],['Ct',8],['Is',66],['Jr',52],
+  ['Lm',5],['Ez',48],['Dn',12],['Os',14],['Jl',3],['Am',9],['Ob',1],['Jn',4],
+  ['Mq',7],['Na',3],['Hc',3],['Sf',3],['Ag',2],['Zc',14],['Ml',4],['Mt',28],
+  ['Mc',16],['Lc',24],['Jo',21],['At',28],['Rm',16],['1Co',16],['2Co',13],['Gl',6],
+  ['Ef',6],['Fp',4],['Cl',4],['1Ts',5],['2Ts',3],['1Tm',6],['2Tm',4],['Tt',3],['Fm',1],
+  ['Hb',13],['Tg',5],['1Pe',5],['2Pe',3],['1Jo',5],['2Jo',1],['3Jo',1],['Jd',1],['Ap',22],
+];
+const EST_TOTAL_CAPS = EST_LIVROS.reduce((a, l) => a + l[1], 0); // 1189
+function estLeituraHoje() {
+  const ano = new Date().getFullYear();
+  const dia = Math.floor((Date.now() - new Date(ano, 0, 0).getTime()) / 864e5); // 1..365
+  const ini = Math.floor((dia - 1) * EST_TOTAL_CAPS / 365), fim = Math.floor(dia * EST_TOTAL_CAPS / 365);
+  const refs = [];
+  let acc = 0;
+  for (const [nome, caps] of EST_LIVROS) {
+    for (let cap = 1; cap <= caps; cap++) {
+      const idx = acc + cap - 1;
+      if (idx >= ini && idx < fim) refs.push(`${nome} ${cap}`);
+    }
+    acc += caps;
+  }
+  return { refs, dia };
+}
+
+window.renderMembroEstudos = async function() {
   const c = $('dash-conteudo');
   if (!c) return;
+  if (!_memEhPiloto()) {
+    c.innerHTML = `
+      ${memHeader('fa-book-open', '#8b5cf6', 'Estudos', 'Módulo em construção')}
+      ${memEmConstrucao('Estudos', 'Em construção: devocionais, lições da EBD e plano de leitura semanal.')}`;
+    return;
+  }
+  const vers = (typeof VERSICULOS_DASH !== 'undefined' && VERSICULOS_DASH.length)
+    ? VERSICULOS_DASH[new Date().getDate() % VERSICULOS_DASH.length] : ['Buscai primeiro o Reino de Deus.', 'Mateus 6:33'];
+  const { refs, dia } = estLeituraHoje();
   c.innerHTML = `
-    ${memHeader('fa-book-open', '#8b5cf6', 'Estudos', 'Módulo em construção')}
-    ${memEmConstrucao('Estudos', 'Em construção: devocionais, lições da EBD e plano de leitura semanal.')}`;
+    ${memHeader('fa-book-open', '#8b5cf6', 'Estudos', 'Versão Beta — em avaliação')}
+    <div class="border rounded-2xl p-4 mb-3" style="background:linear-gradient(135deg,#8b5cf61a,var(--bg-card));border-color:var(--border-color)">
+      <p class="text-[9px] font-bold uppercase tracking-wider mb-1" style="color:#8b5cf6">📖 Palavra do dia</p>
+      <p class="text-xs leading-relaxed italic">"${memEsc(vers[0])}"</p>
+      <p class="text-[10px] font-bold mt-1.5" style="color:#8b5cf6">— ${memEsc(vers[1])}</p>
+    </div>
+    ${memCard(`<div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:#8b5cf61a"><i class="fa-solid fa-calendar-day" style="color:#8b5cf6"></i></div>
+      <div class="flex-1 min-w-0"><p class="text-[9px] font-bold uppercase tracking-wider opacity-60">Plano de leitura anual — dia ${dia}/365</p>
+      <p class="text-xs font-bold mt-0.5">${memEsc(refs.join('  ·  '))}</p></div></div>`)}
+    <p class="text-[9px] font-bold uppercase tracking-wider mb-2 mt-1 opacity-60"><i class="fa-solid fa-hands-praying mr-1"></i>Devocionais publicados</p>
+    <div id="est-devocionais"><div class="flex items-center justify-center gap-2.5 py-8 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div></div>`;
+  try {
+    const r = await api('listar_posts_comunidade', null, sessao()?.token);
+    const devos = (r?.posts || []).filter(p => p.template === 'devocional');
+    const box = document.getElementById('est-devocionais');
+    if (box) box.innerHTML = devos.length
+      ? devos.map(p => comPostHtml(p)).join('')
+      : `<div class="border-2 border-dashed rounded-2xl p-6 text-center" style="border-color:var(--border-color)"><i class="fa-solid fa-book-open text-xl opacity-30 mb-2 block"></i><p class="text-xs font-bold opacity-60">Nenhum devocional publicado ainda</p><p class="text-[10px] opacity-40 mt-1">Quando a secretaria publicar devocionais na Comunidade, eles aparecem aqui.</p></div>`;
+  } catch (e) {
+    const box = document.getElementById('est-devocionais');
+    if (box) box.innerHTML = `<div class="text-center py-6 text-xs" style="color:var(--color-danger)">${memEsc(e?.data?.erro || e?.message || 'Falha ao carregar devocionais.')}</div>`;
+  }
 };
 
 /* ---------- MEU FINANCEIRO ---------- */
