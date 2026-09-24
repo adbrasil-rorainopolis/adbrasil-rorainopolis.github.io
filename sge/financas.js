@@ -166,7 +166,7 @@ window.renderFinanceiro = function(){
         ${['rol','frequencia'].filter(finAbaPermitida).map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
         ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
         ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
-        ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-calculator mr-1"></i>Orçamentos</button>` : ''}
+        ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
@@ -2361,15 +2361,22 @@ window.prestSalvarPeriodicidades = async function(){
   finally { if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i>Salvar periodicidades'; } }
 };
 
-/* ===================== Orçamentos Avulsos da Tesouraria =====================
+/* ===================== Eventos Diversos da Tesouraria =====================
    Persistência compartilhada com o desktop: linha única em app_config
    (chave `orcamentos_tesouraria`) lida/gravada pelas ações de config já
-   publicadas na edge function — sem deploy adicional. */
+   publicadas na edge function — sem deploy adicional.
+   Modelo: saídas (data, descrição, forma de pagamento, valor) + reembolsos
+   que abatem o total. Sem valor previsto — só controle e soma. */
 const ORC = { id: null, dados: null, busca: '', verArquivados: false };
 const ORC_CHAVE = 'orcamentos_tesouraria';
+const ORC_FORMAS = { pix: 'Pix', debito: 'Débito', dinheiro: 'Dinheiro', credito: 'Crédito' };
 const orcStatusInfo = s => s === 'finalizado'
   ? { rot: 'FINALIZADO', cor: '#16a34a' }
   : { rot: 'EM ANDAMENTO', cor: '#f59e0b' };
+const _orcForma = f => { const k = String(f || '').trim().toLowerCase().replace(/[éê]/g, 'e'); return ORC_FORMAS[k] ? k : ''; };
+const _orcRotuloForma = f => ORC_FORMAS[f] || 'Não informado';
+const _orcDataBr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+const _orcR2 = v => Math.round(num(v) * 100) / 100;
 
 async function orcCarregarDados(){
   const res = await api('obter_config_sge', { chave: ORC_CHAVE }, sessao()?.token);
@@ -2385,12 +2392,20 @@ async function orcGravarDados(lista){
   await api('salvar_config_sge', { chave: ORC_CHAVE, valor: JSON.stringify({ orcamentos: lista, versao: 1 }) }, sessao()?.token);
 }
 function orcTotais(o){
-  const itens = (o.itens || []).slice().sort((a, b) =>
-    String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || '')));
-  const total = itens.reduce((a, i) => a + num(i.valor), 0);
-  const prev = num(o.valor_previsto);
-  return { ...o, itens, total_itens: itens.length, total_saidas: total,
-    saldo_previsto: prev ? prev - total : null };
+  const ord = (a, b) =>
+    String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || ''));
+  const itens = (o.itens || []).slice().sort(ord);
+  const reembolsos = (o.reembolsos || []).slice().sort(ord);
+  const total = _orcR2(itens.reduce((a, i) => a + num(i.valor), 0));
+  const sub = {};
+  for (const i of itens){
+    const f = _orcForma(i.forma_pagamento) || 'outros';
+    sub[f] = _orcR2((sub[f] || 0) + num(i.valor));
+  }
+  const totalRem = _orcR2(reembolsos.reduce((a, r) => a + num(r.valor), 0));
+  return { ...o, itens, reembolsos, total_itens: itens.length, total_saidas: total,
+    subtotais_forma: sub, total_reembolsos: reembolsos.length,
+    total_reembolsado: totalRem, saldo_final: _orcR2(total - totalRem) };
 }
 const orcHora = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; };
 
@@ -2400,7 +2415,7 @@ function orcRenderTela(){
     <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex gap-2">
-          <input id="orc-busca" value="${esc(ORC.busca)}" placeholder="Buscar orçamento…" class="flex-1 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <input id="orc-busca" value="${esc(ORC.busca)}" placeholder="Buscar evento…" class="flex-1 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           <button onclick="orcBuscar()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)"><i class="fa-solid fa-magnifying-glass"></i></button>
         </div>
         <div class="flex items-center gap-2">
@@ -2427,15 +2442,15 @@ async function orcCarregarLista(){
         && (ORC.verArquivados || !o.arquivado)
         && (!busca || `${o.titulo} ${o.cabecalho} ${o.observacoes}`.toLowerCase().includes(busca)))
       .sort((a, b) => (num(a.arquivado) - num(b.arquivado)) || String(b.criado_em || '').localeCompare(String(a.criado_em || '')));
-    if (!orcs.length){ lista.innerHTML = `<p class="text-xs text-center py-10 opacity-60">Nenhum orçamento encontrado.<br>Toque em <b>Novo</b> para criar o primeiro.</p>`; return; }
+    if (!orcs.length){ lista.innerHTML = `<p class="text-xs text-center py-10 opacity-60">Nenhum evento encontrado.<br>Toque em <b>Novo</b> para criar o primeiro.</p>`; return; }
     lista.innerHTML = orcs.map(o => {
-      const st = orcStatusInfo(o.status), prev = num(o.valor_previsto);
+      const st = orcStatusInfo(o.status);
       return `<div onclick="orcAbrir('${esc(o.id)}')" class="border rounded-2xl p-3 cursor-pointer ${o.arquivado ? 'opacity-55' : ''}" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-start gap-2">
           <div class="flex-1 min-w-0">
             <p class="text-xs font-bold truncate">${esc(o.titulo)}</p>
             ${o.cabecalho ? `<p class="text-[10px] opacity-60 truncate">${esc(o.cabecalho)}</p>` : ''}
-            <p class="text-[10px] mt-1" style="color:var(--text-muted)">Saídas: <b>${moeda(o.total_saidas)}</b>${prev ? ` · Previsto: <b>${moeda(prev)}</b> · Saldo: <b style="color:${o.saldo_previsto < 0 ? '#ef4444' : '#10b981'}">${moeda(o.saldo_previsto)}</b>` : ''} · ${o.total_itens} lanç.</p>
+            <p class="text-[10px] mt-1" style="color:var(--text-muted)">Saídas: <b>${moeda(o.total_saidas)}</b>${o.total_reembolsos ? ` · Reemb.: <b style="color:#34d399">${moeda(o.total_reembolsado)}</b> · Saldo: <b style="color:${o.saldo_final > 0 ? '#f87171' : '#34d399'}">${moeda(o.saldo_final)}</b>` : ''} · ${o.total_itens} saída(s)${o.total_reembolsos ? ` + ${o.total_reembolsos} reemb.` : ''}</p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
             <span class="text-[8.5px] font-extrabold px-2 py-0.5 rounded-full" style="color:${st.cor};background:${st.cor}1c">${st.rot}</span>
@@ -2449,12 +2464,12 @@ async function orcCarregarLista(){
 
 window.orcAbrir = async function(id){
   ORC.id = id;
-  el('fin-sub').innerHTML = `<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando orçamento…</div>`;
+  el('fin-sub').innerHTML = `<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando evento…</div>`;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === id && !x.excluido_em);
     ORC.dados = o ? orcTotais(o) : null;
-    if (!ORC.dados){ toast('Orçamento não encontrado.'); ORC.id = null; return orcRenderTela(); }
+    if (!ORC.dados){ toast('Evento não encontrado.'); ORC.id = null; return orcRenderTela(); }
     orcRenderDetalhe();
   } catch(e){ toast(e.message || 'Falha ao carregar.'); ORC.id = null; orcRenderTela(); }
 };
@@ -2462,17 +2477,39 @@ window.orcVoltar = function(){ ORC.id = null; ORC.dados = null; orcRenderTela();
 
 function orcRenderDetalhe(){
   const o = ORC.dados; if (!o) return;
-  const st = orcStatusInfo(o.status), prev = num(o.valor_previsto), fechado = o.status === 'finalizado';
+  const st = orcStatusInfo(o.status), fechado = o.status === 'finalizado';
+  const acoes = (lanc, tipo) => fechado ? ''
+    : `<button onclick="orcEditarItem('${esc(lanc.id)}','${tipo}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(14,165,233,.14);color:#38bdf8"><i class="fa-solid fa-pen"></i></button>
+      <button onclick="orcRemoverItem('${esc(lanc.id)}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash"></i></button>`;
   const itens = (o.itens || []).map(i => `
     <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
       <div class="flex-1 min-w-0">
         <p class="text-[11px] font-bold truncate">${esc(i.descricao)}</p>
-        <p class="text-[9.5px] opacity-60">${esc((i.data || '').split('-').reverse().join('/'))}</p>
+        <p class="text-[9.5px] opacity-60">${esc(_orcDataBr(i.data))} · <span class="font-bold" style="color:#38bdf8">${_orcRotuloForma(_orcForma(i.forma_pagamento))}</span></p>
       </div>
       <span class="text-[11px] font-extrabold shrink-0" style="color:#ef4444">${moeda(i.valor)}</span>
-      ${fechado ? '' : `<button onclick="orcEditarItem('${esc(i.id)}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(14,165,233,.14);color:#38bdf8"><i class="fa-solid fa-pen"></i></button>
-      <button onclick="orcRemoverItem('${esc(i.id)}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash"></i></button>`}
+      ${acoes(i, 'item')}
     </div>`).join('');
+  const sub = o.subtotais_forma || {};
+  const chips = Object.keys(ORC_FORMAS).filter(f => sub[f])
+    .map(f => `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${ORC_FORMAS[f]}</p><p class="text-[11px] font-extrabold" style="color:#38bdf8">${moeda(sub[f])}</p></div>`).join('')
+    + (sub.outros ? `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Não informado</p><p class="text-[11px] font-extrabold" style="color:#38bdf8">${moeda(sub.outros)}</p></div>` : '');
+  const reembolsos = (o.reembolsos || []).map(r => `
+    <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
+      <div class="flex-1 min-w-0">
+        <p class="text-[11px] font-bold truncate">${esc(r.descricao)}</p>
+        <p class="text-[9.5px] opacity-60">${esc(_orcDataBr(r.data))}</p>
+      </div>
+      <span class="text-[11px] font-extrabold shrink-0" style="color:#34d399">- ${moeda(r.valor)}</span>
+      ${acoes(r, 'reembolso')}
+    </div>`).join('');
+  const saldo = o.saldo_final || 0;
+  const rotSaldo = saldo > 0 ? 'Saldo a reembolsar' : (saldo < 0 ? 'Reembolso excedente' : 'Quitado');
+  const resumo = (o.total_reembolsos || 0) > 0
+    ? `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total de saídas</p><p class="text-[11px] font-extrabold" style="color:#f87171">${moeda(o.total_saidas)}</p></div>
+       <div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Reembolsado</p><p class="text-[11px] font-extrabold" style="color:#34d399">- ${moeda(o.total_reembolsado)}</p></div>
+       <div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${saldo > 0 ? 'rgba(248,113,113,.4)' : 'rgba(52,211,153,.4)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rotSaldo}</p><p class="text-[11px] font-extrabold" style="color:${saldo > 0 ? '#f87171' : '#34d399'}">${moeda(Math.abs(saldo))}</p></div>`
+    : `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total geral</p><p class="text-[11px] font-extrabold" style="color:#f87171">${moeda(o.total_saidas)}</p></div>`;
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
       <button onclick="orcVoltar()" class="text-[10px] font-bold cursor-pointer" style="color:#38bdf8"><i class="fa-solid fa-arrow-left mr-1"></i>Voltar à lista</button>
@@ -2483,11 +2520,6 @@ function orcRenderDetalhe(){
             ${o.cabecalho ? `<p class="text-[10px] opacity-70">${esc(o.cabecalho)}</p>` : ''}
           </div>
           <span class="text-[8.5px] font-extrabold px-2 py-0.5 rounded-full shrink-0" style="color:${st.cor};background:${st.cor}1c">${st.rot}</span>
-        </div>
-        <div class="grid grid-cols-3 gap-1.5 text-center">
-          <div class="rounded-xl py-1.5" style="background:rgba(14,165,233,.1)"><p class="text-[8px] font-bold uppercase opacity-60">Previsto</p><p class="text-[11px] font-extrabold" style="color:#38bdf8">${prev ? moeda(prev) : '—'}</p></div>
-          <div class="rounded-xl py-1.5" style="background:rgba(239,68,68,.1)"><p class="text-[8px] font-bold uppercase opacity-60">Saídas</p><p class="text-[11px] font-extrabold" style="color:#f87171">${moeda(o.total_saidas)}</p></div>
-          <div class="rounded-xl py-1.5" style="background:rgba(16,185,129,.1)"><p class="text-[8px] font-bold uppercase opacity-60">Saldo</p><p class="text-[11px] font-extrabold" style="color:${o.saldo_previsto != null && o.saldo_previsto < 0 ? '#ef4444' : '#34d399'}">${o.saldo_previsto != null ? moeda(o.saldo_previsto) : '—'}</p></div>
         </div>
         ${o.observacoes ? `<p class="text-[10px] opacity-70 whitespace-pre-wrap">${esc(o.observacoes)}</p>` : ''}
         <p class="text-[9px] opacity-50">Criado por ${esc(o.criado_por || '')}${o.finalizado_em ? ` · Finalizado em ${new Date(o.finalizado_em).toLocaleDateString('pt-BR')}` : ''}</p>
@@ -2511,6 +2543,15 @@ function orcRenderDetalhe(){
       <div class="border rounded-2xl px-3 divide-y" style="background:var(--bg-card);border-color:var(--border-color)">
         ${itens || `<p class="text-xs text-center py-8 opacity-60">Nenhuma saída lançada ainda.</p>`}
       </div>
+      ${chips ? `<div><p class="text-[9px] font-bold uppercase opacity-60 mb-1">Subtotal por forma de pagamento</p><div class="flex gap-1.5 flex-wrap">${chips}</div></div>` : ''}
+      <div class="flex items-center justify-between">
+        <p class="text-[10px] font-bold uppercase opacity-60">Reembolsos (${o.total_reembolsos || 0})</p>
+        ${fechado ? '' : `<button onclick="orcNovoReembolso()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1"></i>Reembolso</button>`}
+      </div>
+      <div class="border rounded-2xl px-3 divide-y" style="background:var(--bg-card);border-color:var(--border-color)">
+        ${reembolsos || `<p class="text-xs text-center py-6 opacity-60">Nenhum reembolso lançado.</p>`}
+      </div>
+      <div><p class="text-[9px] font-bold uppercase opacity-60 mb-1">Resumo</p><div class="flex gap-1.5 flex-wrap">${resumo}</div></div>
       <div class="pb-4"></div>
     </div>`;
 }
@@ -2518,15 +2559,15 @@ function orcRenderDetalhe(){
 /* ---------- modal de cabeçalho / edição ---------- */
 window.orcNovo = function(edicao){
   const o = edicao ? ORC.dados : {};
-  _orcModal(`<h3 class="text-sm font-extrabold mb-3">${edicao ? 'Editar orçamento' : 'Novo orçamento'}</h3>
+  _orcModal(`<h3 class="text-sm font-extrabold mb-3">${edicao ? 'Editar evento' : 'Novo evento'}</h3>
     <div class="space-y-2.5">
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Título *</span><input id="orcm-titulo" value="${esc(o.titulo || '')}" placeholder="Ex.: Reforma do teto — Sede" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Cabeçalho / contexto</span><input id="orcm-cab" value="${esc(o.cabecalho || '')}" placeholder="Ex.: Obra aprovada em assembleia 12/09" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
-      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor previsto (R$)</span><input id="orcm-valor" value="${o.valor_previsto ? String(num(o.valor_previsto).toFixed(2)).replace('.', ',') : ''}" placeholder="0,00" inputmode="decimal" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Observações</span><textarea id="orcm-obs" rows="3" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${esc(o.observacoes || '')}</textarea></div>
-      <button onclick="orcSalvarCabecalho()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar orçamento</button>
+      <button onclick="orcSalvarCabecalho()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar evento</button>
     </div>`);
 };
+window.orcFecharModal = function(){ el('orc-modal')?.classList.add('hidden'); };
 function _orcModal(inner){
   let m = el('orc-modal');
   if (!m){
@@ -2534,7 +2575,7 @@ function _orcModal(inner){
     host.innerHTML = `<div id="orc-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center px-4" style="background:rgba(0,0,0,.55)">
       <div class="w-full max-w-lg max-h-[82vh] overflow-y-auto rounded-3xl border p-4" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div id="orc-modal-corpo"></div>
-        <button onclick="el('orc-modal').classList.add('hidden')" class="w-full mt-3 py-2 rounded-xl text-xs font-bold cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)">Cancelar</button>
+        <button onclick="orcFecharModal()" class="w-full mt-3 py-2 rounded-xl text-xs font-bold cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)">Cancelar</button>
       </div></div>`;
     document.body.appendChild(host.firstElementChild);
     m = el('orc-modal');
@@ -2547,7 +2588,6 @@ window.orcSalvarCabecalho = async function(){
     id: ORC.dados?.id || '',
     titulo: el('orcm-titulo').value.trim(),
     cabecalho: el('orcm-cab').value.trim(),
-    valor_previsto: num(el('orcm-valor').value),
     observacoes: el('orcm-obs').value.trim(),
   };
   if (!dados.titulo){ toast('Informe um título.'); return; }
@@ -2557,98 +2597,113 @@ window.orcSalvarCabecalho = async function(){
     let novoId = dados.id;
     if (dados.id){
       const o = lista.find(x => x.id === dados.id && !x.excluido_em);
-      if (!o){ toast('Orçamento não encontrado.'); return; }
+      if (!o){ toast('Evento não encontrado.'); return; }
       Object.assign(o, { titulo: dados.titulo, cabecalho: dados.cabecalho,
-        observacoes: dados.observacoes, valor_previsto: dados.valor_previsto, atualizado_em: agora });
+        observacoes: dados.observacoes, atualizado_em: agora });
+      delete o.valor_previsto;
     } else {
       novoId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
       lista.push({ id: novoId, titulo: dados.titulo, cabecalho: dados.cabecalho,
-        observacoes: dados.observacoes, valor_previsto: dados.valor_previsto,
+        observacoes: dados.observacoes,
         status: 'aberto', arquivado: 0,
         criado_por: sessao()?.usuario?.nome || 'Mobile',
-        criado_em: agora, atualizado_em: agora, finalizado_em: '', excluido_em: '', itens: [] });
+        criado_em: agora, atualizado_em: agora, finalizado_em: '', excluido_em: '', itens: [], reembolsos: [] });
     }
     await orcGravarDados(lista);
-    toast(dados.id ? 'Orçamento atualizado.' : 'Orçamento criado.');
-    el('orc-modal').classList.add('hidden');
+    toast(dados.id ? 'Evento atualizado.' : 'Evento criado.');
+    orcFecharModal();
     orcAbrir(novoId);
   } catch(e){ toast(e.message || 'Falha ao salvar.'); }
 };
 
-/* ---------- itens (saídas) ---------- */
-window.orcNovoItem = function(){ _orcModalItem(null); };
-window.orcEditarItem = function(itemId){
-  const i = (ORC.dados?.itens || []).find(x => x.id === itemId);
-  if (i) _orcModalItem(i);
+/* ---------- lançamentos (saídas e reembolsos) ---------- */
+window.orcNovoItem = function(){ _orcModalItem(null, 'item'); };
+window.orcNovoReembolso = function(){ _orcModalItem(null, 'reembolso'); };
+window.orcEditarItem = function(itemId, tipo){
+  const i = ((tipo === 'reembolso' ? ORC.dados?.reembolsos : ORC.dados?.itens) || []).find(x => x.id === itemId);
+  if (i) _orcModalItem(i, tipo);
 };
-function _orcModalItem(i){
-  _orcModal(`<h3 class="text-sm font-extrabold mb-3">${i ? 'Editar saída' : 'Nova saída'}</h3>
+function _orcModalItem(i, tipo){
+  const rem = tipo === 'reembolso';
+  const titulo = rem ? (i ? 'Editar reembolso' : 'Novo reembolso') : (i ? 'Editar saída' : 'Nova saída');
+  const formaAtual = _orcForma(i?.forma_pagamento) || 'pix';
+  const selForma = rem ? '' : `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span><select id="orci-forma" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${Object.keys(ORC_FORMAS).map(f => `<option value="${f}" ${f === formaAtual ? 'selected' : ''}>${ORC_FORMAS[f]}</option>`).join('')}</select></div>`;
+  _orcModal(`<h3 class="text-sm font-extrabold mb-3">${titulo}</h3>
     <div class="space-y-2.5">
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span><input id="orci-data" type="date" value="${esc(i?.data || new Date().toISOString().slice(0,10))}" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
-      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição *</span><input id="orci-desc" value="${esc(i?.descricao || '')}" placeholder="Ex.: Compra de material" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição *</span><input id="orci-desc" value="${esc(i?.descricao || '')}" placeholder="${rem ? 'Ex.: Devolução de troco' : 'Ex.: Compra de material'}" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+      ${selForma}
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor (R$)</span><input id="orci-valor" value="${i ? String(num(i.valor).toFixed(2)).replace('.', ',') : ''}" placeholder="0,00" inputmode="decimal" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
-      <button onclick="orcSalvarItem('${i ? esc(i.id) : ''}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar saída</button>
+      <button onclick="orcSalvarItem('${i ? esc(i.id) : ''}','${tipo}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,${rem ? '#059669,#10b981' : '#0ea5e9,#0284c7'})"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar ${rem ? 'reembolso' : 'saída'}</button>
     </div>`);
 }
-window.orcSalvarItem = async function(itemId){
+window.orcSalvarItem = async function(itemId, tipo){
+  const rem = tipo === 'reembolso';
   const dados = {
     data: el('orci-data').value,
     descricao: el('orci-desc').value.trim(),
-    valor: num(el('orci-valor').value),
+    valor: parseValor(el('orci-valor').value),
+    forma_pagamento: rem ? '' : _orcForma(el('orci-forma')?.value),
   };
   if (!dados.descricao){ toast('Informe a descrição.'); return; }
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
-    if (!o){ toast('Orçamento não encontrado.'); return; }
-    if (o.status === 'finalizado'){ toast('Orçamento finalizado — reabra para lançar saídas.'); return; }
-    o.itens = o.itens || [];
+    if (!o){ toast('Evento não encontrado.'); return; }
+    if (o.status === 'finalizado'){ toast(`Evento finalizado — reabra para lançar ${rem ? 'reembolsos' : 'saídas'}.`); return; }
     if (itemId){
-      const i = o.itens.find(x => x.id === itemId);
-      if (!i){ toast('Saída não encontrada.'); return; }
+      let i = null, col = null;
+      for (const c of ['itens', 'reembolsos']){ i = (o[c] || []).find(x => x.id === itemId); if (i){ col = c; break; } }
+      if (!i){ toast('Lançamento não encontrado.'); return; }
       Object.assign(i, { data: dados.data, descricao: dados.descricao, valor: dados.valor });
+      if (col === 'itens') i.forma_pagamento = dados.forma_pagamento;
     } else {
-      o.itens.push({ id: crypto.randomUUID().replace(/-/g, '').slice(0, 12),
+      const lanc = { id: crypto.randomUUID().replace(/-/g, '').slice(0, 12),
         data: dados.data || new Date().toISOString().slice(0, 10),
-        descricao: dados.descricao, valor: dados.valor, criado_em: orcHora() });
+        descricao: dados.descricao, valor: dados.valor, criado_em: orcHora() };
+      if (!rem) lanc.forma_pagamento = dados.forma_pagamento;
+      const col = rem ? 'reembolsos' : 'itens';
+      o[col] = o[col] || [];
+      o[col].push(lanc);
     }
     o.atualizado_em = orcHora();
     await orcGravarDados(lista);
-    toast(itemId ? 'Saída atualizada.' : 'Saída lançada.');
-    el('orc-modal').classList.add('hidden');
+    toast(itemId ? 'Lançamento atualizado.' : (rem ? 'Reembolso lançado.' : 'Saída lançada.'));
+    orcFecharModal();
     orcAbrir(ORC.id);
   } catch(e){ toast(e.message || 'Falha ao salvar.'); }
 };
 window.orcRemoverItem = async function(itemId){
-  if (!confirm('Remover esta saída do orçamento?')) return;
+  if (!confirm('Remover este lançamento do evento?')) return;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
-    if (!o){ toast('Orçamento não encontrado.'); return; }
-    if (o.status === 'finalizado'){ toast('Orçamento finalizado — reabra para remover.'); return; }
+    if (!o){ toast('Evento não encontrado.'); return; }
+    if (o.status === 'finalizado'){ toast('Evento finalizado — reabra para remover.'); return; }
     o.itens = (o.itens || []).filter(x => x.id !== itemId);
+    o.reembolsos = (o.reembolsos || []).filter(x => x.id !== itemId);
     o.atualizado_em = orcHora();
     await orcGravarDados(lista);
-    toast('Saída removida.');
+    toast('Lançamento removido.');
     orcAbrir(ORC.id);
   } catch(e){ toast(e.message || 'Falha ao remover.'); }
 };
 
 /* ---------- status / exportações ---------- */
 window.orcAcao = async function(acao){
-  const conf = { finalizar: 'Finalizar este orçamento? Saídas ficam bloqueadas até reabrir.',
-    reabrir: 'Reabrir o orçamento para novos lançamentos?',
-    arquivar: 'Arquivar este orçamento? Ele sai da lista principal.',
-    desarquivar: 'Desarquivar este orçamento?',
-    excluir: 'Excluir definitivamente este orçamento?' };
+  const conf = { finalizar: 'Finalizar este evento? Lançamentos ficam bloqueados até reabrir.',
+    reabrir: 'Reabrir o evento para novos lançamentos?',
+    arquivar: 'Arquivar este evento? Ele sai da lista principal.',
+    desarquivar: 'Desarquivar este evento?',
+    excluir: 'Excluir definitivamente este evento?' };
   if (conf[acao] && !confirm(conf[acao])) return;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
-    if (!o){ toast('Orçamento não encontrado.'); return; }
+    if (!o){ toast('Evento não encontrado.'); return; }
     const agora = orcHora();
-    const msgs = { finalizar: 'Orçamento finalizado.', reabrir: 'Orçamento reaberto.',
-      arquivar: 'Orçamento arquivado.', desarquivar: 'Orçamento desarquivado.', excluir: 'Orçamento excluído.' };
+    const msgs = { finalizar: 'Evento finalizado.', reabrir: 'Evento reaberto.',
+      arquivar: 'Evento arquivado.', desarquivar: 'Evento desarquivado.', excluir: 'Evento excluído.' };
     if (acao === 'finalizar'){ o.status = 'finalizado'; o.finalizado_em = agora; }
     else if (acao === 'reabrir'){ o.status = 'aberto'; o.finalizado_em = ''; }
     else if (acao === 'arquivar') o.arquivado = 1;
@@ -2665,17 +2720,24 @@ window.orcAcao = async function(acao){
 
 function _orcTextoWhats(o){
   const L = [];
-  L.push('*SGE — ORÇAMENTO DA TESOURARIA*', '', `*${o.titulo}*`);
+  L.push('*SGE — EVENTO DIVERSO DA TESOURARIA*', '', `*${o.titulo || 'Evento'}*`);
   if (o.cabecalho) L.push(`_${o.cabecalho}_`);
-  const prev = num(o.valor_previsto);
-  if (prev) L.push(`Previsto: ${moeda(prev)}`);
   const st = [];
   st.push(o.status === 'finalizado' ? 'FINALIZADO' : 'EM ANDAMENTO');
   if (o.arquivado) st.push('ARQUIVADO');
   L.push('', `Status: ${st.join(' · ')}`, '');
-  for (const i of (o.itens || [])) L.push(`• ${(i.data || '').split('-').reverse().join('/')} — ${i.descricao} — *${moeda(i.valor)}*`);
+  L.push('*SAÍDAS*');
+  for (const i of (o.itens || [])) L.push(`• ${_orcDataBr(i.data)} — ${i.descricao} (${_orcRotuloForma(_orcForma(i.forma_pagamento))}) — *${moeda(i.valor)}*`);
+  const sub = o.subtotais_forma || {};
+  const partes = Object.keys(sub).sort().filter(k => sub[k]).map(k => `${_orcRotuloForma(k)} ${moeda(sub[k])}`);
+  if (partes.length) L.push(`_${partes.join(' · ')}_`);
   L.push('', `*Total de saídas: ${moeda(o.total_saidas)}*`);
-  if (prev) L.push(`Saldo do previsto: ${moeda(o.saldo_previsto)}`);
+  if ((o.reembolsos || []).length){
+    L.push('', '*REEMBOLSOS*');
+    for (const r of o.reembolsos) L.push(`• ${_orcDataBr(r.data)} — ${r.descricao} — *${moeda(r.valor)}*`);
+    L.push(`*Total reembolsado: ${moeda(o.total_reembolsado)}*`);
+    L.push(`*Saldo a reembolsar: ${moeda(o.saldo_final)}*`);
+  }
   if (o.observacoes) L.push('', `Obs.: ${o.observacoes}`);
   L.push('', '_Gerado pelo SGE AD Brasil_');
   return L.join('\n');
@@ -2689,33 +2751,65 @@ window.orcPdf = function(){
   if (typeof window.jspdf === 'undefined'){ toast('Biblioteca de PDF não carregou.'); return; }
   const doc = new window.jspdf.jsPDF();
   const larg = doc.internal.pageSize.getWidth();
-  let y = 18;
-  doc.setFontSize(15); doc.setFont(undefined, 'bold');
-  doc.text('ORÇAMENTO DA TESOURARIA', larg / 2, y, { align: 'center' }); y += 7;
-  doc.setFontSize(12); doc.text(String(o.titulo || ''), larg / 2, y, { align: 'center' }); y += 6;
-  if (o.cabecalho){ doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.text(String(o.cabecalho), larg / 2, y, { align: 'center' }); y += 6; }
-  doc.setFontSize(8); doc.setFont(undefined, 'normal');
+  let y = 30;
+  doc.setFillColor(18, 53, 95);
+  doc.rect(0, 0, larg, 24, 'F');
+  doc.setTextColor(159, 185, 217); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+  doc.text('EVENTO DIVERSO — TESOURARIA', larg / 2, 7, { align: 'center' });
+  doc.setTextColor(255, 255, 255); doc.setFontSize(13);
+  doc.text(String(o.titulo || 'Evento'), larg / 2, 15, { align: 'center' });
+  if (o.cabecalho){ doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(215, 227, 242); doc.text(String(o.cabecalho), larg / 2, 21, { align: 'center' }); }
+  doc.setTextColor(95, 107, 122); doc.setFontSize(8); doc.setFont(undefined, 'normal');
   const st = (o.status === 'finalizado' ? 'FINALIZADO' : 'EM ANDAMENTO') + (o.arquivado ? ' · ARQUIVADO' : '');
-  doc.text(`Status: ${st}   ·   Criado por: ${o.criado_por || ''}${o.finalizado_em ? '   ·   Finalizado: ' + new Date(o.finalizado_em).toLocaleDateString('pt-BR') : ''}`, larg / 2, y, { align: 'center' }); y += 4;
+  doc.text(`Status: ${st}   ·   Criado em: ${_orcDataBr(o.criado_em)}   ·   Responsável: ${o.criado_por || 'Sistema'}${o.finalizado_em ? '   ·   Finalizado: ' + _orcDataBr(o.finalizado_em) : ''}`, larg / 2, y, { align: 'center' });
   doc.autoTable({
-    startY: y + 2,
-    head: [['Data', 'Descrição', 'Valor (R$)']],
-    body: (o.itens || []).map(i => [(i.data || '').split('-').reverse().join('/'), i.descricao, moeda(i.valor)]),
-    foot: [['', 'TOTAL DE SAÍDAS', moeda(o.total_saidas)]],
-    styles: { fontSize: 8.5 }, headStyles: { fillColor: [124, 58, 237] }, footStyles: { fontStyle: 'bold' },
-    columnStyles: { 2: { halign: 'right' } },
+    startY: y + 3,
+    head: [['Data', 'Descrição', 'Forma', 'Valor (R$)']],
+    body: (o.itens || []).length
+      ? o.itens.map(i => [_orcDataBr(i.data), i.descricao, _orcRotuloForma(_orcForma(i.forma_pagamento)), moeda(i.valor)])
+      : [['-', 'Nenhuma saída lançada até o momento.', '-', '-']],
+    styles: { fontSize: 8.5 }, headStyles: { fillColor: [18, 53, 95] },
+    alternateRowStyles: { fillColor: [232, 238, 246] },
+    columnStyles: { 0: { halign: 'center', cellWidth: 22 }, 2: { halign: 'center', cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 } },
   });
-  y = doc.lastAutoTable.finalY + 8;
-  const prev = num(o.valor_previsto);
-  if (prev){
-    doc.setFontSize(9);
-    doc.text(`Previsto: ${moeda(prev)}    |    Saldo: ${moeda(o.saldo_previsto)}`, 14, y); y += 6;
+  y = doc.lastAutoTable.finalY + 6;
+  const sub = o.subtotais_forma || {};
+  const partes = Object.keys(ORC_FORMAS).filter(f => sub[f]).map(f => `${ORC_FORMAS[f]}: ${moeda(sub[f])}`);
+  if (sub.outros) partes.push(`Não informado: ${moeda(sub.outros)}`);
+  if (partes.length){
+    doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.setTextColor(18, 53, 95);
+    doc.text(partes.join('    ·    '), larg / 2, y, { align: 'center' }); y += 6;
+  }
+  if ((o.reembolsos || []).length){
+    doc.autoTable({
+      startY: y + 2,
+      head: [['Data', 'Reembolso', 'Valor (R$)']],
+      body: o.reembolsos.map(r => [_orcDataBr(r.data), r.descricao, moeda(r.valor)]),
+      styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 122, 77] },
+      alternateRowStyles: { fillColor: [230, 244, 236] },
+      columnStyles: { 0: { halign: 'center', cellWidth: 22 }, 2: { halign: 'right', cellWidth: 34 } },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  } else {
+    y += 4;
+  }
+  if (y > 268){ doc.addPage(); y = 20; }
+  doc.setFontSize(9.5); doc.setFont(undefined, 'bold'); doc.setTextColor(18, 53, 95);
+  doc.text(`TOTAL DE SAÍDAS: ${moeda(o.total_saidas)}`, larg - 14, y, { align: 'right' }); y += 6;
+  if ((o.reembolsos || []).length){
+    const saldo = o.saldo_final || 0;
+    const rot = saldo > 0 ? 'SALDO A REEMBOLSAR' : (saldo < 0 ? 'REEMBOLSO EXCEDENTE' : 'QUITADO');
+    doc.setTextColor(15, 122, 77);
+    doc.text(`TOTAL REEMBOLSADO: - ${moeda(o.total_reembolsado)}`, larg - 14, y, { align: 'right' }); y += 6;
+    if (saldo > 0) doc.setTextColor(179, 38, 30); else doc.setTextColor(15, 122, 77);
+    doc.text(`${rot}: ${moeda(Math.abs(saldo))}`, larg - 14, y, { align: 'right' }); y += 6;
   }
   if (o.observacoes){
-    doc.setFontSize(8);
+    y += 2;
+    doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(60, 60, 60);
     doc.text(doc.splitTextToSize(`Obs.: ${o.observacoes}`, larg - 28), 14, y);
   }
-  doc.save(`orcamento_${(o.titulo || 'sge').replace(/[^\w]+/g, '_').slice(0, 40)}.pdf`);
+  doc.save(`evento_${(o.titulo || 'sge').replace(/[^\w]+/g, '_').slice(0, 40)}.pdf`);
 };
 
 /* depuração/testes */
