@@ -1060,6 +1060,20 @@ function _filtrosUI(){
       </button>
       <p class="text-[10px] opacity-60">${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${f.conselho}${f.congregacao !== 'Todas' ? ' • ' + f.congregacao : ''} • ${nContas ? nContas + ' conta(s)' : 'Todas as contas'}${nSem ? ' • ' + nSem + ' semana(s)' : ''}</p>
       <div id="gestao-filtros-corpo" class="${G.filtrosAberto ? '' : 'hidden'} space-y-2.5">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Modo de análise</span>
+          <select id="gestao-dimensao" onchange="gestaoDimensao(this.value)" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <option value="tempo" ${G.dimensao==='tempo'?'selected':''}>Evolução por período</option>
+            <option value="anual" ${G.dimensao==='anual'?'selected':''}>Comparativo anual</option>
+            <option value="comparar" ${G.dimensao==='comparar'?'selected':''}>Comparar meses</option>
+            <option value="tabela" ${G.dimensao==='tabela'?'selected':''}>Tabela anual lado a lado</option>
+            <option value="conselho" ${G.dimensao==='conselho'?'selected':''}>Comparar conselhos</option>
+            <option value="congregacao" ${G.dimensao==='congregacao'?'selected':''}>Comparar congregações</option>
+          </select></div>
+        <div id="gf-cmp-wrap" class="${G.dimensao==='comparar' ? '' : 'hidden'} space-y-1.5">
+          <span class="text-[10px] font-bold uppercase opacity-60 block">Meses a comparar (até 4)</span>
+          <div id="gf-cmp-slots" class="flex flex-wrap gap-1.5"></div>
+          <div class="flex items-center gap-2"><button onclick="gestaoAddSlot()" class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-plus mr-1"></i>Mês</button><span id="gf-cmp-status" class="text-[10px] opacity-60"></span></div>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">De</span><div class="flex gap-1.5">${selHtml('gf-ano-ini', anos, f.ano_ini)}${selHtml('gf-mes-ini', mesesOpts, f.mes_ini)}</div></div>
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até</span><div class="flex gap-1.5">${selHtml('gf-ano-fim', anos, f.ano_fim)}${selHtml('gf-mes-fim', mesesOpts, f.mes_fim)}</div></div>
@@ -1159,19 +1173,15 @@ function renderAbaCruzamento(){
         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
           <div><h3 class="font-bold text-sm">Análise visual</h3><span id="gestao-periodo-label" class="text-[10px] opacity-60"></span></div>
           <div class="flex items-center gap-2 text-xs">
-            <select id="gestao-dimensao" onchange="gestaoDimensao(this.value)" class="px-2 py-1.5 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              <option value="tempo" ${G.dimensao==='tempo'?'selected':''}>Evolução por período</option>
-              <option value="conselho" ${G.dimensao==='conselho'?'selected':''}>Comparar conselhos</option>
-              <option value="congregacao" ${G.dimensao==='congregacao'?'selected':''}>Comparar congregações</option>
-            </select>
-            <div class="flex rounded-lg border overflow-hidden" style="border-color:var(--border-color)">
+            <div id="gestao-formato-wrap" class="flex rounded-lg border overflow-hidden" style="border-color:var(--border-color)">
               <button id="gfmt-bar" onclick="gestaoModelo('bar')" class="px-2.5 py-1.5 cursor-pointer" title="Colunas"><i class="fa-solid fa-chart-column"></i></button>
               <button id="gfmt-line" onclick="gestaoModelo('line')" class="px-2.5 py-1.5 cursor-pointer" title="Linhas"><i class="fa-solid fa-chart-line"></i></button>
             </div>
             <label id="gestao-media-wrap" class="flex items-center gap-1 text-[10px] font-bold opacity-80"><input type="checkbox" id="gestao-media-cb" onchange="gestaoGrafico()" class="accent-amber-500">Média</label>
           </div>
         </div>
-        <div class="relative h-64"><canvas id="gestao-canvas"></canvas><p id="gestao-graf-aviso" class="hidden absolute inset-0 flex items-center justify-center text-[11px] opacity-60 text-center px-4">Gráficos indisponíveis — a biblioteca de gráficos não carregou.</p></div>
+        <div id="gestao-grafico-wrap" class="relative h-64"><canvas id="gestao-canvas"></canvas><p id="gestao-graf-aviso" class="hidden absolute inset-0 flex items-center justify-center text-[11px] opacity-60 text-center px-4">Gráficos indisponíveis — a biblioteca de gráficos não carregou.</p></div>
+        <div id="gestao-tabela-wrap" class="hidden overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr id="gestao-tabela-head"></tr></thead><tbody id="gestao-tabela-body" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
       </div>
       <div id="gestao-comparativos" class="grid grid-cols-3 gap-2.5"></div>
       <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -1197,18 +1207,48 @@ function renderAbaCruzamento(){
         <tbody id="rel-tbody" class="divide-y" style="border-color:var(--border-color)"><tr><td colspan="6" class="p-8 text-center opacity-60">Sem dados para pré-visualização.</td></tr></tbody></table>
       </div>` : '');
   _popularConselhos();
+  gestaoModoUI();
   if (G.dados) renderizarCruzamento(G.dados);
   else if (!isCruz) gestaoCarregar();
 }
 
 window.gestaoModelo = m => { G.modelo = m; gestaoGrafico(); };
-window.gestaoDimensao = d => { G.dimensao = d; gestaoGrafico(); };
-window.gestaoCarregar = async function(){
+window.gestaoDimensao = d => { G.dimensao = d; gestaoModoUI(); gestaoCarregar(false); };
+function gestaoModoUI(){
+  const modo = G.dimensao, anual = ['anual', 'tabela'].includes(modo);
+  el('gf-cmp-wrap')?.classList.toggle('hidden', modo !== 'comparar');
+  ['gf-mes-ini', 'gf-mes-fim'].forEach(id => { const s = el(id); if (s) s.disabled = anual; });
+  el('gestao-formato-wrap')?.classList.toggle('hidden', modo === 'tabela');
+  if (modo === 'comparar') gestaoRenderSlots();
+}
+function gestaoRenderSlots(){
+  const wrap = el('gf-cmp-slots'); if (!wrap) return;
+  if (!G.cmpSlots?.length){
+    const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
+    G.cmpSlots = ord.slice(0, 2).map(p => ({ ano: String(p.ano), mes: p.mes }));
+    if (!G.cmpSlots.length) G.cmpSlots = [{ ano: String(new Date().getFullYear()), mes: ORDEM_MESES[new Date().getMonth()] }];
+  }
+  const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
+  wrap.innerHTML = G.cmpSlots.map((s, i) => `
+    <span class="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg border" style="border-color:var(--border-color);background:var(--bg-input)">
+      ${selHtml(`gf-cmp-ano-${i}`, anos, s.ano, 'gestaoSlotMudou()', 'min-w-0')}
+      ${selHtml(`gf-cmp-mes-${i}`, ORDEM_MESES.map(m => [m, m]), s.mes, 'gestaoSlotMudou()', 'min-w-0')}
+      ${G.cmpSlots.length > 1 ? `<button onclick="gestaoDelSlot(${i})" class="px-1 text-red-400 cursor-pointer" title="Remover"><i class="fa-solid fa-xmark"></i></button>` : ''}
+    </span>`).join('');
+}
+window.gestaoSlotMudou = () => {
+  G.cmpSlots = (G.cmpSlots || []).map((s, i) => ({ ano: el(`gf-cmp-ano-${i}`)?.value || s.ano, mes: el(`gf-cmp-mes-${i}`)?.value || s.mes }));
+  gestaoGrafico();
+};
+window.gestaoAddSlot = () => { if ((G.cmpSlots || []).length >= 4) return toast('Máximo de 4 meses.'); G.cmpSlots.push({ ...(G.cmpSlots.at(-1) || {}) }); gestaoRenderSlots(); gestaoGrafico(); };
+window.gestaoDelSlot = i => { (G.cmpSlots || []).splice(i, 1); gestaoRenderSlots(); gestaoGrafico(); };
+window.gestaoCarregar = async function(colapsar){
   const f = _lerFiltros();
-  if (G.filtrosAberto){ G.filtrosAberto = false; _aplicarFiltrosVisivel(); }
+  if (colapsar !== false && G.filtrosAberto){ G.filtrosAberto = false; _aplicarFiltrosVisivel(); }
   const tb = el('gestao-tbody'); if (tb) tb.innerHTML = '<tr><td colspan="9" class="p-8 text-center opacity-60"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Cruzando dados…</td></tr>';
   try {
-    const dados = await consultarCruzamento(f.ano_ini, f.mes_ini, f.ano_fim, f.mes_fim, f);
+    const anual = ['anual', 'tabela'].includes(G.dimensao);
+    const dados = await consultarCruzamento(f.ano_ini, anual ? 'Janeiro' : f.mes_ini, f.ano_fim, anual ? 'Dezembro' : f.mes_fim, f);
     dados.filtros = { ...f };
     dados.media_referencia = await mediaReferencia(f, dados);
     G.dados = dados;
@@ -1278,36 +1318,105 @@ window.gestaoGrafico = function(){
     return;
   }
   el('gestao-graf-aviso')?.classList.add('hidden');
-  if (!G.dados) return;
   const cb = el('gestao-media-cb');
-  if (cb){ const off = G.dimensao !== 'tempo'; cb.disabled = off; if (off) cb.checked = false; el('gestao-media-wrap')?.classList.toggle('opacity-45', off); }
+  const modo = G.dimensao;
+  if (cb){ const off = modo !== 'tempo'; cb.disabled = off; if (off) cb.checked = false; el('gestao-media-wrap')?.classList.toggle('opacity-45', off); }
+  const gw = el('gestao-grafico-wrap'), tw = el('gestao-tabela-wrap');
+  if (modo === 'tabela'){ gw?.classList.add('hidden'); tw?.classList.remove('hidden'); gestaoTabelaAnual(); return; }
+  gw?.classList.remove('hidden'); tw?.classList.add('hidden');
+  if (modo === 'comparar'){ gestaoCompararMeses(); return; }
+  if (!G.dados) return;
   const t = G.dados.totais || {}, sel = G.dados.contas_selecionadas || [];
   const todasEnt = sel.length === CONTAS_ENTRADAS_BI.length && CONTAS_ENTRADAS_BI.every(c => sel.includes(c));
   const cores = ['#10b981','#ef4444','#f59e0b','#0ea5e9','#8b5cf6','#ec4899','#14b8a6','#f97316'];
   let labels = [], datasets = [];
-  if (G.dimensao === 'tempo'){
+  if (modo === 'tempo'){
     const s = G.dados.series || [];
     labels = s.map(i => i.periodo);
     const total = !sel.length || todasEnt;
     datasets = [{ label: total ? 'Total geral de entradas' : 'Total das contas selecionadas', data: s.map(i => num(total ? i.entradas : i.valor_conta_especifica)), borderColor: cores[0], backgroundColor: cores[0] + '99', tension: .28 }];
     const mref = G.dados.media_referencia || {};
     if (cb?.checked && num(mref.valor) > 0) datasets.push({ type: 'line', label: `${mref.rotulo || 'Média'} · ${moeda(mref.valor)}`, data: s.map(() => num(mref.valor)), borderColor: '#f59e0b', borderDash: [8, 5], borderWidth: 2, pointRadius: 0, fill: false, order: -1 });
+  } else if (modo === 'anual'){
+    const s = G.dados.series || [], chave = sel.length && !todasEnt ? 'valor_conta_especifica' : 'entradas';
+    const anosUni = [...new Set(s.map(p => String(p.ano)))].sort();
+    labels = ORDEM_MESES.map(m => m.slice(0, 3));
+    datasets = anosUni.map((ano, i) => ({ label: ano, data: ORDEM_MESES.map(m => { const p = s.find(x => String(x.ano) === ano && x.mes === m && !x.parcial); return p ? num(p[chave]) : null; }), borderColor: cores[i % 8], backgroundColor: cores[i % 8] + '99', tension: .28 }));
   } else {
-    const mapa = G.dimensao === 'conselho' ? t.por_conselho || {} : t.por_congregacao || {};
-    const rank = Object.entries(mapa).sort((a, b) => b[1] - a[1]).slice(0, G.dimensao === 'conselho' ? 12 : 20);
+    const mapa = modo === 'conselho' ? t.por_conselho || {} : t.por_congregacao || {};
+    const rank = Object.entries(mapa).sort((a, b) => b[1] - a[1]).slice(0, modo === 'conselho' ? 12 : 20);
     labels = rank.map(i => i[0]);
     datasets = [{ label: sel.length ? 'Contas selecionadas' : 'Entradas totais', data: rank.map(i => num(i[1])), backgroundColor: rank.map((_, i) => cores[i % 8] + 'cc'), borderColor: rank.map((_, i) => cores[i % 8]), borderWidth: 1 }];
   }
   ['gfmt-bar', 'gfmt-line'].forEach((id, i) => { const b = el(id); if (b){ const on = ['bar','line'][i] === G.modelo; b.style.background = on ? '#d97706' : 'var(--bg-input)'; b.style.color = on ? '#fff' : 'var(--text-main)'; } });
   const ctx = el('gestao-canvas')?.getContext('2d'); if (!ctx) return;
   if (G.graf) G.graf.destroy();
-  const cat = G.dimensao !== 'tempo';
+  const cat = ['conselho', 'congregacao'].includes(G.dimensao);
   G.graf = new Chart(ctx, { type: G.modelo, data: { labels, datasets },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: cat ? 'y' : 'x', interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moeda(c.raw)}` } } },
       scales: cat ? { x: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } }, y: { ticks: { autoSkip: false } } }
                   : { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } }, x: { ticks: { maxRotation: 35 } } } } });
 };
+
+/* Comparar meses — busca cada slot (máx. 4) e plota Entradas × Despesas × Resultado */
+window.gestaoCompararMeses = async function(){
+  const status = el('gf-cmp-status');
+  const slots = (G.cmpSlots || []).slice(0, 4);
+  if (!slots.length){ const ctx0 = el('gestao-canvas')?.getContext('2d'); if (ctx0 && G.graf){ G.graf.destroy(); G.graf = null; } return; }
+  if (status) status.textContent = 'carregando…';
+  const f = G.filtros || {};
+  const res = [];
+  for (const s of slots){
+    try {
+      const d = await consultarCruzamento(s.ano, s.mes, s.ano, s.mes, { conselho: f.conselho, congregacao: f.congregacao, contas: f.contas, semanas: f.semanas });
+      res.push({ rotulo: `${s.mes.slice(0, 3)}/${String(s.ano).slice(2)}`, t: d.totais || {} });
+    } catch { res.push({ rotulo: `${s.mes.slice(0, 3)}/${String(s.ano).slice(2)}`, t: {} }); }
+  }
+  if (status) status.textContent = '';
+  if (G.dimensao !== 'comparar') return;
+  const sel = (f.contas || []).length, consultor = perfilConsultor();
+  const cores = ['#10b981','#ef4444','#f59e0b','#0ea5e9','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+  const datasets = [
+    { label: 'Entradas', data: res.map(r => num(r.t.entradas)), backgroundColor: cores[0] + 'cc', borderColor: cores[0], borderWidth: 1 },
+    { label: 'Despesas', data: res.map(r => num(r.t.despesas)), backgroundColor: cores[1] + 'cc', borderColor: cores[1], borderWidth: 1 },
+  ];
+  if (!consultor) datasets.push({ label: 'Resultado', data: res.map(r => num(r.t.entradas) - num(r.t.despesas)), backgroundColor: cores[2] + 'cc', borderColor: cores[2], borderWidth: 1 });
+  if (sel) datasets.push({ label: 'Contas selecionadas', data: res.map(r => num(r.t.conta_selecionada_total)), backgroundColor: cores[3] + 'cc', borderColor: cores[3], borderWidth: 1 });
+  const ctx = el('gestao-canvas')?.getContext('2d'); if (!ctx) return;
+  if (G.graf) G.graf.destroy();
+  G.graf = new Chart(ctx, { type: 'bar', data: { labels: res.map(r => r.rotulo), datasets },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moeda(c.raw)}` } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } }, x: { ticks: { maxRotation: 35 } } } } });
+};
+
+/* Tabela anual lado a lado — meses × anos com Δ anual e total */
+function gestaoTabelaAnual(){
+  const head = el('gestao-tabela-head'), body = el('gestao-tabela-body');
+  if (!head || !body) return;
+  const s = (G.dados?.series) || [], sel = G.dados?.contas_selecionadas || [];
+  const chave = sel.length ? 'valor_conta_especifica' : 'entradas';
+  const anos = [...new Set(s.map(p => String(p.ano)))].sort();
+  head.innerHTML = `<th class="p-3">Mês</th>` + anos.map(a => `<th class="p-3 text-right">${a}</th>`).join('') + (anos.length > 1 ? '<th class="p-3 text-right">Δ ano</th>' : '');
+  const tot = Object.fromEntries(anos.map(a => [a, 0]));
+  const linhasHtml = ORDEM_MESES.map(m => {
+    const cells = anos.map(a => {
+      const p = s.find(x => String(x.ano) === a && x.mes === m);
+      const v = p && !p.parcial ? num(p[chave]) : null;
+      if (v !== null) tot[a] += v;
+      return `<td class="p-3 text-right ${v === null ? 'opacity-40' : ''}">${v === null ? '—' : moeda(v)}</td>`;
+    }).join('');
+    let delta = '';
+    if (anos.length > 1){
+      const va = s.find(x => String(x.ano) === anos[0] && x.mes === m), vb = s.find(x => String(x.ano) === anos[anos.length - 1] && x.mes === m);
+      const d = (va && vb && !va.parcial && !vb.parcial && Math.abs(num(va[chave])) > EPS) ? (num(vb[chave]) - num(va[chave])) / Math.abs(num(va[chave])) * 100 : null;
+      delta = `<td class="p-3 text-right font-bold ${d === null ? 'opacity-40' : d >= 0 ? 'text-emerald-500' : 'text-red-500'}">${d === null ? '—' : `${d >= 0 ? '+' : ''}${d.toFixed(1)}%`}</td>`;
+    }
+    return `<tr><td class="p-3 font-semibold">${m}</td>${cells}${delta}</tr>`;
+  }).join('');
+  body.innerHTML = linhasHtml + `<tr class="font-bold" style="background:var(--bg-surface)"><td class="p-3">TOTAL</td>${anos.map(a => `<td class="p-3 text-right">${moeda(tot[a])}</td>`).join('')}${anos.length > 1 ? '<td class="p-3"></td>' : ''}</tr>`;
+}
 
 window.gestaoExportarPDF = async function(){
   if (!G.dados){ toast('Cruze os dados primeiro.'); return; }
