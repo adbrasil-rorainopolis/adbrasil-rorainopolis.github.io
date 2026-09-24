@@ -1064,6 +1064,7 @@ function _filtrosUI(){
           <select id="gestao-dimensao" onchange="gestaoDimensao(this.value)" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <option value="tempo" ${G.dimensao==='tempo'?'selected':''}>Evolução por período</option>
             <option value="anual" ${G.dimensao==='anual'?'selected':''}>Comparativo anual</option>
+            <option value="anual_mes" ${G.dimensao==='anual_mes'?'selected':''}>Anual mês a mês</option>
             <option value="comparar" ${G.dimensao==='comparar'?'selected':''}>Comparar meses</option>
             <option value="tabela" ${G.dimensao==='tabela'?'selected':''}>Tabela anual lado a lado</option>
             <option value="conselho" ${G.dimensao==='conselho'?'selected':''}>Comparar conselhos</option>
@@ -1215,7 +1216,7 @@ function renderAbaCruzamento(){
 window.gestaoModelo = m => { G.modelo = m; gestaoGrafico(); };
 window.gestaoDimensao = d => { G.dimensao = d; gestaoModoUI(); gestaoCarregar(false); };
 function gestaoModoUI(){
-  const modo = G.dimensao, anual = ['anual', 'tabela'].includes(modo);
+  const modo = G.dimensao, anual = ['anual', 'anual_mes', 'tabela'].includes(modo);
   el('gf-cmp-wrap')?.classList.toggle('hidden', modo !== 'comparar');
   ['gf-mes-ini', 'gf-mes-fim'].forEach(id => { const s = el(id); if (s) s.disabled = anual; });
   el('gestao-formato-wrap')?.classList.toggle('hidden', modo === 'tabela');
@@ -1247,7 +1248,7 @@ window.gestaoCarregar = async function(colapsar){
   if (colapsar !== false && G.filtrosAberto){ G.filtrosAberto = false; _aplicarFiltrosVisivel(); }
   const tb = el('gestao-tbody'); if (tb) tb.innerHTML = '<tr><td colspan="9" class="p-8 text-center opacity-60"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Cruzando dados…</td></tr>';
   try {
-    const anual = ['anual', 'tabela'].includes(G.dimensao);
+    const anual = ['anual', 'anual_mes', 'tabela'].includes(G.dimensao);
     const dados = await consultarCruzamento(f.ano_ini, anual ? 'Janeiro' : f.mes_ini, f.ano_fim, anual ? 'Dezembro' : f.mes_fim, f);
     dados.filtros = { ...f };
     dados.media_referencia = await mediaReferencia(f, dados);
@@ -1338,6 +1339,13 @@ window.gestaoGrafico = function(){
     const mref = G.dados.media_referencia || {};
     if (cb?.checked && num(mref.valor) > 0) datasets.push({ type: 'line', label: `${mref.rotulo || 'Média'} · ${moeda(mref.valor)}`, data: s.map(() => num(mref.valor)), borderColor: '#f59e0b', borderDash: [8, 5], borderWidth: 2, pointRadius: 0, fill: false, order: -1 });
   } else if (modo === 'anual'){
+    const s = G.dados.series || [], chave = sel.length && !todasEnt ? 'valor_conta_especifica' : 'entradas';
+    const anosUni = [...new Set(s.map(p => String(p.ano)))].sort();
+    labels = anosUni;
+    const f = G.dados.filtros || {};
+    const rotulo = f.congregacao && f.congregacao !== 'Todas' ? f.congregacao : (f.conselho && f.conselho !== 'Todos' ? f.conselho : (sel.length && !todasEnt ? 'Contas selecionadas' : 'Campo (total)'));
+    datasets = [{ label: rotulo, data: anosUni.map(ano => s.filter(x => String(x.ano) === ano && !x.parcial).reduce((a, x) => a + num(x[chave]), 0)), backgroundColor: anosUni.map((_, i) => cores[i % 8] + 'cc'), borderColor: anosUni.map((_, i) => cores[i % 8]), borderWidth: 1 }];
+  } else if (modo === 'anual_mes'){
     const s = G.dados.series || [], chave = sel.length && !todasEnt ? 'valor_conta_especifica' : 'entradas';
     const anosUni = [...new Set(s.map(p => String(p.ano)))].sort();
     labels = ORDEM_MESES.map(m => m.slice(0, 3));
