@@ -220,6 +220,8 @@
           </div>
         </div>
 
+        <div id="mi-modo-gestao" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="fecharMenuEngrenagem(); if(typeof sgeAlternarModo==='function') sgeAlternarModo();"></div>
+
         <div class="px-3.5 pt-1 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Aparência</div>
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="toggleSubmenuTema()">
           <i class="fa-solid fa-palette text-[12px]" style="color: var(--color-primary);"></i> Tema
@@ -265,9 +267,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.109'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.110'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.109</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.110</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -783,7 +785,7 @@ function toggleSubmenuTema(){
   sub.classList.toggle('hidden');
   if (chev) chev.style.transform = sub.classList.contains('hidden') ? '' : 'rotate(180deg)';
 }
-function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); preencherMenuPerfil(); }
+function toggleMenuEngrenagem(){ $('menu-engrenagem').classList.toggle('hidden'); atualizarMenuBio(); preencherMenuPerfil(); if (typeof sgeRenderBotaoModo === 'function') sgeRenderBotaoModo(); }
 function preencherMenuPerfil(){
   const u = sessao()?.usuario || {};
   const nome = u.nome || 'Usuário';

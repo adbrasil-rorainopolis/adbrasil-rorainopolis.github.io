@@ -5,18 +5,16 @@
    ============================================================ */
 const COM_CPF_PILOTO = '04421351229';
 function comPermitidoMobile() {
-  const dig = v => String(v || '').replace(/\D/g, '');
-  const fontes = [
-    sessao()?.usuario?.cpf, sessao()?.usuario?.Cpf, sessao()?.cpf,
-    (typeof bioSessao === 'function' ? bioSessao()?.usuario?.cpf : ''),
-    (typeof bioCred === 'function' ? bioCred()?.cpf : ''),
-  ];
-  if (fontes.some(c => dig(c) === COM_CPF_PILOTO)) return true;
-  const u = sessao()?.usuario || {};
-  // Portal do Membro liberado para: perfil Membro ou usuário com vínculo
-  // validado pela tesouraria (usuario.vinculado_membro — marcado no sync de acessos).
-  if (String(u.perfil || '').trim().toLowerCase() === 'membro') return true;
-  return u.vinculado_membro === true;
+  // Todo usuário cadastrado é membro — o bloco Membro fica visível para todos.
+  return !!sessao()?.usuario;
+}
+/* ⇄ Gestão: só aparece para quem tem perfil administrativo/operacional
+   (Administrador, Operador, Consultor). Perfil "Membro" puro nunca vê —
+   vive no modo membro. */
+function comPodeGestao() {
+  const u = sessao()?.usuario;
+  if (!u) return false;
+  return String(u.perfil || '').trim().toLowerCase() !== 'membro';
 }
 
 const COM_TEMPLATES = {

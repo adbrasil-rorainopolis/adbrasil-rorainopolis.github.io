@@ -12,10 +12,8 @@ const MEMBRO_NAV = [
   { mod: 'membro_estudos',      icone: 'fa-book-open',          cor: '#8b5cf6',              label: 'Estudos' },
   { mod: 'membro_financeiro',   icone: 'fa-hand-holding-heart', cor: '#10b981',              label: 'Financeiro' },
 ];
-/* Módulos prontos hoje: Início + Financeiro. Os demais ficam em construção
-   e SÓ aparecem na nav do piloto (CPF mestre) — membros comuns veem uma
-   nav limpa com as 2 abas funcionais. */
-const MEMBRO_NAV_LIBERADOS = ['membro_inicio', 'membro_financeiro'];
+/* Todos os módulos aparecem na nav de todos os membros. Os inacabados
+   mostram 'Em breve' (usuário comum) ou 'Beta' (piloto). */
 const _memEhPiloto = () => {
   const dig = v => String(v || '').replace(/\D/g, '');
   const cpfPiloto = (typeof COM_CPF_PILOTO !== 'undefined') ? COM_CPF_PILOTO : '04421351229';
@@ -25,11 +23,13 @@ const _memEhPiloto = () => {
 const memEsc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 window.sgeModoAtual = function() {
-  if (typeof comPermitidoMobile !== 'function' || !comPermitidoMobile()) return 'gestao';
+  // Membro puro (sem acesso à gestão) vive sempre no modo membro.
+  if (!sgeModoPodeAlternar()) return 'membro';
   return localStorage.getItem('sge_modo') === 'membro' ? 'membro' : 'gestao';
 };
 window.sgeModoPodeAlternar = function() {
-  return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
+  // ⇄ Gestão só aparece para perfis administrativos/operacionais.
+  return typeof comPodeGestao === 'function' && comPodeGestao();
 };
 
 /* ---------- troca de modo ---------- */
@@ -51,8 +51,7 @@ window.sgeAplicarModoNav = function() {
   if (!box) return;
   if (!navGestaoHtml) navGestaoHtml = box.innerHTML; // guarda a nav original
   if (sgeModoAtual() === 'membro') {
-    const nav = _memEhPiloto() ? MEMBRO_NAV : MEMBRO_NAV.filter(n => MEMBRO_NAV_LIBERADOS.includes(n.mod));
-    box.innerHTML = nav.map(n =>
+    box.innerHTML = MEMBRO_NAV.map(n =>
       `<button onclick="mudarVisao('${n.mod}')" data-mod="${n.mod}" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="${n.label}">
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
         <i class="fa-solid ${n.icone} text-base" style="color:${n.cor}"></i><span class="text-[9px] font-bold">${n.label}</span>
@@ -65,22 +64,19 @@ window.sgeAplicarModoNav = function() {
   sgeRenderBotaoModo();
 };
 
-/* ---------- botão flutuante ⇄ (só piloto) ---------- */
+/* ---------- alternância ⇄ dentro da engrenagem (só quem tem gestão) ---------- */
 function sgeRenderBotaoModo() {
-  let b = document.getElementById('btn-modo');
-  if (!sgeModoPodeAlternar()) { if (b) b.remove(); return; }
-  if (!b) {
-    b = document.createElement('button');
-    b.id = 'btn-modo';
-    b.onclick = sgeAlternarModo;
-    b.className = 'fixed z-40 flex items-center gap-1.5 rounded-full px-3 py-2 shadow-lg cursor-pointer';
-    b.style.cssText = 'right:12px;bottom:74px;color:#fff;font-size:10px;font-weight:800';
-    document.body.appendChild(b);
-  }
+  const antigo = document.getElementById('btn-modo');
+  if (antigo) antigo.remove(); // remove o flutuante das versões anteriores
+  const mi = document.getElementById('mi-modo-gestao');
+  if (!mi) return;
+  if (!sgeModoPodeAlternar()) { mi.classList.add('hidden'); return; }
+  mi.classList.remove('hidden');
   const membro = sgeModoAtual() === 'membro';
-  b.style.background = membro ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'linear-gradient(135deg,#b45309,#92400e)';
-  b.innerHTML = `<i class="fa-solid fa-repeat text-[11px]"></i>${membro ? 'Gestão' : 'Membro'}`;
-  b.title = membro ? 'Alternar para Modo Gestão' : 'Alternar para Modo Membro';
+  mi.innerHTML = `<i class="fa-solid fa-repeat text-[12px]" style="color:${membro ? '#b45309' : '#0ea5e9'}"></i>
+    <span>${membro ? 'Modo Gestão' : 'Modo Membro'}</span>
+    <span class="ml-auto text-[8px] font-bold uppercase tracking-wider" style="color:var(--text-muted)">${membro ? 'Administração' : 'Visão pessoal'}</span>`;
+  mi.title = membro ? 'Alternar para a administração do campo' : 'Alternar para a sua visão de membro';
 }
 
 /* ---------- header padrão das telas membro ---------- */
@@ -99,13 +95,16 @@ const memEmBreve = (icone, cor, titulo, desc) => memCard(
     <p class="text-[10px] opacity-50 max-w-[240px] leading-relaxed">${desc}</p>
     <span class="text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:var(--color-primary-light);color:var(--color-primary)">Em breve</span>
   </div>`);
-const memEmConstrucao = (titulo, desc) => memCard(
-  `<div class="flex flex-col items-center text-center py-8 gap-2.5">
-    <i class="fa-solid fa-helmet-safety text-3xl" style="color:#f59e0b;opacity:.55"></i>
-    <p class="text-xs font-bold">${titulo}</p>
-    <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">${desc}</p>
-    <span class="text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#f59e0b22;color:#f59e0b">Em construção</span>
-  </div>`);
+const memEmConstrucao = (titulo, desc) => {
+  const beta = _memEhPiloto();
+  return memCard(
+    `<div class="flex flex-col items-center text-center py-8 gap-2.5">
+      <i class="fa-solid fa-helmet-safety text-3xl" style="color:#f59e0b;opacity:.55"></i>
+      <p class="text-xs font-bold">${titulo}</p>
+      <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">${desc}</p>
+      <span class="text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:${beta ? '#f59e0b22' : 'var(--color-primary-light)'};color:${beta ? '#f59e0b' : 'var(--color-primary)'}">${beta ? 'Versão Beta' : 'Em breve'}</span>
+    </div>`);
+};
 
 /* ---------- INÍCIO — panorama pessoal ---------- */
 window.renderMembroInicio = function() {
