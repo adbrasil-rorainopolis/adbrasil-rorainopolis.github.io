@@ -251,6 +251,10 @@
         <div id="mi-gestao-usuarios" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="irAcessos()">
           <i class="fa-solid fa-user-shield text-[12px]" style="color: var(--color-primary);"></i> Acessos e permissões
         </div>
+        <div id="mi-manutencao" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="sgeAlternarManutencao()">
+          <i class="fa-solid fa-road-barrier text-[12px]" style="color: var(--color-primary);"></i>
+          <span id="mi-manutencao-lbl">Modo manutenção</span>
+        </div>
 
         <div class="px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Conta</div>
         <div id="mi-bio-ativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="ativarBioPeloMenu()">
@@ -267,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.113'); toast('Versão copiada: v1.113')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.114'); toast('Versão copiada: v1.114')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.113</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.114</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -480,6 +484,20 @@
   <main id="dash-conteudo" class="px-4 pt-4 pb-2"></main>
 
 </div>
+
+<!-- ============ MODO MANUTENÇÃO — trava global (exceto administradores) ============ -->
+<div id="sge-manutencao" class="hidden fixed inset-0 z-[300] items-center justify-center p-6" style="background: var(--bg-main, #fafaf9);">
+  <div class="w-full max-w-sm text-center">
+    <div class="text-7xl mb-5 select-none">🚧</div>
+    <h2 class="font-cinzel font-bold text-xl mb-3" style="color: var(--text-accent, var(--color-primary));">Sistema em manutenção</h2>
+    <p class="text-xs leading-relaxed mb-2" style="color: var(--text-muted);">Identificamos um problema e os dados estão temporariamente indisponíveis.</p>
+    <p class="text-[11px] leading-relaxed mb-8" style="color: var(--text-muted);">Somente administradores têm acesso neste momento. Tente novamente mais tarde.</p>
+    <button type="button" onclick="sairDaManutencao()" class="btn-entrar w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+      <i class="fa-solid fa-right-from-bracket"></i> Sair da sessão
+    </button>
+  </div>
+</div>
+<div id="sge-manutencao-banner" class="hidden fixed top-0 left-0 right-0 z-[250] text-center text-[10px] font-bold py-1.5 tracking-wide" style="background: #dc2626; color: #fff;">🚧 MODO MANUTENÇÃO ATIVO — usuários gerais estão bloqueados</div>
 
   <nav class="app-nav w-full border-t theme-transition" style="background: var(--bg-surface); border-color: var(--border-color); padding-bottom: env(safe-area-inset-bottom);">
     <div class="flex items-stretch justify-around px-1">
@@ -807,8 +825,11 @@ async function atualizarMenuBio(){
   const verAdmin = ehAdmin && modoGestao;
   const guMi = $('mi-gestao-usuarios');
   if (guMi) guMi.classList.toggle('hidden', !verAdmin);
+  const manMi = $('mi-manutencao');
+  if (manMi) manMi.classList.toggle('hidden', !verAdmin);
   const secA = $('menu-sec-admin');
   if (secA) secA.classList.toggle('hidden', !verAdmin);
+  if (verAdmin) sgeAtualizarLblManutencao();
 }
 async function atualizarAgora(){
   fecharMenuEngrenagem();
@@ -899,6 +920,49 @@ function limparSessao(){ sessionStorage.removeItem(CHAVE); }
 /* ---------- RBAC mobile — paridade com moduloPermitido/abaPermitida do desktop ---------- */
 function sgeAcessos(){ return sessao()?.usuario?.acessos || {}; }
 function sgeEhAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'administrador'; }
+
+/* ---------- TRAVA GLOBAL DE MANUTENÇÃO — kill switch (exceto administradores) ---------- */
+function sgeManutencaoParse(v){ return ['1','true','sim','on'].includes(String(v ?? '').trim().toLowerCase()); }
+async function sgeManutencaoAtiva(){
+  try { const r = await api('obter_config_sge', { chave: 'modo_manutencao' }, sessao()?.token); return !!(r?.ok && sgeManutencaoParse(r.valor)); }
+  catch { return false; }
+}
+// Exibe/remove a tela de manutenção conforme a flag e o perfil.
+// Retorna true quando a trava está ativa para ESTE usuário (não-admin).
+async function sgeVerificarManutencao(){
+  const ativa = await sgeManutencaoAtiva();
+  const ov = $('sge-manutencao'), banner = $('sge-manutencao-banner');
+  const bloqueado = ativa && !sgeEhAdmin();
+  if (ov) { ov.classList.toggle('hidden', !bloqueado); ov.classList.toggle('flex', bloqueado); }
+  if (banner) banner.classList.toggle('hidden', !(ativa && sgeEhAdmin()));
+  if (bloqueado) { window._sgeBloqueadoManutencao = true; return true; }
+  if (window._sgeBloqueadoManutencao) {
+    // a trava foi desligada durante o bloqueio: conclui a entrada pendente
+    window._sgeBloqueadoManutencao = false;
+    entrarNoApp();
+  }
+  return false;
+}
+function sairDaManutencao(){ const ov = $('sge-manutencao'); if (ov) { ov.classList.add('hidden'); ov.classList.remove('flex'); } sairDoApp(); }
+async function sgeAtualizarLblManutencao(){
+  const lbl = $('mi-manutencao-lbl'); if (!lbl || !sgeEhAdmin()) return;
+  const ativa = await sgeManutencaoAtiva();
+  lbl.textContent = ativa ? 'Modo manutenção: ATIVO' : 'Modo manutenção';
+}
+async function sgeAlternarManutencao(){
+  fecharMenuEngrenagem();
+  if (!sgeEhAdmin()) { toast('A trava de manutenção é exclusiva do Administrador.'); return; }
+  const ativa = await sgeManutencaoAtiva();
+  const msg = ativa
+    ? 'Desativar o modo manutenção?\n\nTodos os usuários voltam a acessar o sistema normalmente.'
+    : 'Ativar o modo manutenção?\n\nTodos os usuários gerais serão bloqueados e verão apenas a tela de manutenção. Somente administradores manterão acesso.';
+  if (!confirm(msg)) return;
+  try {
+    const r = await api('salvar_config_sge', { chave: 'modo_manutencao', valor: ativa ? '0' : '1' }, sessao()?.token);
+    if (r?.ok) { toast(ativa ? 'Manutenção desativada — acesso liberado.' : '🚧 Modo manutenção ativado.'); sgeVerificarManutencao(); }
+    else toast(r?.erro || 'Falha ao alterar o modo manutenção.');
+  } catch { toast('Sem conexão com o servidor.'); }
+}
 function sgeTesoureiro(){ const u = sessao()?.usuario || {}, ac = u.acessos || {}; return !!(u.tesoureiro ?? ac.tesoureiro); }
 function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
@@ -978,7 +1042,12 @@ function sgePlataforma(){
 let hbTimer = null;
 function iniciarHeartbeat(){
   if (hbTimer) return;
-  const enviar = () => { const t = sessao()?.token; if (t && navigator.onLine !== false) api('heartbeat_dispositivo', { device_id: sgeDeviceId(), plataforma: sgePlataforma(), modulo: moduloAtual }, t).catch(() => {}); };
+  const enviar = () => {
+    const t = sessao()?.token;
+    if (!t || navigator.onLine === false) return;
+    api('heartbeat_dispositivo', { device_id: sgeDeviceId(), plataforma: sgePlataforma(), modulo: moduloAtual }, t).catch(() => {});
+    sgeVerificarManutencao(); // trava global: reforço contínuo durante a sessão
+  };
   enviar(); hbTimer = setInterval(enviar, 40000);
 }
 function bioCred(){ try { return JSON.parse(localStorage.getItem(BIO_CRED) || 'null'); } catch { return null; } }
@@ -1104,6 +1173,10 @@ $('form-login').addEventListener('submit', async (e) => {
 
 function sairDoApp(){
   limparSessao(); // sessao bio permanece: proxima abertura desbloqueia por digital
+  window._sgeBloqueadoManutencao = false;
+  $('sge-manutencao')?.classList.add('hidden');
+  $('sge-manutencao')?.classList.remove('flex');
+  $('sge-manutencao-banner')?.classList.add('hidden');
   $('tela-app').style.display = 'none';
   document.body.classList.remove('app-aberto');
   $('login-screen').style.display = 'flex';
@@ -1325,11 +1398,13 @@ function prepararPushNotificacoes(){
     document.body.appendChild(banner);
   } catch (erro) { /* push e opcional */ }
 }
-function entrarNoApp(){
+async function entrarNoApp(){
   iniciarHeartbeat();
   $('login-screen').classList.add('login-hidden');
   $('login-screen').classList.remove('login-visible');
   setTimeout(() => { $('login-screen').style.display = 'none'; }, 650);
+  // Trava global: usuário geral só vê a tela de manutenção (admin passa direto)
+  if (await sgeVerificarManutencao()) return;
   $('tela-app').style.display = 'block';
   document.body.classList.add('app-aberto');
   moduloAtual = 'dashboard';
