@@ -68,10 +68,13 @@ function abaDoMes(dadosMes, semana){
 const M = {
   aba: 'arrecadacao',
   arrec: null,          // { ano, mes, semana, conselho }
-  hist: null,           // { ano_ini, mes_ini, ano_fim, mes_fim, conselho, congregacao, anual }
+  hist: null,           // { ano_ini, mes_ini, ano_fim, mes_fim, conselho, congregacao, modo, mm, cmp }
+  cats: null,           // chips das 4 categorias + total
+  metas: undefined,     // undefined = ainda não carregado; null = API indisponível
   periodos: [],
   graf: null,
   dadosArrec: null, dadosHist: null,
+  reqId: 0,
 };
 
 /* ---------- Shell ---------- */
@@ -109,7 +112,7 @@ window.missoesAba = async function(aba){
   });
   if (!M.periodos.length) M.periodos = await SGEG.listarPeriodos();
   if (aba === 'arrecadacao') renderMisArrecadacao();
-  else renderMisHistorico();
+  else { if (M.metas === undefined) carregarMetasM(); renderMisHistorico(); }
 };
 
 /* ============================================================================
@@ -187,8 +190,12 @@ async function carregarMisArrecadacao(){
 }
 
 /* ============================================================================
-   ABA 2 — Histórico & Evolução (período mensal ≤12 meses ou comparativo anual)
+   ABA 2 — Histórico & Evolução: evolução ≤12m, anual, comparar meses, tabela anual
    ============================================================================ */
+const CATS_MIS = [...CONTAS_MIS, { chave: 'total_missoes', rotulo: 'Total Geral', cor: '#fbbf24' }];
+const META_CHAVE = 'missoes_metas_anuais';
+const parseMoedaM = s => { const t = String(s ?? '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'); const n = parseFloat(t); return Number.isFinite(n) ? n : 0; };
+
 function renderMisHistorico(){
   const corpo = $m('missoes-corpo');
   const ord = [...M.periodos].sort((a, b) => (+a.ano) - (+b.ano) || idxMesM(a.mes) - idxMesM(b.mes));
@@ -196,32 +203,54 @@ function renderMisHistorico(){
   const ult = ord[ord.length - 1] || { ano: String(new Date().getFullYear()), mes: ORDEM_MESES_M[new Date().getMonth()] };
   const anos = [...new Set(M.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
   if (!anos.length) anos.push([ult.ano, ult.ano]);
-  if (!M.hist) M.hist = { ano_ini: primeiro.ano, mes_ini: primeiro.mes, ano_fim: ult.ano, mes_fim: ult.mes, conselho: 'Todos', congregacao: 'Todas', anual: false };
+  if (!M.hist) M.hist = { ano_ini: primeiro.ano, mes_ini: primeiro.mes, ano_fim: ult.ano, mes_fim: ult.mes, conselho: 'Todos', congregacao: 'Todas', modo: 'evolucao', mm: 3, cmp: [null, null] };
+  if (!M.cats) M.cats = { ebd_missionaria: true, culto_missoes: true, oferta_missionaria: true, circulo_oracao_mis: true, total_missoes: true };
   const f = M.hist;
   const mesesOpts = ORDEM_MESES_M.map(m => [m, m]);
+  const ehPeriodo = f.modo === 'evolucao', ehAnos = f.modo === 'anual' || f.modo === 'tabela', ehCmp = f.modo === 'comparar';
 
   corpo.innerHTML = `
+    <div id="mis-metas-progresso" class="hidden grid-cols-2 gap-2"></div>
     <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2">
-        <span class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-filter text-orange-400 mr-1.5"></i>Filtros da evolução</span>
-        <button onclick="misHistAnual()" id="mh-anual-btn" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:${f.anual ? '#fb923c' : 'var(--border-color)'};background:${f.anual ? 'rgba(251,146,60,.16)' : 'transparent'};color:${f.anual ? '#fb923c' : 'var(--text-main)'}"><i class="fa-solid fa-calendar-days mr-1"></i>Comparativo anual</button>
+        <span class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-filter text-orange-400 mr-1.5"></i>Filtros</span>
+        <button onclick="abrirModalMetasM()" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-bullseye text-emerald-400 mr-1"></i>Metas anuais</button>
+      </div>
+      <div>
+        <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Modo de análise</span>
+        ${selM('mh-modo', [['evolucao', 'Evolução mensal'], ['anual', 'Comparativo anual'], ['comparar', 'Comparar meses'], ['tabela', 'Tabela anual lado a lado']], f.modo, 'misModoMudou()')}
       </div>
       <p class="text-[10px] opacity-60" id="mh-resumo">${_resumoHist(f)}</p>
       <div class="grid grid-cols-2 gap-2">
-        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">De</span><div class="flex gap-1.5">${selM('mh-ano-ini', anos, f.ano_ini, "misHistMudou('ini')")}${f.anual ? '' : selM('mh-mes-ini', mesesOpts, f.mes_ini, "misHistMudou('ini')")}</div></div>
-        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até</span><div class="flex gap-1.5">${selM('mh-ano-fim', anos, f.ano_fim, "misHistMudou('fim')")}${f.anual ? '' : selM('mh-mes-fim', mesesOpts, f.mes_fim, "misHistMudou('fim')")}</div></div>
+        ${ehPeriodo ? `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">De</span><div class="flex gap-1.5">${selM('mh-ano-ini', anos, f.ano_ini, "misHistMudou('ini')")}${selM('mh-mes-ini', mesesOpts, f.mes_ini, "misHistMudou('ini')")}</div></div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até</span><div class="flex gap-1.5">${selM('mh-ano-fim', anos, f.ano_fim, "misHistMudou('fim')")}${selM('mh-mes-fim', mesesOpts, f.mes_fim, "misHistMudou('fim')")}</div></div>` : ''}
+        ${ehAnos ? `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano inicial</span>${selM('mh-ano-ini', anos, f.ano_ini, "misHistMudou()")}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano final</span>${selM('mh-ano-fim', anos, f.ano_fim, "misHistMudou()")}</div>` : ''}
+        ${ehCmp ? `<div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Meses a comparar (até 4)</span>
+          <div id="mh-cmp-slots" class="flex flex-wrap gap-1.5"></div>
+          <button onclick="misAddSlotM()" class="mt-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-plus mr-1"></i>Mês</button></div>` : ''}
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="mh-conselho" onchange="misHistConselho()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos os conselhos</option></select></div>
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="mh-congregacao" onchange="misHistMudou()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
+        ${(ehPeriodo || f.modo === 'anual') ? `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Média móvel</span>${selM('mh-mm', [['3', '3 meses'], ['6', '6 meses'], ['12', '12 meses']], String(f.mm), 'misMMMudou()')}</div>` : ''}
       </div>
-      ${f.anual ? '' : '<p class="text-[9px] opacity-50"><i class="fa-solid fa-lock mr-1"></i>Período mensal limitado a 12 meses — para mais, use o comparativo anual.</p>'}
-      <button onclick="carregarMisHistorico(true)" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#c2410c,#fb923c)"><i class="fa-solid fa-chart-line mr-1.5"></i>Gerar evolução</button>
+      ${ehPeriodo ? '<p class="text-[9px] opacity-50"><i class="fa-solid fa-lock mr-1"></i>Período mensal limitado a 12 meses — para mais, use o comparativo anual.</p>' : ''}
+      <div class="flex flex-wrap items-center gap-1.5 pt-1 border-t" style="border-color:var(--border-color)">
+        <span class="text-[9px] font-bold uppercase opacity-60 w-full">Categorias (sem clicar na legenda):</span>
+        ${CATS_MIS.map(c => `<label class="mis-chip flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold cursor-pointer select-none" data-cat="${c.chave}" style="border-color:${M.cats[c.chave] ? c.cor : 'var(--border-color)'};opacity:${M.cats[c.chave] ? 1 : .45}"><input type="checkbox" ${M.cats[c.chave] ? 'checked' : ''} onchange="misToggleCatM('${c.chave}', this)" class="accent-orange-400 cursor-pointer">${c.rotulo}</label>`).join('')}
+      </div>
+      <button onclick="carregarMisHistorico(true)" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#c2410c,#fb923c)"><i class="fa-solid fa-chart-line mr-1.5"></i>Gerar</button>
     </div>
+    <div id="mis-stats" class="grid grid-cols-2 gap-2"></div>
     <div id="mis-hist-kpis" class="grid grid-cols-2 gap-2"></div>
-    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+    <div id="mis-grafico-wrap" class="${f.modo === 'tabela' ? 'hidden ' : ''}border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-xs mb-2 flex items-center gap-2"><i class="fa-solid fa-chart-column text-orange-400"></i><span id="mis-hist-titulo-graf">Evolução missionária</span></h3>
       <div class="h-64"><canvas id="mis-grafico"></canvas></div>
     </div>
-    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+    <div id="mis-tabela-wrap" class="${f.modo === 'tabela' ? '' : 'hidden '}border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <h3 class="font-bold text-xs mb-2 flex items-center gap-2"><i class="fa-solid fa-table-columns text-orange-400"></i>Visão anual — meses lado a lado</h3>
+      <div class="overflow-x-auto"><table class="w-full text-[10px] text-left" id="mis-tabela-anual"></table></div>
+    </div>
+    <div id="mis-porcong-wrap" class="${f.modo === 'tabela' ? 'hidden ' : ''}border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-xs mb-2 flex items-center gap-2"><i class="fa-solid fa-church text-sky-400"></i>Por congregação no período</h3>
       <div class="overflow-x-auto"><table class="w-full text-[11px] text-left">
         <thead><tr class="border-b" style="border-color:var(--border-color)">
@@ -236,29 +265,41 @@ function renderMisHistorico(){
       </table></div>
     </div>`;
   _popularConselhosMis('mh-conselho', f.conselho).then(() => _popularCongsMis());
+  if (ehCmp) _renderSlotsM();
   carregarMisHistorico();
 }
 function _resumoHist(f){
-  return f.anual
-    ? `Anual · ${f.ano_ini} a ${f.ano_fim} • ${f.conselho}${f.congregacao !== 'Todas' ? ' • ' + f.congregacao : ''}`
-    : `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${f.conselho}${f.congregacao !== 'Todas' ? ' • ' + f.congregacao : ''}`;
+  const escopoTxt = `${f.conselho}${f.congregacao !== 'Todas' ? ' • ' + f.congregacao : ''}`;
+  if (f.modo === 'anual' || f.modo === 'tabela') return `${f.modo === 'tabela' ? 'Tabela anual' : 'Anual'} · ${f.ano_ini} a ${f.ano_fim} • ${escopoTxt}`;
+  if (f.modo === 'comparar') return `Comparativo livre entre meses • ${escopoTxt}`;
+  return `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${escopoTxt}`;
 }
-window.misHistAnual = function(){
-  M.hist.anual = !M.hist.anual;
-  if (M.hist.anual) toast('Comparativo anual: cobre os anos inteiros entre o ano inicial e o final.');
+window.misModoMudou = function(){
+  M.hist.modo = $m('mh-modo')?.value || 'evolucao';
   renderMisHistorico();
+};
+window.misMMMudou = function(){
+  M.hist.mm = parseInt($m('mh-mm')?.value || '3', 10);
+  _renderResultadosM();
+};
+window.misToggleCatM = function(chave, cb){
+  M.cats[chave] = !!cb.checked;
+  const chip = cb.closest('.mis-chip');
+  if (chip){ chip.style.opacity = cb.checked ? '1' : '.45'; chip.style.borderColor = cb.checked ? (CATS_MIS.find(c => c.chave === chave)?.cor || 'var(--border-color)') : 'var(--border-color)'; }
+  _renderResultadosM();
 };
 window.misHistConselho = async function(){
   M.hist.conselho = $m('mh-conselho')?.value || 'Todos';
   M.hist.congregacao = 'Todas';
   await _popularCongsMis();
+  const r = $m('mh-resumo'); if (r) r.textContent = _resumoHist(M.hist);
 };
 window.misHistMudou = function(lado){
   const f = M.hist;
   f.ano_ini = $m('mh-ano-ini')?.value ?? f.ano_ini; f.ano_fim = $m('mh-ano-fim')?.value ?? f.ano_fim;
   f.conselho = $m('mh-conselho')?.value || f.conselho;
   f.congregacao = $m('mh-congregacao')?.value || f.congregacao;
-  if (!f.anual){
+  if (f.modo === 'evolucao'){
     f.mes_ini = $m('mh-mes-ini')?.value ?? f.mes_ini; f.mes_fim = $m('mh-mes-fim')?.value ?? f.mes_fim;
     _clamp12(f, lado);
   }
@@ -284,6 +325,31 @@ function _gravarFaixa(f, ini, fim){
   if ($m('mh-mes-fim')) $m('mh-mes-fim').value = f.mes_fim;
 }
 
+/* Slots do modo "Comparar meses" */
+function _renderSlotsM(){
+  const wrap = $m('mh-cmp-slots'); if (!wrap) return;
+  const agora = new Date();
+  const anosOpts = [...new Set(M.periodos.map(p => String(p.ano)))].sort();
+  wrap.innerHTML = M.hist.cmp.map((slot, i) => `
+    <div class="flex items-center gap-1 border rounded-xl px-1.5 py-1" style="border-color:var(--border-color)">
+      <select id="mh-cmp-ano-${i}" class="px-1.5 py-1 rounded-lg border text-[10px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${anosOpts.map(a => `<option ${a === String(slot?.ano ?? (agora.getFullYear() - (M.hist.cmp.length - 1 - i))) ? 'selected' : ''}>${a}</option>`).join('')}</select>
+      <select id="mh-cmp-mes-${i}" class="px-1.5 py-1 rounded-lg border text-[10px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${ORDEM_MESES_M.map(m => `<option ${m === (slot?.mes ?? ORDEM_MESES_M[agora.getMonth()]) ? 'selected' : ''}>${m}</option>`).join('')}</select>
+      ${M.hist.cmp.length > 1 ? `<button onclick="misDelSlotM(${i})" class="opacity-50 text-red-400 cursor-pointer px-0.5"><i class="fa-solid fa-xmark"></i></button>` : ''}
+    </div>`).join('');
+}
+function _capturarSlotsM(){
+  M.hist.cmp = M.hist.cmp.map((slot, i) => ({
+    ano: $m(`mh-cmp-ano-${i}`)?.value ?? slot?.ano,
+    mes: $m(`mh-cmp-mes-${i}`)?.value ?? slot?.mes,
+  }));
+}
+window.misAddSlotM = function(){
+  if (M.hist.cmp.length >= 4){ toast('Máximo de 4 meses na comparação.'); return; }
+  _capturarSlotsM();
+  M.hist.cmp.push(null); _renderSlotsM();
+};
+window.misDelSlotM = function(i){ _capturarSlotsM(); M.hist.cmp.splice(i, 1); _renderSlotsM(); };
+
 async function _popularConselhosMis(idSel, valor){
   const sel = $m(idSel); if (!sel) return;
   /* Conselhos vistos nos dados (histórico por ano) + mapa atual */
@@ -301,117 +367,323 @@ async function _popularCongsMis(){
   cong.value = M.hist.congregacao || 'Todas';
 }
 
+const _zeraM = () => ({ ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
+function _agregaMesM(cache, ano, mes, filtra, porCong){
+  const acc = _zeraM();
+  const aba = abaDoMes(cache[`${ano}_${mes}`], 'FECHAMENTO DO MÊS');
+  for (const r of (aba?.registros || [])){
+    if (!filtra(r)) continue;
+    const v = extrairMissoesReg(r);
+    CONTAS_MIS.forEach(c => acc[c.chave] += v[c.chave]);
+    acc.total_missoes += v.total_missoes;
+    if (porCong){
+      const cn = r.congregacao || '-';
+      const cg = porCong[cn] || (porCong[cn] = { nome: cn, conselho: r.conselho, ..._zeraM() });
+      CONTAS_MIS.forEach(c => cg[c.chave] += v[c.chave]);
+      cg.total_missoes += v.total_missoes;
+    }
+  }
+  return acc;
+}
+
 async function carregarMisHistorico(disparado){
   const f = M.hist;
+  const reqId = ++M.reqId;
   const tbody = $m('mis-hist-tbody'), kpis = $m('mis-hist-kpis');
-  if (!tbody || !kpis) return;
-  tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)"><div class="spin inline-block mr-2"></div>Cruzando dados…</td></tr>';
+  if (!kpis) return;
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)"><div class="spin inline-block mr-2"></div>Cruzando dados…</td></tr>';
 
-  /* Universo de períodos */
-  let pontos;
-  if (f.anual){
+  /* Universo de pontos conforme o modo */
+  let pontos = [], pontosAnt = [], anosTabela = [];
+  if (f.modo === 'anual'){
     const aI = Math.min(+f.ano_ini, +f.ano_fim), aF = Math.max(+f.ano_ini, +f.ano_fim);
-    pontos = [];
     for (let a = aI; a <= aF; a++) pontos.push({ tipo: 'ano', ano: a, rotulo: String(a) });
+  } else if (f.modo === 'comparar'){
+    pontos = f.cmp.map((_, i) => {
+      const ano = $m(`mh-cmp-ano-${i}`)?.value, mes = $m(`mh-cmp-mes-${i}`)?.value;
+      return (ano && mes) ? { tipo: 'mes', ano: +ano, mes, rotulo: `${mes.slice(0, 3)}/${String(ano).slice(2)}` } : null;
+    }).filter(Boolean);
+    if (pontos.length < 2){ kpis.innerHTML = '<p class="text-[10px] opacity-60 col-span-2">Selecione ao menos 2 meses para comparar.</p>'; return; }
+  } else if (f.modo === 'tabela'){
+    const aI = Math.min(+f.ano_ini, +f.ano_fim), aF = Math.max(+f.ano_ini, +f.ano_fim);
+    anosTabela = []; for (let a = aI; a <= aF; a++) anosTabela.push(a);
+    if (anosTabela.length > 8){ anosTabela.length = 8; toast('Tabela limitada a 8 anos por vez.'); }
   } else {
     let ini = (+f.ano_ini) * 12 + idxMesM(f.mes_ini), fim = (+f.ano_fim) * 12 + idxMesM(f.mes_fim);
     if (ini > fim) [ini, fim] = [fim, ini];
-    pontos = [];
     for (let v = ini; v <= fim; v++){
-      const d = v - 1, ano = Math.floor(d / 12), mes = ORDEM_MESES_M[d % 12];
-      pontos.push({ tipo: 'mes', ano, mes, rotulo: `${mes.slice(0, 3)}/${String(ano).slice(2)}` });
+      const d = v - 1;
+      pontos.push({ tipo: 'mes', ano: Math.floor(d / 12), mes: ORDEM_MESES_M[d % 12], rotulo: `${ORDEM_MESES_M[d % 12].slice(0, 3)}/${String(Math.floor(d / 12)).slice(2)}` });
     }
+    /* YoY — mesma faixa no ano anterior */
+    for (const p of pontos) pontosAnt.push({ tipo: 'mes', ano: p.ano - 1, mes: p.mes });
   }
 
-  /* Carrega meses necessários */
+  /* Meses necessários (deduplicados) */
   const mesesNec = new Set();
-  for (const p of pontos){
+  for (const p of [...pontos, ...pontosAnt]){
     if (p.tipo === 'mes') mesesNec.add(`${p.ano}_${p.mes}`);
     else for (const mm of ORDEM_MESES_M) mesesNec.add(`${p.ano}_${mm}`);
   }
+  for (const a of anosTabela) for (const mm of ORDEM_MESES_M) mesesNec.add(`${a}_${mm}`);
   const cache = {};
   await Promise.all([...mesesNec].map(async k => {
     const [a, m] = k.split('_');
     cache[k] = await SGEG.carregarMovimento(a, m);
   }));
+  if (reqId !== M.reqId) return; // resposta atrasada — filtro já mudou
 
-  /* Agrega por ponto (mês ou ano) — conselho lido do registro = conselho histórico daquele ano */
   const filtra = r =>
     (f.conselho === 'Todos' || _norm(r.conselho) === _norm(f.conselho)) &&
     (f.congregacao === 'Todas' || _norm(r.congregacao) === _norm(f.congregacao));
-  const zera = () => ({ ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
   const porCong = {};
 
   const series = pontos.map(p => {
-    const acc = zera();
+    const acc = _zeraM();
     const mesesDoPonto = p.tipo === 'mes' ? [[p.ano, p.mes]] : ORDEM_MESES_M.map(m => [p.ano, m]);
     for (const [a, m] of mesesDoPonto){
-      const aba = abaDoMes(cache[`${a}_${m}`], 'FECHAMENTO DO MÊS');
-      for (const r of (aba?.registros || [])){
-        if (!filtra(r)) continue;
-        const v = extrairMissoesReg(r);
-        CONTAS_MIS.forEach(c => acc[c.chave] += v[c.chave]);
-        acc.total_missoes += v.total_missoes;
-        const cn = r.congregacao || '-';
-        const cg = porCong[cn] || (porCong[cn] = { nome: cn, conselho: r.conselho, ...zera() });
-        CONTAS_MIS.forEach(c => cg[c.chave] += v[c.chave]);
-        cg.total_missoes += v.total_missoes;
-      }
+      const v = _agregaMesM(cache, a, m, filtra, porCong);
+      CONTAS_MIS.forEach(c => acc[c.chave] += v[c.chave]);
+      acc.total_missoes += v.total_missoes;
     }
-    return { rotulo: p.rotulo, ...acc };
+    return { rotulo: p.rotulo, ano: String(p.ano), ...acc };
   });
 
-  const tot = series.reduce((a, s) => {
-    CONTAS_MIS.forEach(c => a[c.chave] += s[c.chave]); a.total_missoes += s.total_missoes; return a;
-  }, zera());
-  M.dadosHist = { series, tot, porCong };
+  const anterior = pontosAnt.map(p => ({ ..._agregaMesM(cache, p.ano, p.mes, filtra, null) }));
+  const tabela = f.modo === 'tabela' ? {
+    anos: anosTabela.map(String),
+    linhas: ORDEM_MESES_M.map(mes => ({
+      mes,
+      por_ano: Object.fromEntries(anosTabela.map(a => [String(a), _agregaMesM(cache, a, mes, filtra, porCong)])),
+    })),
+  } : null;
 
-  /* KPIs */
-  kpis.innerHTML =
-    CONTAS_MIS.map(c => cardM(c.rotulo, moedaM(tot[c.chave]), c.cor, c.fundo)).join('') +
-    cardM('Total no período', moedaM(tot.total_missoes), '#fbbf24', 'rgba(251,191,36,.12)');
+  const tot = _zeraM();
+  for (const s of series){ CONTAS_MIS.forEach(c => tot[c.chave] += s[c.chave]); tot.total_missoes += s.total_missoes; }
+  if (tabela) for (const l of tabela.linhas) for (const a of tabela.anos){ const v = l.por_ano[a]; CONTAS_MIS.forEach(c => tot[c.chave] += v[c.chave]); tot.total_missoes += v.total_missoes; }
+  M.dadosHist = { series, tot, porCong, anterior, tabela };
+  _renderResultadosM();
+  if (disparado) toast('Análise missionária atualizada.');
+}
+window.carregarMisHistorico = carregarMisHistorico;
 
-  /* Gráfico — barras agrupadas das 4 contas por período */
+/* ---------- Renderização (chips de categoria aplicados aqui, sem refetch) ---------- */
+function _valorPontoM(s){
+  let v = 0;
+  for (const c of CONTAS_MIS) if (M.cats[c.chave]) v += numM(s?.[c.chave]);
+  return v;
+}
+function _renderResultadosM(){
+  const d = M.dadosHist; if (!d) return;
+  const f = M.hist;
+  const { series, tot, porCong, anterior, tabela } = d;
+
+  /* KPIs respeitam os chips */
+  const kpis = $m('mis-hist-kpis');
+  if (kpis) kpis.innerHTML =
+    CONTAS_MIS.filter(c => M.cats[c.chave]).map(c => cardM(c.rotulo, moedaM(tot[c.chave]), c.cor, c.fundo)).join('') +
+    cardM(M.cats.total_missoes ? 'Total no período' : 'Total (marcadas)', moedaM(M.cats.total_missoes ? tot.total_missoes : _valorPontoM(tot)), '#fbbf24', 'rgba(251,191,36,.12)');
+
+  _renderStatsM(d);
+  _renderMetasM(d);
+  if (f.modo === 'tabela'){ _renderTabelaM(tabela); return; }
+  _renderGraficoM(series);
+  const tbody = $m('mis-hist-tbody');
+  if (tbody){
+    const linhas = Object.values(porCong).sort((a, b) => b.total_missoes - a.total_missoes);
+    tbody.innerHTML = linhas.length ? linhas.map(l => `
+      <tr class="border-b" style="border-color:var(--border-color)">
+        <td class="py-2 pr-2"><span class="font-semibold">${escM(l.nome)}</span><span class="block text-[9px] opacity-50">${escM(l.conselho)}</span></td>
+        ${CONTAS_MIS.map(c => `<td class="py-2 px-1 text-right tabular-nums ${l[c.chave] && M.cats[c.chave] ? '' : 'opacity-30'}">${l[c.chave] && M.cats[c.chave] ? moedaM(l[c.chave]) : '-'}</td>`).join('')}
+        <td class="py-2 pl-1 text-right tabular-nums font-bold text-orange-400">${moedaM(_valorPontoM(l))}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)">Sem arrecadação missionária no período/filtro.</td></tr>';
+  }
+}
+
+function _renderGraficoM(series){
+  const f = M.hist;
   const tit = $m('mis-hist-titulo-graf');
-  if (tit) tit.textContent = f.anual ? `Comparativo anual · ${Math.min(+f.ano_ini, +f.ano_fim)} a ${Math.max(+f.ano_ini, +f.ano_fim)}` : 'Evolução mensal missionária';
+  if (tit) tit.textContent = { evolucao: 'Evolução mensal missionária', anual: `Comparativo anual · ${Math.min(+f.ano_ini, +f.ano_fim)} a ${Math.max(+f.ano_ini, +f.ano_fim)}`, comparar: 'Comparativo entre meses' }[f.modo] || 'Missões';
   if (M.graf){ try { M.graf.destroy(); } catch(e){} M.graf = null; }
   const cv = $m('mis-grafico');
-  if (cv && window.Chart){
-    M.graf = new Chart(cv.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: series.map(s => s.rotulo),
-        datasets: CONTAS_MIS.map(c => ({
-          label: c.rotulo, data: series.map(s => +s[c.chave].toFixed(2)),
-          backgroundColor: c.cor, borderRadius: 3, maxBarThickness: 18,
-        })),
+  if (!cv || !window.Chart) return;
+  M.graf = new Chart(cv.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: series.map(s => s.rotulo),
+      datasets: CATS_MIS.filter(c => M.cats[c.chave]).map(c => ({
+        label: c.rotulo, data: series.map(s => +numM(s[c.chave]).toFixed(2)),
+        backgroundColor: c.cor, borderRadius: 3, maxBarThickness: 18,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, normalized: true,
+      animation: series.length > 10 ? false : { duration: 300 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${moedaM(ctx.parsed.y)}` } },
       },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${moedaM(ctx.parsed.y)}` } },
-        },
-        scales: {
-          x: { ticks: { font: { size: 9 } }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) } },
-        },
+      scales: {
+        x: { ticks: { font: { size: 9 }, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) } },
       },
-    });
-  }
-
-  /* Tabela por congregação */
-  const linhas = Object.values(porCong).sort((a, b) => b.total_missoes - a.total_missoes);
-  tbody.innerHTML = linhas.length ? linhas.map(l => `
-    <tr class="border-b" style="border-color:var(--border-color)">
-      <td class="py-2 pr-2"><span class="font-semibold">${escM(l.nome)}</span><span class="block text-[9px] opacity-50">${escM(l.conselho)}</span></td>
-      ${CONTAS_MIS.map(c => `<td class="py-2 px-1 text-right tabular-nums ${l[c.chave] ? '' : 'opacity-30'}">${l[c.chave] ? moedaM(l[c.chave]) : '-'}</td>`).join('')}
-      <td class="py-2 pl-1 text-right tabular-nums font-bold text-orange-400">${moedaM(l.total_missoes)}</td>
-    </tr>`).join('')
-    : '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)">Sem arrecadação missionária no período/filtro.</td></tr>';
-  if (disparado) toast('Evolução missionária atualizada.');
+    },
+  });
 }
+
+function _renderStatsM(d){
+  const box = $m('mis-stats'); if (!box) return;
+  const f = M.hist;
+  const series = d.series || [];
+  if (f.modo === 'tabela' || !series.length){ box.innerHTML = ''; return; }
+  const vals = series.map(_valorPontoM);
+  const ult = vals[vals.length - 1], ant = vals.length > 1 ? vals[vals.length - 2] : null;
+  const n = Math.max(1, f.mm || 3);
+  const janela = vals.slice(-n);
+  const mm = janela.length ? janela.reduce((a, b) => a + b, 0) / janela.length : 0;
+  const media = vals.reduce((a, b) => a + b, 0) / vals.length;
+  let yoy = null;
+  if (f.modo === 'evolucao' && d.anterior?.length){
+    const somaAnt = d.anterior.reduce((a, s) => a + _valorPontoM(s), 0);
+    const somaAtual = vals.reduce((a, b) => a + b, 0);
+    if (somaAnt > 0.004) yoy = (somaAtual - somaAnt) / somaAnt * 100;
+  } else if (f.modo === 'anual' && series.length > 1){
+    const a = _valorPontoM(series[series.length - 2]), b = _valorPontoM(series[series.length - 1]);
+    if (a > 0.004) yoy = (b - a) / a * 100;
+  }
+  const pct = v => (v === null || v === undefined || !isFinite(v)) ? '<span class="opacity-40">—</span>' : `<span class="${v >= 0 ? 'text-emerald-500' : 'text-red-500'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+  const stat = (rotulo, valor, det, ico, cor) => `
+    <div class="border rounded-xl p-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[9px] font-bold uppercase opacity-60 flex items-center gap-1"><i class="fa-solid ${ico}" style="color:${cor}"></i>${rotulo}</p>
+      <p class="mt-1 text-sm font-black tabular-nums">${valor}</p>
+      <p class="text-[9px] opacity-50 mt-0.5">${det}</p>
+    </div>`;
+  box.innerHTML =
+    stat('Crescimento vs anterior', pct(ant && Math.abs(ant) > 0.004 ? (ult - ant) / Math.abs(ant) * 100 : null), `${moedaM(ant || 0)} → ${moedaM(ult)}`, 'fa-arrow-trend-up', '#38bdf8') +
+    stat(`Média móvel ${n} períodos`, moedaM(mm), pct(media > 0.004 ? (ult - media) / media * 100 : null) + ' vs média', 'fa-wave-square', '#a78bfa') +
+    stat('Média do período', moedaM(media), ult >= media ? 'Último acima da média' : 'Último abaixo da média', 'fa-scale-balanced', '#f59e0b') +
+    stat('Vs. ano anterior', pct(yoy), f.modo === 'evolucao' ? 'Mesma faixa, ano anterior' : 'Último ano vs penúltimo', 'fa-calendar-check', '#ec4899');
+}
+
+function _renderTabelaM(tabela){
+  const tb = $m('mis-tabela-anual'); if (!tb || !tabela) return;
+  const anos = tabela.anos || [];
+  const cel = v => `<td class="py-1.5 px-1.5 text-right tabular-nums border-b" style="border-color:var(--border-color)">${v > 0.004 ? moedaM(v) : '<span class="opacity-25">—</span>'}</td>`;
+  let html = `<thead><tr class="border-b" style="border-color:var(--border-color)"><th class="py-1.5 pr-1.5 opacity-60">Mês</th>${anos.map(a => `<th class="py-1.5 px-1.5 text-right opacity-60">${a}</th>`).join('')}${anos.length > 1 ? '<th class="py-1.5 pl-1.5 text-right opacity-60">Δ ano</th>' : ''}</tr></thead><tbody>`;
+  const totVals = anos.map(() => 0);
+  for (const l of tabela.linhas){
+    const vals = anos.map(a => _valorPontoM(l.por_ano?.[a]));
+    vals.forEach((v, i) => totVals[i] += v);
+    const u = vals[vals.length - 1], p = vals.length > 1 ? vals[vals.length - 2] : null;
+    const dl = (p !== null && p > 0.004) ? (u - p) / p * 100 : null;
+    html += `<tr><td class="py-1.5 pr-1.5 font-semibold border-b" style="border-color:var(--border-color)">${escM(l.mes.slice(0, 3))}</td>${vals.map(cel).join('')}${anos.length > 1 ? `<td class="py-1.5 pl-1.5 text-right tabular-nums font-bold border-b ${dl === null ? 'opacity-30' : dl >= 0 ? 'text-emerald-500' : 'text-red-500'}" style="border-color:var(--border-color)">${dl === null ? '—' : (dl >= 0 ? '+' : '') + dl.toFixed(1) + '%'}</td>` : ''}</tr>`;
+  }
+  const tdl = (totVals.length > 1 && totVals[totVals.length - 2] > 0.004) ? (totVals[totVals.length - 1] - totVals[totVals.length - 2]) / totVals[totVals.length - 2] * 100 : null;
+  html += `<tr class="font-bold" style="background:var(--bg-input)"><td class="py-1.5 pr-1.5">TOTAL</td>${totVals.map(v => `<td class="py-1.5 px-1.5 text-right tabular-nums text-orange-400">${moedaM(v)}</td>`).join('')}${anos.length > 1 ? `<td class="py-1.5 pl-1.5 text-right tabular-nums ${tdl === null ? 'opacity-30' : tdl >= 0 ? 'text-emerald-500' : 'text-red-500'}">${tdl === null ? '—' : (tdl >= 0 ? '+' : '') + tdl.toFixed(1) + '%'}</td>` : ''}</tr>`;
+  tb.innerHTML = html + '</tbody>';
+}
+
+/* ---------- Metas anuais (app_config via sge-api) ---------- */
+async function carregarMetasM(){
+  try {
+    const res = await api('obter_config_sge', { chave: META_CHAVE }, sessao()?.token);
+    M.metas = res?.valor ? (JSON.parse(res.valor) || {}) : {};
+  } catch(e){ M.metas = null; }
+  if (M.aba === 'historico' && M.dadosHist) _renderMetasM(M.dadosHist);
+}
+function _metaAnoM(ano, chave){
+  const m = (M.metas || {})[String(ano)] || {};
+  if (chave === 'total_missoes'){
+    const dir = numM(m.total_missoes);
+    if (dir > 0) return dir;
+    return CONTAS_MIS.reduce((a, c) => a + numM(m[c.chave]), 0);
+  }
+  return numM(m[chave]);
+}
+function _renderMetasM(d){
+  const box = $m('mis-metas-progresso'); if (!box) return;
+  if (!M.metas){ box.classList.add('hidden'); box.classList.remove('grid'); box.innerHTML = ''; return; }
+  const realizado = {};
+  for (const s of (d.series || [])){
+    const a = String(s.ano || ''); if (!a) continue;
+    realizado[a] = realizado[a] || _zeraM();
+    for (const c of CATS_MIS) realizado[a][c.chave] += numM(s[c.chave]);
+  }
+  for (const l of (d.tabela?.linhas || [])) for (const a of (d.tabela.anos || [])){
+    realizado[a] = realizado[a] || _zeraM();
+    for (const c of CATS_MIS) realizado[a][c.chave] += numM(l.por_ano?.[a]?.[c.chave]);
+  }
+  const anosMeta = Object.keys(realizado).filter(a => _metaAnoM(a, 'total_missoes') > 0).sort();
+  if (!anosMeta.length){ box.classList.add('hidden'); box.classList.remove('grid'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden'); box.classList.add('grid');
+  box.innerHTML = anosMeta.map(ano => {
+    const rA = realizado[ano] || {};
+    const meta = _metaAnoM(ano, 'total_missoes');
+    const pct = meta > 0 ? Math.min(999, numM(rA.total_missoes) / meta * 100) : 0;
+    const cor = pct >= 100 ? '#10b981' : pct >= 60 ? '#fb923c' : '#38bdf8';
+    return `<div class="border rounded-xl p-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex justify-between items-baseline"><span class="text-[9px] font-bold uppercase opacity-60"><i class="fa-solid fa-bullseye mr-1" style="color:${cor}"></i>Meta ${ano}</span><b class="text-[10px]" style="color:${cor}">${pct.toFixed(0)}%</b></div>
+      <div class="h-1.5 rounded-full overflow-hidden mt-1.5" style="background:var(--bg-input)"><div class="h-full rounded-full" style="width:${Math.min(100, pct)}%;background:${cor}"></div></div>
+      <p class="text-[9px] opacity-60 mt-1 tabular-nums">${moedaM(rA.total_missoes)} / ${moedaM(meta)}</p>
+    </div>`;
+  }).join('');
+}
+window.abrirModalMetasM = function(){
+  if (M.metas === null){ toast('Metas ficam disponíveis após atualização do servidor.'); return; }
+  const old = $m('modal-mis-metas'); if (old) old.remove();
+  const anosOpts = [...new Set(M.periodos.map(p => String(p.ano)))].sort();
+  const anoAtual = String(new Date().getFullYear());
+  const m = (M.metas || {})[anoAtual] || {};
+  const el = document.createElement('div');
+  el.id = 'modal-mis-metas';
+  el.className = 'fixed inset-0 z-[95] flex items-center justify-center p-4';
+  el.style.cssText = 'background:rgba(2,6,23,.8);backdrop-filter:blur(6px)';
+  el.innerHTML = `
+    <div class="w-full max-w-sm rounded-2xl p-4 border" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm"><i class="fa-solid fa-bullseye text-emerald-400 mr-1.5"></i>Metas anuais de Missões</h3>
+        <button onclick="document.getElementById('modal-mis-metas').remove()" class="opacity-60 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <label class="block text-xs mb-2"><span class="font-bold opacity-70">Ano</span>
+        <select id="meta-ano-m" class="w-full mt-1 px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${anosOpts.map(a => `<option ${a === anoAtual ? 'selected' : ''}>${a}</option>`).join('')}</select>
+      </label>
+      <div class="grid grid-cols-2 gap-2">
+        ${CONTAS_MIS.map(c => `<label class="block text-xs"><span class="font-bold opacity-70 text-[10px]">${c.rotulo}</span><input id="meta-m-${c.chave}" inputmode="decimal" placeholder="0,00" class="w-full mt-1 px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></label>`).join('')}
+      </div>
+      <label class="block text-xs mt-2"><span class="font-bold opacity-70 text-[10px]">Meta total do ano (vazio = soma das contas)</span><input id="meta-m-total" inputmode="decimal" placeholder="0,00" class="w-full mt-1 px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></label>
+      <div class="flex gap-2 mt-3">
+        <button onclick="salvarMetasM()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar</button>
+        <button onclick="document.getElementById('modal-mis-metas').remove()" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-xs cursor-pointer">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  const selAno = el.querySelector('#meta-ano-m');
+  const preenche = ano => {
+    const mm = (M.metas || {})[String(ano)] || {};
+    const fmt = v => numM(v) > 0 ? numM(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+    CONTAS_MIS.forEach(c => { const i = el.querySelector(`#meta-m-${c.chave}`); if (i) i.value = fmt(mm[c.chave]); });
+    const t = el.querySelector('#meta-m-total'); if (t) t.value = fmt(mm.total_missoes);
+  };
+  selAno.onchange = () => preenche(selAno.value);
+  preenche(anoAtual);
+};
+window.salvarMetasM = async function(){
+  const el = $m('modal-mis-metas'); if (!el) return;
+  const ano = el.querySelector('#meta-ano-m')?.value;
+  const novo = { ...(M.metas || {}) };
+  novo[String(ano)] = { total_missoes: parseMoedaM(el.querySelector('#meta-m-total')?.value) };
+  CONTAS_MIS.forEach(c => novo[String(ano)][c.chave] = parseMoedaM(el.querySelector(`#meta-m-${c.chave}`)?.value));
+  try {
+    const res = await api('salvar_config_sge', { chave: META_CHAVE, valor: JSON.stringify(novo) }, sessao()?.token);
+    if (res?.erro) { toast(res.erro); return; }
+    M.metas = novo;
+    el.remove();
+    toast('Metas anuais salvas na nuvem.');
+    if (M.dadosHist) _renderMetasM(M.dadosHist);
+  } catch(e){ toast(e.message || 'Falha ao salvar metas.'); }
+};
 
 /* API de depuração/testes */
 window.SGEM = { extrairMissoesReg, abaDoMes, M };
