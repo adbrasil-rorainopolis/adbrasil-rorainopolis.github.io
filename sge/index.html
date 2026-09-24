@@ -271,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.119'); toast('Versão copiada: v1.119')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.120'); toast('Versão copiada: v1.120')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.119</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.120</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -334,7 +334,31 @@
           </div>
         </div>
       </form>
+      <!-- Card de download — só aparece quando o acesso é por computador -->
+      <div id="card-download-desktop" class="hidden mt-5 p-3.5 rounded-2xl text-center" style="background: rgba(217,180,91,.08); border: 1px solid rgba(217,180,91,.35);">
+        <p class="text-[11px] font-bold" style="color: var(--color-primary);">💻 Está no computador?</p>
+        <p class="text-[10px] opacity-70 mt-0.5">Baixe a versão completa do SGE para Windows.</p>
+        <button type="button" onclick="abrirDownloadDesktop()" class="btn-entrar mt-2.5 py-2 px-5 rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer">
+          <i class="fa-solid fa-download"></i> Baixar SGE para Windows
+        </button>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: DOWNLOAD DESKTOP (CPF + senha) ============ -->
+<div id="modal-download-desktop" class="fixed inset-0 z-[97] hidden items-center justify-center p-5" style="background: rgba(2,6,23,.85); backdrop-filter: blur(6px);">
+  <div class="w-full max-w-sm rounded-3xl p-6 space-y-3" style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main);">
+    <div class="text-center">
+      <div class="text-3xl mb-1 select-none">💻</div>
+      <h3 class="font-bold text-sm" style="color: var(--color-primary);">Baixar SGE para Windows</h3>
+      <p class="text-[10px] mt-1 leading-relaxed" style="color: var(--text-muted);">Confirme seu CPF e senha do cadastro para liberar o download.</p>
+    </div>
+    <input type="text" id="dl-cpf" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" oninput="formatarCpfInput(this)" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+    <input type="password" id="dl-senha" placeholder="Sua senha" class="w-full px-3 py-2.5 rounded-xl outline-none text-sm" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);">
+    <div id="dl-erro" class="hidden p-2.5 rounded-xl text-[11px] font-semibold text-center" style="color: var(--color-danger); background: var(--color-primary-light); border: 1px solid var(--border-color);"></div>
+    <button id="btn-dl-baixar" onclick="baixarAppDesktop()" class="btn-entrar w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer">Baixar agora</button>
+    <button onclick="fecharDownloadDesktop()" class="w-full py-1.5 text-[11px] font-semibold cursor-pointer" style="color: var(--text-muted);">Cancelar</button>
   </div>
 </div>
 
@@ -714,6 +738,49 @@ function abrirNovoCadastro(){
   const fb = $('cadastro-feedback'); if (fb) fb.classList.add('hidden');
   m.classList.remove('hidden');
   const el = $('cad-nome'); if (el) el.focus();
+}
+/* ---------- download desktop (Windows) ---------- */
+function sgeEhDesktop(){
+  return !(/Android|iPhone|iPad|iPod|Windows Phone|webOS|Mobile/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches));
+}
+function abrirDownloadDesktop(){
+  const m = $('modal-download-desktop'); if (!m) return;
+  const fb = $('dl-erro'); if (fb) fb.classList.add('hidden');
+  m.classList.remove('hidden'); m.classList.add('flex');
+}
+function fecharDownloadDesktop(){
+  const m = $('modal-download-desktop');
+  if (m){ m.classList.add('hidden'); m.classList.remove('flex'); }
+}
+async function baixarAppDesktop(){
+  const cpf = $('dl-cpf').value.trim();
+  const senha = $('dl-senha').value;
+  const fb = $('dl-erro');
+  const btn = $('btn-dl-baixar');
+  const erro = t => { if (fb){ fb.textContent = t; fb.classList.remove('hidden'); } };
+  if (!cpf || !senha){ erro('Informe seu CPF e sua senha.'); return; }
+  btn.disabled = true; btn.textContent = 'Baixando pacote…';
+  try {
+    const resp = await fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'baixar_app', cpf, senha }),
+    });
+    if (!resp.ok){
+      let j = {}; try { j = await resp.json(); } catch(e) {}
+      erro(j.erro || 'Não foi possível baixar agora. Tente mais tarde.');
+    } else {
+      const blob = await resp.blob();
+      const dispo = resp.headers.get('Content-Disposition') || '';
+      const nome = (dispo.match(/filename="?([^";]+)"?/) || [])[1] || 'SGE-app.zip';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+      URL.revokeObjectURL(a.href);
+      fecharDownloadDesktop();
+      toast('Download iniciado — descompacte o pacote e execute o instalador.');
+    }
+  } catch(e) { erro('Falha de conexão ao baixar.'); }
+  btn.disabled = false; btn.textContent = 'Baixar agora';
 }
 function fecharNovoCadastro(){
   const m = $('modal-novo-cadastro');
@@ -1566,6 +1633,11 @@ navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (__sgeDigitouAlgo) { avisarAtualizacaoPronta(); return; }
     location.reload();
   });
+}
+// Card de download do Windows — só aparece em acesso por computador
+if (sgeEhDesktop()) {
+  const _cdl = document.getElementById('card-download-desktop');
+  if (_cdl) _cdl.classList.remove('hidden');
 }
 </script>
 </body>
