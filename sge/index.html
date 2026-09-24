@@ -28,6 +28,7 @@
 <script src="espiritual.js"></script>
 <script src="comunidade.js"></script>
 <script src="membro.js"></script>
+<script src="missoes.js"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -261,9 +262,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.93'); toast('Versão copiada: v1.93')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.94'); toast('Versão copiada: v1.94')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.93</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.94</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -1117,6 +1118,7 @@ function renderModulo(mod){
   if (mod === 'gestao' && typeof renderGestao === 'function') return renderGestao();
   if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
   if (mod === 'secretaria' && typeof renderSecretaria === 'function') return renderSecretaria();
+  if (mod === 'missoes' && typeof renderMissoes === 'function') return renderMissoes();
   if (mod === 'comunidade' && typeof renderComunidade === 'function') return renderComunidade();
   if (mod === 'membro_inicio' && typeof renderMembroInicio === 'function') return renderMembroInicio();
   if (mod === 'membro_congregacao' && typeof renderMembroCongregacao === 'function') return renderMembroCongregacao();
