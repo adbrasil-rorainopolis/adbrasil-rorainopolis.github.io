@@ -175,7 +175,7 @@ window.renderMembroFinanceiro = async function(anoSel) {
       ${memCard(`<div class="flex flex-col items-center text-center py-6 gap-2">
         <i class="fa-solid fa-link-slash text-2xl" style="color:#f59e0b;opacity:.6"></i>
         <p class="text-xs font-bold">Cadastro de membro não localizado</p>
-        <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">Seu usuário ainda não está vinculado a um cadastro de membro (telefone ou nome idênticos). Procure a secretaria da tesouraria.</p></div>`)}`;
+        <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">Seu usuário ainda não foi vinculado a um cadastro de membro. Peça à secretaria da tesouraria para fazer o vínculo no Rol de Dizimistas.</p></div>`)}`;
     return;
   }
   const m = r.membro;

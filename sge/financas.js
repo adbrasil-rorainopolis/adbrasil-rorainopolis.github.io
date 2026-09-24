@@ -288,6 +288,7 @@ window.dzCarregar = async function(){
           <div class="flex gap-1">
             <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Histórico de Dízimos"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
+            ${['administrador','operador'].includes(String(sessao()?.usuario?.perfil || '').toLowerCase()) ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
           </div>
         </div>
       </div>`;
@@ -374,6 +375,65 @@ window.dzHistCongs = async function(id){
 };
 
 window.dzFecharModal = function(){ el('dz-modal').classList.add('hidden'); };
+
+/* ---------- modal: vínculo usuário ↔ membro (Portal do Membro) ----------
+   A associação NÃO é automática — a tesouraria/admin valida manualmente,
+   porque há irmãos com nomes e telefones parecidos.
+   Persistido em app_config.vinculos_membro_portal: {cpf_dig: id_membro}. */
+const _cpfDig = v => String(v || '').replace(/\D/g, '');
+
+window.dzVincular = async function(id){
+  _dzModal();
+  const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
+  el('dz-modal-titulo').textContent = `Vínculo do Portal — ${mem.nome}`;
+  el('dz-modal-sub').textContent = `ID do Membro: ${id} • ${mem.conselho || ''} • ${mem.congregacao || ''}`;
+  el('dz-modal-filtros').innerHTML = '';
+  el('dz-modal').classList.remove('hidden');
+  const corpo = el('dz-modal-corpo');
+  corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-10 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando usuários…</div>';
+  try {
+    const r = await api('listar_usuarios_vinculo', {}, sessao()?.token);
+    if (!r?.ok) throw new Error(r?.erro || 'Falha ao carregar usuários.');
+    const vinculos = r.vinculos || {};
+    const mNorm = _normIdMembro(id);
+    let cpfAtual = '';
+    for (const [cpf, idV] of Object.entries(vinculos)) if (_normIdMembro(idV) === mNorm) cpfAtual = cpf;
+    const usus = (r.usuarios || []).filter(u => _cpfDig(u.cpf));
+    corpo.innerHTML = `
+      <p class="text-[10px] opacity-60 leading-relaxed mb-2">Escolha o usuário do sistema que <b>é esta pessoa</b>. Ele passa a ver os lançamentos semanais dele em <b>Meu Financeiro</b> no Portal do Membro.</p>
+      <select id="dzv-usuario" class="w-full px-2.5 py-2 rounded-lg border text-xs mb-2" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <option value="">— Sem vínculo —</option>
+        ${usus.map(u => `<option value="${esc(_cpfDig(u.cpf))}" ${_cpfDig(u.cpf) === cpfAtual ? 'selected' : ''}>${esc(u.nome)} — ${esc(u.cpf)}</option>`).join('')}
+      </select>
+      ${cpfAtual ? `<p class="text-[10px] font-bold text-emerald-500 mb-2"><i class="fa-solid fa-link mr-1"></i>Vínculo atual: ${esc(cpfAtual)}</p>` : '<p class="text-[10px] opacity-50 mb-2">Nenhum vínculo atual.</p>'}
+      <div class="flex gap-2">
+        <button onclick="dzSalvarVinculo('${esc(id)}')" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-check mr-1"></i>Salvar vínculo</button>
+        ${cpfAtual ? `<button onclick="dzSalvarVinculo('${esc(id)}', true)" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:#b91c1c"><i class="fa-solid fa-link-slash"></i></button>` : ''}
+      </div>`;
+  } catch(e){
+    corpo.innerHTML = `<p class="text-center text-xs text-red-500 py-8">${esc(e.message || 'Falha ao carregar usuários.')}</p>`;
+  }
+};
+
+window.dzSalvarVinculo = async function(id, remover){
+  try {
+    const r = await api('listar_usuarios_vinculo', {}, sessao()?.token);
+    if (!r?.ok) throw new Error(r?.erro || 'Falha ao carregar vínculos.');
+    const mNorm = _normIdMembro(id);
+    const vinculos = r.vinculos || {};
+    const novo = {};
+    for (const [cpf, idV] of Object.entries(vinculos)) if (_normIdMembro(idV) !== mNorm) novo[cpf] = idV;
+    if (!remover) {
+      const cpf = _cpfDig(el('dzv-usuario')?.value);
+      if (!cpf) { toast('Selecione um usuário.'); return; }
+      novo[cpf] = String(id);
+    }
+    const r2 = await api('salvar_config_sge', { chave: 'vinculos_membro_portal', valor: JSON.stringify(novo) }, sessao()?.token);
+    if (!r2?.ok) throw new Error(r2?.erro || 'Falha ao gravar o vínculo.');
+    toast(remover ? 'Vínculo removido.' : 'Vínculo salvo.');
+    dzVincular(id);
+  } catch(e){ toast(e.message || 'Falha ao gravar o vínculo.'); }
+};
 
 
 /* ===================== Frequência / Turnover BI =====================
