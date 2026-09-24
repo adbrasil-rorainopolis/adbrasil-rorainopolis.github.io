@@ -22,6 +22,36 @@ const CONTAS_MIS = [
 ];
 /* Mapa nome-da-conta (normalizado) -> chave interna */
 const _norm = s => String(s ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+/* Chave canônica de congregação — réplica de _chave_nome_congregacao (sge_financeiro.py) */
+const _chaveNome = s => {
+  let t = String(s ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  t = t.replace(/\bp\s*\.?\s*p\.?\b|\bponto\s*de\s*pregacao\b/g, '');
+  t = t.replace(/[^a-z0-9]/g, '');
+  return t.replace(/\d+/g, m => String(parseInt(m, 10)));
+};
+/* Aliases históricos (planilhas 2023–2025) -> nome canônico 2026 */
+const ALIAS_CONGS = {
+  'rosa de sharon': 'Rosa de Saron', 'park amazonia': 'Park das Orquídeas',
+  'vicinal 25': 'P.P. Vicinal 25 - Videira', 'vicinal 44 -': 'Vicinal 44 - Atos 2',
+  'vicinal 2 - boa esperança': 'Boa Esperança', 'anauá': 'P.P. - Vicinal 02 - Anauá',
+  'p.p. - anauá': 'P.P. - Vicinal 02 - Anauá', 'p.p. - vicinal 05': 'P.P. - Vicinal 05 - Deus Forte',
+  'p.p - vicinal 1 -': 'P.P - Vicinal 01 - Só o Senhor é Deus',
+};
+async function _canonMapaM(){
+  if (M._canon) return M._canon;
+  const { porConselho } = await SGEG.mapaConselhos();
+  const mapa = {};
+  for (const nomes of Object.values(porConselho || {})) for (const n of nomes) mapa[_chaveNome(n)] = n;
+  for (const [alias, canon] of Object.entries(ALIAS_CONGS)) if (!mapa[_chaveNome(alias)]) mapa[_chaveNome(alias)] = canon;
+  M._canon = mapa;
+  return mapa;
+}
+function _canonNome(mapa, nome){
+  const k = _chaveNome(nome);
+  if (mapa[k]) return mapa[k];
+  const cand = Object.keys(mapa).filter(ck => k && (k.includes(ck) || ck.includes(k)));
+  return cand.length === 1 ? mapa[cand[0]] : String(nome || '').trim();
+}
 const MAPA_CONTAS_MIS = {
   'oferta da ebd missionaria': 'ebd_missionaria',
   'oferta do culto de missoes': 'culto_missoes',
@@ -165,12 +195,20 @@ async function carregarMisArrecadacao(){
   const kpis = $m('mis-arrec-kpis'), tbody = $m('mis-arrec-tbody');
   if (!kpis || !tbody) return;
   tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)"><div class="spin inline-block mr-2"></div>Carregando…</td></tr>';
-  const dadosMes = await SGEG.carregarMovimento(f.ano, f.mes);
+  const [dadosMes, canon, conselhosMapa] = await Promise.all([SGEG.carregarMovimento(f.ano, f.mes), _canonMapaM(), SGEG.mapaConselhos()]);
+  const mapaCons = conselhosMapa.mapa || {};
   const aba = abaDoMes(dadosMes, f.semana);
-  const regs = (aba?.registros || []).filter(r => f.conselho === 'Todos' || _norm(r.conselho) === _norm(f.conselho));
-  const linhas = regs.map(r => ({ nome: r.congregacao, conselho: r.conselho, ...extrairMissoesReg(r) }))
-    .filter(l => l.total_missoes > 0 || true)
-    .sort((a, b) => b.total_missoes - a.total_missoes);
+  /* Deduplica por nome canônico — grafias diferentes de anos distintos somam numa linha só */
+  const linhasMap = {};
+  for (const r of (aba?.registros || [])){
+    if (f.conselho !== 'Todos' && _norm(r.conselho) !== _norm(f.conselho)) continue;
+    const cn = _canonNome(canon, r.congregacao);
+    const cur = linhasMap[cn] || (linhasMap[cn] = { nome: cn, conselho: mapaCons[cn] || r.conselho, ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
+    const v = extrairMissoesReg(r);
+    CONTAS_MIS.forEach(c => cur[c.chave] += v[c.chave]);
+    cur.total_missoes += v.total_missoes;
+  }
+  const linhas = Object.values(linhasMap).sort((a, b) => b.total_missoes - a.total_missoes);
   const tot = linhas.reduce((a, l) => {
     CONTAS_MIS.forEach(c => a[c.chave] += l[c.chave]); a.total_missoes += l.total_missoes; return a;
   }, { ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
@@ -235,8 +273,8 @@ function renderMisHistorico(){
       </div>
       ${ehPeriodo ? '<p class="text-[9px] opacity-50"><i class="fa-solid fa-lock mr-1"></i>Período mensal limitado a 12 meses — para mais, use o comparativo anual.</p>' : ''}
       <div class="flex flex-wrap items-center gap-1.5 pt-1 border-t" style="border-color:var(--border-color)">
-        <span class="text-[9px] font-bold uppercase opacity-60 w-full">Categorias (sem clicar na legenda):</span>
-        ${CATS_MIS.map(c => `<label class="mis-chip flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold cursor-pointer select-none" data-cat="${c.chave}" style="border-color:${M.cats[c.chave] ? c.cor : 'var(--border-color)'};opacity:${M.cats[c.chave] ? 1 : .45}"><input type="checkbox" ${M.cats[c.chave] ? 'checked' : ''} onchange="misToggleCatM('${c.chave}', this)" class="accent-orange-400 cursor-pointer">${c.rotulo}</label>`).join('')}
+        <span class="text-[9px] font-bold uppercase opacity-60 w-full">Categorias (toque para ligar/desligar):</span>
+        ${CATS_MIS.map(c => `<button type="button" onclick="misToggleCatM('${c.chave}')" aria-pressed="${M.cats[c.chave]}" class="mis-chip px-2.5 py-1 rounded-full border text-[10px] font-bold cursor-pointer select-none" data-cat="${c.chave}" style="border-color:${M.cats[c.chave] ? c.cor : 'var(--border-color)'};opacity:${M.cats[c.chave] ? 1 : .45};color:${M.cats[c.chave] ? c.cor : 'var(--text-main)'}"><i class="fa-solid ${M.cats[c.chave] ? 'fa-check' : 'fa-xmark'} mr-1"></i>${c.rotulo}</button>`).join('')}
       </div>
       <button onclick="carregarMisHistorico(true)" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#c2410c,#fb923c)"><i class="fa-solid fa-chart-line mr-1.5"></i>Gerar</button>
     </div>
@@ -282,10 +320,19 @@ window.misMMMudou = function(){
   M.hist.mm = parseInt($m('mh-mm')?.value || '3', 10);
   _renderResultadosM();
 };
-window.misToggleCatM = function(chave, cb){
-  M.cats[chave] = !!cb.checked;
-  const chip = cb.closest('.mis-chip');
-  if (chip){ chip.style.opacity = cb.checked ? '1' : '.45'; chip.style.borderColor = cb.checked ? (CATS_MIS.find(c => c.chave === chave)?.cor || 'var(--border-color)') : 'var(--border-color)'; }
+window.misToggleCatM = function(chave){
+  M.cats[chave] = !M.cats[chave];
+  const on = M.cats[chave];
+  const cor = CATS_MIS.find(c => c.chave === chave)?.cor || 'var(--border-color)';
+  const chip = document.querySelector(`.mis-chip[data-cat="${chave}"]`);
+  if (chip){
+    chip.style.opacity = on ? '1' : '.45';
+    chip.style.borderColor = on ? cor : 'var(--border-color)';
+    chip.style.color = on ? cor : 'var(--text-main)';
+    chip.setAttribute('aria-pressed', String(on));
+    const i = chip.querySelector('i');
+    if (i){ i.className = `fa-solid ${on ? 'fa-check' : 'fa-xmark'} mr-1`; }
+  }
   _renderResultadosM();
 };
 window.misHistConselho = async function(){
@@ -368,7 +415,7 @@ async function _popularCongsMis(){
 }
 
 const _zeraM = () => ({ ebd_missionaria: 0, culto_missoes: 0, oferta_missionaria: 0, circulo_oracao_mis: 0, total_missoes: 0 });
-function _agregaMesM(cache, ano, mes, filtra, porCong){
+function _agregaMesM(cache, ano, mes, filtra, porCong, canon, mapaCons){
   const acc = _zeraM();
   const aba = abaDoMes(cache[`${ano}_${mes}`], 'FECHAMENTO DO MÊS');
   for (const r of (aba?.registros || [])){
@@ -377,8 +424,8 @@ function _agregaMesM(cache, ano, mes, filtra, porCong){
     CONTAS_MIS.forEach(c => acc[c.chave] += v[c.chave]);
     acc.total_missoes += v.total_missoes;
     if (porCong){
-      const cn = r.congregacao || '-';
-      const cg = porCong[cn] || (porCong[cn] = { nome: cn, conselho: r.conselho, ..._zeraM() });
+      const cn = canon ? _canonNome(canon, r.congregacao) : (r.congregacao || '-');
+      const cg = porCong[cn] || (porCong[cn] = { nome: cn, conselho: (mapaCons || {})[cn] || r.conselho, ..._zeraM() });
       CONTAS_MIS.forEach(c => cg[c.chave] += v[c.chave]);
       cg.total_missoes += v.total_missoes;
     }
@@ -426,6 +473,8 @@ async function carregarMisHistorico(disparado){
     else for (const mm of ORDEM_MESES_M) mesesNec.add(`${p.ano}_${mm}`);
   }
   for (const a of anosTabela) for (const mm of ORDEM_MESES_M) mesesNec.add(`${a}_${mm}`);
+  const [canon, conselhosMapa] = await Promise.all([_canonMapaM(), SGEG.mapaConselhos()]);
+  const mapaCons = conselhosMapa.mapa || {};
   const cache = {};
   await Promise.all([...mesesNec].map(async k => {
     const [a, m] = k.split('_');
@@ -435,26 +484,26 @@ async function carregarMisHistorico(disparado){
 
   const filtra = r =>
     (f.conselho === 'Todos' || _norm(r.conselho) === _norm(f.conselho)) &&
-    (f.congregacao === 'Todas' || _norm(r.congregacao) === _norm(f.congregacao));
+    (f.congregacao === 'Todas' || _canonNome(canon, r.congregacao) === f.congregacao);
   const porCong = {};
 
   const series = pontos.map(p => {
     const acc = _zeraM();
     const mesesDoPonto = p.tipo === 'mes' ? [[p.ano, p.mes]] : ORDEM_MESES_M.map(m => [p.ano, m]);
     for (const [a, m] of mesesDoPonto){
-      const v = _agregaMesM(cache, a, m, filtra, porCong);
+      const v = _agregaMesM(cache, a, m, filtra, porCong, canon, mapaCons);
       CONTAS_MIS.forEach(c => acc[c.chave] += v[c.chave]);
       acc.total_missoes += v.total_missoes;
     }
     return { rotulo: p.rotulo, ano: String(p.ano), ...acc };
   });
 
-  const anterior = pontosAnt.map(p => ({ ..._agregaMesM(cache, p.ano, p.mes, filtra, null) }));
+  const anterior = pontosAnt.map(p => ({ ..._agregaMesM(cache, p.ano, p.mes, filtra, null, canon, mapaCons) }));
   const tabela = f.modo === 'tabela' ? {
     anos: anosTabela.map(String),
     linhas: ORDEM_MESES_M.map(mes => ({
       mes,
-      por_ano: Object.fromEntries(anosTabela.map(a => [String(a), _agregaMesM(cache, a, mes, filtra, porCong)])),
+      por_ano: Object.fromEntries(anosTabela.map(a => [String(a), _agregaMesM(cache, a, mes, filtra, porCong, canon, mapaCons)])),
     })),
   } : null;
 

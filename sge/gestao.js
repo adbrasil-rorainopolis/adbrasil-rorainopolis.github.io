@@ -164,6 +164,31 @@ function chaveNormalizada(v){
   t = t.replace(/\b(p\.?p\.?|ponto\s*de\s*pregacao)\b/g, '').replace(/[^a-z0-9]/g, '');
   return t.replace(/\d+/g, m => String(parseInt(m, 10)));
 }
+/* Réplica de padronizar_nome_congregacao (sge_financeiro.py): une grafias
+   históricas (2023–2025) no nome canônico atual, evitando linhas duplicadas. */
+const ALIAS_CONGS_G = {
+  'rosa de sharon': 'Rosa de Saron', 'park amazonia': 'Park das Orquídeas',
+  'vicinal 25': 'P.P. Vicinal 25 - Videira', 'vicinal 44 -': 'Vicinal 44 - Atos 2',
+  'vicinal 2 - boa esperança': 'Boa Esperança', 'anauá': 'P.P. - Vicinal 02 - Anauá',
+  'p.p. - anauá': 'P.P. - Vicinal 02 - Anauá', 'p.p. - vicinal 05': 'P.P. - Vicinal 05 - Deus Forte',
+  'p.p - vicinal 1 -': 'P.P - Vicinal 01 - Só o Senhor é Deus',
+};
+let _cacheCanonCongs = null;
+async function canonCongregacoes(){
+  if (_cacheCanonCongs) return _cacheCanonCongs;
+  const { mapa } = await mapaConselhos();
+  const canon = {};
+  for (const nome of Object.keys(mapa)) canon[chaveNormalizada(nome)] = nome;
+  for (const [alias, nomeCanon] of Object.entries(ALIAS_CONGS_G)) if (!canon[chaveNormalizada(alias)]) canon[chaveNormalizada(alias)] = nomeCanon;
+  _cacheCanonCongs = canon;
+  return canon;
+}
+function nomeCanonicoCong(canon, nome){
+  const k = chaveNormalizada(nome);
+  if (canon[k]) return canon[k];
+  const cand = Object.keys(canon).filter(ck => k && (k.includes(ck) || ck.includes(k)));
+  return cand.length === 1 ? canon[cand[0]] : String(nome || '').trim();
+}
 async function identificarConselho(nomeCong, numOrdem){
   const n = parseInt(String(numOrdem ?? '').trim(), 10);
   if (Number.isFinite(n)){
@@ -301,7 +326,7 @@ function alternarQuitacao(id, semana, marcado){
    ENGINE — _resumo_mes_bi
    ============================================================================ */
 async function resumoMes(ano, mesNome, conselhoF, congF){
-  const dados = await carregarMovimento(ano, mesNome);
+  const [dados, canonCongs] = await Promise.all([carregarMovimento(ano, mesNome), canonCongregacoes()]);
   if (!dados || !dados.abas) return null;
   const conselhosAlvo = new Set((Array.isArray(conselhoF) ? conselhoF : [conselhoF]).filter(c => c && !['Todos','Todas','Todos os Conselhos','Selecione...'].includes(String(c).trim())).map(cf));
   const congsAlvo = new Set((Array.isArray(congF) ? congF : [congF]).filter(c => c && !['Todas','Todos','Todas as Congregações','Selecione...'].includes(String(c).trim())).map(cf));
@@ -321,7 +346,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
     if (temEscopo && regs.length){
       const filtrados = [];
       for (const r of regs){
-        const nomeC = String(r.congregacao || 'Não informada').trim() || 'Não informada';
+        const nomeC = nomeCanonicoCong(canonCongs, r.congregacao) || 'Não informada';
         const cons = String(r.conselho || '').trim() || await identificarConselho(nomeC, r.numero);
         if (conselhosAlvo.size && !conselhosAlvo.has(cf(cons))) continue;
         if (congsAlvo.size && !congsAlvo.has(cf(nomeC))) continue;
@@ -346,7 +371,7 @@ async function resumoMes(ano, mesNome, conselhoF, congF){
     const temDados = regsProcessar.some(r => Math.abs(num(r.total_entradas)) > EPS || Math.abs(num(r.total_despesas)) > EPS) || Math.abs(ent) > EPS || Math.abs(desp) > EPS;
     semanas.push({ semana: SEMANAS_CANONICAS[n-1], entradas: ent, dizimos: diz, ofertas: ofe, despesas: desp, saldo: ent - desp, saldo_mes_anterior: num(tot.saldo_mes_anterior), saldo_campo: num(tot.saldo_campo), tem_dados: temDados });
     for (const r of regsProcessar){
-      const nomeC = String(r.congregacao || 'Não informada').trim() || 'Não informada';
+      const nomeC = nomeCanonicoCong(canonCongs, r.congregacao) || 'Não informada';
       const cons = String(r.conselho || '').trim() || await identificarConselho(nomeC, r.numero);
       for (const [kE, vE] of Object.entries(r.detalhes_entradas || {})) if (/miss/i.test(String(kE).split(/\s[-—–:]\s/)[0])) totMiss += num(vE);
       for (const [mapa, chave] of [[porCongregacao, nomeC], [porConselho, cons || 'Não informado']]){
@@ -402,7 +427,10 @@ async function consultarCruzamento(anoIni, mesIni, anoFim, mesFim, { conselho = 
     contas_detalhe: {}, contas_detalhe_entradas: {}, contas_detalhe_despesas: {}, por_conselho: {}, por_congregacao: {},
     contas_individuais: Object.fromEntries(contasAlvo.map(c => [c, 0])) };
   const visaoSemanal = periodos.length === 1;
-  const dadosMeses = await Promise.all(periodos.map(([a, m]) => carregarMovimento(a, m)));
+  const [dadosMeses, canonCongs] = await Promise.all([
+    Promise.all(periodos.map(([a, m]) => carregarMovimento(a, m))),
+    canonCongregacoes(),
+  ]);
 
   for (let pi = 0; pi < periodos.length; pi++){
     const [ano, mes] = periodos[pi], dadosMes = dadosMeses[pi];
@@ -415,8 +443,8 @@ async function consultarCruzamento(anoIni, mesIni, anoFim, mesFim, { conselho = 
     };
 
     const processarReg = async (reg, acc) => {
-      const cCons = reg.conselho || await identificarConselho(reg.congregacao, reg.numero);
-      const cNome = reg.congregacao;
+      const cNome = nomeCanonicoCong(canonCongs, reg.congregacao);
+      const cCons = reg.conselho || await identificarConselho(cNome, reg.numero);
       if (conselhosAlvo.size && !conselhosAlvo.has(cf(cCons))) return null;
       if (filtraCong && cf(congregacao) !== cf(cNome)) return null;
       const entR = num(reg.total_entradas), dizR = num(reg.dizimos), ofR = num(reg.ofertas), despR = num(reg.total_despesas);
