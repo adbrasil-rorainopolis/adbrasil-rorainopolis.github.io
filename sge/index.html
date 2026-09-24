@@ -265,9 +265,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.108'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.109'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.108</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.109</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -555,6 +555,7 @@ const MODULOS = {
   acessos:    { nome: 'Acessos e permissões',       icone: 'fa-user-shield',    cor: '#f43f5e' },
   membro_inicio:      { nome: 'Início',              icone: 'fa-house',              cor: 'var(--color-primary)' },
   membro_congregacao: { nome: 'Minha Congregação',   icone: 'fa-house-chimney',      cor: '#06b6d4' },
+  membro_comunidade:  { nome: 'Comunidade',          icone: 'fa-users',              cor: '#e11d48' },
   membro_estudos:     { nome: 'Estudos',             icone: 'fa-book-open',          cor: '#8b5cf6' },
   membro_financeiro:  { nome: 'Meu Financeiro',      icone: 'fa-hand-holding-heart', cor: '#10b981' },
 };
@@ -1137,6 +1138,7 @@ function renderModulo(mod){
   if (mod === 'comunidade' && typeof renderComunidade === 'function') return renderComunidade();
   if (mod === 'membro_inicio' && typeof renderMembroInicio === 'function') return renderMembroInicio();
   if (mod === 'membro_congregacao' && typeof renderMembroCongregacao === 'function') return renderMembroCongregacao();
+  if (mod === 'membro_comunidade' && typeof renderMembroComunidade === 'function') return renderMembroComunidade();
   if (mod === 'membro_estudos' && typeof renderMembroEstudos === 'function') return renderMembroEstudos();
   if (mod === 'membro_financeiro' && typeof renderMembroFinanceiro === 'function') return renderMembroFinanceiro();
   if (mod === 'acessos' && typeof renderAcessos === 'function') return renderAcessos();

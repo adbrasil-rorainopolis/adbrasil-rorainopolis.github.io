@@ -4,14 +4,24 @@
    O admin alterna Membro ⇄ Gestão pelo botão flutuante ⇄.
    Depende de: api(), sessao(), toast(), esc()/comEsc(), comPermitidoMobile().
    ============================================================ */
-const MEMBRO_MODS = ['membro_inicio', 'membro_congregacao', 'comunidade', 'membro_estudos', 'membro_financeiro'];
+const MEMBRO_MODS = ['membro_inicio', 'membro_congregacao', 'membro_comunidade', 'membro_estudos', 'membro_financeiro'];
 const MEMBRO_NAV = [
   { mod: 'membro_inicio',       icone: 'fa-house',              cor: 'var(--color-primary)', label: 'Início' },
   { mod: 'membro_congregacao',  icone: 'fa-house-chimney',      cor: '#06b6d4',              label: 'Minha Congr.' },
-  { mod: 'comunidade',          icone: 'fa-users',              cor: '#e11d48',              label: 'Comunid.' },
+  { mod: 'membro_comunidade',   icone: 'fa-users',              cor: '#e11d48',              label: 'Comunid.' },
   { mod: 'membro_estudos',      icone: 'fa-book-open',          cor: '#8b5cf6',              label: 'Estudos' },
   { mod: 'membro_financeiro',   icone: 'fa-hand-holding-heart', cor: '#10b981',              label: 'Financeiro' },
 ];
+/* Módulos prontos hoje: Início + Financeiro. Os demais ficam em construção
+   e SÓ aparecem na nav do piloto (CPF mestre) — membros comuns veem uma
+   nav limpa com as 2 abas funcionais. */
+const MEMBRO_NAV_LIBERADOS = ['membro_inicio', 'membro_financeiro'];
+const _memEhPiloto = () => {
+  const dig = v => String(v || '').replace(/\D/g, '');
+  const cpfPiloto = (typeof COM_CPF_PILOTO !== 'undefined') ? COM_CPF_PILOTO : '04421351229';
+  const u = sessao()?.usuario || {};
+  return [u.cpf, u.Cpf, sessao()?.cpf].some(c => dig(c) === cpfPiloto);
+};
 const memEsc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 window.sgeModoAtual = function() {
@@ -41,7 +51,8 @@ window.sgeAplicarModoNav = function() {
   if (!box) return;
   if (!navGestaoHtml) navGestaoHtml = box.innerHTML; // guarda a nav original
   if (sgeModoAtual() === 'membro') {
-    box.innerHTML = MEMBRO_NAV.map(n =>
+    const nav = _memEhPiloto() ? MEMBRO_NAV : MEMBRO_NAV.filter(n => MEMBRO_NAV_LIBERADOS.includes(n.mod));
+    box.innerHTML = nav.map(n =>
       `<button onclick="mudarVisao('${n.mod}')" data-mod="${n.mod}" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="${n.label}">
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
         <i class="fa-solid ${n.icone} text-base" style="color:${n.cor}"></i><span class="text-[9px] font-bold">${n.label}</span>
@@ -88,6 +99,13 @@ const memEmBreve = (icone, cor, titulo, desc) => memCard(
     <p class="text-[10px] opacity-50 max-w-[240px] leading-relaxed">${desc}</p>
     <span class="text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:var(--color-primary-light);color:var(--color-primary)">Em breve</span>
   </div>`);
+const memEmConstrucao = (titulo, desc) => memCard(
+  `<div class="flex flex-col items-center text-center py-8 gap-2.5">
+    <i class="fa-solid fa-helmet-safety text-3xl" style="color:#f59e0b;opacity:.55"></i>
+    <p class="text-xs font-bold">${titulo}</p>
+    <p class="text-[10px] opacity-50 max-w-[250px] leading-relaxed">${desc}</p>
+    <span class="text-[8px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style="background:#f59e0b22;color:#f59e0b">Em construção</span>
+  </div>`);
 
 /* ---------- INÍCIO — panorama pessoal ---------- */
 window.renderMembroInicio = function() {
@@ -105,34 +123,36 @@ window.renderMembroInicio = function() {
       <p class="text-[10px] font-bold mt-1.5" style="color:var(--color-primary)">— ${memEsc(vers[1])}</p>
     </div>
     ${memCard(`<p class="text-[9px] font-bold uppercase tracking-wider mb-2 opacity-60">Novidades pra você</p>
-      <div class="flex items-center gap-2.5 mb-2"><i class="fa-solid fa-users text-sm w-5 text-center" style="color:#e11d48"></i><p class="text-[11px] flex-1">Feed da <b>Comunidade</b> — toque na aba para ver os posts</p></div>
-      <div class="flex items-center gap-2.5"><i class="fa-solid fa-book-open text-sm w-5 text-center" style="color:#8b5cf6"></i><p class="text-[11px] flex-1"><b>Estudos</b> — devocionais e lições da EBD</p></div>`)}
+      <div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="mudarVisao('membro_financeiro')"><i class="fa-solid fa-hand-holding-heart text-sm w-5 text-center" style="color:#10b981"></i><p class="text-[11px] flex-1"><b>Meu Financeiro</b> — suas contribuições registradas pela tesouraria</p><i class="fa-solid fa-chevron-right text-[9px] opacity-40"></i></div>
+      <div class="flex items-center gap-2.5"><i class="fa-solid fa-helmet-safety text-sm w-5 text-center" style="color:#f59e0b"></i><p class="text-[11px] flex-1 opacity-60">Novos módulos em construção — em breve pra você</p></div>`)}
     ${memEmBreve('fa-calendar-week', '#d97706', 'Sua semana', 'Em breve: seus cultos, escalas e eventos da sua congregação reunidos aqui.')}`;
 };
 
-/* ---------- MINHA CONGREGAÇÃO ---------- */
+/* ---------- MINHA CONGREGAÇÃO (em construção — só piloto vê na nav) ---------- */
 window.renderMembroCongregacao = function() {
   const c = $('dash-conteudo');
   if (!c) return;
-  const u = sessao()?.usuario || {};
-  const cong = u.congregacao || u.congregacao_nome || u.congregacao_tesoureiro || '';
   c.innerHTML = `
-    ${memHeader('fa-house-chimney', '#06b6d4', 'Minha Congregação', cong ? memEsc(cong) : 'Sua congregação no SGE')}
-    ${cong ? memCard(`<div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style="background:linear-gradient(135deg,#06b6d4,#0e7490)">${memEsc(cong.slice(0,2).toUpperCase())}</div>
-      <div><p class="font-bold text-xs">${memEsc(cong)}</p><p class="text-[9px] opacity-60">Sua congregação de vínculo</p></div></div>`) : ''}
-    ${memEmBreve('fa-clipboard-list', '#06b6d4', 'Escalas e avisos', 'Em breve: suas escalas de louvor/culto, avisos direcionados e agenda da congregação — puxados dos posts da Comunidade.')}`;
+    ${memHeader('fa-house-chimney', '#06b6d4', 'Minha Congregação', 'Módulo em construção')}
+    ${memEmConstrucao('Minha Congregação', 'Em construção: suas escalas de louvor/culto, avisos direcionados e agenda da congregação.')}`;
 };
 
-/* ---------- ESTUDOS ---------- */
+/* ---------- COMUNIDADE do membro (em construção — só piloto vê na nav) ---------- */
+window.renderMembroComunidade = function() {
+  const c = $('dash-conteudo');
+  if (!c) return;
+  c.innerHTML = `
+    ${memHeader('fa-users', '#e11d48', 'Comunidade', 'Módulo em construção')}
+    ${memEmConstrucao('Comunidade', 'Em construção: feed de avisos, cultos e posts do campo direcionados a você.')}`;
+};
+
+/* ---------- ESTUDOS (em construção — só piloto vê na nav) ---------- */
 window.renderMembroEstudos = function() {
   const c = $('dash-conteudo');
   if (!c) return;
   c.innerHTML = `
-    ${memHeader('fa-book-open', '#8b5cf6', 'Estudos', 'Devocionais, EBD e leitura bíblica')}
-    ${memCard(`<p class="text-[9px] font-bold uppercase tracking-wider mb-1" style="color:#8b5cf6">📖 Devocional</p>
-      <p class="text-xs opacity-70 leading-relaxed">Os devocionais publicados na Comunidade aparecem aqui em formato de leitura.</p>`)}
-    ${memEmBreve('fa-book', '#16a34a', 'Escola Bíblica Dominical', 'Em breve: lições da sua classe, plano de leitura semanal e materiais da EBD.')}`;
+    ${memHeader('fa-book-open', '#8b5cf6', 'Estudos', 'Módulo em construção')}
+    ${memEmConstrucao('Estudos', 'Em construção: devocionais, lições da EBD e plano de leitura semanal.')}`;
 };
 
 /* ---------- MEU FINANCEIRO ---------- */
