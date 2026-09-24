@@ -3,7 +3,9 @@
    Somente leitura nesta versão: curtidas/comentários chegam depois.
    Depende de: api(), sessao(), toast(), esc() — globais do app.
    ============================================================ */
-const COM_CPF_PILOTO = '04421351229';
+/* Pilotos beta (Comunidade/Estudos liberados): CPF mestre + Elaine Cabral de Almeida. */
+const COM_CPFS_PILOTO = ['04421351229', '53822480282'];
+const COM_CPF_PILOTO = COM_CPFS_PILOTO[0];
 function comPermitidoMobile() {
   // Todo usuário cadastrado é membro — o bloco Membro fica visível para todos.
   return !!sessao()?.usuario;

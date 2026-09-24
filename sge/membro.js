@@ -16,9 +16,9 @@ const MEMBRO_NAV = [
    mostram 'Em breve' (usuário comum) ou 'Beta' (piloto). */
 const _memEhPiloto = () => {
   const dig = v => String(v || '').replace(/\D/g, '');
-  const cpfPiloto = (typeof COM_CPF_PILOTO !== 'undefined') ? COM_CPF_PILOTO : '04421351229';
+  const pilotos = (typeof COM_CPFS_PILOTO !== 'undefined') ? COM_CPFS_PILOTO : ['04421351229'];
   const u = sessao()?.usuario || {};
-  return [u.cpf, u.Cpf, sessao()?.cpf].some(c => dig(c) === cpfPiloto);
+  return [u.cpf, u.Cpf, sessao()?.cpf].some(c => pilotos.includes(dig(c)));
 };
 const memEsc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -84,7 +84,10 @@ function memHeader(icone, cor, titulo, subtitulo) {
   return `<div class="flex items-center gap-3 pb-3 border-b mb-3" style="border-color:var(--border-color)">
     <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:${cor}1a"><i class="fa-solid ${icone} text-lg" style="color:${cor}"></i></div>
     <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">${titulo}</h2><p class="text-[10px] opacity-60">${subtitulo}</p></div>
-    <span class="text-[8px] font-bold uppercase tracking-wider px-2 py-1 rounded-full text-white" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">Membro</span>
+    <div class="flex flex-col items-end gap-1 shrink-0">
+      <span class="text-[8px] font-bold uppercase tracking-wider px-2 py-1 rounded-full text-white" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">Membro</span>
+      ${_memEhPiloto() ? `<span class="text-[7px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style="background:#f59e0b22;color:#f59e0b" title="Versão em avaliação — dados ilustrativos">Beta · em avaliação</span>` : ''}
+    </div>
   </div>`;
 }
 const memCard = inner => `<div class="border rounded-2xl p-3.5 mb-3" style="background:var(--bg-card);border-color:var(--border-color)">${inner}</div>`;
