@@ -180,6 +180,7 @@ window.renderMembroFinanceiro = async function(anoSel) {
   }
   const m = r.membro;
   const lancs = (r.lancamentos || []).map(l => ({ ...l, _v: _memParseValor(l.valor), _p: (+l.ano || 0) * 100 + (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(l.mes) : 0), _s: _memNumSemana(l.semana) }))
+    .filter(l => l._v > 0)
     .sort((a, b) => (b._p - a._p) || (b._s - a._s));
   const anos = [...new Set(lancs.map(l => String(l.ano)))].sort((a, b) => +b - +a);
   const ano = String(anoSel || anos[0] || new Date().getFullYear());
