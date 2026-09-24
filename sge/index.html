@@ -265,9 +265,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.105'); toast('Versão copiada: v1.105')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.106'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.105</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.106</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -945,6 +945,17 @@ async function sgeSincronizarAcessos(){
         configurado: !!r.configurado, tesoureiro: !!r.tesoureiro, congregacao_tesoureiro: r.congregacao_tesoureiro || '' } };
     salvarSessao(s);
     aplicarPermissoesNav();
+    // Portal do Membro: marca se o usuário tem vínculo validado — libera o
+    // botão ⇄ de modo membro e já deixa o financeiro pessoal em cache.
+    try {
+      const mf = await api('meu_financeiro', null, s.token);
+      if (mf?.ok) {
+        s.usuario.vinculado_membro = !!mf.vinculado;
+        salvarSessao(s);
+        if (mf.vinculado && typeof _memFinCache !== 'undefined' && !_memFinCache) _memFinCache = mf;
+        if (typeof sgeRenderBotaoModo === 'function') sgeRenderBotaoModo();
+      }
+    } catch { /* offline ou função antiga */ }
     if (moduloAtual === 'financeiro' && typeof renderFinanceiro === 'function') renderFinanceiro();
     if (moduloAtual === 'dashboard') renderPanorama();
     if (moduloAtual === 'gestao' && typeof renderGestao === 'function') renderGestao();

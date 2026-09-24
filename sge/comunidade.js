@@ -11,7 +11,12 @@ function comPermitidoMobile() {
     (typeof bioSessao === 'function' ? bioSessao()?.usuario?.cpf : ''),
     (typeof bioCred === 'function' ? bioCred()?.cpf : ''),
   ];
-  return fontes.some(c => dig(c) === COM_CPF_PILOTO);
+  if (fontes.some(c => dig(c) === COM_CPF_PILOTO)) return true;
+  const u = sessao()?.usuario || {};
+  // Portal do Membro liberado para: perfil Membro ou usuário com vínculo
+  // validado pela tesouraria (usuario.vinculado_membro — marcado no sync de acessos).
+  if (String(u.perfil || '').trim().toLowerCase() === 'membro') return true;
+  return u.vinculado_membro === true;
 }
 
 const COM_TEMPLATES = {
