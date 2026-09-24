@@ -265,9 +265,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.106'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.107'); toast('Versão copiada: v1.106')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.106</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.107</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -954,6 +954,7 @@ async function sgeSincronizarAcessos(){
         salvarSessao(s);
         if (mf.vinculado && typeof _memFinCache !== 'undefined' && !_memFinCache) _memFinCache = mf;
         if (typeof sgeRenderBotaoModo === 'function') sgeRenderBotaoModo();
+        if (mf.vinculado && typeof prepararPushNotificacoes === 'function') prepararPushNotificacoes();
       }
     } catch { /* offline ou função antiga */ }
     if (moduloAtual === 'financeiro' && typeof renderFinanceiro === 'function') renderFinanceiro();
@@ -1289,10 +1290,12 @@ async function inscreverPush(){
   await api('registrar_push', { inscricao: sub.toJSON() }, sessao()?.token);
 }
 
-function prepararPushAdmin(){
+function prepararPushNotificacoes(){
   try {
     const u = sessao()?.usuario || {};
-    if (!/administrador/i.test(u.perfil || '')) return;
+    const admin = /administrador/i.test(u.perfil || '');
+    const membro = String(u.perfil || '').trim().toLowerCase() === 'membro' || u.vinculado_membro === true;
+    if (!admin && !membro) return;
     if (!pushSuportado()) return;
     if (Notification.permission === 'granted') { inscreverPush().catch(() => {}); return; }
     if (Notification.permission !== 'default' || $('push-banner')) return;
@@ -1300,9 +1303,12 @@ function prepararPushAdmin(){
     banner.id = 'push-banner';
     banner.className = 'fixed left-4 right-4 z-50 rounded-xl p-3 flex items-center gap-3 shadow-lg';
     banner.style.cssText = 'bottom: 88px; background: var(--bg-card); border: 1px solid var(--border-color);';
-    banner.innerHTML =
-      '<div class="flex-1"><div class="text-sm font-semibold">Notificacoes de relatorio</div>' +
-      '<div class="text-xs" style="color: var(--text-muted);">Receba um aviso quando um relatorio de caixa for enviado.</div></div>' +
+    const textoPush = membro && !admin
+      ? '<div class="flex-1"><div class="text-sm font-semibold">Notificacoes</div>' +
+        '<div class="text-xs" style="color: var(--text-muted);">Receba um aviso quando sua contribuicao for registrada.</div></div>'
+      : '<div class="flex-1"><div class="text-sm font-semibold">Notificacoes</div>' +
+        '<div class="text-xs" style="color: var(--text-muted);">Receba avisos de relatorios de caixa e contribuicoes registradas.</div></div>';
+    banner.innerHTML = textoPush +
       '<button class="text-xs font-semibold px-3 py-2 rounded-lg" style="background: var(--color-primary); color:#fff;">Ativar</button>' +
       '<button class="text-xs px-2 py-2" style="color: var(--text-muted);">X</button>';
     banner.querySelectorAll('button')[0].onclick = async () => {
@@ -1329,7 +1335,7 @@ function entrarNoApp(){
   aplicarPermissoesNav();
   sgeSincronizarAcessos();
   if (moduloAtual === 'dashboard') renderPanorama();
-  prepararPushAdmin();
+  prepararPushNotificacoes();
 }
 
 function mostrarLogin(){
