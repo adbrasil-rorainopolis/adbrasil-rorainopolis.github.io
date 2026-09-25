@@ -164,12 +164,12 @@ window.renderFinanceiro = function(){
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas e lançamentos semanais</p></div>
       </div>
-      <div class="flex gap-2 overflow-x-auto" id="fin-tabs" style="scrollbar-width:none">
-        ${['rol','frequencia'].filter(finAbaPermitida).map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Rol de Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência / Turnover'}</button>`).join('')}
-        ${finAbaPermitida('semanal') ? `<button onclick="finAba('semanal')" data-aba="semanal" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calendar-week mr-1"></i>Semanal</button>` : ''}
-        ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório de Caixa</button>` : ''}
-        ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
-        ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="flex-1 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
+      <div class="flex gap-2 overflow-x-auto -mx-1 px-1" id="fin-tabs" style="scrollbar-width:none">
+        ${['rol','frequencia'].filter(finAbaPermitida).map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência'}</button>`).join('')}
+        ${finAbaPermitida('semanal') ? `<button onclick="finAba('semanal')" data-aba="semanal" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calendar-week mr-1"></i>Semanal</button>` : ''}
+        ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório</button>` : ''}
+        ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
+        ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
@@ -291,6 +291,7 @@ window.dzCarregar = async function(){
         <div class="flex flex-col items-end gap-1.5 shrink-0">
           <span class="px-2 py-0.5 rounded-full text-[9px] font-bold border ${ativo ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' : 'text-red-500 border-red-500/30 bg-red-500/10'}">${m.status}</span>
           <div class="flex gap-1">
+            ${semPodeEditar() ? `<button onclick="semAbrirEditarMembro('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(59,130,246,.15)" title="Editar membro"><i class="fa-solid fa-user-pen text-[11px] text-blue-400"></i></button>` : ''}
             <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Histórico de Dízimos"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
             ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
@@ -3121,7 +3122,7 @@ function _semModal(){
     host.innerHTML = `<div id="sem-modal" class="hidden fixed inset-0 z-[85] flex items-center justify-center px-4" style="background:rgba(0,0,0,.55)">
       <div class="w-full max-w-md rounded-3xl border p-4 space-y-3" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center justify-between">
-          <h3 class="font-bold text-sm"><i class="fa-solid fa-user-plus mr-1.5" style="color:#10b981"></i>Cadastrar novo membro</h3>
+          <h3 id="semm-titulo" class="font-bold text-sm"><i id="semm-icone" class="fa-solid fa-user-plus mr-1.5" style="color:#10b981"></i><span id="semm-titulo-txt">Cadastrar novo membro</span></h3>
           <button onclick="el('sem-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="semm-conselho" onchange="semMudaConselhoModal()" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select></div>
@@ -3151,13 +3152,51 @@ window.semMudaConselhoModal = async function(){
   if (cong) cong.innerHTML = (porConselho[cons] || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 };
 
+function _semModalModo(edicao){
+  el('semm-titulo-txt').textContent = edicao ? 'Editar membro' : 'Cadastrar novo membro';
+  el('semm-icone').className = edicao ? 'fa-solid fa-user-pen mr-1.5' : 'fa-solid fa-user-plus mr-1.5';
+  const btn = el('semm-btn');
+  if (btn) btn.innerHTML = edicao
+    ? '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar alterações'
+    : '<i class="fa-solid fa-user-plus mr-1.5"></i>Cadastrar membro';
+}
+
 window.semAbrirNovoMembro = async function(){
   _semModal();
+  F.membroEdit = null;
+  _semModalModo(false);
   const { porConselho } = await SGEG.mapaConselhos();
   const conselhos = Object.keys(porConselho).sort();
   el('semm-conselho').innerHTML = conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   await semMudaConselhoModal();
   el('semm-nome').value = ''; el('semm-tel').value = '';
+  el('sem-modal').classList.remove('hidden');
+  setTimeout(() => el('semm-nome')?.focus(), 120);
+};
+
+/* Edição de membro pelo rol — mesmo modal, com os dados preenchidos e a
+   versao_base do registro (controle de concorrência otimista da API). */
+window.semAbrirEditarMembro = async function(id){
+  if (!semPodeEditar()){ toast('Seu perfil não pode editar membros.'); return; }
+  const mem = (F.membros || []).find(x => _idMatch(x.id, id));
+  if (!mem){ toast('Membro não encontrado.'); return; }
+  _semModal();
+  F.membroEdit = { id: mem.id, versao: Number(mem.versao || 0) };
+  _semModalModo(true);
+  const { porConselho } = await SGEG.mapaConselhos();
+  const conselhos = Object.keys(porConselho).sort();
+  const selCons = el('semm-conselho');
+  selCons.innerHTML = conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  selCons.value = conselhos.includes(mem.conselho) ? mem.conselho : conselhos[0];
+  await semMudaConselhoModal();
+  const selCong = el('semm-congregacao');
+  if (mem.congregacao && ![...selCong.options].some(o => o.value === mem.congregacao)){
+    selCong.insertAdjacentHTML('beforeend', `<option value="${esc(mem.congregacao)}">${esc(mem.congregacao)}</option>`);
+  }
+  selCong.value = mem.congregacao || selCong.value;
+  el('semm-nome').value = mem.nome || '';
+  const tel = String(mem.telefone || '').trim();
+  el('semm-tel').value = tel === '-' ? '' : tel;
   el('sem-modal').classList.remove('hidden');
   setTimeout(() => el('semm-nome')?.focus(), 120);
 };
@@ -3175,30 +3214,31 @@ function _semProximoId(){
 }
 
 window.semSalvarNovoMembro = async function(){
-  if (!semPodeEditar()){ toast('Seu perfil não pode cadastrar membros.'); return; }
+  const edit = F.membroEdit;
+  if (!semPodeEditar()){ toast(edit ? 'Seu perfil não pode editar membros.' : 'Seu perfil não pode cadastrar membros.'); return; }
   const nome = (el('semm-nome')?.value || '').trim();
   const conselho = el('semm-conselho')?.value || '';
   const congregacao = el('semm-congregacao')?.value || '';
   const tel = (el('semm-tel')?.value || '').trim() || '-';
   if (!nome || !conselho || !congregacao){ toast('Informe nome, conselho e congregação.'); return; }
   const btn = el('semm-btn');
-  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>Cadastrando…'; }
+  if (btn){ btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>${edit ? 'Salvando…' : 'Cadastrando…'}`; }
   try {
     await carregarMembros();
-    const id = _semProximoId();
+    const id = edit ? edit.id : _semProximoId();
     const r = await api('salvar_membro', {
       membro: { id, conselho, congregacao, nome, telefone: tel },
-      operacao: 'salvar', versao_base: 0, idempotency_key: crypto.randomUUID(),
+      operacao: 'salvar', versao_base: edit ? edit.versao : 0, idempotency_key: crypto.randomUUID(),
     }, sessao()?.token);
-    if (r?.ok === false || r?.erro) throw new Error(r.erro || 'Falha ao cadastrar.');
+    if (r?.ok === false || r?.erro) throw new Error(r.erro || (edit ? 'Falha ao salvar.' : 'Falha ao cadastrar.'));
     el('sem-modal').classList.add('hidden');
-    F.membros = null;
-    toast(`Membro cadastrado — ID ${id}.`);
-    await semCarregar();
+    F.membros = null; F.membroEdit = null;
+    toast(edit ? 'Membro atualizado.' : `Membro cadastrado — ID ${id}.`);
+    if (F.aba === 'rol') await dzCarregar(); else await semCarregar();
   } catch(e){
-    toast(e.message || 'Falha ao cadastrar membro.');
+    toast(e.message || (edit ? 'Falha ao salvar membro.' : 'Falha ao cadastrar membro.'));
   } finally {
-    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus mr-1.5"></i>Cadastrar membro'; }
+    if (btn){ btn.disabled = false; _semModalModo(!!F.membroEdit); }
   }
 };
 
