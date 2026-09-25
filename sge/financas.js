@@ -3102,7 +3102,7 @@ async function _semMapaCong(){
   const { porConselho } = await SGEG.mapaConselhos();
   _semCongCons = {};
   for (const [cons, congs] of Object.entries(porConselho || {}))
-    for (const cg of congs) _semCongCons[cf(cg)] = { cons, cong: cg };
+    for (const cg of congs) _semCongCons[_congChave(cg)] = { cons, cong: cg };
   return _semCongCons;
 }
 
@@ -3191,7 +3191,7 @@ function _semRenderParcelas(){
 window.semLancCong = function(i, sel){
   const L = F.semLanc; if (!L) return;
   L.parcelas[i].cong = sel.value;
-  const mc = L.mapaCong[cf(sel.value)];
+  const mc = L.mapaCong[_congChave(sel.value)];
   L.parcelas[i].cons = mc ? mc.cons : '';
   _semRenderParcelas();
 };
@@ -3258,7 +3258,7 @@ window.semLancSalvar = async function(){
     if (p.especie > 0 && p.pix > 0){ toast('Uma linha não pode ter Espécie e PIX juntos — separe em parcelas.'); return; }
     const v = (p.especie || 0) + (p.pix || 0);
     const cg = String(p.cong || L.mem.congregacao || '').trim();
-    const mc = L.mapaCong[cf(cg)] || {};
+    const mc = L.mapaCong[_congChave(cg)] || {};
     if (v > 0) parcelas.push({
       item: parcelas.length + 1, descricao: `Registro ${parcelas.length + 1}`,
       especie: +p.especie.toFixed(2), pix: +p.pix.toFixed(2), valor: +v.toFixed(2),
@@ -3458,7 +3458,19 @@ window.semLoteSalvar = async function(){
 
 /* ===================== Divergências — subtela dedicada =====================
    Compara os dízimos lançados na gestão (por congregação de destino) com o
-   Movimento Financeiro da semana, e aponta lançamentos órfãos (ID sem membro). */
+   Movimento Financeiro da semana, e aponta lançamentos órfãos (ID sem membro).
+   Agrupamento por congregacao_igual — mesma normalização do desktop. */
+
+/* Porta de helpers.congregacao_igual: ignora acentos, caixa, "p.p." e dígitos à esquerda. */
+function _congChave(v){
+  let t = String(v ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  t = t.replace(/\b(p\.?p\.?|ponto\s*de\s*pregacao)\b/g, '');
+  t = t.replace(/[^a-z0-9]/g, '');
+  return t.replace(/\d+/g, m => String(parseInt(m, 10)));
+}
+function _congIgual(a, b){ return _congChave(a) === _congChave(b); }
+
+window.semFecharDiverg = function(){ el('sem-diverg-modal')?.classList.add('hidden'); };
 
 function _semModalDiverg(){
   let m = el('sem-diverg-modal');
@@ -3467,11 +3479,11 @@ function _semModalDiverg(){
     host.innerHTML = `<div id="sem-diverg-modal" class="hidden fixed inset-0 z-[87] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
       <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
-          <button onclick="el('sem-diverg-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
-          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-magnifying-glass-chart mr-1.5" style="color:#60a5fa"></i>Divergências</h3><p id="semd-sub" class="text-[10px] opacity-60"></p></div>
-          <button onclick="el('sem-diverg-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+          <button onclick="semFecharDiverg()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-magnifying-glass-chart mr-1.5" style="color:#60a5fa"></i>Autoverificação de Dízimos</h3><p id="semd-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="semFecharDiverg()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div id="semd-corpo" class="overflow-y-auto px-4 pb-5 space-y-2" style="-webkit-overflow-scrolling:touch"></div>
+        <div id="semd-corpo" class="overflow-y-auto px-4 pb-5 space-y-2.5" style="-webkit-overflow-scrolling:touch"></div>
       </div>
     </div>`;
     document.body.appendChild(host.firstElementChild);
@@ -3484,23 +3496,30 @@ window.semAbrirDivergencias = async function(){
   const s = F.sem;
   _semModalDiverg();
   const mapaAba = { 'Semana 1': '1º. SEMANA', 'Semana 2': '2º. SEMANA', 'Semana 3': '3º. SEMANA', 'Semana 4': '4º. SEMANA', 'Semana 5': '5º. SEMANA' };
-  el('semd-sub').textContent = `${_semNorm(s.semana).replace('Semana ', '')}ª Semana de ${s.mes}/${s.ano} — Gestão × Movimento Financeiro`;
+  el('semd-sub').textContent = `Período: ${_semNorm(s.semana).replace('Semana ', '')}ª Semana • ${s.mes}/${s.ano}`;
   el('semd-corpo').innerHTML = '<div class="flex items-center justify-center gap-2 py-10 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Conciliando…</div>';
   el('sem-diverg-modal').classList.remove('hidden');
   try {
     await carregarMembros();
-    const lancs = await carregarLancamentosAno(s.ano);
-    const mov = await api('carregar_movimento_financeiro', { ano: String(s.ano), mes: s.mes }, sessao()?.token);
+    const [lancs, mov, mapaCong] = await Promise.all([
+      carregarLancamentosAno(s.ano),
+      api('carregar_movimento_financeiro', { ano: String(s.ano), mes: s.mes }, sessao()?.token),
+      _semMapaCong(),
+    ]);
     const abaFin = mapaAba[_semNorm(s.semana)] || '1º. SEMANA';
-    /* Gestão: soma por congregação efetiva — paridade com obter_totais_dizimos_gestao_por_congregacao
-       do desktop: parcelas com 'congregacao' própria distribuem por parcela; senão o destino do
-       lançamento (itinerante) ou a congregação base do membro. */
-    const gestao = {}, orfaos = [];
+
+    /* Gestão: soma por congregação efetiva — paridade com
+       obter_totais_dizimos_gestao_por_congregacao do desktop: parcelas com
+       'congregacao' própria distribuem por parcela; senão o destino do
+       lançamento (itinerante) ou a congregação base do membro. Chaves já
+       normalizadas por _congChave (ignora caixa/acento). */
+    const gestao = {}, orfaos = [], nomes = {};
     const idsValidos = new Set((F.membros || []).filter(m => !String(m.excluido_em ?? '').trim()).map(m => String(m.id ?? '').replace(/\D/g, '')));
     const congDe = r => {
       const mem = F.membros.find(m => _idMatch(m.id, r.id));
       return String(r.destino_congregacao || '').trim() || String(mem?.congregacao || '').trim() || 'Sem congregação';
     };
+    const somaGestao = (nomeCong, v) => { const k = _congChave(nomeCong); gestao[k] = (gestao[k] || 0) + v; nomes[k] = nomes[k] || nomeCong; };
     for (const r of (lancs || [])){
       if (cf(r.mes) !== cf(s.mes) || _semNorm(r.semana) !== s.semana) continue;
       const v = parseValor(r.valor);
@@ -3517,37 +3536,80 @@ window.semAbrirDivergencias = async function(){
         for (const p of validas){
           const vp = parseValor(p.valor) || (parseValor(p.especie) + parseValor(p.pix));
           const cp = String(p.congregacao || '').trim() || congDe(r);
-          if (vp > 0) gestao[cp] = (gestao[cp] || 0) + vp;
+          if (vp > 0) somaGestao(cp, vp);
         }
       } else {
-        gestao[congDe(r)] = (gestao[congDe(r)] || 0) + v;
+        somaGestao(congDe(r), v);
       }
     }
-    /* Financeiro: aba da semana → dízimos por congregação. */
+    /* Financeiro: aba da semana → dízimos por congregação (chave normalizada). */
     const fin = {};
     for (const r of (mov?.movimentos || [])){
       if (cf(r.aba) !== cf(abaFin)) continue;
       const cg = String(r.congregacao || '').trim() || 'Sem congregação';
-      fin[cg] = (fin[cg] || 0) + (parseValor(r.dizimos) || 0);
+      const k = _congChave(cg);
+      fin[k] = (fin[k] || 0) + (parseValor(r.dizimos) || 0);
+      nomes[k] = nomes[k] || cg;
     }
-    const todas = [...new Set([...Object.keys(gestao), ...Object.keys(fin)])].sort();
-    const linhas = [], temFin = Object.keys(fin).length > 0;
-    for (const cg of todas){
-      const g = gestao[cg] || 0, f = fin[cg] || 0, d = g - f;
-      if (Math.abs(d) < 0.005) continue;
-      linhas.push({ cg, g, f, d });
+    const temFin = Object.keys(fin).length > 0;
+
+    /* Lista oficial por conselho — mesma linha mestra do desktop. */
+    const porCons = {};
+    for (const k of Object.keys(mapaCong)){
+      const { cons, cong } = mapaCong[k];
+      (porCons[cons] = porCons[cons] || []).push(cong);
     }
+    /* Congregações presentes nos dados mas fora do mapa oficial → grupo extra. */
+    const oficiais = new Set(Object.keys(mapaCong));
+    const extras = new Set();
+    for (const k of Object.keys(gestao)) if (!oficiais.has(k) && gestao[k] > 0) extras.add(k);
+    for (const k of Object.keys(fin)) if (!oficiais.has(k) && fin[k] > 0) extras.add(k);
+    if (extras.size) porCons['(Não mapeadas)'] = [...extras].map(k => nomes[k] || k);
+
+    let totG = 0, totF = 0, qtdDiv = 0;
     let html = '';
-    if (!temFin) html += `<div class="rounded-xl px-3 py-2.5 text-[11px]" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b"><i class="fa-solid fa-circle-exclamation mr-1"></i>Movimento financeiro de ${s.mes}/${s.ano} ainda não foi registrado — a comparação mostra só a gestão.</div>`;
-    if (!linhas.length && temFin) html += `<div class="rounded-xl px-3 py-2.5 text-[11px] font-bold" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#10b981"><i class="fa-solid fa-circle-check mr-1"></i>Sem divergências — gestão e financeiro conferem.</div>`;
-    html += linhas.map(l => `<div class="border rounded-xl p-3 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex-1 min-w-0"><p class="font-bold text-xs truncate">${esc(l.cg)}</p>
-        <p class="text-[10px] opacity-60">Gestão ${moeda(l.g)} • Financeiro ${moeda(l.f)}</p></div>
-      <span class="text-xs font-extrabold tabular-nums ${l.d > 0 ? 'text-amber-500' : 'text-red-400'}">${l.d > 0 ? '+' : ''}${moeda(l.d)}</span>
-    </div>`).join('');
-    if (orfaos.length) html += `<p class="text-[10px] font-bold uppercase opacity-60 pt-2">Lançamentos órfãos (ID sem membro)</p>` + orfaos.map(o =>
-      `<div class="border rounded-xl p-3 text-[11px]" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><b class="text-red-400">ID ${esc(o.id)}</b> — ${moeda(o.valor)} p/ '${esc(o.destino)}' (${esc(o.status || 'pendente')})</div>`).join('');
-    el('semd-corpo').innerHTML = html || '<p class="text-center text-xs opacity-60 py-8">Nada a exibir.</p>';
+    for (const cons of Object.keys(porCons).sort()){
+      const linhas = porCons[cons].map(cong => {
+        const k = _congChave(cong);
+        const g = gestao[k] || 0, f = fin[k] || 0, d = +(g - f).toFixed(2);
+        const orf = orfaos.filter(o => _congIgual(o.destino, cong));
+        const div = Math.abs(d) >= 0.01 || orf.length > 0;
+        if (div) qtdDiv++;
+        totG += g; totF += f;
+        return { cong, g, f, d, div, orf };
+      });
+      if (!linhas.length) continue;
+      html += `<div class="border rounded-xl overflow-hidden" style="border-color:var(--border-color)">
+        <p class="px-3 py-2 text-[10px] font-bold uppercase" style="background:var(--bg-input);color:var(--text-muted)">${esc(cons)}</p>
+        ${linhas.map(l => `<div class="px-3 py-2 flex items-center gap-2 border-t" style="border-color:var(--border-color);background:${l.div ? 'rgba(239,68,68,.05)' : 'transparent'}">
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold truncate">${esc(l.cong)}</p>
+            <p class="text-[9px] opacity-60 tabular-nums">Gestão ${moeda(l.g)} • Fin ${moeda(l.f)}</p>
+          </div>
+          <span class="text-[10px] font-extrabold tabular-nums shrink-0 ${l.d > 0.005 ? 'text-amber-500' : l.d < -0.005 ? 'text-red-400' : 'opacity-40'}">${l.d > 0.005 ? '+' : ''}${Math.abs(l.d) < 0.005 ? '—' : moeda(l.d)}</span>
+          <span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold shrink-0 ${l.div ? 'text-red-400 border border-red-400/40 bg-red-400/10' : 'text-emerald-500 border border-emerald-500/30 bg-emerald-500/10'}">${l.div ? (l.orf.length ? 'ÓRFÃO' : 'DIVERGENTE') : 'CONCILIADO'}</span>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    const difGeral = +(totG - totF).toFixed(2);
+    const banner = (temFin && qtdDiv === 0)
+      ? `<div class="rounded-xl px-3 py-2.5 text-[11px] font-extrabold flex items-center justify-between" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);color:#10b981"><span><i class="fa-solid fa-circle-check mr-1.5"></i>100% CONCILIADO E BATIDO!</span><span class="text-[9px] font-bold opacity-70">Movimento Financeiro (${abaFin})</span></div>`
+      : `<div class="rounded-xl px-3 py-2.5 text-[11px] font-extrabold flex items-center justify-between" style="background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);color:#ef4444"><span><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>${temFin ? `${qtdDiv} DIVERGÊNCIA(S) ENCONTRADA(S)` : 'MOVIMENTO FINANCEIRO NÃO REGISTRADO'}</span><span class="text-[9px] font-bold opacity-70">${temFin ? `Movimento Financeiro (${abaFin})` : 'Somente gestão exibida'}</span></div>`;
+
+    const cards = `<div class="grid grid-cols-3 gap-2">
+      <div class="border rounded-xl p-2.5 text-center" style="border-color:var(--border-color);background:var(--bg-card)"><p class="text-[8px] font-bold uppercase opacity-60">Gestão</p><p class="text-xs font-extrabold tabular-nums" style="color:#a855f7">${moeda(totG)}</p></div>
+      <div class="border rounded-xl p-2.5 text-center" style="border-color:var(--border-color);background:var(--bg-card)"><p class="text-[8px] font-bold uppercase opacity-60">Financeiro</p><p class="text-xs font-extrabold tabular-nums" style="color:#38bdf8">${moeda(totF)}</p></div>
+      <div class="border rounded-xl p-2.5 text-center" style="border-color:var(--border-color);background:var(--bg-card)"><p class="text-[8px] font-bold uppercase opacity-60">Diferença</p><p class="text-xs font-extrabold tabular-nums ${Math.abs(difGeral) < 0.01 ? 'text-emerald-500' : 'text-red-400'}">${difGeral > 0 ? '+' : ''}${moeda(difGeral)}</p></div>
+    </div>`;
+
+    const htmlOrfaos = orfaos.length
+      ? `<p class="text-[10px] font-bold uppercase opacity-60 pt-1">Lançamentos órfãos (ID sem membro)</p>` + orfaos.map(o =>
+        `<div class="border rounded-xl p-3 text-[11px]" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><b class="text-red-400">ID ${esc(o.id)}</b> — ${moeda(o.valor)} p/ '${esc(o.destino)}' (${esc(o.status || 'pendente')})</div>`).join('')
+      : '';
+
+    el('semd-corpo').innerHTML = banner + cards + html + htmlOrfaos +
+      `<button onclick="semAbrirDivergencias()" class="w-full py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1.5"></i>Recalcular</button>`;
   } catch(e){
     el('semd-corpo').innerHTML = `<p class="text-center text-xs text-red-500 py-8">${esc(e.message || 'Falha ao calcular divergências.')}</p>`;
   }
