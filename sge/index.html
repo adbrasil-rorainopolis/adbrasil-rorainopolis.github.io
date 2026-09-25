@@ -271,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.131'); toast('Versão copiada: v1.131')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.132'); toast('Versão copiada: v1.132')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.131</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.132</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -1728,6 +1728,160 @@ if (sgeEhDesktop()) {
   const _cim = document.getElementById('card-instalar-mobile');
   if (_cim) _cim.classList.remove('hidden');
 }
+
+/* ================= PICKER CUSTOMIZADO — substitui o <select> nativo =================
+   O picker nativo do Android mostra lista plana sem separadores e fora do tema.
+   Aqui todo <select> vira um botão no estilo do app que abre um modal próprio:
+   optgroups viram cabeçalhos de seção (ex.: conselhos) e há busca quando a
+   lista é longa. O <select> original continua no DOM (escondido) — value,
+   onchange e repopulação de options seguem funcionando para o código existente. */
+function sgePickerModal(){
+  let m = $('sge-picker-modal');
+  if (m) return m;
+  const host = document.createElement('div');
+  host.innerHTML = `<div id="sge-picker-modal" class="fixed inset-0 z-[120] hidden items-end sm:items-center justify-center" style="background:rgba(0,0,0,.55);backdrop-filter:blur(3px)">
+    <div class="w-full sm:max-w-sm flex flex-col rounded-t-3xl sm:rounded-3xl border overflow-hidden" style="background:var(--bg-surface);border-color:var(--border-color);max-height:72vh">
+      <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+        <h3 id="sgep-titulo" class="font-bold text-sm flex-1 truncate"></h3>
+        <button type="button" onclick="sgePickerFechar()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="sgep-busca-wrap" class="px-4 pb-2 shrink-0 hidden">
+        <input id="sgep-busca" placeholder="Buscar…" oninput="sgePickerFiltrar(this.value)" class="w-full px-3 py-2 rounded-xl border text-xs outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      </div>
+      <div id="sgep-lista" class="overflow-y-auto px-2 pb-4" style="-webkit-overflow-scrolling:touch"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(host.firstElementChild);
+  return $('sge-picker-modal');
+}
+let _sgePickerSel = null;
+function sgePickerFechar(){
+  const m = $('sge-picker-modal');
+  if (m){ m.classList.add('hidden'); m.classList.remove('flex'); }
+  _sgePickerSel = null;
+}
+function sgePickerFiltrar(q){
+  const k = String(q || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  document.querySelectorAll('#sgep-lista [data-pk-item]').forEach(it => {
+    it.style.display = (!k || (it.dataset.pkItem || '').includes(k)) ? '' : 'none';
+  });
+  document.querySelectorAll('#sgep-lista [data-pk-grupo]').forEach(g => {
+    const algum = Array.from(g.querySelectorAll('[data-pk-item]')).some(it => it.style.display !== 'none');
+    g.style.display = algum ? '' : 'none';
+  });
+}
+function sgePickerEscolher(idx){
+  const sel = _sgePickerSel;
+  sgePickerFechar();
+  if (!sel) return;
+  const opt = sel.options[idx];
+  if (!opt) return;
+  sel.value = opt.value;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function sgePickerAbrir(sel, titulo){
+  _sgePickerSel = sel;
+  const m = sgePickerModal();
+  $('sgep-titulo').textContent = titulo || 'Selecionar';
+  const lista = $('sgep-lista');
+  /* monta grupos a partir de optgroup/options do select original — sempre lê o
+     DOM atual, então options repreenchidas aparecem corretas. */
+  let html = '', vistos = {}, total = 0;
+  const todasOpts = Array.from(sel.options);
+  const item = (o) => {
+    const txt = (o.text || o.value || '').trim();
+    if (!txt || vistos[o.value + '|' + txt]) return '';
+    vistos[o.value + '|' + txt] = 1; total++;
+    const sel = o.selected;
+    const i = todasOpts.indexOf(o);
+    return `<button type="button" data-pk-item="${String(txt).normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase()}" onclick="sgePickerEscolher(${i})"
+      class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer"
+      style="color:${sel ? 'var(--color-primary)' : 'var(--text-main)'};background:${sel ? 'var(--color-primary-light)' : 'transparent'}">
+      <span class="flex-1 truncate">${txt}</span>
+      ${sel ? '<i class="fa-solid fa-check text-[11px]" style="color:var(--color-primary)"></i>' : ''}
+    </button>`;
+  };
+  const filhos = Array.from(sel.children);
+  const grupos = filhos.filter(f => f.tagName === 'OPTGROUP');
+  if (grupos.length){
+    for (const g of grupos){
+      const opcoes = Array.from(g.querySelectorAll('option'));
+      const corpo = opcoes.map(item).join('');
+      if (!corpo) continue;
+      html += `<div data-pk-grupo class="mb-1"><div class="px-3 pt-2.5 pb-1 text-[9px] font-extrabold uppercase tracking-widest opacity-55 sticky top-0" style="background:var(--bg-surface)">${g.label || ''}</div>${corpo}</div>`;
+    }
+    /* options soltas fora de optgroup */
+    const soltas = filhos.filter(f => f.tagName === 'OPTION').map(item).join('');
+    if (soltas) html += `<div data-pk-grupo>${soltas}</div>`;
+  } else {
+    html = `<div data-pk-grupo>${filhos.filter(f => f.tagName === 'OPTION').map(item).join('')}</div>`;
+  }
+  lista.innerHTML = html || '<p class="text-xs opacity-60 px-3 py-4">Nenhuma opção.</p>';
+  const busca = $('sgep-busca-wrap');
+  busca.classList.toggle('hidden', total < 12);
+  $('sgep-busca').value = '';
+  lista.scrollTop = 0;
+  m.classList.remove('hidden'); m.classList.add('flex');
+}
+/* transforma um <select> em botão que abre o picker */
+function sgeEnhanceSelect(sel){
+  if (!sel || sel.dataset.pkDone || sel.multiple || sel.size > 1) return;
+  sel.dataset.pkDone = '1';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = sel.className + ' sge-pk-btn flex items-center gap-1.5 text-left';
+  btn.style.cssText = sel.style.cssText;
+  const span = document.createElement('span');
+  span.className = 'flex-1 truncate';
+  const chev = document.createElement('i');
+  chev.className = 'fa-solid fa-chevron-down text-[9px] opacity-50 shrink-0';
+  btn.appendChild(span); btn.appendChild(chev);
+  const syncTxt = () => {
+    const o = sel.options[sel.selectedIndex];
+    span.textContent = o ? (o.text || o.value) : '';
+    span.style.opacity = o ? '1' : '.55';
+  };
+  const syncDis = () => {
+    btn.disabled = !!sel.disabled;
+    btn.style.opacity = sel.disabled ? '.55' : '';
+    btn.style.pointerEvents = sel.disabled ? 'none' : '';
+  };
+  btn.addEventListener('click', () => {
+    if (sel.disabled) return;
+    const lbl = sel.closest('div')?.querySelector('span')?.textContent;
+    sgePickerAbrir(sel, lbl || sel.getAttribute('data-pk-titulo') || 'Selecionar');
+  });
+  sel.style.display = 'none';
+  sel.setAttribute('aria-hidden', 'true');
+  sel.tabIndex = -1;
+  sel.after(btn);
+  syncTxt(); syncDis();
+  /* value programático + repopulação de options + disabled */
+  try {
+    const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(sel, 'value', {
+      get(){ return d.get.call(this); },
+      set(v){ d.set.call(this, v); if (this.isConnected) syncTxt(); },
+      configurable: true,
+    });
+  } catch(e){}
+  sel.addEventListener('change', syncTxt);
+  new MutationObserver(() => { if (sel.isConnected){ syncTxt(); syncDis(); } })
+    .observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] });
+}
+function sgeEnhanceSelects(root){
+  (root || document).querySelectorAll('select:not([data-pk-done]):not([data-pk-skip])').forEach(sgeEnhanceSelect);
+}
+/* observer global: qualquer <select> inserido no DOM vira picker do app */
+new MutationObserver(muts => {
+  for (const m of muts) for (const n of m.addedNodes){
+    if (n.nodeType !== 1) continue;
+    if (n.tagName === 'SELECT') sgeEnhanceSelect(n);
+    else if (n.querySelectorAll) sgeEnhanceSelects(n);
+  }
+}).observe(document.documentElement, { childList: true, subtree: true });
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => sgeEnhanceSelects());
+else sgeEnhanceSelects();
 </script>
 </body>
 </html>

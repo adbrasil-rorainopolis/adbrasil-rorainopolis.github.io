@@ -150,10 +150,29 @@ async function listarPeriodos(){
 }
 async function mapaConselhos(){
   if (!_cacheMapaConselhos) _cacheMapaConselhos = api('listar_congregacoes', null, sessao()?.token).then(res => {
-    const mapa = {}, porConselho = {};
+    /* conselho canônico: une grafias do banco ("CONSELHO 1", "conselho 1") na
+       grafia oficial — evita grupos duplicados nos seletores. */
+    const consCanon = {};
+    for (const oficial of ORDEM_OFICIAL_CONSELHOS) consCanon[chaveNormalizada(oficial)] = oficial;
+    const mapa = {}, porConselho = {}, consReal = {};
     for (const c of (res.dados || [])){
       const nome = String(c.nome || '').trim(), conselho = String(c.conselho || '').trim();
-      if (nome && conselho){ mapa[nome] = conselho; (porConselho[conselho] = porConselho[conselho] || []).push(nome); }
+      if (!nome || !conselho) continue;
+      const ck = chaveNormalizada(conselho);
+      const consOficial = consCanon[ck] || consReal[ck] || conselho;
+      consReal[ck] = consOficial;
+      /* congregação canônica: prefere a grafia oficial quando reconhecida;
+         deduplica por chave normalizada dentro do conselho. */
+      const nk = chaveNormalizada(nome);
+      const oficialCong = (MAPA_OFICIAL_CONGS[consOficial] || []).find(n => chaveNormalizada(n) === nk);
+      const nomeFinal = oficialCong || nome;
+      const lst = (porConselho[consOficial] = porConselho[consOficial] || []);
+      const chaves = (lst._chaves = lst._chaves || new Set());
+      if (chaves.has(nk)) continue;
+      chaves.add(nk);
+      lst.push(nomeFinal);
+      mapa[nomeFinal] = consOficial;
+      if (nomeFinal !== nome) mapa[nome] = consOficial;
     }
     return { mapa, porConselho };
   }).catch(() => ({ mapa: {}, porConselho: {} }));
