@@ -3123,7 +3123,7 @@ function _semModal(){
       <div class="w-full max-w-md rounded-3xl border p-4 space-y-3" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center justify-between">
           <h3 id="semm-titulo" class="font-bold text-sm"><i id="semm-icone" class="fa-solid fa-user-plus mr-1.5" style="color:#10b981"></i><span id="semm-titulo-txt">Cadastrar novo membro</span></h3>
-          <button onclick="el('sem-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+          <button onclick="semFecharModal()" class="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="semm-conselho" onchange="semMudaConselhoModal()" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select></div>
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="semm-congregacao" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select></div>
@@ -3150,6 +3150,11 @@ window.semMudaConselhoModal = async function(){
   const cons = el('semm-conselho')?.value || '';
   const cong = el('semm-congregacao');
   if (cong) cong.innerHTML = (porConselho[cons] || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+};
+
+window.semFecharModal = function(){
+  F.membroEdit = null;
+  el('sem-modal')?.classList.add('hidden');
 };
 
 function _semModalModo(edicao){
