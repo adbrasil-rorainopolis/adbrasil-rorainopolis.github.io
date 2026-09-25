@@ -641,6 +641,40 @@ window.fqFecharFicha = function(){
   if (_fichaChart){ _fichaChart.destroy(); _fichaChart = null; }
 };
 
+window.fqAjudaFreq = function(){
+  const overlay = document.createElement('div');
+  overlay.id = 'fqajuda-overlay';
+  overlay.className = 'fixed inset-0 z-[96] flex items-end justify-center';
+  overlay.style.cssText = 'background:rgba(2,6,23,.7);backdrop-filter:blur(6px)';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  const item = (cor, titulo, txt) => `
+    <div class="flex items-start gap-2.5 p-3 rounded-xl border" style="border-color:var(--border-color);background:${cor}12">
+      <span class="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style="background:${cor}"></span>
+      <div><p class="text-[11px] font-bold" style="color:${cor}">${titulo}</p>
+      <p class="text-[10px] opacity-75 leading-relaxed">${txt}</p></div>
+    </div>`;
+  overlay.innerHTML = `
+    <div class="w-full rounded-t-3xl max-h-[88vh] flex flex-col overflow-hidden" style="background:var(--bg-card);border:1px solid var(--border-color);border-bottom:none;max-width:560px">
+      <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b shrink-0" style="border-color:var(--border-color)">
+        <p class="font-cinzel font-bold text-sm text-sky-400">Como funciona a classificação</p>
+        <button onclick="document.getElementById('fqajuda-overlay').remove()" class="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="overflow-y-auto px-4 py-3 space-y-3">
+        <p class="text-[10px] opacity-75 leading-relaxed">Um mês <b>conta como contribuído</b> quando existe <b>qualquer lançamento com valor maior que zero</b> naquele mês — não importa quantas semanas, nem o valor.</p>
+        ${item('#10b981','Recorrente / Fiel','Dizimou no mês de referência <b>e nos dois meses anteriores</b> — 3 meses seguidos sem falta.')}
+        ${item('#f59e0b','Irregular','Dizimou no mês de referência, mas <b>faltou em pelo menos um dos dois meses anteriores</b>.')}
+        ${item('#d946ef','Novo Dizimista','A <b>primeira contribuição da vida</b> foi no mês atual ou no anterior, com no máximo 2 meses de histórico. Quem volta depois de muito tempo parado <b>não</b> vira Novo — entra como Irregular ou Fiel.')}
+        ${item('#ef4444','Ausente','<b>Não dizimou no mês de referência</b> — basta 1 mês sem contribuir. O contador mostra há quantos meses está sem dizimar; "Nunca" indica membro sem nenhum lançamento.')}
+        <div class="text-[10px] opacity-75 leading-relaxed space-y-1.5 border-t pt-3 pb-2" style="border-color:var(--border-color)">
+          <p><i class="fa-solid fa-circle-info text-sky-400 mr-1"></i><b>Membros inativos</b> ficam fora da classificação e são contados à parte.</p>
+          <p><i class="fa-solid fa-chart-line text-sky-400 mr-1"></i><b>Evolução mensal</b>: o gráfico reclassifica todos os membros mês a mês nos últimos 12 meses — o mesmo membro pode aparecer Novo, depois Fiel, depois Ausente.</p>
+          <p><i class="fa-solid fa-user-check text-sky-400 mr-1"></i><b>Ficha individual</b>: toque no nome do membro na lista para ver a análise completa dele.</p>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+};
+
 async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = 'Todas' }){
   await carregarMembros();
   const lancamentos = await carregarTodosLancamentos();
@@ -778,7 +812,7 @@ function _fqRenderCorpo(){
     <p class="text-lg font-bold tabular-nums" style="color:${cor}">${n}</p>
     <p class="text-[9px] opacity-50">${pct}</p></div>`;
   el('fq-corpo').innerHTML = `
-    <p class="text-[10px] font-bold uppercase opacity-60 px-1">Competência ${esc(d.data_referencia)} • ${d.total_avaliados} membros ativos avaliados • Taxa geral de fidelidade: <span class="text-emerald-500">${esc(d.taxa_fidelidade)}</span></p>
+    <p class="text-[10px] font-bold uppercase opacity-60 px-1 flex items-center gap-1.5">Competência ${esc(d.data_referencia)} • ${d.total_avaliados} membros ativos avaliados • Taxa geral de fidelidade: <span class="text-emerald-500">${esc(d.taxa_fidelidade)}</span> <button onclick="fqAjudaFreq()" class="w-5 h-5 rounded-full border text-[9px] font-bold cursor-pointer inline-flex items-center justify-center opacity-70 shrink-0" style="border-color:var(--border-color)" title="Como funciona a classificação"><i class="fa-solid fa-question"></i></button></p>
     <div class="grid grid-cols-2 gap-2">
       ${kpi('Recorrentes / Fiéis', d.recorrentes, FQ_CORES.recorrentes, d.percentuais.recorrentes.toFixed(1) + '%')}
       ${kpi('Irregulares', d.irregulares, FQ_CORES.irregulares, d.percentuais.irregulares.toFixed(1) + '%')}
