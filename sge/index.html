@@ -271,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.121'); toast('Versão copiada: v1.121')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.122'); toast('Versão copiada: v1.122')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.121</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.122</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -342,7 +342,27 @@
           <i class="fa-solid fa-download"></i> Baixar SGE para Windows
         </button>
       </div>
+      <!-- Card de instalação PWA — só aparece em celular e quando ainda não instalado -->
+      <div id="card-instalar-mobile" class="hidden mt-5 p-3.5 rounded-2xl text-center" style="background: rgba(56,189,248,.07); border: 1px solid rgba(56,189,248,.3);">
+        <p class="text-[11px] font-bold" style="color: var(--color-primary);">📱 Instale o app no seu celular</p>
+        <p class="text-[10px] opacity-70 mt-0.5">Fica na tela inicial, como um app de verdade.</p>
+        <button type="button" onclick="instalarPWA()" class="btn-entrar mt-2.5 py-2 px-5 rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer">
+          <i class="fa-solid fa-mobile-screen"></i> Instalar aplicativo
+        </button>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: COMO INSTALAR (fallback p/ navegadores sem prompt nativo) ============ -->
+<div id="modal-instalar-pwa" class="fixed inset-0 z-[97] hidden items-center justify-center p-5" style="background: rgba(2,6,23,.85); backdrop-filter: blur(6px);">
+  <div class="w-full max-w-sm rounded-3xl p-6 space-y-3" style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main);">
+    <div class="text-center">
+      <div class="text-3xl mb-1 select-none">📲</div>
+      <h3 class="font-bold text-sm" style="color: var(--color-primary);">Como instalar o app</h3>
+    </div>
+    <div id="instala-pwa-passos" class="text-[11px] leading-relaxed space-y-2.5" style="color: var(--text-muted);"></div>
+    <button type="button" onclick="fecharInstalarPwa()" class="w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border" style="background: var(--bg-input); border-color: var(--border-color);">Entendi</button>
   </div>
 </div>
 
@@ -1634,10 +1654,52 @@ navigator.serviceWorker.addEventListener('controllerchange', () => {
     location.reload();
   });
 }
-// Card de download do Windows — só aparece em acesso por computador
+// ---------- instalação PWA (celular) ----------
+let _pwaPromptEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _pwaPromptEvt = e; });
+function sgeJaInstalado(){
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function instalarPWA(){
+  if (_pwaPromptEvt){
+    _pwaPromptEvt.prompt();
+    _pwaPromptEvt.userChoice.then(r => {
+      if (r && r.outcome === 'accepted'){
+        const c = $('card-instalar-mobile'); if (c) c.classList.add('hidden');
+        toast('Instalação iniciada — o SGE vai aparecer na sua tela inicial.');
+      }
+      _pwaPromptEvt = null;
+    });
+    return;
+  }
+  // Sem prompt nativo (iOS/Safari ou browser sem suporte): mostra instruções
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const passos = $('instala-pwa-passos');
+  if (passos){
+    passos.innerHTML = ios
+      ? `<p><b style="color:var(--color-primary)">No iPhone (Safari):</b></p>
+         <p>1️⃣ Abra este link no <b>Safari</b></p>
+         <p>2️⃣ Toque em <b>Compartilhar</b> <span class="opacity-70">(quadrado com seta pra cima)</span></p>
+         <p>3️⃣ Role e toque em <b>Adicionar à Tela de Início</b></p>
+         <p>4️⃣ Confirme em <b>Adicionar</b></p>`
+      : `<p><b style="color:var(--color-primary)">No Android (Chrome):</b></p>
+         <p>1️⃣ Toque no menu <b>⋮</b> no canto superior direito</p>
+         <p>2️⃣ Toque em <b>Instalar aplicativo</b> ou <b>Adicionar à tela inicial</b></p>
+         <p>3️⃣ Confirme em <b>Instalar</b></p>`;
+  }
+  const m = $('modal-instalar-pwa'); if (m){ m.classList.remove('hidden'); m.classList.add('flex'); }
+}
+function fecharInstalarPwa(){
+  const m = $('modal-instalar-pwa'); if (m){ m.classList.add('hidden'); m.classList.remove('flex'); }
+}
+
+// Cards de instalação: Windows no PC, PWA no celular — nunca se já instalado
 if (sgeEhDesktop()) {
   const _cdl = document.getElementById('card-download-desktop');
   if (_cdl) _cdl.classList.remove('hidden');
+} else if (!sgeJaInstalado()) {
+  const _cim = document.getElementById('card-instalar-mobile');
+  if (_cim) _cim.classList.remove('hidden');
 }
 </script>
 </body>
