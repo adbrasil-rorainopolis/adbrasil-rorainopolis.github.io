@@ -271,9 +271,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.130'); toast('Versão copiada: v1.130')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.131'); toast('Versão copiada: v1.131')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.130</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.131</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -639,6 +639,19 @@
     <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-muted);">Quer entrar com sua digital ou FaceID nas próximas vezes?<br>Se preferir, continue usando CPF e senha.</p>
     <button type="button" id="btn-bio-sim" class="btn-entrar w-full py-2.5 rounded-2xl font-bold text-sm">Ativar digital/FaceID</button>
     <button type="button" id="btn-bio-nao" class="mt-2.5 w-full py-2.5 rounded-2xl font-bold text-sm" style="background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Agora não</button>
+  </div>
+</div>
+
+<!-- ============ CONFIRMAR SAÍDA ============ -->
+<div id="sge-sair-confirm" class="fixed inset-0 z-[70] items-center justify-center p-4" style="display:none; background: rgba(2,6,23,0.45); backdrop-filter: blur(4px);">
+  <div class="w-full max-w-sm rounded-3xl p-6 text-center theme-transition" style="background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.5);">
+    <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style="background: var(--color-danger-light, #fee2e2); border: 1px solid var(--border-color);">
+      <i class="fa-solid fa-right-from-bracket text-2xl" style="color: var(--color-danger, #dc2626);"></i>
+    </div>
+    <h2 class="font-cinzel font-bold text-base mb-1" style="color: var(--text-accent, var(--color-primary));">Fechar o SGE?</h2>
+    <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-muted);">Tem certeza que deseja sair e fechar o SGE?<br>Sua sessão será encerrada neste aparelho.</p>
+    <button type="button" onclick="sgeConfirmarSaida()" class="w-full py-2.5 rounded-2xl font-bold text-sm" style="background: var(--color-danger, #dc2626); color: #fff;">Sim, sair</button>
+    <button type="button" onclick="sgeCancelarSaida()" class="mt-2.5 w-full py-2.5 rounded-2xl font-bold text-sm" style="background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Cancelar</button>
   </div>
 </div>
 
@@ -1325,6 +1338,20 @@ function desativarBio(){
 }
 function sairEFechar(){
   fecharMenuEngrenagem();
+  sgePedirConfirmacaoSair();
+}
+function sgePedirConfirmacaoSair(){
+  const m = $('sge-sair-confirm');
+  m.style.display = 'flex';
+  m.classList.remove('hidden');
+}
+function sgeCancelarSaida(){
+  const m = $('sge-sair-confirm');
+  m.style.display = 'none';
+  m.classList.add('hidden');
+}
+function sgeConfirmarSaida(){
+  sgeCancelarSaida();
   sairDoApp();
   window.close();
 }
@@ -1437,7 +1464,7 @@ function renderPanorama(){
         <span class="text-[10px] block" style="color: var(--text-muted);">${u.cpf || ''}</span>
         <span class="inline-block mt-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full" style="background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-light);">${u.perfil || 'Operador'}</span>
       </div>
-      <button onclick="sairDoApp()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
+      <button onclick="sgePedirConfirmacaoSair()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
     </div>
     ${D('saudacao') ? `<div class="mb-3">
       <p class="text-base font-extrabold leading-tight">${saudacao}, ${primeiroNome}!</p>
