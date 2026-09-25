@@ -2951,17 +2951,13 @@ async function finRenderSemanal(){
         <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar membro por nome ou ID…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       </div>
       <div id="sem-aviso"></div>
-      <div class="flex items-center gap-2 px-1">
+      <div class="flex items-center gap-1.5 px-1">
         <p id="sem-total" class="flex-1 text-[10px] font-bold uppercase opacity-60">Carregando…</p>
-        ${pode ? `<button onclick="semAbrirNovoMembro()" class="px-3 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(5,150,105,.5);color:#10b981;background:rgba(5,150,105,.1)"><i class="fa-solid fa-user-plus mr-1"></i>Membro</button>` : ''}
+        <button onclick="semAbrirDivergencias()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(37,99,235,.5);color:#60a5fa;background:rgba(37,99,235,.1)" title="Divergências"><i class="fa-solid fa-magnifying-glass-chart"></i></button>
+        ${sgeEhAdmin() ? `<button onclick="semAbrirLotes()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(142,68,173,.5);color:#a855f7;background:rgba(142,68,173,.1)" title="Gestão de Lotes"><i class="fa-solid fa-lock"></i></button>` : ''}
+        ${pode ? `<button onclick="semAbrirNovoMembro()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(5,150,105,.5);color:#10b981;background:rgba(5,150,105,.1)" title="Cadastrar membro"><i class="fa-solid fa-user-plus"></i></button>` : ''}
       </div>
-      <div id="sem-lista" class="space-y-2 pb-24"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando grade…</div></div>
-      ${pode ? `<div class="fixed bottom-0 left-0 right-0 z-30 px-4 pb-4 pt-2" style="background:linear-gradient(to top, var(--bg-base) 70%, transparent)">
-        <div class="max-w-lg mx-auto flex items-center gap-2 rounded-2xl border px-3 py-2.5" style="background:var(--bg-surface);border-color:var(--border-color);box-shadow:0 -4px 24px rgba(0,0,0,.18)">
-          <div class="flex-1 min-w-0"><p class="text-[9px] font-bold uppercase opacity-60">Total na semana</p><p id="sem-soma" class="text-sm font-extrabold valor-ouro tabular-nums">R$ 0,00</p></div>
-          <button id="sem-btn-salvar" onclick="semSalvar()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar</button>
-        </div>
-      </div>` : ''}
+      <div id="sem-lista" class="space-y-2 pb-6"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando grade…</div></div>
     </div>`;
   _semMarcarChip();
   _semPopularConselhos();
@@ -3019,7 +3015,7 @@ window.semCarregar = async function(){
     s.fechada = _semFechada(fech, s);
     const av = el('sem-aviso');
     if (av) av.innerHTML = s.fechada
-      ? `<div class="rounded-xl px-3 py-2.5 text-[11px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i>Semana/mês fechado — edição e retificação só pelo desktop.</div>`
+      ? `<div class="rounded-xl px-3 py-2.5 text-[11px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i>Semana/mês fechado${sgeEhAdmin() ? ' — como admin, alterações viram retificação.' : ' — somente leitura.'}</div>`
       : '';
     _semRenderLista();
   } catch(e){
@@ -3029,7 +3025,7 @@ window.semCarregar = async function(){
 
 function _semRenderLista(){
   const s = F.sem, lista = el('sem-lista'); if (!lista) return;
-  const termo = cf(s.busca), pode = semPodeEditar() && !s.fechada;
+  const termo = cf(s.busca), pode = semPodeEditar();
   const rows = (F.membros || []).filter(m => {
     if (String(m.excluido_em ?? '').trim()) return false;
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
@@ -3039,6 +3035,7 @@ function _semRenderLista(){
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
 
+  let totalSem = 0, lancados = 0;
   const tot = el('sem-total');
   if (tot) tot.textContent = `${rows.length} membro(s) • ${s.mes}/${s.ano} • ${_semNorm(s.semana).replace('Semana ', '')}ª Semana`;
 
@@ -3046,72 +3043,457 @@ function _semRenderLista(){
     const id = String(m.id ?? '').trim();
     const reg = s.lancs[id];
     const v = parseValor(reg?.valor);
-    const enviado = cf(reg?.status) === 'enviado';
+    if (v > 0) lancados++;
+    totalSem += v;
+    const enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
+    const itin = reg && cf(reg.destino_congregacao) && cf(reg.destino_congregacao) !== cf(m.congregacao);
     const badge = enviado && v > 0
       ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-emerald-500 border border-emerald-500/30 bg-emerald-500/10">Enviado</span>'
       : v > 0
         ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10">Em edição</span>'
-        : '';
-    return `<div class="border rounded-2xl p-3 flex items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        : '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border" style="color:var(--text-muted);border-color:var(--border-color)">Não enviado</span>';
+    return `<div onclick="semAbrirLanc('${esc(id)}')" class="border rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer active:scale-[.99] transition" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-0">
         <p class="font-bold text-xs truncate">${esc(m.nome || 'Membro Sem Nome')}</p>
         <p class="text-[10px] opacity-60 truncate">${esc(m.congregacao || '')} • ID ${esc(id)}</p>
-        ${badge}
+        <div class="flex gap-1 mt-0.5 flex-wrap">${badge}${itin ? `<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-sky-400 border border-sky-400/30 bg-sky-400/10"><i class="fa-solid fa-route mr-0.5"></i>${esc(reg.destino_congregacao)}</span>` : ''}</div>
       </div>
-      <input data-sem-id="${esc(id)}" type="text" inputmode="decimal" placeholder="R$ 0,00"
-        value="${v > 0 ? moeda(v) : ''}" ${pode ? '' : 'disabled'}
-        oninput="rcmMascaraValor(this);semRecalc()"
-        class="w-28 px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums shrink-0 ${pode ? '' : 'opacity-50'}"
-        style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      <div class="text-right shrink-0">
+        <p class="text-sm font-extrabold tabular-nums ${v > 0 ? 'valor-ouro' : 'opacity-30'}">${v > 0 ? moeda(v) : 'R$ —'}</p>
+        <p class="text-[9px] opacity-50">${pode ? 'Toque para lançar' : 'Visualizar'}</p>
+      </div>
     </div>`;
   }).join('') || '<p class="text-center text-xs opacity-60 py-10">Nenhum membro ativo com os filtros selecionados.</p>';
-  semRecalc();
+
+  if (tot) tot.textContent = `${lancados} de ${rows.length} lançados • ${s.mes}/${s.ano} • ${_semNorm(s.semana).replace('Semana ', '')}ª Sem • Total ${moeda(totalSem)}`;
 }
 
-window.semRecalc = function(){
-  let soma = 0;
-  document.querySelectorAll('[data-sem-id]').forEach(inp => { const n = rcmValorNum(inp.value); if (!isNaN(n)) soma += n; });
-  const s = el('sem-soma'); if (s) s.textContent = moeda(soma);
+/* ===================== Lançamento por membro — subtela dedicada =====================
+   Paridade com abrir_modal_multiplos_dizimos do desktop: parcelas com canal
+   exclusivo Espécie OU PIX por linha, destino itinerante, e a operação é
+   decidida pelo estado do registro (salvar / retificar / reconsiderar). */
+
+function _semParseParcelas(reg){
+  try {
+    const arr = JSON.parse(String(reg?.detalhes_parcelas || '[]'));
+    if (Array.isArray(arr) && arr.length) return arr.map((p, i) => ({
+      especie: parseValor(p.especie ?? (p.tipo === 'especie' ? p.valor : 0)) || 0,
+      pix: parseValor(p.pix ?? (['pix','tb'].includes(p.tipo) ? p.valor : 0)) || 0,
+    }));
+  } catch(e){}
+  const v = parseValor(reg?.valor);
+  return v > 0 ? [{ especie: v, pix: 0 }] : [{ especie: 0, pix: 0 }];
+}
+
+function _semModalLanc(){
+  let m = el('sem-lanc-modal');
+  if (!m){
+    const host = document.createElement('div');
+    host.innerHTML = `<div id="sem-lanc-modal" class="hidden fixed inset-0 z-[86] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
+      <div class="w-full max-w-md max-h-[88vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
+        <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+          <button onclick="semFecharLanc()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="flex-1 min-w-0"><h3 id="seml-nome" class="font-bold text-sm truncate"></h3><p id="seml-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="semFecharLanc()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-y-auto px-4 pb-5 space-y-3" style="-webkit-overflow-scrolling:touch">
+          <div id="seml-status"></div>
+          <div id="seml-aviso"></div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-bold uppercase opacity-60">Parcelas — um canal por linha</span>
+              <button onclick="semLancAddParcela()" id="seml-add" class="px-2.5 py-1 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:rgba(16,185,129,.4);color:#10b981"><i class="fa-solid fa-plus mr-1"></i>Parcela</button>
+            </div>
+            <div id="seml-parcelas" class="space-y-2"></div>
+            <p id="seml-resumo" class="text-[10px] font-bold opacity-70 mt-2"></p>
+          </div>
+          <div class="border rounded-xl p-2.5" style="border-color:var(--border-color);background:var(--bg-card)">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="seml-itin" onchange="semLancItin()" class="w-4 h-4 accent-teal-500">
+              <span class="text-[11px] font-bold"><i class="fa-solid fa-route mr-1" style="color:#14b8a6"></i>Contribuição itinerante (destino diferente)</span>
+            </label>
+            <div id="seml-itin-box" class="hidden grid grid-cols-2 gap-2 mt-2">
+              <select id="seml-dconselho" onchange="semLancItinCons()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              <select id="seml-dcong" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+            </div>
+          </div>
+          <button id="seml-btn" onclick="semLancSalvar()" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"></button>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(host.firstElementChild);
+    m = el('sem-lanc-modal');
+  }
+  return m;
+}
+
+function _semRenderParcelas(){
+  const L = F.semLanc; if (!L) return;
+  const pode = L.pode;
+  el('seml-parcelas').innerHTML = L.parcelas.map((p, i) => `
+    <div class="flex items-center gap-1.5">
+      <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#2ecc71">💵 Espécie</span>
+        <input inputmode="decimal" placeholder="0,00" value="${p.especie > 0 ? p.especie.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
+          oninput="semLancDigito(${i}, 'especie', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#2ecc71"></div>
+      <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#38bdf8">💳 PIX / TB</span>
+        <input inputmode="decimal" placeholder="0,00" value="${p.pix > 0 ? p.pix.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
+          oninput="semLancDigito(${i}, 'pix', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#38bdf8"></div>
+      ${L.parcelas.length > 1 && pode ? `<button onclick="semLancDelParcela(${i})" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-3.5 cursor-pointer" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash text-[10px] text-red-400"></i></button>` : '<div class="w-7 shrink-0"></div>'}
+    </div>`).join('');
+  let te = 0, tp = 0;
+  L.parcelas.forEach(p => { te += p.especie || 0; tp += p.pix || 0; });
+  el('seml-resumo').innerHTML = `Espécie: <b style="color:#2ecc71">${moeda(te)}</b> &nbsp;|&nbsp; PIX/TB: <b style="color:#38bdf8">${moeda(tp)}</b> &nbsp;|&nbsp; Total: <b class="valor-ouro">${moeda(te + tp)}</b>`;
+}
+
+window.semLancDigito = function(i, canal, inp){
+  const L = F.semLanc; if (!L) return;
+  const raw = inp.value.replace(/\D/g, '');
+  const v = raw ? parseInt(raw, 10) / 100 : 0;
+  inp.value = v > 0 ? v.toFixed(2).replace('.', ',') : '';
+  L.parcelas[i][canal] = v;
+  if (v > 0){ L.parcelas[i][canal === 'especie' ? 'pix' : 'especie'] = 0; }
+  _semRenderParcelas();
+  const el2 = el('seml-parcelas').querySelectorAll('input')[i * 2 + (canal === 'especie' ? 0 : 1)];
+  if (el2){ el2.focus(); const l = el2.value.length; el2.setSelectionRange(l, l); }
+};
+window.semLancAddParcela = function(){ F.semLanc?.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
+window.semLancDelParcela = function(i){ F.semLanc?.parcelas.splice(i, 1); if (!F.semLanc.parcelas.length) F.semLanc.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
+
+window.semLancItin = async function(){
+  const on = el('seml-itin')?.checked;
+  el('seml-itin-box')?.classList.toggle('hidden', !on);
+  if (on){
+    const { porConselho } = await SGEG.mapaConselhos();
+    const L = F.semLanc;
+    const selC = el('seml-dconselho');
+    selC.innerHTML = Object.keys(porConselho).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    selC.value = L?.destCons || selC.value;
+    await semLancItinCons();
+    if (L?.destCong) el('seml-dcong').value = L.destCong;
+  }
+};
+window.semLancItinCons = async function(){
+  const { porConselho } = await SGEG.mapaConselhos();
+  const c = el('seml-dconselho')?.value || '';
+  const sel = el('seml-dcong');
+  if (sel) sel.innerHTML = (porConselho[c] || []).map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
 };
 
-window.semSalvar = async function(){
-  if (!semPodeEditar()){ toast('Seu perfil não pode lançar valores.'); return; }
-  if (F.sem.fechada){ toast('Semana/mês fechado — retifique pelo desktop.'); return; }
-  const s = F.sem, btn = el('sem-btn-salvar');
-  const fila = [];
-  document.querySelectorAll('[data-sem-id]').forEach(inp => {
-    const id = inp.dataset.semId;
-    const v = rcmValorNum(inp.value), vv = isNaN(v) ? 0 : v;
-    const reg = s.lancs[id];
-    if (Math.abs(vv - parseValor(reg?.valor)) < 0.005) return;
-    const mem = (F.membros || []).find(x => String(x.id ?? '').trim() === id) || {};
-    fila.push({ id, valor: vv, reg, mem });
-  });
-  if (!fila.length){ toast('Nada alterado para salvar.'); return; }
-  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>Salvando…'; }
-  let okc = 0, erros = 0;
-  for (const it of fila){
-    try {
-      const r = await api('salvar_lancamento', {
-        lancamento: {
-          id: it.id, mes: s.mes, semana: s.semana, ano: s.ano,
-          valor: it.valor.toFixed(2),
-          status: cf(it.reg?.status) === 'enviado' ? 'enviado' : 'pendente',
-          data_envio: String(it.reg?.data_envio || ''),
-          destino_conselho: it.mem.conselho || '', destino_congregacao: it.mem.congregacao || '',
-          detalhes_parcelas: '[]',
-        },
-        versao_base: Number(it.reg?.versao || 0),
-        idempotency_key: crypto.randomUUID(),
-      }, sessao()?.token);
-      if (r?.ok === false || r?.erro) throw new Error(r.erro || 'Falha ao gravar.');
-      okc++;
-    } catch(e){ erros++; }
+window.semAbrirLanc = async function(id){
+  const s = F.sem;
+  const mem = (F.membros || []).find(x => _idMatch(x.id, id));
+  if (!mem){ toast('Membro não encontrado.'); return; }
+  const reg = s.lancs[String(mem.id ?? '').trim()];
+  const pode = semPodeEditar() && (!s.fechada || sgeEhAdmin());
+  _semModalLanc();
+  const destDif = reg && cf(reg.destino_congregacao) && cf(reg.destino_congregacao) !== cf(mem.congregacao);
+  F.semLanc = {
+    id: String(mem.id ?? '').trim(), nome: mem.nome, mem, reg,
+    parcelas: _semParseParcelas(reg),
+    pode, destCons: destDif ? reg.destino_conselho : '', destCong: destDif ? reg.destino_congregacao : '',
+  };
+  el('seml-nome').textContent = mem.nome || 'Membro';
+  el('seml-sub').textContent = `${mem.conselho || ''} • ${mem.congregacao || ''} • ID ${F.semLanc.id} • ${_semNorm(s.semana).replace('Semana ', '')}ª Sem de ${s.mes}/${s.ano}`;
+  const st = cf(reg?.status), v = parseValor(reg?.valor);
+  el('seml-status').innerHTML = st === 'enviado' || st === 'conferido'
+    ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(16,185,129,.1);color:#10b981;border:1px solid rgba(16,185,129,.3)"><i class="fa-solid fa-circle-check"></i>Enviado${reg.data_envio ? ` em ${esc(reg.data_envio)}` : ''} — alterar aqui gera retificação.</div>`
+    : v > 0 ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3)"><i class="fa-solid fa-pen"></i>Em edição — ainda não enviado.</div>` : '';
+  el('seml-aviso').innerHTML = s.fechada
+    ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i>Semana fechada${sgeEhAdmin() ? ' — como admin, salvar aqui retifica o lançamento.' : ' — somente leitura.'}</div>`
+    : '';
+  const ck = el('seml-itin'); ck.checked = !!destDif; ck.disabled = !pode;
+  el('seml-itin-box').classList.toggle('hidden', !destDif);
+  if (destDif) await semLancItin();
+  _semRenderParcelas();
+  el('seml-add').style.display = pode ? '' : 'none';
+  const btn = el('seml-btn');
+  btn.style.display = pode ? '' : 'none';
+  btn.innerHTML = st === 'enviado' || st === 'conferido'
+    ? '<i class="fa-solid fa-pen-to-square mr-1.5"></i>Salvar retificação'
+    : '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar lançamento';
+  el('sem-lanc-modal').classList.remove('hidden');
+};
+
+window.semFecharLanc = function(){ F.semLanc = null; el('sem-lanc-modal')?.classList.add('hidden'); };
+
+window.semLancSalvar = async function(){
+  const L = F.semLanc; if (!L || !L.pode) return;
+  const s = F.sem;
+  const parcelas = [], te = { e: 0, p: 0 };
+  for (const p of L.parcelas){
+    if (p.especie > 0 && p.pix > 0){ toast('Uma linha não pode ter Espécie e PIX juntos — separe em parcelas.'); return; }
+    const v = (p.especie || 0) + (p.pix || 0);
+    if (v > 0) parcelas.push({ item: parcelas.length + 1, especie: +p.especie.toFixed(2), pix: +p.pix.toFixed(2), valor: +v.toFixed(2) });
+    te.e += p.especie || 0; te.p += p.pix || 0;
   }
-  F.lancPorAno[s.ano] = null; F.lancTodos = null;
-  toast(erros ? `${okc} salvo(s), ${erros} com erro — confira a grade.` : `${okc} lançamento(s) salvos.`);
-  if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar'; }
-  await semCarregar();
+  const total = te.e + te.p;
+  const reg = L.reg, enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
+  const itin = el('seml-itin')?.checked;
+  let dCons = '', dCong = '';
+  if (itin){
+    dCons = el('seml-dconselho')?.value || ''; dCong = el('seml-dcong')?.value || '';
+    if (!dCons || !dCong){ toast('Escolha o conselho e a congregação de destino.'); return; }
+  }
+  /* Decide a operação igual ao desktop: zerar enviado = reconsiderar (S-3000);
+     valor diferente de enviado = retificar (S-1250); demais casos = salvar. */
+  let operacao = 'salvar';
+  if (enviado && total === 0) operacao = 'reconsiderar';
+  else if (enviado && Math.abs(total - parseValor(reg?.valor)) > 0.001) operacao = 'retificar';
+  else if (enviado && parcelasDiferem(reg, parcelas)) operacao = 'retificar';
+  if (operacao === 'reconsiderar'
+    && !confirm(`Anular o lançamento de ${L.nome} (${moeda(parseValor(reg?.valor))})? O valor será zerado e a reconsideração registrada.`)) return;
+  const btn = el('seml-btn');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>Salvando…'; }
+  try {
+    const acao = operacao === 'retificar' ? 'retificar_lancamento'
+      : operacao === 'reconsiderar' ? 'reconsiderar_lancamento' : 'salvar_lancamento';
+    const r = await api(acao, {
+      lancamento: {
+        id: L.id, mes: s.mes, semana: s.semana, ano: s.ano,
+        valor: total.toFixed(2),
+        valor_anulado: operacao === 'reconsiderar' ? parseValor(reg?.valor).toFixed(2) : undefined,
+        status: operacao === 'salvar' ? 'pendente' : (reg?.status || 'pendente'),
+        data_envio: String(reg?.data_envio || ''),
+        destino_conselho: itin ? dCons : (L.mem.conselho || ''),
+        destino_congregacao: itin ? dCong : (L.mem.congregacao || ''),
+        detalhes_parcelas: JSON.stringify(parcelas),
+      },
+      versao_base: Number(reg?.versao || 0),
+      idempotency_key: crypto.randomUUID(),
+    }, sessao()?.token);
+    if (r?.ok === false || r?.erro) throw new Error(r.erro || 'Falha ao gravar.');
+    F.lancPorAno[s.ano] = null; F.lancTodos = null;
+    semFecharLanc();
+    toast(operacao === 'reconsiderar' ? 'Lançamento anulado (reconsideração registrada).'
+      : operacao === 'retificar' ? 'Retificação salva.' : 'Lançamento salvo.');
+    await semCarregar();
+  } catch(e){
+    toast(e.message || 'Falha ao salvar lançamento.');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar lançamento'; }
+  }
+};
+
+function parcelasDiferem(reg, novas){
+  const ant = _semParseParcelas(reg);
+  if (ant.length !== novas.length) return true;
+  return ant.some((p, i) => Math.abs((p.especie||0) - (novas[i]?.especie||0)) > 0.001 || Math.abs((p.pix||0) - (novas[i]?.pix||0)) > 0.001);
+}
+
+/* ===================== Gestão de Lotes — subtela dedicada (admin) =====================
+   Paridade com o modal de fechamento do desktop: status por semana, fechar/abrir
+   individual ou em lote, e reabertura exige a senha do administrador logado. */
+
+function _semModalLotes(){
+  let m = el('sem-lotes-modal');
+  if (!m){
+    const host = document.createElement('div');
+    host.innerHTML = `<div id="sem-lotes-modal" class="hidden fixed inset-0 z-[87] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
+      <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
+        <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+          <button onclick="semFecharLotes()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-lock mr-1.5" style="color:#a855f7"></i>Gestão de Lotes</h3><p id="semlt-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="semFecharLotes()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-y-auto px-4 pb-5 space-y-2.5" style="-webkit-overflow-scrolling:touch">
+          <div class="flex gap-2">
+            <button onclick="semLoteTodas('Fechado')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(16,185,129,.4);color:#10b981">Fechar Todas</button>
+            <button onclick="semLoteTodas('Aberto')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(245,158,11,.4);color:#f59e0b">Abrir Todas</button>
+          </div>
+          <div id="semlt-lista" class="space-y-2"></div>
+          <p class="text-[10px] opacity-60 leading-relaxed"><i class="fa-solid fa-circle-info mr-1" style="color:#f59e0b"></i>Fechar as 5 semanas fecha o mês automaticamente. Reabrir qualquer semana reabre o lote.</p>
+          <div id="semlt-senha-box" class="hidden">
+            <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Senha administrativa para reabrir semanas</span>
+            <input id="semlt-senha" type="password" placeholder="Senha do administrador" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          </div>
+          <div id="semlt-erro" class="hidden rounded-xl px-3 py-2 text-[11px] font-bold" style="background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)"></div>
+          <button id="semlt-btn" onclick="semLoteSalvar()" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-check mr-1.5"></i>Salvar Fechamento de Lotes</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(host.firstElementChild);
+    m = el('sem-lotes-modal');
+  }
+  return m;
+}
+
+window.semFecharLotes = function(){ F.semLotes = null; el('sem-lotes-modal')?.classList.add('hidden'); };
+
+function _semltRender(){
+  const G = F.semLotes; if (!G) return;
+  const fechado = v => { const t = cf(v); return ['fechado','conferido'].includes(t); };
+  el('semlt-lista').innerHTML = [1,2,3,4,5].map(n => {
+    const chave = `Semana ${n}`, fech = fechado(G.semanas[chave]);
+    return `<div class="border rounded-xl p-3 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <span class="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b">${n}</span>
+      <span class="flex-1"></span>
+      <span class="px-2 py-0.5 rounded-full text-[9px] font-bold border ${fech ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-500 border-amber-500/30 bg-amber-500/10'}">${fech ? 'Fechado' : 'Aberto'}</span>
+      <button onclick="semLoteSemana(${n})" class="px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="${fech ? 'border-color:rgba(245,158,11,.4);color:#f59e0b' : 'border-color:rgba(16,185,129,.4);color:#10b981'}">${fech ? 'Abrir Semana' : 'Fechar Semana'}</button>
+    </div>`;
+  }).join('');
+  const reabrindo = Object.keys(G.semanas).some(k => G.fechadasOrig.has(k.replace('Semana ', '')) && cf(G.semanas[k]) === 'aberto');
+  el('semlt-senha-box').classList.toggle('hidden', !reabrindo);
+  el('semlt-erro').classList.add('hidden');
+}
+
+window.semLoteSemana = function(n){
+  const G = F.semLotes; if (!G) return;
+  const chave = `Semana ${n}`;
+  const fechado = v => ['fechado','conferido'].includes(cf(v));
+  G.semanas[chave] = fechado(G.semanas[chave]) ? 'Aberto' : 'Fechado';
+  _semltRender();
+};
+window.semLoteTodas = function(st){
+  const G = F.semLotes; if (!G) return;
+  for (const n of [1,2,3,4,5]) G.semanas[`Semana ${n}`] = st;
+  _semltRender();
+};
+
+window.semAbrirLotes = async function(){
+  if (!sgeEhAdmin()){ toast('Gestão de lotes é exclusiva do administrador.'); return; }
+  const s = F.sem;
+  _semModalLotes();
+  el('semlt-sub').textContent = `${s.mes} / ${s.ano}`;
+  el('semlt-lista').innerHTML = '<div class="flex items-center justify-center gap-2 py-8 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div>';
+  el('sem-lotes-modal').classList.remove('hidden');
+  try {
+    const fech = await _semFechamentos(s.ano);
+    const perBate = r => cf(r.mes) === cf(s.mes) && String(r.ano) === String(s.ano) && cf(r.congregacao) === 'todas';
+    const semanas = {};
+    const fechadasOrig = new Set();
+    for (const n of [1,2,3,4,5]){
+      const reg = (fech.lotes || []).find(r => perBate(r) && _semNorm(r.semana) === `Semana ${n}`);
+      const st = ['fechado','conferido'].includes(cf(reg?.status_fechamento)) ? 'Fechado' : 'Aberto';
+      semanas[`Semana ${n}`] = st;
+      if (st === 'Fechado') fechadasOrig.add(String(n));
+    }
+    F.semLotes = { semanas, fechadasOrig };
+    _semltRender();
+  } catch(e){
+    el('semlt-lista').innerHTML = `<p class="text-center text-xs text-red-500 py-6">${esc(e.message || 'Falha ao carregar.')}</p>`;
+  }
+};
+
+window.semLoteSalvar = async function(){
+  const G = F.semLotes; if (!G) return;
+  const s = F.sem;
+  const reabrindo = Object.keys(G.semanas).some(k => G.fechadasOrig.has(k.replace('Semana ', '')) && cf(G.semanas[k]) === 'aberto');
+  const erroBox = el('semlt-erro');
+  if (reabrindo){
+    const senha = el('semlt-senha')?.value || '';
+    if (!senha){ erroBox.textContent = 'Informe a senha administrativa para reabrir semanas.'; erroBox.classList.remove('hidden'); return; }
+    try {
+      const rl = await api('login', {
+        cpf: sessao()?.usuario?.cpf, senha,
+        device_id: typeof sgeDeviceId === 'function' ? sgeDeviceId() : '',
+        plataforma: typeof sgePlataforma === 'function' ? sgePlataforma() : 'PWA',
+      }, sessao()?.token);
+      if (rl?.erro || rl?.ok === false) throw new Error(rl.erro || 'Senha administrativa inválida.');
+    } catch(e){ erroBox.textContent = e.message || 'Senha administrativa inválida.'; erroBox.classList.remove('hidden'); return; }
+  }
+  const btn = el('semlt-btn');
+  if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>Salvando…'; }
+  try {
+    const todas = Object.values(G.semanas).every(v => cf(v) === 'fechado');
+    const alguma = Object.values(G.semanas).some(v => cf(v) === 'fechado');
+    const r = await api('salvar_fechamentos_lotes', {
+      ano: String(s.ano), mes: s.mes,
+      semanas: Object.entries(G.semanas).map(([semana, status_fechamento]) => ({ semana, status_fechamento })),
+      status_mes: todas ? 'Fechado' : (alguma ? 'Parcial' : 'Aberto'),
+      usuario: sessao()?.usuario?.nome || 'Sistema',
+    }, sessao()?.token);
+    if (r?.ok === false || r?.erro) throw new Error(r.erro || 'Falha ao salvar.');
+    F.sem.fechPorAno[String(s.ano)] = null;
+    semFecharLotes();
+    toast('Gestão de lotes atualizada.');
+    await semCarregar();
+  } catch(e){
+    erroBox.textContent = e.message || 'Falha ao salvar fechamento de lotes.';
+    erroBox.classList.remove('hidden');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i>Salvar Fechamento de Lotes'; }
+  }
+};
+
+/* ===================== Divergências — subtela dedicada =====================
+   Compara os dízimos lançados na gestão (por congregação de destino) com o
+   Movimento Financeiro da semana, e aponta lançamentos órfãos (ID sem membro). */
+
+function _semModalDiverg(){
+  let m = el('sem-diverg-modal');
+  if (!m){
+    const host = document.createElement('div');
+    host.innerHTML = `<div id="sem-diverg-modal" class="hidden fixed inset-0 z-[87] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
+      <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
+        <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+          <button onclick="el('sem-diverg-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-magnifying-glass-chart mr-1.5" style="color:#60a5fa"></i>Divergências</h3><p id="semd-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="el('sem-diverg-modal').classList.add('hidden')" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="semd-corpo" class="overflow-y-auto px-4 pb-5 space-y-2" style="-webkit-overflow-scrolling:touch"></div>
+      </div>
+    </div>`;
+    document.body.appendChild(host.firstElementChild);
+    m = el('sem-diverg-modal');
+  }
+  return m;
+}
+
+window.semAbrirDivergencias = async function(){
+  const s = F.sem;
+  _semModalDiverg();
+  const mapaAba = { 'Semana 1': '1º. SEMANA', 'Semana 2': '2º. SEMANA', 'Semana 3': '3º. SEMANA', 'Semana 4': '4º. SEMANA', 'Semana 5': '5º. SEMANA' };
+  el('semd-sub').textContent = `${_semNorm(s.semana).replace('Semana ', '')}ª Semana de ${s.mes}/${s.ano} — Gestão × Movimento Financeiro`;
+  el('semd-corpo').innerHTML = '<div class="flex items-center justify-center gap-2 py-10 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Conciliando…</div>';
+  el('sem-diverg-modal').classList.remove('hidden');
+  try {
+    await carregarMembros();
+    const lancs = await carregarLancamentosAno(s.ano);
+    const mov = await api('carregar_movimento_financeiro', { ano: String(s.ano), mes: s.mes }, sessao()?.token);
+    const abaFin = mapaAba[_semNorm(s.semana)] || '1º. SEMANA';
+    /* Gestão: soma por congregação de DESTINO (itinerante conta no destino). */
+    const gestao = {}, orfaos = [];
+    const idsValidos = new Set((F.membros || []).filter(m => !String(m.excluido_em ?? '').trim()).map(m => String(m.id ?? '').replace(/\D/g, '')));
+    for (const r of (lancs || [])){
+      if (cf(r.mes) !== cf(s.mes) || _semNorm(r.semana) !== s.semana) continue;
+      const v = parseValor(r.valor);
+      if (v <= 0) continue;
+      const idDig = String(r.id ?? '').replace(/\D/g, '');
+      if (!idsValidos.has(idDig)){
+        orfaos.push({ id: r.id, valor: v, destino: r.destino_congregacao || 'desconhecida', status: r.status });
+        continue;
+      }
+      const dest = String(r.destino_congregacao || '').trim() || (F.membros.find(m => _idMatch(m.id, r.id))?.congregacao || 'Sem congregação');
+      gestao[dest] = (gestao[dest] || 0) + v;
+    }
+    /* Financeiro: aba da semana → dízimos por congregação. */
+    const fin = {};
+    for (const r of (mov?.movimentos || [])){
+      if (cf(r.aba) !== cf(abaFin)) continue;
+      const cg = String(r.congregacao || '').trim() || 'Sem congregação';
+      fin[cg] = (fin[cg] || 0) + (parseValor(r.dizimos) || 0);
+    }
+    const todas = [...new Set([...Object.keys(gestao), ...Object.keys(fin)])].sort();
+    const linhas = [], temFin = Object.keys(fin).length > 0;
+    for (const cg of todas){
+      const g = gestao[cg] || 0, f = fin[cg] || 0, d = g - f;
+      if (Math.abs(d) < 0.005) continue;
+      linhas.push({ cg, g, f, d });
+    }
+    let html = '';
+    if (!temFin) html += `<div class="rounded-xl px-3 py-2.5 text-[11px]" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b"><i class="fa-solid fa-circle-exclamation mr-1"></i>Movimento financeiro de ${s.mes}/${s.ano} ainda não foi registrado — a comparação mostra só a gestão.</div>`;
+    if (!linhas.length && temFin) html += `<div class="rounded-xl px-3 py-2.5 text-[11px] font-bold" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#10b981"><i class="fa-solid fa-circle-check mr-1"></i>Sem divergências — gestão e financeiro conferem.</div>`;
+    html += linhas.map(l => `<div class="border rounded-xl p-3 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex-1 min-w-0"><p class="font-bold text-xs truncate">${esc(l.cg)}</p>
+        <p class="text-[10px] opacity-60">Gestão ${moeda(l.g)} • Financeiro ${moeda(l.f)}</p></div>
+      <span class="text-xs font-extrabold tabular-nums ${l.d > 0 ? 'text-amber-500' : 'text-red-400'}">${l.d > 0 ? '+' : ''}${moeda(l.d)}</span>
+    </div>`).join('');
+    if (orfaos.length) html += `<p class="text-[10px] font-bold uppercase opacity-60 pt-2">Lançamentos órfãos (ID sem membro)</p>` + orfaos.map(o =>
+      `<div class="border rounded-xl p-3 text-[11px]" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><b class="text-red-400">ID ${esc(o.id)}</b> — ${moeda(o.valor)} p/ '${esc(o.destino)}' (${esc(o.status || 'pendente')})</div>`).join('');
+    el('semd-corpo').innerHTML = html || '<p class="text-center text-xs opacity-60 py-8">Nada a exibir.</p>';
+  } catch(e){
+    el('semd-corpo').innerHTML = `<p class="text-center text-xs text-red-500 py-8">${esc(e.message || 'Falha ao calcular divergências.')}</p>`;
+  }
 };
 
 /* ---------- cadastro de membro (rol) — paridade abrir_cadastro_membro_semanal ---------- */
