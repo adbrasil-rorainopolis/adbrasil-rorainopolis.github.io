@@ -3046,7 +3046,15 @@ function _semRenderLista(){
     if (v > 0) lancados++;
     totalSem += v;
     const enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
-    const itin = reg && cf(reg.destino_congregacao);
+    let itinCong = cf(reg?.destino_congregacao);
+    if (!itinCong && reg){
+      try {
+        const ps = JSON.parse(String(reg.detalhes_parcelas || '[]'));
+        const dif = [...new Set((Array.isArray(ps) ? ps : []).map(p => cf(p.congregacao)).filter(c => c && c !== cf(m.congregacao)))];
+        if (dif.length) itinCong = dif.join(' + ');
+      } catch(e){}
+    }
+    const itin = !!itinCong;
     const badge = enviado && v > 0
       ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-emerald-500 border border-emerald-500/30 bg-emerald-500/10">Enviado</span>'
       : v > 0
@@ -3056,7 +3064,7 @@ function _semRenderLista(){
       <div class="flex-1 min-w-0">
         <p class="font-bold text-xs truncate">${esc(m.nome || 'Membro Sem Nome')}</p>
         <p class="text-[10px] opacity-60 truncate">${esc(m.congregacao || '')} • ID ${esc(id)}</p>
-        <div class="flex gap-1 mt-0.5 flex-wrap">${badge}${itin ? `<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-sky-400 border border-sky-400/30 bg-sky-400/10"><i class="fa-solid fa-route mr-0.5"></i>${esc(reg.destino_congregacao)}</span>` : ''}</div>
+        <div class="flex gap-1 mt-0.5 flex-wrap">${badge}${itin ? `<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-sky-400 border border-sky-400/30 bg-sky-400/10"><i class="fa-solid fa-route mr-0.5"></i>${esc(itinCong)}</span>` : ''}</div>
       </div>
       <div class="text-right shrink-0">
         <p class="text-sm font-extrabold tabular-nums ${v > 0 ? 'valor-ouro' : 'opacity-30'}">${v > 0 ? moeda(v) : 'R$ —'}</p>
@@ -3079,10 +3087,23 @@ function _semParseParcelas(reg){
     if (Array.isArray(arr) && arr.length) return arr.map((p, i) => ({
       especie: parseValor(p.especie ?? (p.tipo === 'especie' ? p.valor : 0)) || 0,
       pix: parseValor(p.pix ?? (['pix','tb'].includes(p.tipo) ? p.valor : 0)) || 0,
+      cong: String(p.congregacao || '').trim(),
+      cons: String(p.conselho || '').trim(),
     }));
   } catch(e){}
   const v = parseValor(reg?.valor);
   return v > 0 ? [{ especie: v, pix: 0 }] : [{ especie: 0, pix: 0 }];
+}
+
+/* Mapa cong→cons para resolver o conselho de cada congregação de destino. */
+let _semCongCons = null;
+async function _semMapaCong(){
+  if (_semCongCons) return _semCongCons;
+  const { porConselho } = await SGEG.mapaConselhos();
+  _semCongCons = {};
+  for (const [cons, congs] of Object.entries(porConselho || {}))
+    for (const cg of congs) _semCongCons[cf(cg)] = { cons, cong: cg };
+  return _semCongCons;
 }
 
 function _semModalLanc(){
@@ -3101,21 +3122,12 @@ function _semModalLanc(){
           <div id="seml-aviso"></div>
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-[10px] font-bold uppercase opacity-60">Parcelas — um canal por linha</span>
+              <span class="text-[10px] font-bold uppercase opacity-60">Parcelas — canal exclusivo e destino por linha</span>
               <button onclick="semLancAddParcela()" id="seml-add" class="px-2.5 py-1 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:rgba(16,185,129,.4);color:#10b981"><i class="fa-solid fa-plus mr-1"></i>Parcela</button>
             </div>
             <div id="seml-parcelas" class="space-y-2"></div>
             <p id="seml-resumo" class="text-[10px] font-bold opacity-70 mt-2"></p>
-          </div>
-          <div class="border rounded-xl p-2.5" style="border-color:var(--border-color);background:var(--bg-card)">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="seml-itin" onchange="semLancItin()" class="w-4 h-4 accent-teal-500">
-              <span class="text-[11px] font-bold"><i class="fa-solid fa-route mr-1" style="color:#14b8a6"></i>Contribuição itinerante (destino diferente)</span>
-            </label>
-            <div id="seml-itin-box" class="hidden grid grid-cols-2 gap-2 mt-2">
-              <select id="seml-dconselho" onchange="semLancItinCons()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
-              <select id="seml-dcong" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
-            </div>
+            <p class="text-[9px] opacity-50 mt-1 leading-snug"><i class="fa-solid fa-route mr-1" style="color:#14b8a6"></i>Para contribuição itinerante, troque a congregação da linha — o cadastro do membro não muda.</p>
           </div>
           <button id="seml-btn" onclick="semLancSalvar()" class="w-full py-3 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"></button>
         </div>
@@ -3128,22 +3140,61 @@ function _semModalLanc(){
 }
 
 function _semRenderParcelas(){
-  const L = F.semLanc; if (!L) return;
+  const L = F.semLanc; if (!L || !L.mapaCong) return;
   const pode = L.pode;
-  el('seml-parcelas').innerHTML = L.parcelas.map((p, i) => `
-    <div class="flex items-center gap-1.5">
-      <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#2ecc71">💵 Espécie</span>
-        <input inputmode="decimal" placeholder="0,00" value="${p.especie > 0 ? p.especie.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
-          oninput="semLancDigito(${i}, 'especie', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#2ecc71"></div>
-      <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#38bdf8">💳 PIX / TB</span>
-        <input inputmode="decimal" placeholder="0,00" value="${p.pix > 0 ? p.pix.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
-          oninput="semLancDigito(${i}, 'pix', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#38bdf8"></div>
-      ${L.parcelas.length > 1 && pode ? `<button onclick="semLancDelParcela(${i})" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-3.5 cursor-pointer" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash text-[10px] text-red-400"></i></button>` : '<div class="w-7 shrink-0"></div>'}
-    </div>`).join('');
+  const base = cf(L.mem.congregacao);
+  /* optgroup por conselho — mesma lista oficial do cadastro. */
+  const grupos = {};
+  for (const k of Object.keys(L.mapaCong)){
+    const { cons, cong } = L.mapaCong[k];
+    (grupos[cons] = grupos[cons] || []).push(cong);
+  }
+  const opts = Object.keys(grupos).sort().map(cons =>
+    `<optgroup label="${esc(cons)}">${grupos[cons].map(cg => `<option value="${esc(cg)}">${esc(cg)}</option>`).join('')}</optgroup>`
+  ).join('');
+  el('seml-parcelas').innerHTML = L.parcelas.map((p, i) => {
+    const cg = p.cong || L.mem.congregacao || '';
+    const itinLinha = cf(cg) !== base;
+    return `
+    <div class="border rounded-xl p-2 ${itinLinha ? 'border-teal-500/50' : ''}" style="background:var(--bg-card);border-color:${itinLinha ? 'rgba(20,184,166,.5)' : 'var(--border-color)'}">
+      <div class="flex items-center gap-1.5 mb-1.5">
+        <span class="text-[9px] font-bold opacity-60">Registro ${i + 1}</span>
+        <select onchange="semLancCong(${i}, this)" ${pode ? '' : 'disabled'}
+          class="flex-1 min-w-0 px-1.5 py-1 rounded-md border text-[10px] font-bold ${itinLinha ? 'text-teal-400' : ''}"
+          style="background:var(--bg-input);border-color:${itinLinha ? 'rgba(20,184,166,.5)' : 'var(--border-color)'};color:${itinLinha ? '#2dd4bf' : 'var(--text-main)'}">
+          ${opts}
+        </select>
+        ${itinLinha ? '<i class="fa-solid fa-route text-[10px]" style="color:#14b8a6" title="Itinerante"></i>' : ''}
+        ${L.parcelas.length > 1 && pode ? `<button onclick="semLancDelParcela(${i})" class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 cursor-pointer" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash text-[10px] text-red-400"></i></button>` : ''}
+      </div>
+      <div class="flex items-center gap-1.5">
+        <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#2ecc71">💵 Espécie</span>
+          <input inputmode="decimal" placeholder="0,00" value="${p.especie > 0 ? p.especie.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
+            oninput="semLancDigito(${i}, 'especie', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#2ecc71"></div>
+        <div class="flex-1"><span class="text-[8px] font-bold uppercase block mb-0.5" style="color:#38bdf8">💳 PIX / TB</span>
+          <input inputmode="decimal" placeholder="0,00" value="${p.pix > 0 ? p.pix.toFixed(2).replace('.', ',') : ''}" ${pode ? '' : 'disabled'}
+            oninput="semLancDigito(${i}, 'pix', this)" class="w-full px-2 py-2 rounded-lg border text-xs font-bold text-right tabular-nums" style="background:var(--bg-input);border-color:var(--border-color);color:#38bdf8"></div>
+      </div>
+    </div>`;
+  }).join('');
+  /* seleciona a congregação de cada linha no select correspondente */
+  L.parcelas.forEach((p, i) => {
+    const sel = el('seml-parcelas').querySelectorAll('select')[i];
+    const cg = p.cong || L.mem.congregacao || '';
+    if (sel && cg) sel.value = cg;
+  });
   let te = 0, tp = 0;
   L.parcelas.forEach(p => { te += p.especie || 0; tp += p.pix || 0; });
   el('seml-resumo').innerHTML = `Espécie: <b style="color:#2ecc71">${moeda(te)}</b> &nbsp;|&nbsp; PIX/TB: <b style="color:#38bdf8">${moeda(tp)}</b> &nbsp;|&nbsp; Total: <b class="valor-ouro">${moeda(te + tp)}</b>`;
 }
+
+window.semLancCong = function(i, sel){
+  const L = F.semLanc; if (!L) return;
+  L.parcelas[i].cong = sel.value;
+  const mc = L.mapaCong[cf(sel.value)];
+  L.parcelas[i].cons = mc ? mc.cons : '';
+  _semRenderParcelas();
+};
 
 window.semLancDigito = function(i, canal, inp){
   const L = F.semLanc; if (!L) return;
@@ -3159,26 +3210,6 @@ window.semLancDigito = function(i, canal, inp){
 window.semLancAddParcela = function(){ F.semLanc?.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
 window.semLancDelParcela = function(i){ F.semLanc?.parcelas.splice(i, 1); if (!F.semLanc.parcelas.length) F.semLanc.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
 
-window.semLancItin = async function(){
-  const on = el('seml-itin')?.checked;
-  el('seml-itin-box')?.classList.toggle('hidden', !on);
-  if (on){
-    const { porConselho } = await SGEG.mapaConselhos();
-    const L = F.semLanc;
-    const selC = el('seml-dconselho');
-    selC.innerHTML = Object.keys(porConselho).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    selC.value = L?.destCons || selC.value;
-    await semLancItinCons();
-    if (L?.destCong) el('seml-dcong').value = L.destCong;
-  }
-};
-window.semLancItinCons = async function(){
-  const { porConselho } = await SGEG.mapaConselhos();
-  const c = el('seml-dconselho')?.value || '';
-  const sel = el('seml-dcong');
-  if (sel) sel.innerHTML = (porConselho[c] || []).map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
-};
-
 window.semAbrirLanc = async function(id){
   const s = F.sem;
   const mem = (F.membros || []).find(x => _idMatch(x.id, id));
@@ -3186,12 +3217,12 @@ window.semAbrirLanc = async function(id){
   const reg = s.lancs[String(mem.id ?? '').trim()];
   const pode = semPodeEditar() && (!s.fechada || sgeEhAdmin());
   _semModalLanc();
-  const destDif = reg && cf(reg.destino_congregacao);
-  F.semLanc = {
-    id: String(mem.id ?? '').trim(), nome: mem.nome, mem, reg,
-    parcelas: _semParseParcelas(reg),
-    pode, destCons: destDif ? reg.destino_conselho : '', destCong: destDif ? reg.destino_congregacao : '',
-  };
+  const mapaCong = await _semMapaCong();
+  /* Parcelas: cada linha herda a congregação gravada nela; sem parcela com
+     destino, usa o destino do lançamento (itinerante) ou a base do membro. */
+  const defCong = String(reg?.destino_congregacao || '').trim() || String(mem.congregacao || '').trim();
+  const parcelas = _semParseParcelas(reg).map(p => ({ ...p, cong: p.cong || defCong }));
+  F.semLanc = { id: String(mem.id ?? '').trim(), nome: mem.nome, mem, reg, parcelas, pode, mapaCong };
   el('seml-nome').textContent = mem.nome || 'Membro';
   el('seml-sub').textContent = `${mem.conselho || ''} • ${mem.congregacao || ''} • ID ${F.semLanc.id} • ${_semNorm(s.semana).replace('Semana ', '')}ª Sem de ${s.mes}/${s.ano}`;
   const st = cf(reg?.status), v = parseValor(reg?.valor);
@@ -3201,9 +3232,6 @@ window.semAbrirLanc = async function(id){
   el('seml-aviso').innerHTML = s.fechada
     ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i>Semana fechada${sgeEhAdmin() ? ' — como admin, salvar aqui retifica o lançamento.' : ' — somente leitura.'}</div>`
     : '';
-  const ck = el('seml-itin'); ck.checked = !!destDif; ck.disabled = !pode;
-  el('seml-itin-box').classList.toggle('hidden', !destDif);
-  if (destDif) await semLancItin();
   _semRenderParcelas();
   el('seml-add').style.display = pode ? '' : 'none';
   const btn = el('seml-btn');
@@ -3219,32 +3247,34 @@ window.semFecharLanc = function(){ F.semLanc = null; el('sem-lanc-modal')?.class
 window.semLancSalvar = async function(){
   const L = F.semLanc; if (!L || !L.pode) return;
   const s = F.sem;
-  const reg0 = L.reg, enviado0 = cf(reg0?.status) === 'enviado' || cf(reg0?.status) === 'conferido';
-  const itin = el('seml-itin')?.checked;
-  let dCons = '', dCong = '';
-  if (itin){
-    dCons = el('seml-dconselho')?.value || ''; dCong = el('seml-dcong')?.value || '';
-    if (!dCons || !dCong){ toast('Escolha o conselho e a congregação de destino.'); return; }
-  }
-  /* Paridade desktop (sge_bridge): cada parcela carrega conselho/congregacao de
-     destino — itinerante aponta o destino, senão a base do membro. Assim a
-     conferência distribui o valor na congregação certa por parcela. */
-  const pCons = itin ? dCons : (L.mem.conselho || '');
-  const pCong = itin ? dCong : (L.mem.congregacao || '');
+  const reg = L.reg, enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
+  const base = cf(L.mem.congregacao);
   const hoje = new Date().toLocaleDateString('pt-BR');
+  /* Cada parcela carrega seu próprio destino (conselho+congregação por linha),
+     como o desktop — mesma semana pode distribuir em congregações diferentes
+     sem alterar o cadastro base do membro. */
   const parcelas = [], te = { e: 0, p: 0 };
   for (const p of L.parcelas){
     if (p.especie > 0 && p.pix > 0){ toast('Uma linha não pode ter Espécie e PIX juntos — separe em parcelas.'); return; }
     const v = (p.especie || 0) + (p.pix || 0);
+    const cg = String(p.cong || L.mem.congregacao || '').trim();
+    const mc = L.mapaCong[cf(cg)] || {};
     if (v > 0) parcelas.push({
       item: parcelas.length + 1, descricao: `Registro ${parcelas.length + 1}`,
       especie: +p.especie.toFixed(2), pix: +p.pix.toFixed(2), valor: +v.toFixed(2),
-      conselho: pCons, congregacao: pCong, data: hoje,
+      conselho: mc.cons || L.mem.conselho || '', congregacao: cg, data: hoje,
     });
     te.e += p.especie || 0; te.p += p.pix || 0;
   }
   const total = te.e + te.p;
-  const reg = reg0, enviado = enviado0;
+  /* destino_* do registro: itinerante clássico = TODAS as parcelas na mesma
+     congregação diferente da base. Destinos mistos ficam nas parcelas e a
+     conferência distribui por linha (o desktop lê p.congregacao). */
+  const congsDistintas = [...new Set(parcelas.map(p => cf(p.congregacao)))];
+  let dCons = '', dCong = '';
+  if (congsDistintas.length === 1 && congsDistintas[0] && congsDistintas[0] !== base){
+    dCong = parcelas[0].congregacao; dCons = parcelas[0].conselho;
+  }
   /* Decide a operação igual ao desktop: zerar enviado = reconsiderar (S-3000);
      valor diferente de enviado = retificar (S-1250); demais casos = salvar. */
   let operacao = 'salvar';
@@ -3265,8 +3295,8 @@ window.semLancSalvar = async function(){
         valor_anulado: operacao === 'reconsiderar' ? parseValor(reg?.valor).toFixed(2) : undefined,
         status: operacao === 'salvar' ? 'pendente' : (reg?.status || 'pendente'),
         data_envio: String(reg?.data_envio || ''),
-        destino_conselho: itin ? dCons : '',
-        destino_congregacao: itin ? dCong : '',
+        destino_conselho: dCons,
+        destino_congregacao: dCong,
         detalhes_parcelas: JSON.stringify(parcelas),
       },
       versao_base: Number(reg?.versao || 0),
