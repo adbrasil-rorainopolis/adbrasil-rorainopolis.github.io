@@ -490,6 +490,157 @@ const _classificarFreq = (periodos, ref) => {
 };
 const FQ_CHAVES = { 'Recorrente / Fiel': 'recorrentes', 'Irregular': 'irregulares', 'Novo Dizimista': 'novos', 'Ausente': 'ausentes' };
 
+/* ---------- ficha analítica individual do dizimista (paridade desktop) ---------- */
+async function obterPerfilEvolucaoMembro(idMembro){
+  await carregarMembros();
+  const mId = String(idMembro ?? '').trim();
+  const mem = (F.membros || []).find(x => _idMatch(x.id, mId));
+  if (!mem) return { sucesso: false, mensagem: 'Membro não encontrado.' };
+  const lancamentos = await carregarTodosLancamentos();
+  const hoje = new Date();
+  const referencia = hoje.getFullYear() * 12 + hoje.getMonth();
+
+  const periodos = new Set(), valorPorMes = {}, semanasPorMes = {};
+  for (const r of lancamentos){
+    if (!_idMatch(r.id, mId)) continue;
+    const v = parseValor(r.valor);
+    if (v <= 0) continue;
+    const p = _periodoIdx(r.ano, r.mes);
+    if (p === null) continue;
+    periodos.add(p);
+    valorPorMes[p] = (valorPorMes[p] || 0) + v;
+    (semanasPorMes[p] = semanasPorMes[p] || []).push(r.semana);
+  }
+
+  const inativo = !!(String(mem.data_inativacao ?? '').trim() && !String(mem.data_reativacao ?? '').trim());
+  const perfilAtual = inativo ? 'Inativo' : _classificarFreq(periodos, referencia)[0];
+  const ultimoP = periodos.size ? Math.max(...periodos) : null;
+  const mesesAusente = ultimoP === null ? null : Math.max(0, referencia - ultimoP);
+
+  const evolucao = [];
+  for (let p = Math.max(0, referencia - 11); p <= referencia; p++){
+    evolucao.push({ periodo: _rotuloPeriodo(p), contribuiu: periodos.has(p),
+      valor: Math.round((valorPorMes[p] || 0) * 100) / 100,
+      semanas: semanasPorMes[p] || [], perfil: _classificarFreq(periodos, p)[0] });
+  }
+
+  let sequencia = 0, p = referencia;
+  while (periodos.has(p)){ sequencia++; p--; }
+
+  const total = Math.round([...periodos].reduce((a, x) => a + (valorPorMes[x] || 0), 0) * 100) / 100;
+  return { sucesso: true,
+    membro: { id: String(mem.id ?? ''), nome: String(mem.nome ?? ''), conselho: mem.conselho || 'Conselho 1', congregacao: _nomeCongExib(mem.congregacao) },
+    perfil_atual: perfilAtual, meses_ausente: mesesAusente, inativo,
+    evolucao,
+    kpis: { total_acumulado: total,
+      media_mensal: periodos.size ? Math.round(total / periodos.size * 100) / 100 : 0,
+      maior_valor_mes: periodos.size ? Math.round(Math.max(...Object.values(valorPorMes)) * 100) / 100 : 0,
+      meses_com_contribuicao: periodos.size, sequencia_fiel_atual: sequencia } };
+}
+
+const FICHA_CORES = {
+  'Recorrente / Fiel': { bg: 'rgba(16,185,129,.12)', borda: '#10b981', txt: '#10b981' },
+  'Irregular':         { bg: 'rgba(245,158,11,.12)', borda: '#f59e0b', txt: '#f59e0b' },
+  'Novo Dizimista':    { bg: 'rgba(217,70,239,.12)', borda: '#d946ef', txt: '#d946ef' },
+  'Ausente':           { bg: 'rgba(239,68,68,.12)',  borda: '#ef4444', txt: '#ef4444' },
+  'Inativo':           { bg: 'rgba(148,163,184,.12)', borda: '#94a3b8', txt: '#94a3b8' },
+};
+let _fichaChart = null, _fichaMembroAtual = null;
+
+window.fqAbrirFicha = async function(id){
+  _fichaMembroAtual = id;
+  const overlay = document.createElement('div');
+  overlay.id = 'ficha-overlay';
+  overlay.className = 'fixed inset-0 z-[95] flex items-end justify-center';
+  overlay.style.cssText = 'background:rgba(2,6,23,.7);backdrop-filter:blur(6px)';
+  overlay.onclick = e => { if (e.target === overlay) fqFecharFicha(); };
+  overlay.innerHTML = `
+    <div class="w-full rounded-t-3xl max-h-[92vh] flex flex-col overflow-hidden" style="background:var(--bg-card);border:1px solid var(--border-color);border-bottom:none;max-width:560px">
+      <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b shrink-0" style="border-color:var(--border-color)">
+        <div class="min-w-0">
+          <p id="ficha-nome" class="font-cinzel font-bold text-sm text-sky-400 truncate">Ficha do Dizimista</p>
+          <p id="ficha-sub" class="text-[10px] opacity-60 truncate">Carregando análise…</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="ficha-badge" class="text-[9px] font-bold px-2.5 py-1 rounded-full border"></span>
+          <button onclick="fqFecharFicha()" class="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div class="overflow-y-auto px-4 py-3 space-y-3">
+        <div id="ficha-kpis" class="grid grid-cols-2 gap-2"></div>
+        <div class="p-3 rounded-2xl border" style="border-color:var(--border-color);background:var(--bg-input)">
+          <p class="text-[9px] font-bold uppercase opacity-60 mb-2">Contribuições — últimos 12 meses</p>
+          <div class="h-40"><canvas id="ficha-grafico"></canvas></div>
+        </div>
+        <div class="p-3 rounded-2xl border" style="border-color:var(--border-color);background:var(--bg-input)">
+          <p class="text-[9px] font-bold uppercase opacity-60 mb-2">Classificação mês a mês</p>
+          <div id="ficha-timeline" class="flex flex-wrap gap-1.5"></div>
+        </div>
+        <button onclick="fqFecharFicha();dzHistDizimos('${esc(id)}')" class="w-full py-2.5 rounded-xl border text-[11px] font-bold cursor-pointer" style="border-color:rgba(14,165,233,.4);color:#38bdf8;background:rgba(14,165,233,.08)"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Ver extrato completo</button>
+        <p id="ficha-rodape" class="text-[10px] opacity-60 text-center pb-2"></p>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  try {
+    const res = await obterPerfilEvolucaoMembro(id);
+    if (!res.sucesso){ el('ficha-sub').textContent = res.mensagem || 'Erro ao carregar.'; return; }
+    const mb = res.membro || {};
+    el('ficha-nome').textContent = mb.nome || 'Dizimista';
+    el('ficha-sub').textContent = `${mb.conselho} • ${mb.congregacao} • ID ${mb.id}`;
+    const c = FICHA_CORES[res.perfil_atual] || FICHA_CORES['Ausente'];
+    const badge = el('ficha-badge');
+    badge.textContent = res.perfil_atual;
+    badge.style.cssText = `background:${c.bg};border-color:${c.borda};color:${c.txt}`;
+
+    const k = res.kpis || {};
+    el('ficha-kpis').innerHTML = [
+      ['Total acumulado', moeda(k.total_acumulado), 'text-emerald-400'],
+      ['Média mensal', moeda(k.media_mensal), 'text-sky-400'],
+      ['Maior mês', moeda(k.maior_valor_mes), 'text-purple-400'],
+      ['Sequência fiel', `${k.sequencia_fiel_atual || 0} ${k.sequencia_fiel_atual === 1 ? 'mês' : 'meses'}`, 'text-amber-400'],
+    ].map(([rot, val, cor]) => `
+      <div class="p-2.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)">
+        <p class="text-[8px] font-bold uppercase opacity-60">${rot}</p>
+        <p class="text-[13px] font-bold ${cor} mt-0.5">${val}</p>
+      </div>`).join('');
+
+    const evo = res.evolucao || [];
+    const canvas = el('ficha-grafico');
+    if (canvas && typeof Chart !== 'undefined'){
+      if (_fichaChart) _fichaChart.destroy();
+      _fichaChart = new Chart(canvas, { type: 'bar',
+        data: { labels: evo.map(e => e.periodo), datasets: [{
+          data: evo.map(e => e.valor),
+          backgroundColor: evo.map(e => e.contribuiu ? '#10b981' : 'rgba(148,163,184,.18)'),
+          borderColor: evo.map(e => e.contribuiu ? '#10b981' : 'rgba(148,163,184,.35)'),
+          borderWidth: 1, borderRadius: 4, minBarLength: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false },
+            tooltip: { callbacks: {
+              label: ctx => ` ${moeda(ctx.parsed.y)} — ${evo[ctx.dataIndex].perfil}`,
+              afterLabel: ctx => evo[ctx.dataIndex].contribuiu ? `Semanas: ${(evo[ctx.dataIndex].semanas || []).join(', ')}` : 'Sem contribuição' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 8 }, maxRotation: 45 }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 8 }, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }, grid: { color: 'rgba(148,163,184,.12)' } } } } });
+    }
+
+    el('ficha-timeline').innerHTML = evo.map(e => {
+      const cc = FICHA_CORES[e.perfil] || FICHA_CORES['Ausente'];
+      return `<span class="text-[8px] font-bold px-1.5 py-0.5 rounded-md border" style="background:${cc.bg};border-color:${cc.borda};color:${cc.txt}">${e.periodo}: ${e.perfil.replace('Recorrente / Fiel','Fiel').replace('Novo Dizimista','Novo')}</span>`;
+    }).join('');
+
+    const ausTxt = res.meses_ausente === null ? 'Nunca contribuiu' : res.meses_ausente === 0 ? 'Em dia' : `${res.meses_ausente} ${res.meses_ausente === 1 ? 'mês' : 'meses'} sem dizimar`;
+    el('ficha-rodape').textContent = `${k.meses_com_contribuicao || 0} mês(es) com contribuição • ${ausTxt}`;
+  } catch (e) {
+    el('ficha-sub').textContent = 'Erro: ' + e;
+  }
+};
+
+window.fqFecharFicha = function(){
+  document.getElementById('ficha-overlay')?.remove();
+  if (_fichaChart){ _fichaChart.destroy(); _fichaChart = null; }
+};
+
 async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = 'Todas' }){
   await carregarMembros();
   const lancamentos = await carregarTodosLancamentos();
@@ -700,7 +851,7 @@ window.fqRenderLista = function(){
     const corPerfil = { 'Recorrente / Fiel': 'text-emerald-500', 'Irregular': 'text-amber-500', 'Novo Dizimista': 'text-fuchsia-400', 'Ausente': 'text-red-400' }[m.perfil] || '';
     return `<div class="border rounded-xl p-3" style="background:var(--bg-input);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2">
-        <p class="font-bold text-xs truncate min-w-0">${esc(m.nome)}</p>
+        <button onclick="fqAbrirFicha('${esc(m.id)}')" class="font-bold text-xs truncate min-w-0 text-left cursor-pointer" title="Abrir ficha analítica"><i class="fa-solid fa-chart-line text-[9px] mr-1 opacity-50"></i>${esc(m.nome)}</button>
         <span class="text-[9px] font-bold ${corPerfil} shrink-0">${esc(m.perfil)}</span>
       </div>
       <p class="text-[10px] opacity-60 truncate">${esc(m.conselho)} • ${esc(m.congregacao)}</p>
