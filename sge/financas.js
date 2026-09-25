@@ -13,6 +13,7 @@ const moeda = v => brl(num(v));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const el = id => document.getElementById(id);
 const cf = s => String(s ?? '').toLowerCase().trim();
+const cfq = s => String(s ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 
 const F = {
   membros: null,            // cache lista completa (nuvem)
@@ -77,7 +78,7 @@ async function carregarHistoricoCongs(){
 
 /* ---------- listar_membros_dizimistas (paridade desktop) ---------- */
 function listarMembrosDizimistas({ conselho = 'Todos', congregacao = 'Todas', busca = '', status = 'Todos' } = {}){
-  const termo = cf(busca);
+  const termo = cfq(busca);
   const out = [];
   for (const m of (F.membros || [])){
     if (String(m.excluido_em ?? '').trim()) continue;
@@ -94,7 +95,7 @@ function listarMembrosDizimistas({ conselho = 'Todos', congregacao = 'Todas', bu
     if (status === 'Inativos' && !inativo) continue;
     if (status === 'Com Telefone' && !temTel) continue;
     if (status === 'Sem Telefone' && temTel) continue;
-    if (termo && !cf(nome).includes(termo) && !cf(m.id).includes(termo) && !cf(tel).includes(termo)) continue;
+    if (termo && !cfq(nome).includes(termo) && !cf(m.id).includes(termo) && !cf(tel).includes(termo)) continue;
     out.push({ id: m.id, nome, conselho: cons, congregacao: cong, telefone: tel,
       status: inativo ? 'Inativo' : 'Ativo', data_inativacao: m.data_inativacao || '' });
   }
@@ -3210,13 +3211,13 @@ window.semCarregar = async function(){
 
 function _semRenderLista(){
   const s = F.sem, lista = el('sem-lista'); if (!lista) return;
-  const termo = cf(s.busca), pode = semPodeEditar();
+  const termo = cfq(s.busca), pode = semPodeEditar();
   const rows = (F.membros || []).filter(m => {
     if (String(m.excluido_em ?? '').trim()) return false;
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
     if (s.conselho !== 'Todos' && cf(m.conselho) !== cf(s.conselho)) return false;
     if (s.congregacao !== 'Todas' && cf(m.congregacao) !== cf(s.congregacao)) return false;
-    if (termo && !cf(m.nome).includes(termo) && !cf(m.id).includes(termo)) return false;
+    if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo)) return false;
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
 

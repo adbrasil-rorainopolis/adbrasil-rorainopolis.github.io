@@ -50,6 +50,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const moeda = v => brl(num(v));
 const cf = s => String(s ?? '').toLowerCase();
+const cfq = s => String(s ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
 function perfilConsultor(){ const p = String(sessao()?.usuario?.perfil || '').trim().toLowerCase(); return p === 'consultor' || p === 'membro'; }
 function perfilAdmin(){ return String(sessao()?.usuario?.perfil || '').trim().toLowerCase() === 'administrador'; }
 function variacaoPct(atual, base){ if (base === null || base === undefined || Math.abs(num(base)) < EPS) return null; return +(((num(atual) - num(base)) / Math.abs(num(base))) * 100).toFixed(1); }
@@ -1113,11 +1114,11 @@ function _filtrosUI(){
             <input id="gf-busca-conta" oninput="gestaoBuscaConta()" placeholder="Buscar conta…" class="w-full px-2.5 py-1.5 rounded-lg border text-xs mb-1" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <button onclick="G_contasGrupoToggle('entradas', this)" class="w-full flex items-center justify-between text-[10px] font-bold uppercase opacity-60 pt-1 cursor-pointer"><span>Entradas (${CONTAS_ENTRADAS_BI.length})</span><i class="fa-solid ${G.contasEntradasAberto ? 'fa-chevron-up' : 'fa-chevron-down'}"></i></button>
             <div id="gestao-contas-entradas" class="${G.contasEntradasAberto ? '' : 'hidden'} space-y-0.5">
-            ${CONTAS_ENTRADAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-amber-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
+            ${CONTAS_ENTRADAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cfq(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-amber-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
             </div>
             <button onclick="G_contasGrupoToggle('saidas', this)" class="w-full flex items-center justify-between text-[10px] font-bold uppercase opacity-60 pt-1 cursor-pointer"><span>Saídas (${CONTAS_SAIDAS_BI.length})</span><i class="fa-solid ${G.contasSaidasAberto ? 'fa-chevron-up' : 'fa-chevron-down'}"></i></button>
             <div id="gestao-contas-saidas" class="${G.contasSaidasAberto ? '' : 'hidden'} space-y-0.5">
-            ${CONTAS_SAIDAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cf(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-red-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
+            ${CONTAS_SAIDAS_BI.map(c => `<label class="gconta flex items-start gap-2 p-1.5 rounded-lg cursor-pointer" data-nome="${esc(cfq(c))}"><input type="checkbox" onchange="gestaoContaMudou()" class="gestao-conta-cb mt-0.5 accent-red-500" value="${esc(c)}" ${f.contas.includes(c) ? 'checked' : ''}><span class="text-[11px] leading-snug">${esc(c)}</span></label>`).join('')}
             </div>
           </div>
         </div>
@@ -1155,7 +1156,7 @@ window.gestaoContaMudou = () => {
   if (t) t.innerHTML = `<i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Contas analisadas ${n ? `(${n} selecionadas)` : '(todas)'}`;
 };
 window.gestaoBuscaConta = () => {
-  const q = cf(el('gf-busca-conta').value);
+  const q = cfq(el('gf-busca-conta').value);
   if (q){ G.contasEntradasAberto = true; G.contasSaidasAberto = true;
     el('gestao-contas-entradas')?.classList.remove('hidden');
     el('gestao-contas-saidas')?.classList.remove('hidden'); }
@@ -1793,10 +1794,10 @@ function guRenderLista(){
     <button onclick="guCarregar()" class="px-3 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)" title="Atualizar"><i class="fa-solid fa-rotate text-xs"></i></button>
   </div>`;
 
-  const q = cf(GU.busca);
+  const q = cfq(GU.busca);
   const visiveis = lista.filter(u => {
     if (GU.filtro !== 'Todos' && cf(u.status) !== cf(GU.filtro)) return false;
-    return !q || cf(`${u.cpf} ${u.nome} ${u.email} ${u.telefone}`).includes(q);
+    return !q || cfq(`${u.cpf} ${u.nome} ${u.email} ${u.telefone}`).includes(q);
   });
   const cards = visiveis.length ? visiveis.map(u => `
     <button onclick="guAbrir('${u.cpf}')" class="w-full text-left border rounded-2xl p-3 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color)">
