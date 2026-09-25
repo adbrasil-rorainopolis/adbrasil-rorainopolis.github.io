@@ -3046,7 +3046,7 @@ function _semRenderLista(){
     if (v > 0) lancados++;
     totalSem += v;
     const enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
-    const itin = reg && cf(reg.destino_congregacao) && cf(reg.destino_congregacao) !== cf(m.congregacao);
+    const itin = reg && cf(reg.destino_congregacao);
     const badge = enviado && v > 0
       ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-emerald-500 border border-emerald-500/30 bg-emerald-500/10">Enviado</span>'
       : v > 0
@@ -3186,7 +3186,7 @@ window.semAbrirLanc = async function(id){
   const reg = s.lancs[String(mem.id ?? '').trim()];
   const pode = semPodeEditar() && (!s.fechada || sgeEhAdmin());
   _semModalLanc();
-  const destDif = reg && cf(reg.destino_congregacao) && cf(reg.destino_congregacao) !== cf(mem.congregacao);
+  const destDif = reg && cf(reg.destino_congregacao);
   F.semLanc = {
     id: String(mem.id ?? '').trim(), nome: mem.nome, mem, reg,
     parcelas: _semParseParcelas(reg),
@@ -3219,21 +3219,32 @@ window.semFecharLanc = function(){ F.semLanc = null; el('sem-lanc-modal')?.class
 window.semLancSalvar = async function(){
   const L = F.semLanc; if (!L || !L.pode) return;
   const s = F.sem;
-  const parcelas = [], te = { e: 0, p: 0 };
-  for (const p of L.parcelas){
-    if (p.especie > 0 && p.pix > 0){ toast('Uma linha não pode ter Espécie e PIX juntos — separe em parcelas.'); return; }
-    const v = (p.especie || 0) + (p.pix || 0);
-    if (v > 0) parcelas.push({ item: parcelas.length + 1, especie: +p.especie.toFixed(2), pix: +p.pix.toFixed(2), valor: +v.toFixed(2) });
-    te.e += p.especie || 0; te.p += p.pix || 0;
-  }
-  const total = te.e + te.p;
-  const reg = L.reg, enviado = cf(reg?.status) === 'enviado' || cf(reg?.status) === 'conferido';
+  const reg0 = L.reg, enviado0 = cf(reg0?.status) === 'enviado' || cf(reg0?.status) === 'conferido';
   const itin = el('seml-itin')?.checked;
   let dCons = '', dCong = '';
   if (itin){
     dCons = el('seml-dconselho')?.value || ''; dCong = el('seml-dcong')?.value || '';
     if (!dCons || !dCong){ toast('Escolha o conselho e a congregação de destino.'); return; }
   }
+  /* Paridade desktop (sge_bridge): cada parcela carrega conselho/congregacao de
+     destino — itinerante aponta o destino, senão a base do membro. Assim a
+     conferência distribui o valor na congregação certa por parcela. */
+  const pCons = itin ? dCons : (L.mem.conselho || '');
+  const pCong = itin ? dCong : (L.mem.congregacao || '');
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const parcelas = [], te = { e: 0, p: 0 };
+  for (const p of L.parcelas){
+    if (p.especie > 0 && p.pix > 0){ toast('Uma linha não pode ter Espécie e PIX juntos — separe em parcelas.'); return; }
+    const v = (p.especie || 0) + (p.pix || 0);
+    if (v > 0) parcelas.push({
+      item: parcelas.length + 1, descricao: `Registro ${parcelas.length + 1}`,
+      especie: +p.especie.toFixed(2), pix: +p.pix.toFixed(2), valor: +v.toFixed(2),
+      conselho: pCons, congregacao: pCong, data: hoje,
+    });
+    te.e += p.especie || 0; te.p += p.pix || 0;
+  }
+  const total = te.e + te.p;
+  const reg = reg0, enviado = enviado0;
   /* Decide a operação igual ao desktop: zerar enviado = reconsiderar (S-3000);
      valor diferente de enviado = retificar (S-1250); demais casos = salvar. */
   let operacao = 'salvar';
@@ -3254,8 +3265,8 @@ window.semLancSalvar = async function(){
         valor_anulado: operacao === 'reconsiderar' ? parseValor(reg?.valor).toFixed(2) : undefined,
         status: operacao === 'salvar' ? 'pendente' : (reg?.status || 'pendente'),
         data_envio: String(reg?.data_envio || ''),
-        destino_conselho: itin ? dCons : (L.mem.conselho || ''),
-        destino_congregacao: itin ? dCong : (L.mem.congregacao || ''),
+        destino_conselho: itin ? dCons : '',
+        destino_congregacao: itin ? dCong : '',
         detalhes_parcelas: JSON.stringify(parcelas),
       },
       versao_base: Number(reg?.versao || 0),
@@ -3451,9 +3462,15 @@ window.semAbrirDivergencias = async function(){
     const lancs = await carregarLancamentosAno(s.ano);
     const mov = await api('carregar_movimento_financeiro', { ano: String(s.ano), mes: s.mes }, sessao()?.token);
     const abaFin = mapaAba[_semNorm(s.semana)] || '1º. SEMANA';
-    /* Gestão: soma por congregação de DESTINO (itinerante conta no destino). */
+    /* Gestão: soma por congregação efetiva — paridade com obter_totais_dizimos_gestao_por_congregacao
+       do desktop: parcelas com 'congregacao' própria distribuem por parcela; senão o destino do
+       lançamento (itinerante) ou a congregação base do membro. */
     const gestao = {}, orfaos = [];
     const idsValidos = new Set((F.membros || []).filter(m => !String(m.excluido_em ?? '').trim()).map(m => String(m.id ?? '').replace(/\D/g, '')));
+    const congDe = r => {
+      const mem = F.membros.find(m => _idMatch(m.id, r.id));
+      return String(r.destino_congregacao || '').trim() || String(mem?.congregacao || '').trim() || 'Sem congregação';
+    };
     for (const r of (lancs || [])){
       if (cf(r.mes) !== cf(s.mes) || _semNorm(r.semana) !== s.semana) continue;
       const v = parseValor(r.valor);
@@ -3463,8 +3480,18 @@ window.semAbrirDivergencias = async function(){
         orfaos.push({ id: r.id, valor: v, destino: r.destino_congregacao || 'desconhecida', status: r.status });
         continue;
       }
-      const dest = String(r.destino_congregacao || '').trim() || (F.membros.find(m => _idMatch(m.id, r.id))?.congregacao || 'Sem congregação');
-      gestao[dest] = (gestao[dest] || 0) + v;
+      let parcelas = [];
+      try { parcelas = JSON.parse(String(r.detalhes_parcelas || '[]')); } catch(e){}
+      const validas = (Array.isArray(parcelas) ? parcelas : []).filter(p => (parseValor(p.valor) || (parseValor(p.especie) + parseValor(p.pix))) > 0);
+      if (validas.length && validas.some(p => String(p.congregacao || '').trim())){
+        for (const p of validas){
+          const vp = parseValor(p.valor) || (parseValor(p.especie) + parseValor(p.pix));
+          const cp = String(p.congregacao || '').trim() || congDe(r);
+          if (vp > 0) gestao[cp] = (gestao[cp] || 0) + vp;
+        }
+      } else {
+        gestao[congDe(r)] = (gestao[congDe(r)] || 0) + v;
+      }
     }
     /* Financeiro: aba da semana → dízimos por congregação. */
     const fin = {};
