@@ -3568,8 +3568,13 @@ window.semAbrirDivergencias = async function(){
 
     let totG = 0, totF = 0, qtdDiv = 0;
     let html = '';
-    for (const cons of Object.keys(porCons).sort()){
-      const linhas = porCons[cons].map(cong => {
+    /* Ordem oficial do desktop (MAPA_OFICIAL_CONGS via SGEG): AG → Conselho 1..5,
+       congregações na posição de cadastro; conselho "(Não mapeadas)" por último. */
+    const consOrdenados = (typeof SGEG?.ordenarConselhosG === 'function' ? SGEG.ordenarConselhosG(Object.keys(porCons)) : Object.keys(porCons).sort())
+      .sort((a, b) => (a === '(Não mapeadas)') - (b === '(Não mapeadas)'));
+    for (const cons of consOrdenados){
+      const congsOrd = typeof SGEG?.ordenarCongregacoesG === 'function' ? SGEG.ordenarCongregacoesG(porCons[cons]) : porCons[cons];
+      const linhas = congsOrd.map(cong => {
         const k = _congChave(cong);
         const g = gestao[k] || 0, f = fin[k] || 0, d = +(g - f).toFixed(2);
         const orf = orfaos.filter(o => _congIgual(o.destino, cong));
