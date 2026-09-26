@@ -607,6 +607,10 @@
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
         <i class="fa-solid fa-globe text-base text-orange-400"></i><span class="text-[9px] font-bold">Missões</span>
       </button>
+      <button onclick="mudarVisao('contabil')" data-mod="contabil" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Módulo Contábil — administradores">
+        <span class="nav-ind h-0.5 w-8 rounded-full"></span>
+        <i class="fa-solid fa-scale-balanced text-base" style="color:#818cf8"></i><span class="text-[9px] font-bold">Contábil</span>
+      </button>
     </div>
   </nav>
 
@@ -666,6 +670,7 @@ const MODULOS = {
   governanca: { nome: 'Congregações & Lideranças', icone: 'fa-church',        cor: '#38bdf8' },
   secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
   missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
+  contabil:   { nome: 'Módulo Contábil',           icone: 'fa-scale-balanced', cor: '#818cf8' },
   comunidade: { nome: 'Comunidade',                icone: 'fa-users',         cor: '#f59e0b' },
   acessos:    { nome: 'Acessos e permissões',       icone: 'fa-user-shield',    cor: '#f43f5e' },
   membro_inicio:      { nome: 'Início',              icone: 'fa-house',              cor: 'var(--color-primary)' },
@@ -1160,6 +1165,7 @@ function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
   if (mod === 'comunidade') return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
   if (mod === 'acessos') return sgeEhAdmin();
+  if (mod === 'contabil') return sgeEhAdmin();
   if (mod.startsWith('membro_')) return typeof sgeModoPodeAlternar === 'function' && sgeModoPodeAlternar() && sgeModoAtual() === 'membro';
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
@@ -1416,6 +1422,7 @@ function renderModulo(mod){
   if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
   if (mod === 'secretaria' && typeof renderSecretaria === 'function') return renderSecretaria();
   if (mod === 'missoes' && typeof renderMissoes === 'function') return renderMissoes();
+  if (mod === 'contabil' && typeof renderContabil === 'function') return renderContabil();
   if (mod === 'comunidade' && typeof renderComunidade === 'function') return renderComunidade();
   if (mod === 'membro_inicio' && typeof renderMembroInicio === 'function') return renderMembroInicio();
   if (mod === 'membro_congregacao' && typeof renderMembroCongregacao === 'function') return renderMembroCongregacao();

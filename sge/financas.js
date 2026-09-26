@@ -170,13 +170,12 @@ window.renderFinanceiro = function(){
         ${finAbaPermitida('semanal') ? `<button onclick="finAba('semanal')" data-aba="semanal" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calendar-week mr-1"></i>Semanal</button>` : ''}
         ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório</button>` : ''}
         ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
-        ${finAbaPermitida('dre') ? `<button onclick="finAba('dre')" data-aba="dre" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-scale-balanced mr-1"></i>DRE</button>` : ''}
         ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','semanal','relatorio','prestacao','dre','orcamentos'].find(finAbaPermitida) || 'rol'));
+  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol'));
 };
 
 /* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
@@ -187,13 +186,12 @@ function finAbaPermitida(t){
   if (t === 'semanal') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
-  if (t === 'dre') return sgeAbaPermitida('financeiro','dre');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
   return false;
 }
 
 window.finAba = function(aba){
-  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','semanal','relatorio','prestacao','dre','orcamentos'].find(finAbaPermitida) || 'rol';
+  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol';
   F.aba = aba;
   if (aba !== 'orcamentos'){ ORC.id = null; ORC.dados = null; }
   document.querySelectorAll('#fin-tabs .fin-tab').forEach(b => {
@@ -205,7 +203,6 @@ window.finAba = function(aba){
   if (aba === 'semanal') return finRenderSemanal();
   if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'prestacao') return window.prestRender();
-  if (aba === 'dre') return dreRenderTela();
   if (aba === 'frequencia') return finRenderFrequencia();
   if (aba === 'orcamentos') return orcRenderTela();
   finRenderRol();
@@ -4152,6 +4149,8 @@ function _dreLinhas(dA, dB){
   sec('Investimentos e ampliação');
   for (const k of DRE_INVEST){ if (dA.despesas[k] || dB.despesas[k]) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k])); }
   sub('Total de investimentos e ampliação', A.iv ? -A.iv : null, B.iv ? -B.iv : null);
+  const tgA = A.b2 + A.op + A.iv, tgB = B.b2 + B.op + B.iv;
+  tot('Total geral de despesas', tgA ? -tgA : null, tgB ? -tgB : null);
   tot('Resultado do período — ' + (A.res >= 0 ? 'superávit' : 'déficit'), A.res, B.res);
 
   sec('Fundo vinculado — Círculo de Oração (caixa à parte)');
@@ -4236,6 +4235,11 @@ async function dreMontarDados(ano, mes, modo){
     paresB = MESES_ORD.slice(0, idx).filter(m => tem(anoB, m)).map(m => [anoB, m]);
     rotA = `Jan–${DRE_ABREV(mes)}/${ano}`; rotB = `Jan–${DRE_ABREV(mes)}/${anoB}`;
     subt = `Períodos acumulados de janeiro a ${mes.toLowerCase()} de ${ano} e de ${anoB}`;
+  } else if (modo === 'individual'){
+    paresA = tem(ano, mes) ? [[ano, mes]] : [];
+    paresB = [];
+    rotA = `${DRE_ABREV(mes)}/${ano}`; rotB = '';
+    subt = `Competência finda em ${mes.toLowerCase()} de ${ano} — visão individual`;
   } else {
     paresA = tem(ano, mes) ? [[ano, mes]] : [];
     const anoB = idx <= 1 ? String(+ano - 1) : ano;
@@ -4262,7 +4266,7 @@ async function dreMontarDados(ano, mes, modo){
   const avisos = [];
   if (fA.length) avisos.push(`Meses sem fechamento no período atual: ${fA.join(', ')}.`);
   if (fB.length) avisos.push(`Meses sem fechamento no período comparado: ${fB.join(', ')}.`);
-  if (!dB.meses.length) avisos.push('Sem período anterior para comparação.');
+  if (!dB.meses.length && modo !== 'individual') avisos.push('Sem período anterior para comparação.');
   if (dA.circulo.anterior == null) avisos.push('Fundo do Círculo: planilha do círculo ainda não publicada pelo desktop — bloco exibido parcialmente.');
   const A = _dreCalc(dA);
   const base = `${modo}|${ano}|${mes}|${A.b1.toFixed(2)}|${A.res.toFixed(2)}|${A.consF == null ? '' : A.consF.toFixed(2)}`;
@@ -4277,21 +4281,71 @@ async function dreMontarDados(ano, mes, modo){
   const mm = String(idx).padStart(2, '0');
   return { modo, ano, mes, rotulo_a: rotA, rotulo_b: rotB, subtitulo: subt,
     a: dA, b: dB, linhas: _dreLinhas(dA, dB), avisos,
-    assinado: modo !== 'acumulado',
+    assinado: modo !== 'acumulado', coluna_unica: modo === 'individual',
     verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
 }
 
-function dreRenderTela(){
-  const corpo = el('fin-sub');
+/* CSS isolado do documento contábil — independente do RCM_CSS, garante que o
+   preview da DRE sempre sai com fundo branco/texto escuro, mesmo se a aba
+   Relatório de Caixa nunca tiver sido aberta nesta sessão. */
+const DRE_CSS = `
+.dre-doc{font-family:Arial,Helvetica,sans-serif;font-size:8.6px;color:#111;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+.dre-doc table{border-collapse:collapse;width:100%}
+.dre-doc td{padding:2px 5px}
+.dre-doc .dd-cab{display:flex;align-items:flex-start;justify-content:center;position:relative}
+.dre-doc .dd-timb{max-width:78%;max-height:52px;object-fit:contain;margin:0 auto}
+.dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center}
+.dre-doc .dd-tit{font-size:9px;margin-top:8px;line-height:1.55;text-align:center}
+.dre-doc .dd-sec td{background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px}
+.dre-doc .dd-sub td,.dre-doc .dd-tot td{font-weight:bold;background:#f4f6fa}
+.dre-doc .dd-sub td.dd-v,.dre-doc .dd-tot td.dd-v{border-top:.5px solid #000}
+.dre-doc .dd-tot td.dd-v{border-bottom:2px double #000}
+.dre-doc .dd-v{text-align:right;white-space:nowrap}
+.dre-doc .dd-gap td{padding:2px 0;font-size:4px}
+.dre-doc .dd-nota{font-size:6.5px;color:#555;margin-top:8px;line-height:1.45}
+.dre-doc .dd-sigs{display:flex;gap:4%;margin-top:30px;font-size:7px;text-align:center;line-height:1.45}
+.dre-doc .dd-sig{flex:1}
+.dre-doc .dd-sig .ln{border-top:1px solid #000;padding-top:3px;margin:0 4px}
+`;
+function _dreCss(){ if (!el('dre-doc-css')){ const st = document.createElement('style'); st.id = 'dre-doc-css'; st.textContent = DRE_CSS; document.head.appendChild(st); } }
+
+const DRE_ASSINATURAS = [['Carlos Daniel Almeida de Alencar', 'Contador — CRC-RR 002134/O', 'CPF 044.213.512-29'],
+  ['Wallace Carlos de Lima Muniz', '1º Tesoureiro do Campo', 'CPF 663.033.202-44'],
+  ['Lindjard Feitosa Rodrigues de Matos', 'Pastora do Campo — Portaria PT-003/2025', 'CPF 006.321.792-95']];
+
+function _dreQrNo(elId, dre){
+  const qrEl = el(elId);
+  if (qrEl && dre.verificacao?.url){
+    try {
+      if (typeof QRCode !== 'undefined'){
+        qrEl.innerHTML = '';
+        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
+        const k = document.createElement('div');
+        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
+        k.textContent = dre.verificacao.codigo;
+        qrEl.appendChild(k);
+      }
+    } catch(e){}
+  }
+}
+
+window.renderContabil = function(){
+  const corpo = el('dash-conteudo');
+  if (!corpo) return;
+  _dreCss();
   const agora = new Date();
   DR.ano = DR.ano || String(agora.getFullYear());
   DR.mes = DR.mes || MESES_ORD[agora.getMonth()];
   corpo.innerHTML = `
     <div class="space-y-3">
+      <div class="border rounded-2xl p-3.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <h2 class="font-bold text-sm flex items-center gap-2" style="color:var(--text-accent)"><i class="fa-solid fa-scale-balanced" style="color:#818cf8"></i> Módulo Contábil</h2>
+        <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — exclusivo de administradores.</p>
+      </div>
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="grid grid-cols-4 gap-1.5" id="dre-modos">
-          ${[['mensal','Mensal'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
-            `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-2 py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
+        <div class="grid grid-cols-5 gap-1.5" id="dre-modos">
+          ${[['individual','Mês'],['mensal','Balancete'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
+            `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('dre-ano', [], DR.ano, 'dreCarregar()')}</div>
@@ -4327,87 +4381,57 @@ window.dreCarregar = async function(){
   const dre = await dreMontarDados(DR.ano, DR.mes, DR.modo);
   if (dre.erro){ host.innerHTML = `<p class="text-xs text-center py-10" style="color:var(--text-muted)">${esc(dre.erro)}</p>`; return; }
   DR.doc = dre;
-  const titulos = { mensal: 'Demonstração do resultado econômico-financeiro — balancete mensal',
+  const titulos = { individual: 'Demonstração do resultado econômico-financeiro — mês individual',
+    mensal: 'Demonstração do resultado econômico-financeiro — balancete mensal',
     acumulado: 'Demonstração do resultado econômico-financeiro — comparativo de exercício',
     anual: 'Demonstração do resultado econômico-financeiro do exercício',
     serie: 'Demonstração do resultado econômico-financeiro — série de exercícios' };
+  const notaAvisos = (dre.avisos || []).length
+    ? `<p class="dd-nota">${dre.avisos.map(a => '• ' + esc(a)).join('<br>')}</p>` : '';
 
   if (dre.modo === 'serie'){
     const cols = dre.colunas || [];
-    let html = `<div class="rcm-doc" style="min-width:${120 + cols.length * 82}px;padding:10px 10px 14px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <img src="icons/cabecalho_ad_brasil.png" style="max-width:72%;max-height:52px;object-fit:contain" alt="">
-        <div id="dre-qr-m" style="margin-left:auto;text-align:center"></div>
-      </div>
-      <div style="font-size:9px;margin-top:6px;line-height:1.5">${esc(titulos.serie)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
-      <table style="margin-top:8px;font-size:8.6px"><thead><tr>
+    let html = `<div class="dre-doc" style="min-width:${120 + cols.length * 82}px;padding:10px 10px 14px">
+      <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
+      <div class="dd-tit">${esc(titulos.serie)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
+      <table style="margin-top:8px"><thead><tr>
         <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
-        ${cols.map(c => `<td style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
+        ${cols.map(c => `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
     for (const ln of dre.linhas_serie){
-      if (ln.tipo === 'gap'){ html += `<tr><td colspan="${cols.length + 1}" style="padding:1px;font-size:3px;border:none"></td></tr>`; continue; }
-      if (ln.tipo === 'sec'){ html += `<tr><td colspan="${cols.length + 1}" style="background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px">${esc(ln.rotulo)}</td></tr>`; continue; }
-      const sub = ln.tipo === 'sub', tX = ln.tipo === 'tot';
-      const st = `${sub || tX ? 'font-weight:bold;background:#f4f6fa;' : ''}padding:2px 5px;${tX || sub ? 'border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}`;
-      html += `<tr><td style="${st}">${esc(ln.rotulo)}</td>${(ln.valores || []).map(v => `<td style="text-align:right;white-space:nowrap;${st}">${dreFmt(v)}</td>`).join('')}</tr>`;
+      if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${cols.length + 1}"></td></tr>`; continue; }
+      if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${cols.length + 1}">${esc(ln.rotulo)}</td></tr>`; continue; }
+      const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
+      html += `<tr class="${cls}"><td>${esc(ln.rotulo)}</td>${(ln.valores || []).map(v => `<td class="dd-v">${dreFmt(v)}</td>`).join('')}</tr>`;
     }
-    html += `</tbody></table>
-      <p style="font-size:6.5px;color:#555;margin-top:8px;line-height:1.45">Visão de análise entre exercícios — documento sem assinatura. Saldos conforme fechamentos importados (*exercício parcial).${(dre.avisos || []).map(a => '<br>• ' + esc(a)).join('')}</p></div>`;
+    html += `</tbody></table>${notaAvisos}</div>`;
     host.innerHTML = html;
-    const qrEl = el('dre-qr-m');
-    if (qrEl && dre.verificacao?.url && typeof QRCode !== 'undefined'){
-      try {
-        qrEl.innerHTML = '';
-        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
-        const k = document.createElement('div');
-        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
-        k.textContent = dre.verificacao.codigo;
-        qrEl.appendChild(k);
-      } catch(e){}
-    }
+    _dreQrNo('dre-qr-m', dre);
     return;
   }
 
-  let html = `<div class="rcm-doc" style="min-width:430px;padding:10px 10px 14px">
-    <div style="display:flex;align-items:center;gap:8px">
-      <img src="icons/cabecalho_ad_brasil.png" style="max-width:72%;max-height:52px;object-fit:contain" alt="">
-      <div id="dre-qr-m" style="margin-left:auto;text-align:center"></div>
-    </div>
-    <div style="font-size:9px;margin-top:6px;line-height:1.5">${esc(titulos[dre.modo])}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
-    <table style="margin-top:8px;font-size:8.6px"><thead><tr>
+  const unica = !!dre.coluna_unica;
+  const colsN = unica ? 2 : 3;
+  let html = `<div class="dre-doc" style="min-width:430px;padding:10px 10px 14px">
+    <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
+    <div class="dd-tit">${esc(titulos[dre.modo])}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
+    <table style="margin-top:8px"><thead><tr>
       <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
-      <td class="dre-vm" style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_a)}</td>
-      <td class="dre-vm" style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_b)}</td></tr></thead><tbody>`;
+      <td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_a)}</td>
+      ${unica ? '' : `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_b)}</td>`}</tr></thead><tbody>`;
   for (const ln of dre.linhas){
-    if (ln.tipo === 'gap'){ html += '<tr><td colspan="3" style="padding:1px;font-size:3px;border:none"></td></tr>'; continue; }
-    if (ln.tipo === 'sec'){ html += `<tr><td colspan="3" style="background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px">${esc(ln.rotulo)}</td></tr>`; continue; }
-    const sub = ln.tipo === 'sub', tX = ln.tipo === 'tot';
-    html += `<tr><td style="${sub || tX ? 'font-weight:bold;background:#f4f6fa;' : ''}${ln.tipo === 'it' ? 'padding-left:14px;' : ''}padding:2px 5px;${tX || sub ? 'border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${esc(ln.rotulo)}</td>
-      <td style="text-align:right;white-space:nowrap;padding:2px 5px;${sub || tX ? 'font-weight:bold;background:#f4f6fa;border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${dreFmt(ln.a)}</td>
-      <td style="text-align:right;white-space:nowrap;padding:2px 5px;${sub || tX ? 'font-weight:bold;background:#f4f6fa;border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${dreFmt(ln.b)}</td></tr>`;
+    if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${colsN}"></td></tr>`; continue; }
+    if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${colsN}">${esc(ln.rotulo)}</td></tr>`; continue; }
+    const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
+    const pad = ln.tipo === 'it' ? ' style="padding-left:14px"' : '';
+    html += `<tr class="${cls}"><td${pad}>${esc(ln.rotulo)}</td><td class="dd-v">${dreFmt(ln.a)}</td>${unica ? '' : `<td class="dd-v">${dreFmt(ln.b)}</td>`}</tr>`;
   }
-  html += `</tbody></table>
-    <p style="font-size:6.5px;color:#555;margin-top:8px;line-height:1.45">Saldos conforme fechamentos importados; divergências de cadeia são sinalizadas sem reescrita. O Círculo de Oração é fundo vinculado, com caixa próprio.${(dre.avisos || []).map(a => '<br>• ' + esc(a)).join('')}</p>`;
+  html += `</tbody></table>${notaAvisos}`;
   if (dre.assinado){
-    html += `<div style="display:flex;gap:4%;margin-top:30px;font-size:7px;text-align:center;line-height:1.45">
-      ${[['Carlos Daniel Almeida de Alencar', 'Contador — CRC-RR 002134/O', 'CPF 044.213.512-29'],
-         ['Wallace Carlos de Lima Muniz', '1º Tesoureiro do Campo', 'CPF 663.033.202-44'],
-         ['Lindjard Feitosa Rodrigues de Matos', 'Pastora do Campo — Portaria PT-003/2025', 'CPF 006.321.792-95']]
-        .map(s => `<div style="flex:1"><div style="border-top:1px solid #000;padding-top:3px;margin:0 4px"><b>${s[0]}</b><br>${s[1]}<br>${s[2]}</div></div>`).join('')}</div>`;
+    html += `<div class="dd-sigs">${DRE_ASSINATURAS
+        .map(s => `<div class="dd-sig"><div class="ln"><b>${s[0]}</b><br>${s[1]}<br>${s[2]}</div></div>`).join('')}</div>`;
   }
   host.innerHTML = html + '</div>';
-  const qrEl = el('dre-qr-m');
-  if (qrEl && dre.verificacao?.url){
-    try {
-      if (typeof QRCode !== 'undefined'){
-        qrEl.innerHTML = '';
-        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
-        const k = document.createElement('div');
-        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
-        k.textContent = dre.verificacao.codigo;
-        qrEl.appendChild(k);
-      }
-    } catch(e){}
-  }
+  _dreQrNo('dre-qr-m', dre);
 };
 
 window.drePdf = async function(){
@@ -4419,14 +4443,24 @@ window.drePdf = async function(){
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = doc.internal.pageSize.getWidth();
     const imgEl = document.querySelector('#dre-doc-m img');
+    let qrData = null;
+    try {
+      const qrCv = document.querySelector('#dre-qr-m canvas');
+      const qrImg = document.querySelector('#dre-qr-m img');
+      qrData = qrCv ? qrCv.toDataURL('image/png') : (qrImg?.src || null);
+    } catch(e){}
     if (imgEl?.src){
       try {
         const dataUrl = await fetch(imgEl.src).then(r => r.blob()).then(b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }));
-        doc.addImage(dataUrl, 'PNG', 14, 8, 128, 128 * 191 / 1128);
+        doc.addImage(dataUrl, 'PNG', (W - 110) / 2, 8, 110, 110 * 191 / 1128);
       } catch(e){}
     }
-    doc.setFontSize(9); doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, 14, 34);
-    doc.text(dre.subtitulo || '', 14, 38); doc.text('(Em reais)', 14, 42);
+    if (qrData){
+      try { doc.addImage(qrData, 'PNG', W - 14 - 18, 8, 18, 18); doc.setFontSize(4.5); doc.setTextColor(85,85,85); doc.text(dre.verificacao?.codigo || '', W - 23, 29, { align: 'center' }); } catch(e){}
+    }
+    doc.setFontSize(9); doc.setTextColor(17,17,17);
+    doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, W / 2, 36, { align: 'center' });
+    doc.text(dre.subtitulo || '', W / 2, 40, { align: 'center' }); doc.text('(Em reais)', W / 2, 44, { align: 'center' });
     let corpo, headRow, nCols;
     if (dre.modo === 'serie'){
       const cols = dre.colunas || [];
@@ -4437,19 +4471,20 @@ window.drePdf = async function(){
         : [{ content: ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
           .concat((ln.valores || []).map(v => ({ content: dreFmt(v), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
     } else {
-      nCols = 3;
-      headRow = ['', dre.rotulo_a, dre.rotulo_b];
-      corpo = (dre.linhas || []).map(ln => ln.tipo === 'gap' ? ['', '', '']
-        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
+      const unica = !!dre.coluna_unica;
+      nCols = unica ? 2 : 3;
+      headRow = unica ? ['', dre.rotulo_a] : ['', dre.rotulo_a, dre.rotulo_b];
+      corpo = (dre.linhas || []).map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
+        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
         : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } },
-           { content: dreFmt(ln.a), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } },
-           { content: dreFmt(ln.b), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]);
+           { content: dreFmt(ln.a), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
+          .concat(unica ? [] : [{ content: dreFmt(ln.b), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]));
     }
     doc.autoTable({
-      startY: 46, head: [headRow],
+      startY: 48, head: [headRow],
       body: corpo, theme: 'plain', styles: { fontSize: 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
       headStyles: { fontStyle: 'bold', halign: 'right' },
-      columnStyles: Object.assign({ 0: { cellWidth: nCols > 3 ? 78 : 108 } },
+      columnStyles: Object.assign({ 0: { cellWidth: nCols === 2 ? 122 : nCols > 3 ? 78 : 108 } },
         Object.fromEntries([...Array(nCols - 1).keys()].map(i => [i + 1, { halign: 'right' }]))),
       margin: { left: 14, right: 14, bottom: 14 },
       didDrawPage: () => {
@@ -4459,13 +4494,14 @@ window.drePdf = async function(){
       },
     });
     let y = doc.lastAutoTable.finalY + 6;
-    doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
-    doc.text('Saldos conforme fechamentos importados; divergências de cadeia são sinalizadas sem reescrita. O Círculo de Oração é fundo vinculado, com caixa próprio.', 14, y, { maxWidth: W - 28 });
+    if ((dre.avisos || []).length){
+      doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
+      doc.text(dre.avisos.map(a => '• ' + a).join('\n'), 14, y, { maxWidth: W - 28 });
+      y += dre.avisos.length * 3.2 + 2;
+    }
     if (dre.assinado){
       y += 16;
-      const sigs = [['Carlos Daniel Almeida de Alencar', 'Contador — CRC-RR 002134/O', 'CPF 044.213.512-29'],
-        ['Wallace Carlos de Lima Muniz', '1º Tesoureiro do Campo', 'CPF 663.033.202-44'],
-        ['Lindjard Feitosa Rodrigues de Matos', 'Pastora do Campo — Portaria PT-003/2025', 'CPF 006.321.792-95']];
+      const sigs = DRE_ASSINATURAS;
       doc.setTextColor(17, 17, 17); doc.setFontSize(6.6);
       const larg = (W - 28) / 3;
       sigs.forEach((s, i) => {
