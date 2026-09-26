@@ -170,12 +170,13 @@ window.renderFinanceiro = function(){
         ${finAbaPermitida('semanal') ? `<button onclick="finAba('semanal')" data-aba="semanal" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calendar-week mr-1"></i>Semanal</button>` : ''}
         ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório</button>` : ''}
         ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
+        ${finAbaPermitida('dre') ? `<button onclick="finAba('dre')" data-aba="dre" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-scale-balanced mr-1"></i>DRE</button>` : ''}
         ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
       </div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol'));
+  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','semanal','relatorio','prestacao','dre','orcamentos'].find(finAbaPermitida) || 'rol'));
 };
 
 /* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
@@ -186,12 +187,13 @@ function finAbaPermitida(t){
   if (t === 'semanal') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
+  if (t === 'dre') return sgeAbaPermitida('financeiro','dre');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
   return false;
 }
 
 window.finAba = function(aba){
-  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol';
+  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','semanal','relatorio','prestacao','dre','orcamentos'].find(finAbaPermitida) || 'rol';
   F.aba = aba;
   if (aba !== 'orcamentos'){ ORC.id = null; ORC.dados = null; }
   document.querySelectorAll('#fin-tabs .fin-tab').forEach(b => {
@@ -203,6 +205,7 @@ window.finAba = function(aba){
   if (aba === 'semanal') return finRenderSemanal();
   if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'prestacao') return window.prestRender();
+  if (aba === 'dre') return dreRenderTela();
   if (aba === 'frequencia') return finRenderFrequencia();
   if (aba === 'orcamentos') return orcRenderTela();
   finRenderRol();
@@ -4011,7 +4014,473 @@ window.semSalvarNovoMembro = async function(){
   }
 };
 
+/* ============================================================================
+   DRE DO CAMPO — demonstração do resultado (mensal | acumulado | anual)
+   Replica core/sge_dre.py no cliente: monta os blocos a partir dos fechamentos
+   (carregar_movimento_financeiro) + fundo do Círculo (app_config dre_circulo_*,
+   publicado pelo desktop na importação). PDF oficial assinado via jsPDF.
+   ============================================================================ */
+const DRE_DEDUCOES = new Set(['Repasse da Oferta de Missões','Fundo Convencional','S.O.S Baixo Rio Branco 1%','Auxílio Presidencial 5%','Prebenda','Prebenda pastores auxiliares','Auxílio lideres de Congregação']);
+const DRE_REP_CIRC = 'Caixa da Oferta do Circulo de Oração';
+const DRE_ORDEM_ENT = ['Dízimos','Oferta Missionária','Oferta do Culto de Missões','Oferta da EBD Missionária','Oferta Missionária do Circulo de Oração','Oferta do Culto do Circulo de Oração','Oferta do Circulo de Oração - 6º Feira','Oferta do Circulo de Oração - Sábado','Oferta da EBD','Oferta do Culto da UMAD','Oferta Extra Ordinária'];
+const DRE_ORDEM_DED = ['Repasse da Oferta de Missões','Fundo Convencional','Auxílio Presidencial 5%','S.O.S Baixo Rio Branco 1%','Prebenda','Prebenda pastores auxiliares','Auxílio lideres de Congregação'];
+const DRE_GRUPOS = [
+  ['Despesas administrativas', ['Telefone e Internet','Material de Expediente','Material de Limpeza','INSS, Taxas e Impostos Diversos']],
+  ['Despesas de ocupação e infraestrutura', ['Energia','Água e Esgoto','Locação de Imóveis']],
+  ['Despesas com veículos e viagens', ['Combustivel e Lubrificantes','Manutenção de Veículo','Frete ou Aluguel de Veiculo','Passagens','Hospedagem']],
+  ['Despesas com eventos e atividades', ['Alimentação para Eventos','Lanche EBD ou Santa Ceia','Material de Som','Divulgação de Eventos, Propaganda e Rádio','Vestuário ou Ornamentação']],
+  ['Despesas sociais e assistenciais', ['Atendimento Social','Medicação','Presentes']],
+];
+const DRE_INVEST = ['Construção, Reforma ou Ampliação','Aquisição de Imoveis','Materiais de Bens Duráveis ou Utensílios'];
+const DRE_IDX_MES = {}; MESES_ORD.forEach((m, i) => DRE_IDX_MES[m] = i + 1);
+const DRE_ABREV = m => String(m || '').slice(0, 3);
+
+const DR = { modo: 'mensal', ano: '', mes: '', doc: null };
+
+const dreNeg = v => (v == null || Math.abs(v) < 0.005) ? null : -v;
+const dreFmt = v => (v == null || Math.abs(v) < 0.005) ? '-' : ((v < 0 ? '(' : '') + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (v < 0 ? ')' : ''));
+const _dreOrd = (obj, ordem) => Object.entries(obj || {}).sort((a, b) => {
+  const ia = ordem.indexOf(a[0]), ib = ordem.indexOf(b[0]);
+  if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  return b[1] - a[1];
+});
+
+function dreDadosMes(mov){
+  if (!mov || !mov.abas) return null;
+  const chave = Object.keys(mov.abas).find(n => /fechamento/i.test(n));
+  if (!chave) return null;
+  const t = mov.abas[chave].totais || {};
+  const sai = { ...(t.saidas_repasses_detalhadas || {}), ...(t.despesas_operacionais_detalhadas || {}) };
+  return {
+    entradas: Object.fromEntries(Object.entries(t.entradas_detalhadas || {}).filter(([, v]) => Math.abs(num(v)) > 0.004).map(([k, v]) => [k, num(v)])),
+    deducoes: Object.fromEntries(Object.entries(sai).filter(([k, v]) => DRE_DEDUCOES.has(k) && Math.abs(num(v)) > 0.004).map(([k, v]) => [k, num(v)])),
+    repasse_circulo: num(sai[DRE_REP_CIRC]),
+    despesas: Object.fromEntries(Object.entries(sai).filter(([k, v]) => !DRE_DEDUCOES.has(k) && k !== DRE_REP_CIRC && Math.abs(num(v)) > 0.004).map(([k, v]) => [k, num(v)])),
+    total_entradas: num(t.total_entradas), total_despesas: num(t.total_despesas),
+    saldo_anterior: num(t.saldo_mes_anterior), saldo_campo: num(t.saldo_campo),
+  };
+}
+
+const _cacheCirculoDRE = {};
+async function dreCirculo(ano, mes){
+  const mm = String(DRE_IDX_MES[mes] || 0).padStart(2, '0');
+  const chave = `dre_circulo_${ano}_${mm}`;
+  if (_cacheCirculoDRE[chave] === undefined){
+    try {
+      const res = await api('obter_config_sge', { chave }, sessao()?.token);
+      _cacheCirculoDRE[chave] = res?.valor ? JSON.parse(res.valor) : null;
+    } catch(e){ _cacheCirculoDRE[chave] = null; }
+  }
+  return _cacheCirculoDRE[chave];
+}
+
+function _dreAgregar(lista){
+  const agg = { entradas: {}, deducoes: {}, repasse_circulo: 0, despesas: {},
+    total_entradas: 0, total_despesas: 0, saldo_anterior: null, saldo_campo: null,
+    circulo: { anterior: null, entradas: 0, despesas: 0, saldo: null }, meses: [] };
+  const soma = (a, b) => { for (const [k, v] of Object.entries(b || {})) a[k] = (a[k] || 0) + v; };
+  for (const d of lista){
+    agg.meses.push(d.mes);
+    soma(agg.entradas, d.entradas); soma(agg.deducoes, d.deducoes); soma(agg.despesas, d.despesas);
+    agg.repasse_circulo += d.repasse_circulo;
+    agg.total_entradas += d.total_entradas; agg.total_despesas += d.total_despesas;
+    if (agg.saldo_anterior == null) agg.saldo_anterior = d.saldo_anterior;
+    agg.saldo_campo = d.saldo_campo;
+    const c = d.circulo;
+    if (c){
+      if (agg.circulo.anterior == null) agg.circulo.anterior = num(c.anterior);
+      agg.circulo.entradas += num(c.entradas); agg.circulo.despesas += num(c.despesas);
+      agg.circulo.saldo = num(c.saldo);
+    }
+  }
+  if (agg.saldo_anterior == null) agg.saldo_anterior = 0;
+  if (agg.saldo_campo == null) agg.saldo_campo = 0;
+  return agg;
+}
+
+function _dreCalc(d){
+  const b1 = d.total_entradas || Object.values(d.entradas).reduce((s, v) => s + v, 0);
+  const b2 = Object.values(d.deducoes).reduce((s, v) => s + v, 0) + (d.repasse_circulo || 0);
+  const inv = new Set(DRE_INVEST);
+  let op = 0, iv = 0;
+  for (const [k, v] of Object.entries(d.despesas)) (inv.has(k) ? iv += v : op += v);
+  const res = b1 - b2 - op - iv;
+  const c = d.circulo || {};
+  const varF = (c.saldo != null && c.anterior != null) ? c.saldo - c.anterior : null;
+  return { b1, b2, op, iv, res, c, varF,
+    consI: c.anterior != null ? d.saldo_anterior + c.anterior : null,
+    consF: c.saldo != null ? d.saldo_campo + c.saldo : null };
+}
+
+function _dreLinhas(dA, dB){
+  const L = [];
+  const gap = () => { if (L.length && (L[L.length-1].tipo === 'tot' || L[L.length-1].tipo === 'sub')) L.push({ tipo: 'gap' }); };
+  const sec = r => { gap(); L.push({ tipo: 'sec', rotulo: r.toUpperCase() }); };
+  const it = (r, a, b) => L.push({ tipo: 'it', rotulo: r, a, b });
+  const sub = (r, a, b) => L.push({ tipo: 'sub', rotulo: r, a, b });
+  const tot = (r, a, b) => L.push({ tipo: 'tot', rotulo: r, a, b });
+  const A = _dreCalc(dA), B = _dreCalc(dB);
+
+  sec('Receita bruta');
+  const chavesEnt = new Set([...Object.keys(dA.entradas), ...Object.keys(dB.entradas)]);
+  for (const [k] of _dreOrd(Object.fromEntries([...chavesEnt].map(k => [k, 1])), DRE_ORDEM_ENT)) it(k, dA.entradas[k], dB.entradas[k]);
+  tot('Total da receita bruta', A.b1, B.b1);
+
+  sec('Deduções e destinações vinculadas');
+  const chavesDed = new Set([...Object.keys(dA.deducoes), ...Object.keys(dB.deducoes)]);
+  for (const k of DRE_ORDEM_DED) if (chavesDed.delete(k)) it(k, dreNeg(dA.deducoes[k]), dreNeg(dB.deducoes[k]));
+  for (const k of [...chavesDed].sort()) it(k, dreNeg(dA.deducoes[k]), dreNeg(dB.deducoes[k]));
+  it('Caixa da Oferta do Círculo de Oração (fundo vinculado)', dreNeg(dA.repasse_circulo), dreNeg(dB.repasse_circulo));
+  tot('Total das deduções', -A.b2, -B.b2);
+  sub('Receita líquida operacional do campo', A.b1 - A.b2, B.b1 - B.b2);
+
+  sec('Despesas operacionais');
+  const usado = new Set();
+  for (const [grupo, itens] of DRE_GRUPOS){
+    const chaves = itens.filter(k => Math.abs(dA.despesas[k] || 0) > 0.004 || Math.abs(dB.despesas[k] || 0) > 0.004);
+    if (!chaves.length) continue;
+    chaves.forEach(k => usado.add(k));
+    sec(grupo);
+    for (const k of chaves.sort()) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k]));
+    sub('Subtotal — ' + grupo, dreNeg(chaves.reduce((s, k) => s + (dA.despesas[k] || 0), 0) || null), dreNeg(chaves.reduce((s, k) => s + (dB.despesas[k] || 0), 0) || null));
+  }
+  const resto = [...new Set([...Object.keys(dA.despesas), ...Object.keys(dB.despesas)])]
+    .filter(k => !usado.has(k) && !DRE_INVEST.includes(k) && (Math.abs(dA.despesas[k] || 0) > 0.004 || Math.abs(dB.despesas[k] || 0) > 0.004));
+  if (resto.length){ sec('Outras despesas operacionais'); for (const k of resto.sort()) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k])); }
+  sub('Total das despesas operacionais', -A.op, -B.op);
+
+  sec('Investimentos e ampliação');
+  for (const k of DRE_INVEST){ if (dA.despesas[k] || dB.despesas[k]) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k])); }
+  sub('Total de investimentos e ampliação', A.iv ? -A.iv : null, B.iv ? -B.iv : null);
+  tot('Resultado do período — ' + (A.res >= 0 ? 'superávit' : 'déficit'), A.res, B.res);
+
+  sec('Fundo vinculado — Círculo de Oração (caixa à parte)');
+  it('Saldo do fundo no início do período', A.c.anterior, B.c.anterior);
+  it('Entradas do fundo (repasse do campo e arrecadação própria)', A.c.entradas, B.c.entradas);
+  it('Saídas do fundo', dreNeg(A.c.despesas), dreNeg(B.c.despesas));
+  sub('Variação do fundo no período', A.varF, B.varF);
+  tot('Saldo acumulado do fundo', A.c.saldo, B.c.saldo);
+
+  sec('Fechamento consolidado — caixa real');
+  it('Saldo de caixa no início do período (campo + fundo)', A.consI, B.consI);
+  it('Resultado do período', A.res, B.res);
+  it('Variação do fundo do Círculo', A.varF, B.varF);
+  it('Caixa operacional do campo', dA.saldo_campo, dB.saldo_campo);
+  it('Caixa do fundo (Círculo de Oração)', A.c.saldo, B.c.saldo);
+  tot('Saldo de caixa consolidado', A.consF, B.consF);
+  return L;
+}
+
+async function dreMontarDados(ano, mes, modo){
+  const periodos = await SGEG.listarPeriodos();
+  const disp = new Set((periodos || []).map(p => `${p.ano}_${cfq(p.mes)}`));
+  const tem = (a, m) => disp.has(`${a}_${cfq(m)}`);
+  const idx = DRE_IDX_MES[mes] || 12;
+
+  if (modo === 'serie'){
+    const anos = [...new Set((periodos || []).map(p => String(p.ano)))].sort();
+    if (!anos.length) return { erro: 'Nenhum fechamento importado.' };
+    const agregados = [], colunas = [], avisos = [];
+    for (const a of anos){
+      const lista = [], falt = [];
+      for (const m of MESES_ORD.filter(mm => tem(a, mm))){
+        const mov = await SGEG.carregarMovimento(a, m);
+        const d = dreDadosMes(mov);
+        if (!d){ falt.push(m); continue; }
+        d.mes = m; d.ano = a;
+        d.circulo = await dreCirculo(a, m);
+        lista.push(d);
+      }
+      if (!lista.length) continue;
+      agregados.push(_dreAgregar(lista));
+      colunas.push({ ano: a, rotulo: a + (lista.length < 12 ? '*' : '') });
+      if (falt.length) avisos.push(`${a}: exercício parcial — sem ${falt.join(', ')}.`);
+    }
+    if (!agregados.length) return { erro: 'Nenhum fechamento importado.' };
+    const calcs = agregados.map(_dreCalc);
+    const linhasSerie = [
+      { tipo: 'sec', rotulo: 'DEMONSTRAÇÃO POR EXERCÍCIO' },
+      { tipo: 'it', rotulo: 'Receita bruta', valores: calcs.map(c => c.b1) },
+      { tipo: 'it', rotulo: '(−) Deduções e destinações vinculadas', valores: calcs.map(c => c.b2 ? -c.b2 : null) },
+      { tipo: 'sub', rotulo: 'Receita líquida operacional', valores: calcs.map(c => c.b1 - c.b2) },
+      { tipo: 'it', rotulo: '(−) Despesas operacionais', valores: calcs.map(c => c.op ? -c.op : null) },
+      { tipo: 'it', rotulo: '(−) Investimentos e ampliação', valores: calcs.map(c => c.iv ? -c.iv : null) },
+      { tipo: 'tot', rotulo: 'Resultado do período', valores: calcs.map(c => c.res) },
+      { tipo: 'gap' },
+      { tipo: 'it', rotulo: '(+) Variação do fundo do Círculo', valores: calcs.map(c => c.varF) },
+      { tipo: 'it', rotulo: 'Caixa operacional do campo', valores: agregados.map(d => d.saldo_campo) },
+      { tipo: 'it', rotulo: 'Caixa do fundo (Círculo de Oração)', valores: calcs.map(c => c.c?.saldo) },
+      { tipo: 'tot', rotulo: 'Saldo de caixa consolidado', valores: calcs.map(c => c.consF) },
+    ];
+    const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[calcs.length-1].b1.toFixed(2)}`;
+    let codigo = '';
+    try { if (crypto?.subtle){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)); codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,4).toUpperCase(); } } catch(e){}
+    if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8,'0').slice(0,4); }
+    return { modo: 'serie', colunas, linhas_serie: linhasSerie, avisos, assinado: false,
+      subtitulo: `Demonstração do resultado por exercício — ${colunas[0].ano} a ${colunas[colunas.length-1].ano} (*exercício parcial)`,
+      verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&o=serie&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
+  }
+
+  let paresA = [], paresB = [], rotA = '', rotB = '', subt = '';
+  if (modo === 'anual'){
+    paresA = MESES_ORD.filter(m => tem(ano, m)).map(m => [ano, m]);
+    const anoB = String(+ano - 1);
+    paresB = MESES_ORD.filter(m => tem(anoB, m)).map(m => [anoB, m]);
+    const curso = paresA.length < 12;
+    rotA = ano + (curso ? '*' : ''); rotB = anoB;
+    subt = !curso ? `Exercícios findos em 31 de dezembro de ${ano} e ${anoB}`
+      : `Exercício de ${ano} em curso (acumulado até ${mes.toLowerCase()}) e exercício completo de ${anoB} (*parcial)`;
+  } else if (modo === 'acumulado'){
+    const anoB = String(+ano - 1);
+    paresA = MESES_ORD.slice(0, idx).filter(m => tem(ano, m)).map(m => [ano, m]);
+    paresB = MESES_ORD.slice(0, idx).filter(m => tem(anoB, m)).map(m => [anoB, m]);
+    rotA = `Jan–${DRE_ABREV(mes)}/${ano}`; rotB = `Jan–${DRE_ABREV(mes)}/${anoB}`;
+    subt = `Períodos acumulados de janeiro a ${mes.toLowerCase()} de ${ano} e de ${anoB}`;
+  } else {
+    paresA = tem(ano, mes) ? [[ano, mes]] : [];
+    const anoB = idx <= 1 ? String(+ano - 1) : ano;
+    const mesB = idx <= 1 ? 'Dezembro' : MESES_ORD[idx - 2];
+    paresB = tem(anoB, mesB) ? [[anoB, mesB]] : [];
+    rotA = `${DRE_ABREV(mes)}/${ano}`; rotB = `${DRE_ABREV(mesB)}/${anoB}`;
+    subt = `Competências findas em ${mes.toLowerCase()} de ${ano} e ${mesB.toLowerCase()} de ${anoB}`;
+  }
+  const carrega = async pares => {
+    const lista = [], falt = [];
+    for (const [a, m] of pares){
+      const mov = await SGEG.carregarMovimento(a, m);
+      const d = dreDadosMes(mov);
+      if (!d){ falt.push(`${m}/${a}`); continue; }
+      d.mes = m; d.ano = a;
+      d.circulo = await dreCirculo(a, m);
+      lista.push(d);
+    }
+    return [_dreAgregar(lista), falt];
+  };
+  const [dA, fA] = await carrega(paresA);
+  const [dB, fB] = await carrega(paresB);
+  if (!dA.meses.length) return { erro: `Nenhum fechamento importado para o período (${rotA}).` };
+  const avisos = [];
+  if (fA.length) avisos.push(`Meses sem fechamento no período atual: ${fA.join(', ')}.`);
+  if (fB.length) avisos.push(`Meses sem fechamento no período comparado: ${fB.join(', ')}.`);
+  if (!dB.meses.length) avisos.push('Sem período anterior para comparação.');
+  if (dA.circulo.anterior == null) avisos.push('Fundo do Círculo: planilha do círculo ainda não publicada pelo desktop — bloco exibido parcialmente.');
+  const A = _dreCalc(dA);
+  const base = `${modo}|${ano}|${mes}|${A.b1.toFixed(2)}|${A.res.toFixed(2)}|${A.consF == null ? '' : A.consF.toFixed(2)}`;
+  let codigo = '';
+  try {
+    if (crypto?.subtle){
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base));
+      codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 4).toUpperCase();
+    }
+  } catch(e){}
+  if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8, '0').slice(0, 4); }
+  const mm = String(idx).padStart(2, '0');
+  return { modo, ano, mes, rotulo_a: rotA, rotulo_b: rotB, subtitulo: subt,
+    a: dA, b: dB, linhas: _dreLinhas(dA, dB), avisos,
+    assinado: modo !== 'acumulado',
+    verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
+}
+
+function dreRenderTela(){
+  const corpo = el('fin-sub');
+  const agora = new Date();
+  DR.ano = DR.ano || String(agora.getFullYear());
+  DR.mes = DR.mes || MESES_ORD[agora.getMonth()];
+  corpo.innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-4 gap-1.5" id="dre-modos">
+          ${[['mensal','Mensal'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
+            `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-2 py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('dre-ano', [], DR.ano, 'dreCarregar()')}</div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>${selF('dre-mes', MESES_ORD.map(m => [m, m]), DR.mes, 'dreCarregar()')}</div>
+        </div>
+        <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
+      </div>
+      <div id="dre-doc-m" class="overflow-x-auto"></div>
+    </div>`;
+  _dreEstiloModo();
+  SGEG.listarPeriodos().then(ps => {
+    const anos = [...new Set((ps || []).map(p => String(p.ano)))].sort();
+    const sel = el('dre-ano');
+    if (sel && !sel.options.length) anos.forEach(a => sel.add(new Option(a, a, false, a === DR.ano)));
+    dreCarregar();
+  });
+}
+
+function _dreEstiloModo(){
+  document.querySelectorAll('.dre-modo-m').forEach(b => {
+    const ativo = b.dataset.modo === DR.modo;
+    b.style.background = ativo ? 'rgba(99,102,241,.16)' : 'var(--bg-card)';
+    b.style.borderColor = ativo ? '#818cf8' : 'var(--border-color)';
+    b.style.color = ativo ? '#a5b4fc' : 'var(--text-muted)';
+  });
+}
+window.dreModoM = m => { DR.modo = m; _dreEstiloModo(); dreCarregar(); };
+
+window.dreCarregar = async function(){
+  DR.ano = el('dre-ano')?.value || DR.ano; DR.mes = el('dre-mes')?.value || DR.mes;
+  const host = el('dre-doc-m');
+  host.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Montando a demonstração…</div>';
+  const dre = await dreMontarDados(DR.ano, DR.mes, DR.modo);
+  if (dre.erro){ host.innerHTML = `<p class="text-xs text-center py-10" style="color:var(--text-muted)">${esc(dre.erro)}</p>`; return; }
+  DR.doc = dre;
+  const titulos = { mensal: 'Demonstração do resultado econômico-financeiro — balancete mensal',
+    acumulado: 'Demonstração do resultado econômico-financeiro — comparativo de exercício',
+    anual: 'Demonstração do resultado econômico-financeiro do exercício',
+    serie: 'Demonstração do resultado econômico-financeiro — série de exercícios' };
+
+  if (dre.modo === 'serie'){
+    const cols = dre.colunas || [];
+    let html = `<div class="rcm-doc" style="min-width:${120 + cols.length * 82}px;padding:10px 10px 14px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <img src="icons/cabecalho_ad_brasil.png" style="max-width:72%;max-height:52px;object-fit:contain" alt="">
+        <div id="dre-qr-m" style="margin-left:auto;text-align:center"></div>
+      </div>
+      <div style="font-size:9px;margin-top:6px;line-height:1.5">${esc(titulos.serie)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
+      <table style="margin-top:8px;font-size:8.6px"><thead><tr>
+        <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
+        ${cols.map(c => `<td style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
+    for (const ln of dre.linhas_serie){
+      if (ln.tipo === 'gap'){ html += `<tr><td colspan="${cols.length + 1}" style="padding:1px;font-size:3px;border:none"></td></tr>`; continue; }
+      if (ln.tipo === 'sec'){ html += `<tr><td colspan="${cols.length + 1}" style="background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px">${esc(ln.rotulo)}</td></tr>`; continue; }
+      const sub = ln.tipo === 'sub', tX = ln.tipo === 'tot';
+      const st = `${sub || tX ? 'font-weight:bold;background:#f4f6fa;' : ''}padding:2px 5px;${tX || sub ? 'border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}`;
+      html += `<tr><td style="${st}">${esc(ln.rotulo)}</td>${(ln.valores || []).map(v => `<td style="text-align:right;white-space:nowrap;${st}">${dreFmt(v)}</td>`).join('')}</tr>`;
+    }
+    html += `</tbody></table>
+      <p style="font-size:6.5px;color:#555;margin-top:8px;line-height:1.45">Visão de análise entre exercícios — documento sem assinatura. Saldos conforme fechamentos importados (*exercício parcial).${(dre.avisos || []).map(a => '<br>• ' + esc(a)).join('')}</p></div>`;
+    host.innerHTML = html;
+    const qrEl = el('dre-qr-m');
+    if (qrEl && dre.verificacao?.url && typeof QRCode !== 'undefined'){
+      try {
+        qrEl.innerHTML = '';
+        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
+        const k = document.createElement('div');
+        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
+        k.textContent = dre.verificacao.codigo;
+        qrEl.appendChild(k);
+      } catch(e){}
+    }
+    return;
+  }
+
+  let html = `<div class="rcm-doc" style="min-width:430px;padding:10px 10px 14px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <img src="icons/cabecalho_ad_brasil.png" style="max-width:72%;max-height:52px;object-fit:contain" alt="">
+      <div id="dre-qr-m" style="margin-left:auto;text-align:center"></div>
+    </div>
+    <div style="font-size:9px;margin-top:6px;line-height:1.5">${esc(titulos[dre.modo])}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
+    <table style="margin-top:8px;font-size:8.6px"><thead><tr>
+      <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
+      <td class="dre-vm" style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_a)}</td>
+      <td class="dre-vm" style="text-align:right;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_b)}</td></tr></thead><tbody>`;
+  for (const ln of dre.linhas){
+    if (ln.tipo === 'gap'){ html += '<tr><td colspan="3" style="padding:1px;font-size:3px;border:none"></td></tr>'; continue; }
+    if (ln.tipo === 'sec'){ html += `<tr><td colspan="3" style="background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px">${esc(ln.rotulo)}</td></tr>`; continue; }
+    const sub = ln.tipo === 'sub', tX = ln.tipo === 'tot';
+    html += `<tr><td style="${sub || tX ? 'font-weight:bold;background:#f4f6fa;' : ''}${ln.tipo === 'it' ? 'padding-left:14px;' : ''}padding:2px 5px;${tX || sub ? 'border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${esc(ln.rotulo)}</td>
+      <td style="text-align:right;white-space:nowrap;padding:2px 5px;${sub || tX ? 'font-weight:bold;background:#f4f6fa;border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${dreFmt(ln.a)}</td>
+      <td style="text-align:right;white-space:nowrap;padding:2px 5px;${sub || tX ? 'font-weight:bold;background:#f4f6fa;border-top:.5px solid #000;' : ''}${tX ? 'border-bottom:2px double #000;' : ''}">${dreFmt(ln.b)}</td></tr>`;
+  }
+  html += `</tbody></table>
+    <p style="font-size:6.5px;color:#555;margin-top:8px;line-height:1.45">Saldos conforme fechamentos importados; divergências de cadeia são sinalizadas sem reescrita. O Círculo de Oração é fundo vinculado, com caixa próprio.${(dre.avisos || []).map(a => '<br>• ' + esc(a)).join('')}</p>`;
+  if (dre.assinado){
+    html += `<div style="display:flex;gap:4%;margin-top:30px;font-size:7px;text-align:center;line-height:1.45">
+      ${[['Carlos Daniel Almeida de Alencar', 'Contador — CRC-RR 002134/O', 'CPF 044.213.512-29'],
+         ['Wallace Carlos de Lima Muniz', '1º Tesoureiro do Campo', 'CPF 663.033.202-44'],
+         ['Lindjard Feitosa Rodrigues de Matos', 'Pastora do Campo — Portaria PT-003/2025', 'CPF 006.321.792-95']]
+        .map(s => `<div style="flex:1"><div style="border-top:1px solid #000;padding-top:3px;margin:0 4px"><b>${s[0]}</b><br>${s[1]}<br>${s[2]}</div></div>`).join('')}</div>`;
+  }
+  host.innerHTML = html + '</div>';
+  const qrEl = el('dre-qr-m');
+  if (qrEl && dre.verificacao?.url){
+    try {
+      if (typeof QRCode !== 'undefined'){
+        qrEl.innerHTML = '';
+        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
+        const k = document.createElement('div');
+        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
+        k.textContent = dre.verificacao.codigo;
+        qrEl.appendChild(k);
+      }
+    } catch(e){}
+  }
+};
+
+window.drePdf = async function(){
+  const dre = DR.doc;
+  if (!dre){ toast('Carregue a DRE primeiro.'); return; }
+  if (typeof jspdf === 'undefined' || !window.jspdf?.jsPDF){ toast('Biblioteca de PDF indisponível offline.'); return; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    const imgEl = document.querySelector('#dre-doc-m img');
+    if (imgEl?.src){
+      try {
+        const dataUrl = await fetch(imgEl.src).then(r => r.blob()).then(b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); }));
+        doc.addImage(dataUrl, 'PNG', 14, 8, 128, 128 * 191 / 1128);
+      } catch(e){}
+    }
+    doc.setFontSize(9); doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, 14, 34);
+    doc.text(dre.subtitulo || '', 14, 38); doc.text('(Em reais)', 14, 42);
+    let corpo, headRow, nCols;
+    if (dre.modo === 'serie'){
+      const cols = dre.colunas || [];
+      nCols = cols.length + 1;
+      headRow = [''].concat(cols.map(c => c.rotulo));
+      corpo = (dre.linhas_serie || []).map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
+        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
+        : [{ content: ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
+          .concat((ln.valores || []).map(v => ({ content: dreFmt(v), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
+    } else {
+      nCols = 3;
+      headRow = ['', dre.rotulo_a, dre.rotulo_b];
+      corpo = (dre.linhas || []).map(ln => ln.tipo === 'gap' ? ['', '', '']
+        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
+        : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } },
+           { content: dreFmt(ln.a), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } },
+           { content: dreFmt(ln.b), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]);
+    }
+    doc.autoTable({
+      startY: 46, head: [headRow],
+      body: corpo, theme: 'plain', styles: { fontSize: 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
+      headStyles: { fontStyle: 'bold', halign: 'right' },
+      columnStyles: Object.assign({ 0: { cellWidth: nCols > 3 ? 78 : 108 } },
+        Object.fromEntries([...Array(nCols - 1).keys()].map(i => [i + 1, { halign: 'right' }]))),
+      margin: { left: 14, right: 14, bottom: 14 },
+      didDrawPage: () => {
+        doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
+        doc.text(String(doc.internal.getNumberOfPages()), 14, 291);
+        doc.text('SGE • AD BRASIL — DEMONSTRAÇÃO DO RESULTADO GERADA ELETRONICAMENTE', W / 2, 291, { align: 'center' });
+      },
+    });
+    let y = doc.lastAutoTable.finalY + 6;
+    doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
+    doc.text('Saldos conforme fechamentos importados; divergências de cadeia são sinalizadas sem reescrita. O Círculo de Oração é fundo vinculado, com caixa próprio.', 14, y, { maxWidth: W - 28 });
+    if (dre.assinado){
+      y += 16;
+      const sigs = [['Carlos Daniel Almeida de Alencar', 'Contador — CRC-RR 002134/O', 'CPF 044.213.512-29'],
+        ['Wallace Carlos de Lima Muniz', '1º Tesoureiro do Campo', 'CPF 663.033.202-44'],
+        ['Lindjard Feitosa Rodrigues de Matos', 'Pastora do Campo — Portaria PT-003/2025', 'CPF 006.321.792-95']];
+      doc.setTextColor(17, 17, 17); doc.setFontSize(6.6);
+      const larg = (W - 28) / 3;
+      sigs.forEach((s, i) => {
+        const x = 14 + i * larg + 4;
+        doc.line(x, y, x + larg - 12, y);
+        doc.text(`${s[0]}\n${s[1]}\n${s[2]}`, x + (larg - 12) / 2, y + 3.5, { align: 'center' });
+      });
+    }
+    doc.save(dre.modo === 'serie' ? 'DRE_Serie_de_Exercicios.pdf'
+      : `DRE_${dre.modo}_${dre.ano}_${String(DRE_IDX_MES[dre.mes] || 0).padStart(2, '0')}.pdf`);
+    toast('PDF da DRE gerado.');
+  } catch(e){ toast(e.message || 'Falha ao gerar o PDF.'); }
+};
+
 /* depuração/testes */
-window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC };
+window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC, DR };
 
 })();

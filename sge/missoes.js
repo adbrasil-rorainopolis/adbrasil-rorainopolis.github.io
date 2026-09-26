@@ -111,6 +111,7 @@ const M = {
 const ABAS_MIS = [
   ['arrecadacao', 'Arrecadação', 'fa-hand-holding-heart', '#fb923c'],
   ['historico',   'Histórico & Evolução', 'fa-chart-line', '#38bdf8'],
+  ['metas',       'Metas Anuais', 'fa-bullseye', '#34d399'],
 ];
 
 window.renderMissoes = function(){
@@ -142,6 +143,7 @@ window.missoesAba = async function(aba){
   });
   if (!M.periodos.length) M.periodos = await SGEG.listarPeriodos();
   if (aba === 'arrecadacao') renderMisArrecadacao();
+  else if (aba === 'metas'){ if (M.metas === undefined) carregarMetasM(); renderMisMetas(); }
   else { if (M.metas === undefined) carregarMetasM(); renderMisHistorico(); }
 };
 
@@ -734,6 +736,109 @@ window.salvarMetasM = async function(){
     if (M.dadosHist) _renderMetasM(M.dadosHist);
   } catch(e){ toast(e.message || 'Falha ao salvar metas.'); }
 };
+
+/* ---------- ABA 3 — Metas Anuais (configuração, progresso e semáforo) ---------- */
+async function _realizadoAnoM(ano){
+  const meses = M.periodos.filter(p => String(p.ano) === String(ano))
+    .sort((a, b) => idxMesM(a.mes) - idxMesM(b.mes));
+  const acc = _zeraM();
+  const porMes = [];
+  let saldoCampo = null;
+  for (const p of meses){
+    const mov = await SGEG.carregarMovimento(p.ano, p.mes);
+    const aba = abaDoMes(mov, 'FECHAMENTO DO MÊS');
+    const regs = aba?.registros || [];
+    const t = _zeraM();
+    for (const r of regs){
+      const e = extrairMissoesReg(r);
+      for (const c of CATS_MIS) t[c.chave] += e[c.chave];
+    }
+    t.total_missoes = CONTAS_MIS.reduce((s, c) => s + t[c.chave], 0);
+    for (const c of CATS_MIS) acc[c.chave] += t[c.chave];
+    acc.total_missoes += t.total_missoes;
+    porMes.push({ mes: p.mes, ...t });
+    const sc = numM(aba?.totais?.saldo_campo);
+    if (aba?.totais && 'saldo_campo' in aba.totais) saldoCampo = sc;
+  }
+  return { acc, porMes, saldoCampo, meses: porMes.length };
+}
+
+async function renderMisMetas(){
+  const corpo = $m('missoes-corpo');
+  const anos = [...new Set(M.periodos.map(p => String(p.ano)))].sort();
+  const anoAtual = String(new Date().getFullYear());
+  if (!anos.includes(anoAtual)) anos.push(anoAtual);
+  M.metasAno = M.metasAno || anoAtual;
+  corpo.innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center gap-2">
+          <div class="flex-1"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Exercício</span>${selM('metas-ano-sel', anos.map(a => [a, a]), M.metasAno, 'misMetasAno()')}</div>
+          <button onclick="abrirModalMetasM()" class="mt-4 px-3 py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-gear text-emerald-400 mr-1"></i>Configurar</button>
+        </div>
+      </div>
+      <div id="mis-metas-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Calculando projeção…</div></div>
+    </div>`;
+  await _renderMisMetasCorpo();
+}
+window.misMetasAno = function(){ M.metasAno = $m('metas-ano-sel')?.value || M.metasAno; _renderMisMetasCorpo(); };
+
+async function _renderMisMetasCorpo(){
+  const box = $m('mis-metas-corpo'); if (!box) return;
+  const ano = String(M.metasAno);
+  const meta = _metaAnoM(ano, 'total_missoes');
+  const { acc, porMes, saldoCampo, meses } = await _realizadoAnoM(ano);
+  const realizado = numM(acc.total_missoes);
+  const mesesAno = 12;
+  const proj = meses > 0 ? realizado / meses * mesesAno : 0;
+  const pctReal = meta > 0 ? realizado / meta * 100 : 0;
+  const pctProj = meta > 0 ? proj / meta * 100 : 0;
+  const caixaNeg = saldoCampo != null && saldoCampo < 0;
+  let semaforo, corSem, descSem;
+  if (meta <= 0){ semaforo = 'SEM META'; corSem = '#94a3b8'; descSem = 'Cadastre a meta do exercício para ativar o semáforo preditivo.'; }
+  else if (pctProj >= 95 && !caixaNeg){ semaforo = 'VERDE'; corSem = '#10b981'; descSem = 'Projeção cobre a meta e o caixa do campo está positivo.'; }
+  else if (pctProj >= 75){ semaforo = 'AMARELO'; corSem = '#f59e0b'; descSem = caixaNeg ? 'Projeção próxima da meta, mas o caixa do campo está negativo.' : 'Projeção parcialmente abaixo da meta — acompanhar os próximos fechamentos.'; }
+  else { semaforo = 'VERMELHO'; corSem = '#ef4444'; descSem = 'Projeção linear não alcança a meta do exercício no ritmo atual.'; }
+  const fmtPct = v => (Math.min(999, v)).toFixed(0) + '%';
+  box.innerHTML = `
+    <div class="grid grid-cols-3 gap-2">
+      ${cardM('Meta do ano', meta > 0 ? moedaM(meta) : '—', '#34d399')}
+      ${cardM('Realizado acum.', moedaM(realizado), '#38bdf8')}
+      ${cardM('Projeção linear', meta > 0 ? moedaM(proj) : '—', '#a78bfa')}
+    </div>
+    <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:${corSem}55">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full shrink-0" style="background:${corSem};box-shadow:0 0 8px ${corSem}"></span>
+        <b class="text-xs" style="color:${corSem}">Semáforo: ${semaforo}</b>
+        <span class="ml-auto text-[10px] font-bold tabular-nums" style="color:${corSem}">${meta > 0 ? fmtPct(pctProj) + ' proj.' : ''}</span>
+      </div>
+      <p class="text-[10px] opacity-70 mt-1.5 leading-relaxed">${descSem} ${meses ? `Base: ${meses} fechamento(s) de ${ano}.` : ''}</p>
+      <div class="h-2 rounded-full overflow-hidden mt-2" style="background:var(--bg-input)"><div class="h-full rounded-full" style="width:${Math.min(100, pctReal)}%;background:${corSem}"></div></div>
+      <div class="flex justify-between text-[9px] opacity-60 mt-1"><span>Realizado ${fmtPct(pctReal)}</span><span>${moedaM(realizado)} / ${meta > 0 ? moedaM(meta) : 'sem meta'}</span></div>
+    </div>
+    <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[10px] font-bold uppercase opacity-60">Realizado por conta × meta</p>
+      ${CONTAS_MIS.map(c => {
+        const mC = _metaAnoM(ano, c.chave), rC = numM(acc[c.chave]);
+        const pC = mC > 0 ? Math.min(100, rC / mC * 100) : 0;
+        return `<div>
+          <div class="flex justify-between text-[10px]"><span class="font-semibold">${c.rotulo}</span><span class="tabular-nums opacity-70">${moedaM(rC)}${mC > 0 ? ' / ' + moedaM(mC) : ''}</span></div>
+          <div class="h-1.5 rounded-full overflow-hidden mt-0.5" style="background:var(--bg-input)"><div class="h-full rounded-full" style="width:${pC}%;background:${c.cor}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[10px] font-bold uppercase opacity-60">Realizado por mês — ${ano}</p>
+      ${porMes.length ? porMes.map(pm => `<div class="flex justify-between text-[10px]"><span>${pm.mes}</span><b class="tabular-nums">${moedaM(pm.total_missoes)}</b></div>`).join('') : '<p class="text-[10px] opacity-60">Nenhum fechamento importado neste exercício.</p>'}
+    </div>
+    <div class="border rounded-2xl p-3 space-y-1.5" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[10px] font-bold uppercase opacity-60">Metas cadastradas</p>
+      ${Object.keys(M.metas || {}).sort().map(a => {
+        const t = _metaAnoM(a, 'total_missoes');
+        return `<div class="flex justify-between text-[10px]"><span>${a}</span><b class="tabular-nums">${t > 0 ? moedaM(t) : '—'}</b></div>`;
+      }).join('') || '<p class="text-[10px] opacity-60">Nenhuma meta cadastrada.</p>'}
+    </div>`;
+}
 
 /* API de depuração/testes */
 window.SGEM = { extrairMissoesReg, abaDoMes, M };
