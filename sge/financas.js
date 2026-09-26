@@ -3164,7 +3164,7 @@ async function finRenderSemanal(){
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="sem-conselho" onchange="semMudarConselho()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="sem-congregacao" onchange="semMudarFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
         </div>
-        <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar membro por nome ou ID…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+        <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar por nome, ID ou valor…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       </div>
       <div id="sem-aviso"></div>
       <div class="flex items-center gap-1.5 px-1">
@@ -3247,6 +3247,23 @@ window.semCarregar = async function(){
 function _semRenderLista(){
   const s = F.sem, lista = el('sem-lista'); if (!lista) return;
   const termo = cfq(s.busca), pode = semPodeEditar();
+  /* Busca por valor: termo só numérico/monetário também casa com o valor lançado
+     (ex.: "244", "244,00", "349.50", "1.244,00"). Paridade com o desktop. */
+  const tDig = String(s.busca || '').replace(/[^\d.,]/g, '');
+  const isValor = /\d/.test(tDig) && /^[\d.,\sR$r$]*$/.test(String(s.busca || ''));
+  const numT = (() => { if (!isValor) return NaN; let t = tDig; if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); const n = parseFloat(t); return isFinite(n) ? n : NaN; })();
+  const bateValor = id => {
+    if (!isValor) return false;
+    const k = String(id ?? '').trim();
+    const reg = s.lancs[k] || s.lancs[String(parseInt(k, 10)).padStart(6, '0')];
+    if (!reg) return false;
+    const v = parseValor(reg.valor);
+    if (isFinite(numT) && Math.abs(v - numT) < 0.005) return true;
+    const fmtS = v.toFixed(2).replace('.', ',');
+    const fmtM = v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const td = tDig.includes(',') ? tDig.replace(/\./g, '') : tDig;
+    return (td && fmtS.includes(td)) || fmtM.includes(tDig);
+  };
   const vigCache = {};
   const vigOf = m => { const k = String(m.id ?? '').trim(); if (!(k in vigCache)) vigCache[k] = _semVigente(m.id, s.mes, s.ano, s.histMap); return vigCache[k]; };
   const congEfetiva = m => vigOf(m)?.congregacao || m.congregacao || 'Sede';
@@ -3256,7 +3273,7 @@ function _semRenderLista(){
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
     if (s.conselho !== 'Todos' && cf(consEfetivo(m)) !== cf(s.conselho)) return false;
     if (s.congregacao !== 'Todas' && cf(congEfetiva(m)) !== cf(s.congregacao)) return false;
-    if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo)) return false;
+    if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo) && !bateValor(m.id)) return false;
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
 
