@@ -679,8 +679,16 @@ window.fqAjudaFreq = function(){
 async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = 'Todas' }){
   await carregarMembros();
   const lancamentos = await carregarTodosLancamentos();
+  const histTodos = await carregarHistoricoCongs();
+  const histMapFq = {};
+  for (const r of (histTodos || [])){
+    const k = String(r.id_membro ?? '').trim();
+    (histMapFq[k] = histMapFq[k] || []).push(r);
+  }
   const hoje = new Date();
   const referencia = _periodoIdx(ano, mes) ?? (hoje.getFullYear() * 12 + hoje.getMonth());
+  const mesRef = mes && MESES_ORD.includes(mes) ? mes : MESES_ORD[hoje.getMonth()];
+  const anoRef = String(ano || hoje.getFullYear());
 
   const contribuicoes = {}, ultimos = {};
   for (const r of lancamentos){
@@ -702,8 +710,9 @@ async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = '
 
   for (const m of (F.membros || [])){
     if (String(m.excluido_em ?? '').trim()) continue;
-    const consM = String(m.conselho || '').trim();
-    const congM = _nomeCongExib(m.congregacao);
+    const vigFq = _semVigente(m.id, mesRef, anoRef, histMapFq);
+    const consM = String(vigFq?.conselho || m.conselho || '').trim();
+    const congM = _nomeCongExib(vigFq?.congregacao || m.congregacao);
     if (!['', 'Todos', 'Todas'].includes(conselho ?? 'Todos') && consM.toLowerCase() !== String(conselho).toLowerCase()) continue;
     if (!['', 'Todos', 'Todas'].includes(congregacao ?? 'Todas') && congM.toLowerCase() !== String(congregacao).toLowerCase()) continue;
 
@@ -3096,6 +3105,27 @@ function _semMembroAtivo(m, mes, ano){
   return !ini || alvo < ini || (rea !== null && alvo >= rea);
 }
 
+/* Conselho/congregação vigentes do membro no mês/ano filtrado — paridade com
+   obter_conselho_congregacao_vigente (helpers.py). Sem histórico aplicável → null. */
+const _perMM = a => { const mm = /^(\d{2})\/(\d{4})$/.exec(String(a || '').trim()); return mm ? (+mm[2]) * 100 + (+mm[1]) : null; };
+function _semVigente(idRaw, mes, ano, histMap){
+  if (!histMap) return null;
+  const alvo = (parseInt(ano, 10) || 0) * 100 + (MESES_ORD.indexOf(mes) + 1);
+  const k = String(idRaw ?? '').trim();
+  const kn = String(parseInt(k, 10)).padStart(6, '0');
+  const regs = histMap[k] || histMap[kn] || [];
+  const vig = [];
+  for (const r of regs){
+    if (r.status === 'Programado') continue;
+    const ini = _perMM(r.data_efetivacao || r.data_inicio);
+    const fim = _perMM(r.data_fim);
+    if (ini !== null && ini <= alvo && (fim === null || alvo <= fim)) vig.push([ini, r.conselho, r.congregacao]);
+  }
+  if (!vig.length) return null;
+  vig.sort((a, b) => b[0] - a[0]);
+  return { conselho: vig[0][1], congregacao: vig[0][2] };
+}
+
 async function _semFechamentos(ano){
   const a = String(ano);
   if (!F.sem.fechPorAno[a]){
@@ -3193,7 +3223,12 @@ window.semCarregar = async function(){
   const s = F.sem, lista = el('sem-lista'); if (!lista) return;
   lista.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando grade…</div>';
   try {
-    const [, lancs, fech] = await Promise.all([carregarMembros(), carregarLancamentosAno(s.ano), _semFechamentos(s.ano)]);
+    const [, lancs, fech, hist] = await Promise.all([carregarMembros(), carregarLancamentosAno(s.ano), _semFechamentos(s.ano), carregarHistoricoCongs()]);
+    s.histMap = {};
+    for (const r of (hist || [])){
+      const k = String(r.id_membro ?? '').trim();
+      (s.histMap[k] = s.histMap[k] || []).push(r);
+    }
     s.lancs = {};
     for (const r of (lancs || [])){
       if (cf(r.mes) === cf(s.mes) && _semNorm(r.semana) === s.semana) s.lancs[String(r.id ?? '').trim()] = r;
@@ -3212,11 +3247,15 @@ window.semCarregar = async function(){
 function _semRenderLista(){
   const s = F.sem, lista = el('sem-lista'); if (!lista) return;
   const termo = cfq(s.busca), pode = semPodeEditar();
+  const vigCache = {};
+  const vigOf = m => { const k = String(m.id ?? '').trim(); if (!(k in vigCache)) vigCache[k] = _semVigente(m.id, s.mes, s.ano, s.histMap); return vigCache[k]; };
+  const congEfetiva = m => vigOf(m)?.congregacao || m.congregacao || 'Sede';
+  const consEfetivo = m => vigOf(m)?.conselho || m.conselho || 'Conselho 1';
   const rows = (F.membros || []).filter(m => {
     if (String(m.excluido_em ?? '').trim()) return false;
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
-    if (s.conselho !== 'Todos' && cf(m.conselho) !== cf(s.conselho)) return false;
-    if (s.congregacao !== 'Todas' && cf(m.congregacao) !== cf(s.congregacao)) return false;
+    if (s.conselho !== 'Todos' && cf(consEfetivo(m)) !== cf(s.conselho)) return false;
+    if (s.congregacao !== 'Todas' && cf(congEfetiva(m)) !== cf(s.congregacao)) return false;
     if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo)) return false;
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
@@ -3236,7 +3275,7 @@ function _semRenderLista(){
     if (!itinCong && reg){
       try {
         const ps = JSON.parse(String(reg.detalhes_parcelas || '[]'));
-        const dif = [...new Set((Array.isArray(ps) ? ps : []).map(p => cf(p.congregacao)).filter(c => c && c !== cf(m.congregacao)))];
+        const dif = [...new Set((Array.isArray(ps) ? ps : []).map(p => cf(p.congregacao)).filter(c => c && c !== cf(congEfetiva(m))))];
         if (dif.length) itinCong = dif.join(' + ');
       } catch(e){}
     }
@@ -3249,7 +3288,7 @@ function _semRenderLista(){
     return `<div onclick="semAbrirLanc('${esc(id)}')" class="border rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer active:scale-[.99] transition" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-0">
         <p class="font-bold text-xs truncate">${esc(m.nome || 'Membro Sem Nome')}</p>
-        <p class="text-[10px] opacity-60 truncate">${esc(m.congregacao || '')} • ID ${esc(id)}</p>
+        <p class="text-[10px] opacity-60 truncate">${esc(congEfetiva(m) || '')} • ID ${esc(id)}</p>
         <div class="flex gap-1 mt-0.5 flex-wrap">${badge}${itin ? `<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-sky-400 border border-sky-400/30 bg-sky-400/10"><i class="fa-solid fa-route mr-0.5"></i>${esc(itinCong)}</span>` : ''}</div>
       </div>
       <div class="text-right shrink-0">
@@ -3398,8 +3437,10 @@ window.semLancDelParcela = function(i){ F.semLanc?.parcelas.splice(i, 1); if (!F
 
 window.semAbrirLanc = async function(id){
   const s = F.sem;
-  const mem = (F.membros || []).find(x => _idMatch(x.id, id));
-  if (!mem){ toast('Membro não encontrado.'); return; }
+  const mem0 = (F.membros || []).find(x => _idMatch(x.id, id));
+  if (!mem0){ toast('Membro não encontrado.'); return; }
+  const vig = _semVigente(mem0.id, s.mes, s.ano, s.histMap);
+  const mem = vig ? { ...mem0, conselho: vig.conselho || mem0.conselho, congregacao: vig.congregacao || mem0.congregacao } : mem0;
   const reg = s.lancs[String(mem.id ?? '').trim()];
   const pode = semPodeEditar() && (!s.fechada || sgeEhAdmin());
   _semModalLanc();
