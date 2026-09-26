@@ -3981,10 +3981,24 @@ window.semSalvarNovoMembro = async function(){
   try {
     await carregarMembros();
     const id = edit ? edit.id : _semProximoId();
-    const r = await api('salvar_membro', {
+    let r = await api('salvar_membro', {
       membro: { id, conselho, congregacao, nome, telefone: tel },
       operacao: 'salvar', versao_base: edit ? edit.versao : 0, idempotency_key: crypto.randomUUID(),
     }, sessao()?.token);
+    /* Drift de versão sem mudança de conteúdo: se o registro na nuvem é idêntico
+       ao que o usuário viu ao abrir a edição, só a versão divergiu (sync) —
+       retenta com a versao_atual sem perder a edição. */
+    if (r?.conflito && edit && r.versao_atual){
+      const remoto = (F.membros || []).find(x => _idMatch(x.id, id));
+      const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+      const telEq = (a, b) => String(a || '-').replace(/\D/g, '') === String(b || '-').replace(/\D/g, '');
+      if (remoto && eq(remoto.nome, edit.nome) && eq(remoto.conselho, edit.conselho) && eq(remoto.congregacao, edit.congregacao) && telEq(remoto.telefone, edit.telefone)){
+        r = await api('salvar_membro', {
+          membro: { id, conselho, congregacao, nome, telefone: tel },
+          operacao: 'salvar', versao_base: Number(r.versao_atual), idempotency_key: crypto.randomUUID(),
+        }, sessao()?.token);
+      }
+    }
     if (r?.ok === false || r?.erro) throw new Error(r.erro || (edit ? 'Falha ao salvar.' : 'Falha ao cadastrar.'));
     el('sem-modal').classList.add('hidden');
     F.membros = null; F.membroEdit = null;
