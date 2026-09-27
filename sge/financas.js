@@ -4118,7 +4118,8 @@ function _dreCalc(d){
   const res = b1 - b2 - op - iv;
   const c = d.circulo || {};
   const varF = (c.saldo != null && c.anterior != null) ? c.saldo - c.anterior : null;
-  return { b1, b2, op, iv, res, c, varF,
+  const rep_miss = num(d.deducoes['Repasse da Oferta de Missões']);
+  return { b1, b2, op, iv, res, c, varF, rep_miss, liq: b1 - b2,
     consI: c.anterior != null ? d.saldo_anterior + c.anterior : null,
     consF: c.saldo != null ? d.saldo_campo + c.saldo : null };
 }
@@ -4396,6 +4397,27 @@ window.renderContabil = function(){
             <th class="p-3">Período</th><th class="p-3 text-right">Atual</th><th class="p-3 text-right">Ano ant.</th><th class="p-3 text-right">Δ nominal</th><th class="p-3 text-right">Em SM</th><th class="p-3 text-right">Δ real</th></tr></thead>
             <tbody id="ind-yoy-tbody-m" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
         </div>
+        <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="px-4 py-3 border-b" style="border-color:var(--border-color)"><h3 class="font-bold text-sm">Índices sobre a receita bruta</h3><p class="text-[10px] opacity-60 mt-0.5">Quanto de cada real arrecadado fica na operação (líquida) e vai para missões (repasse).</p></div>
+          <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr>
+            <th class="p-3">Índice</th><th class="p-3 text-right">Mês</th><th class="p-3 text-right">Ano ant.</th><th class="p-3 text-right">Δ p.p.</th><th class="p-3 text-right">Acum.</th><th class="p-3 text-right">Acum. ant.</th><th class="p-3 text-right">Δ p.p.</th></tr></thead>
+            <tbody id="ind-razoes-tbody-m" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
+        </div>
+        <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+          <h3 class="font-bold text-sm">Receita líquida ÷ bruta</h3>
+          <p id="ind-graf-liq-leg-m" class="text-[10px] opacity-60 mt-0.5 mb-2"></p>
+          <div class="relative h-52"><canvas id="ind-graf-liq-m"></canvas></div>
+        </div>
+        <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+          <h3 class="font-bold text-sm">Repasse de missões ÷ bruta</h3>
+          <p id="ind-graf-miss-leg-m" class="text-[10px] opacity-60 mt-0.5 mb-2"></p>
+          <div class="relative h-52"><canvas id="ind-graf-miss-m"></canvas></div>
+        </div>
+        <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+          <h3 class="font-bold text-sm">Evolução interanual mensal da arrecadação</h3>
+          <p class="text-[10px] opacity-60 mt-0.5 mb-2">Variação da receita bruta de cada mês contra o mesmo mês do ano anterior.</p>
+          <div class="relative h-52"><canvas id="ind-graf-yoy-m"></canvas></div>
+        </div>
       </div>
     </div>`;
   _contEstiloSub();
@@ -4475,8 +4497,25 @@ window.contIndicadores = async function(){
   const smA = _contSM(ano), smB = _contSM(anoB);
   const emSM = (c, sm) => !c ? null : {
     receita: c.b1, deducoes: c.b2, despesas: c.op + c.iv, resultado: c.res, caixa: c.consF,
+    receita_liq: c.liq, rep_miss: c.rep_miss,
+    liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
+    rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null,
     receita_sm: c.b1 / sm, deducoes_sm: c.b2 / sm, despesas_sm: (c.op + c.iv) / sm,
     resultado_sm: c.res / sm, caixa_sm: c.consF == null ? null : c.consF / sm };
+  // série mensal jan→mes (ano atual × ano anterior) p/ gráficos de evolução %
+  const serie = [];
+  for (let i = 0; i < idx; i++){
+    const m = MESES_ORD[i];
+    const [ca, cb] = await Promise.all([_contDados(ano, m), _contDados(anoB, m)]);
+    const p = c => !c ? null : {
+      receita: c.b1, liq: c.liq, rep_miss: c.rep_miss,
+      liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
+      rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null };
+    const pa = p(ca), pb = p(cb);
+    serie.push({ mes: m, abrev: DRE_ABREV(m), a: pa, b: pb,
+      yoy_rec: (pa && pb && Math.abs(pb.receita) >= 0.005)
+        ? +(((pa.receita - pb.receita) / Math.abs(pb.receita)) * 100).toFixed(1) : null });
+  }
   const ind = {
     rotulo: `${DRE_ABREV(mes)}/${ano}`, rotulo_ant: `${DRE_ABREV(mes)}/${anoB}`,
     sm_ano: ano, sm_valor: smA, sm_ano_ant: anoB, sm_valor_ant: smB,
@@ -4486,6 +4525,7 @@ window.contIndicadores = async function(){
     yoy_resultado: _contYoy(mA?.res, mB?.res),
     yoy_sm_mes: _contYoy(mA ? mA.b1 / smA : null, mB ? mB.b1 / smB : null),
     yoy_sm_acumulado: _contYoy(acA ? acA.b1 / smA : null, acB ? acB.b1 / smB : null),
+    serie_meses: serie,
     sem_base: !mB && !acB,
   };
   _contRenderInd(ind, mes, ano);
@@ -4541,6 +4581,68 @@ function _contRenderInd(ind, mes, ano){
     cardYoY(`Arrecadação do mês — ${ind.rotulo} × ${ind.rotulo_ant}`, ind.yoy_mes) +
     cardYoY(`Arrecadação acumulada (jan–${mes})`, ind.yoy_acumulado) +
     cardYoY('Resultado do mês', ind.yoy_resultado);
+
+  // --- Índices sobre a receita bruta ---
+  const fmtPct = v => (v === null || v === undefined) ? '—' : `${v.toFixed(1)}%`;
+  const dpp = (a, b) => (a == null || b == null)
+    ? '<span class="text-[10px] opacity-50">—</span>'
+    : `<span class="${a - b >= 0 ? 'text-emerald-500' : 'text-red-500'} font-bold">${a - b >= 0 ? '+' : ''}${(a - b).toFixed(1)}</span>`;
+  const linhaRazao = (rot, k) => `<tr><td class="p-3 font-semibold">${rot}</td>
+    <td class="p-3 text-right tabular-nums font-bold text-sky-400">${fmtPct(ind.mes?.[k])}</td>
+    <td class="p-3 text-right tabular-nums opacity-80">${fmtPct(ind.mes_anterior?.[k])}</td>
+    <td class="p-3 text-right">${dpp(ind.mes?.[k], ind.mes_anterior?.[k])}</td>
+    <td class="p-3 text-right tabular-nums font-bold text-sky-400">${fmtPct(ind.acumulado?.[k])}</td>
+    <td class="p-3 text-right tabular-nums opacity-80">${fmtPct(ind.acumulado_anterior?.[k])}</td>
+    <td class="p-3 text-right">${dpp(ind.acumulado?.[k], ind.acumulado_anterior?.[k])}</td></tr>`;
+  const rz = el('ind-razoes-tbody-m');
+  if (rz) rz.innerHTML =
+    linhaRazao('Líquida ÷ bruta', 'liq_pct') +
+    linhaRazao('Repasse missões ÷ bruta', 'rep_miss_pct');
+
+  // --- Gráficos de evolução percentual ---
+  window._grafIndM = window._grafIndM || {};
+  const serie = ind.serie_meses || [];
+  const labels = serie.map(s => s.abrev);
+  const pega = k => serie.map(s => s.a?.[k] ?? null);
+  const pegaB = k => serie.map(s => s.b?.[k] ?? null);
+  const corTxt = getComputedStyle(document.body).getPropertyValue('--text-main') || '#cbd5e1';
+  const opcPct = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: corTxt, boxWidth: 10, font: { size: 9 } } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y == null ? '—' : c.parsed.y.toFixed(1) + '%'}` } } },
+    scales: {
+      x: { ticks: { color: corTxt, font: { size: 9 } }, grid: { display: false } },
+      y: { ticks: { color: corTxt, font: { size: 9 }, callback: v => v + '%' },
+           grid: { color: 'rgba(148,163,184,.12)' }, suggestedMin: 0 } } };
+  const dsL = (rot, dados, cor, pont) => ({
+    label: rot, data: dados, borderColor: cor, backgroundColor: cor,
+    borderWidth: 2, pointRadius: 2.5, tension: .3, spanGaps: true,
+    borderDash: pont ? [4, 3] : undefined });
+  const desenhar = (id, datasets) => {
+    const cv = el(id);
+    if (!cv || typeof Chart === 'undefined') return;
+    if (window._grafIndM[id]) window._grafIndM[id].destroy();
+    window._grafIndM[id] = new Chart(cv, { type: 'line', data: { labels, datasets }, options: opcPct });
+  };
+  const anoAnt = `${+ano - 1}`;
+  el('ind-graf-liq-leg-m').textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada)`;
+  el('ind-graf-miss-leg-m').textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada)`;
+  desenhar('ind-graf-liq-m', [dsL(ano, pega('liq_pct'), '#38bdf8'), dsL(anoAnt, pegaB('liq_pct'), '#94a3b8', true)]);
+  desenhar('ind-graf-miss-m', [dsL(ano, pega('rep_miss_pct'), '#f59e0b'), dsL(anoAnt, pegaB('rep_miss_pct'), '#94a3b8', true)]);
+  const cvY = el('ind-graf-yoy-m');
+  if (cvY && typeof Chart !== 'undefined'){
+    if (window._grafIndM['ind-graf-yoy-m']) window._grafIndM['ind-graf-yoy-m'].destroy();
+    window._grafIndM['ind-graf-yoy-m'] = new Chart(cvY, {
+      type: 'bar',
+      data: { labels, datasets: [{
+        label: `YoY ${ano} × ${anoAnt}`, data: serie.map(s => s.yoy_rec),
+        backgroundColor: serie.map(s => (s.yoy_rec ?? 0) >= 0 ? 'rgba(16,185,129,.75)' : 'rgba(239,68,68,.75)'),
+        borderRadius: 4 }]},
+      options: { ...opcPct, plugins: { ...opcPct.plugins,
+        tooltip: { callbacks: { label: c => ` ${c.parsed.y == null ? '—' : c.parsed.y.toFixed(1) + '% vs ' + anoAnt}` } } } } });
+  }
 }
 
 function _dreEstiloModo(){
