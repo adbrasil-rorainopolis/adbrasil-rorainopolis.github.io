@@ -251,11 +251,24 @@ function _dzModal(){
   return m;
 }
 
+/* Opções de congregação na ORDEM CANÔNICA do campo (ordem oficial de
+   MAPA_CONSELHOS_CONGREGACOES, nunca alfabética). Quando o conselho é
+   "Todos", as congregações vêm agrupadas por conselho via <optgroup>. */
+function _congsOptsHtml(porConselho, conselho){
+  const ord = SGEG.ordenarConselhosG(Object.keys(porConselho || {}));
+  if (conselho && conselho !== 'Todos')
+    return SGEG.ordenarCongregacoesG(porConselho[conselho] || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  return ord.map(cons => {
+    const congs = SGEG.ordenarCongregacoesG(porConselho[cons] || []);
+    if (!congs.length) return '';
+    return `<optgroup label="${esc(cons)}">${congs.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</optgroup>`;
+  }).join('');
+}
 async function _dzPopularConselhos(){
   try {
     const { porConselho } = await SGEG.mapaConselhos();
     const sel = el('dz-conselho'); if (!sel) return;
-    sel.innerHTML = '<option value="Todos">Todos</option>' + Object.keys(porConselho).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.innerHTML = '<option value="Todos">Todos</option>' + SGEG.ordenarConselhosG(Object.keys(porConselho)).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
     sel.value = F.filtros.conselho || 'Todos';
     await dzMudaConselho();
   } catch(e){}
@@ -264,8 +277,7 @@ window.dzMudaConselho = async function(){
   const sel = el('dz-conselho'), cong = el('dz-congregacao');
   if (!sel || !cong) return;
   const { porConselho } = await SGEG.mapaConselhos();
-  const lista = sel.value === 'Todos' ? Object.values(porConselho).flat() : (porConselho[sel.value] || []);
-  cong.innerHTML = '<option value="Todas">Todas</option>' + [...new Set(lista)].sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  cong.innerHTML = '<option value="Todas">Todas</option>' + _congsOptsHtml(porConselho, sel.value);
 };
 
 let _dzBuscaTimer = null;
@@ -1298,6 +1310,7 @@ async function rcPopularCongregacoes(){
   if (!sel) return;
   const congs = await rcCarregarCongregacoes();
   const congFixa = rcCongFixa();
+  if (SGEG.ordemCongregacaoIdxG) congs.sort((a, b) => SGEG.ordemCongregacaoIdxG(a.nome) - SGEG.ordemCongregacaoIdxG(b.nome));
   sel.innerHTML = '<option value="">— Selecione —</option>' +
     congs.map(c => `<option value="${rcEsc(c.nome)}" data-conselho="${rcEsc(c.conselho || '')}">${rcEsc(c.nome)}</option>`).join('');
   if (congFixa){
@@ -3227,10 +3240,9 @@ window.semMudarFiltro = function(){
 window.semMudarConselho = async function(){
   F.sem.conselho = el('sem-conselho')?.value || 'Todos';
   const { porConselho } = await SGEG.mapaConselhos();
-  const lista = F.sem.conselho === 'Todos' ? Object.values(porConselho).flat() : (porConselho[F.sem.conselho] || []);
   const cong = el('sem-congregacao');
   if (cong){
-    cong.innerHTML = '<option value="Todas">Todas</option>' + [...new Set(lista)].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    cong.innerHTML = '<option value="Todas">Todas</option>' + _congsOptsHtml(porConselho, F.sem.conselho);
     F.sem.congregacao = 'Todas';
   }
   semCarregar();
@@ -3239,7 +3251,7 @@ async function _semPopularConselhos(){
   try {
     const { porConselho } = await SGEG.mapaConselhos();
     const sel = el('sem-conselho'); if (!sel) return;
-    sel.innerHTML = '<option value="Todos">Todos</option>' + Object.keys(porConselho).sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.innerHTML = '<option value="Todos">Todos</option>' + SGEG.ordenarConselhosG(Object.keys(porConselho)).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
     sel.value = F.sem.conselho;
     await semMudarConselho();
   } catch(e){}
@@ -3424,14 +3436,14 @@ function _semRenderParcelas(){
   const L = F.semLanc; if (!L || !L.mapaCong) return;
   const pode = L.pode;
   const base = cf(L.mem.congregacao);
-  /* optgroup por conselho — mesma lista oficial do cadastro. */
+  /* optgroup por conselho — mesma lista oficial do cadastro, ordem canônica. */
   const grupos = {};
   for (const k of Object.keys(L.mapaCong)){
     const { cons, cong } = L.mapaCong[k];
     (grupos[cons] = grupos[cons] || []).push(cong);
   }
-  const opts = Object.keys(grupos).sort().map(cons =>
-    `<optgroup label="${esc(cons)}">${grupos[cons].map(cg => `<option value="${esc(cg)}">${esc(cg)}</option>`).join('')}</optgroup>`
+  const opts = SGEG.ordenarConselhosG(Object.keys(grupos)).map(cons =>
+    `<optgroup label="${esc(cons)}">${SGEG.ordenarCongregacoesG(grupos[cons]).map(cg => `<option value="${esc(cg)}">${esc(cg)}</option>`).join('')}</optgroup>`
   ).join('');
   el('seml-parcelas').innerHTML = L.parcelas.map((p, i) => {
     const cg = p.cong || L.mem.congregacao || '';
@@ -3938,7 +3950,7 @@ window.semMudaConselhoModal = async function(){
   const { porConselho } = await SGEG.mapaConselhos();
   const cons = el('semm-conselho')?.value || '';
   const cong = el('semm-congregacao');
-  if (cong) cong.innerHTML = (porConselho[cons] || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (cong) cong.innerHTML = SGEG.ordenarCongregacoesG(porConselho[cons] || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 };
 
 window.semFecharModal = function(){
@@ -3960,7 +3972,7 @@ window.semAbrirNovoMembro = async function(){
   F.membroEdit = null;
   _semModalModo(false);
   const { porConselho } = await SGEG.mapaConselhos();
-  const conselhos = Object.keys(porConselho).sort();
+  const conselhos = SGEG.ordenarConselhosG(Object.keys(porConselho));
   el('semm-conselho').innerHTML = conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   await semMudaConselhoModal();
   el('semm-nome').value = ''; el('semm-tel').value = '';
@@ -3978,7 +3990,7 @@ window.semAbrirEditarMembro = async function(id){
   F.membroEdit = { id: mem.id, versao: Number(mem.versao || 0) };
   _semModalModo(true);
   const { porConselho } = await SGEG.mapaConselhos();
-  const conselhos = Object.keys(porConselho).sort();
+  const conselhos = SGEG.ordenarConselhosG(Object.keys(porConselho));
   const selCons = el('semm-conselho');
   selCons.innerHTML = conselhos.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   selCons.value = conselhos.includes(mem.conselho) ? mem.conselho : conselhos[0];
