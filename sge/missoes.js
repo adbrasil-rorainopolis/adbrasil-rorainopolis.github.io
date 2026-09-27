@@ -247,18 +247,17 @@ function renderMisHistorico(){
   if (!M.cats) M.cats = { ebd_missionaria: true, culto_missoes: true, oferta_missionaria: true, circulo_oracao_mis: true, total_missoes: true };
   const f = M.hist;
   const mesesOpts = ORDEM_MESES_M.map(m => [m, m]);
-  const ehPeriodo = f.modo === 'evolucao', ehAnos = f.modo === 'anual' || f.modo === 'tabela', ehCmp = f.modo === 'comparar';
+  const ehPeriodo = f.modo === 'evolucao', ehAnos = f.modo === 'anual' || f.modo === 'tabela' || f.modo === 'acumulado', ehCmp = f.modo === 'comparar';
 
   corpo.innerHTML = `
     <div id="mis-metas-progresso" class="hidden grid-cols-2 gap-2"></div>
     <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2">
         <span class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-filter text-orange-400 mr-1.5"></i>Filtros</span>
-        ${(typeof sgeAbaPermitida !== 'function' || sgeAbaPermitida('missoes', 'metas')) ? `<button onclick="abrirModalMetasM()" class="px-2.5 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-bullseye text-emerald-400 mr-1"></i>Metas anuais</button>` : ''}
       </div>
       <div>
         <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Modo de análise</span>
-        ${selM('mh-modo', [['evolucao', 'Evolução mensal'], ['anual', 'Comparativo anual'], ['comparar', 'Comparar meses'], ['tabela', 'Tabela anual lado a lado']], f.modo, 'misModoMudou()')}
+        ${selM('mh-modo', [['evolucao', 'Evolução mensal'], ['anual', 'Comparativo anual'], ['comparar', 'Comparar meses'], ['tabela', 'Tabela anual lado a lado'], ['acumulado', 'Progresso acumulado (meta)']], f.modo, 'misModoMudou()')}
       </div>
       <p class="text-[10px] opacity-60" id="mh-resumo">${_resumoHist(f)}</p>
       <div class="grid grid-cols-2 gap-2">
@@ -310,6 +309,7 @@ function renderMisHistorico(){
 }
 function _resumoHist(f){
   const escopoTxt = `${f.conselho}${f.congregacao !== 'Todas' ? ' • ' + f.congregacao : ''}`;
+  if (f.modo === 'acumulado') return `Progresso acumulado · ${f.ano_ini} a ${f.ano_fim} • ${escopoTxt}`;
   if (f.modo === 'anual' || f.modo === 'tabela') return `${f.modo === 'tabela' ? 'Tabela anual' : 'Anual'} · ${f.ano_ini} a ${f.ano_fim} • ${escopoTxt}`;
   if (f.modo === 'comparar') return `Comparativo livre entre meses • ${escopoTxt}`;
   return `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${escopoTxt}`;
@@ -453,7 +453,7 @@ async function carregarMisHistorico(disparado){
       return (ano && mes) ? { tipo: 'mes', ano: +ano, mes, rotulo: `${mes.slice(0, 3)}/${String(ano).slice(2)}` } : null;
     }).filter(Boolean);
     if (pontos.length < 2){ kpis.innerHTML = '<p class="text-[10px] opacity-60 col-span-2">Selecione ao menos 2 meses para comparar.</p>'; return; }
-  } else if (f.modo === 'tabela'){
+  } else if (f.modo === 'tabela' || f.modo === 'acumulado'){
     const aI = Math.min(+f.ano_ini, +f.ano_fim), aF = Math.max(+f.ano_ini, +f.ano_fim);
     anosTabela = []; for (let a = aI; a <= aF; a++) anosTabela.push(a);
     if (anosTabela.length > 8){ anosTabela.length = 8; toast('Tabela limitada a 8 anos por vez.'); }
@@ -501,7 +501,7 @@ async function carregarMisHistorico(disparado){
   });
 
   const anterior = pontosAnt.map(p => ({ ..._agregaMesM(cache, p.ano, p.mes, filtra, null, canon, mapaCons) }));
-  const tabela = f.modo === 'tabela' ? {
+  const tabela = (f.modo === 'tabela' || f.modo === 'acumulado') ? {
     anos: anosTabela.map(String),
     linhas: ORDEM_MESES_M.map(mes => ({
       mes,
@@ -538,7 +538,7 @@ function _renderResultadosM(){
   _renderStatsM(d);
   _renderMetasM(d);
   if (f.modo === 'tabela'){ _renderTabelaM(tabela); return; }
-  _renderGraficoM(series);
+  if (f.modo === 'acumulado') _renderGraficoAcumuladoM(tabela); else _renderGraficoM(series);
   const tbody = $m('mis-hist-tbody');
   if (tbody){
     const linhas = Object.values(porCong).sort((a, b) => SGEG.ordemCongregacaoIdxG(a.nome, a.conselho) - SGEG.ordemCongregacaoIdxG(b.nome, b.conselho));
@@ -584,10 +584,98 @@ function _renderGraficoM(series){
   });
 }
 
+/* Progresso acumulado por ano + linha de meta (paridade com o modo 'acumulado' do desktop) */
+function _renderGraficoAcumuladoM(tabela){
+  const tit = $m('mis-hist-titulo-graf');
+  const dados = tabela || {};
+  const anos = (dados.anos || []).map(String);
+  if (tit) tit.textContent = `Progresso acumulado · ${anos[0] || ''}${anos.length > 1 ? ' a ' + anos[anos.length - 1] : ''}`;
+  if (M.graf){ try { M.graf.destroy(); } catch(e){} M.graf = null; }
+  const cv = $m('mis-grafico');
+  if (!cv || !window.Chart || !anos.length) return;
+  const ehVisaoCampo = M.hist.conselho === 'Todos' && M.hist.congregacao === 'Todas';
+  const at = new Date().getFullYear(), mesAtual = new Date().getMonth();
+  const MESES_ABREV = ORDEM_MESES_M.map(m => m.slice(0, 3));
+  const ordemMes = {}; ORDEM_MESES_M.forEach((m, i) => ordemMes[m] = i);
+  const porAno = {}; anos.forEach(a => porAno[a] = Array(12).fill(0));
+  (dados.linhas || []).forEach(l => {
+    const i = ordemMes[l.mes];
+    if (i === undefined) return;
+    Object.entries(l.por_ano || {}).forEach(([a, v]) => { if (porAno[a] !== undefined) porAno[a][i] = _valorPontoM(v); });
+  });
+  const acum = arr => { let s = 0; return arr.map(v => (s += v, +s.toFixed(2))); };
+  const ultimoAno = anos[anos.length - 1];
+  const cores = ['#38bdf8', '#a78bfa', '#f472b6', '#facc15', '#34d399'];
+  const datasets = [];
+  anos.slice(0, -1).forEach((ano, i) => {
+    const d = acum(porAno[ano]);
+    const serie = +ano === at ? d.map((v, mi) => mi <= mesAtual ? v : null) : d;
+    datasets.push({ label: ano, data: serie, borderColor: cores[i % cores.length] + '99', borderWidth: 1.5, tension: 0.3, pointRadius: 0, pointHoverRadius: 4 });
+  });
+  const prog = +ultimoAno === at ? acum(porAno[ultimoAno]).map((v, i) => i <= mesAtual ? v : null) : acum(porAno[ultimoAno]);
+  const lastProg = prog.reduce((a, v, i) => v !== null ? i : a, 0);
+  datasets.push({
+    label: `Progresso ${ultimoAno}`, data: prog, borderColor: '#fb923c', borderWidth: 3.2, tension: 0.3,
+    pointRadius: c => c.dataIndex === lastProg ? 5 : 2.5, pointBackgroundColor: '#fb923c', pointHoverRadius: 6,
+  });
+  if (ehVisaoCampo) anos.forEach(ano => {
+    const meta = _metaAnoM(ano, 'total_missoes');
+    if (meta > 0) datasets.push({ label: `META ${ano}`, data: Array(12).fill(meta), borderColor: '#10b981', borderWidth: 1.6, borderDash: [7, 5], pointRadius: 0, pointHoverRadius: 0 });
+  });
+  M.graf = new Chart(cv.getContext('2d'), {
+    type: 'line',
+    data: { labels: MESES_ABREV, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, normalized: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { boxWidth: 8, font: { size: 9 } } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${moedaM(c.parsed.y)}` } },
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) } },
+      },
+    },
+  });
+  if (tit && ehVisaoCampo){
+    const metaUlt = _metaAnoM(ultimoAno, 'total_missoes');
+    if (metaUlt > 0) tit.textContent += ` — meta ${ultimoAno}: ${moedaM(metaUlt)}`;
+  }
+}
+
+function _renderStatsAcumuladoM(tabela){
+  const box = $m('mis-stats'); if (!box) return;
+  const dados = tabela || {};
+  const anos = (dados.anos || []).map(String);
+  if (!anos.length){ box.innerHTML = ''; return; }
+  const ehVisaoCampo = M.hist.conselho === 'Todos' && M.hist.congregacao === 'Todas';
+  const ultimoAno = anos[anos.length - 1];
+  const at = String(new Date().getFullYear()), mesAtual = new Date().getMonth();
+  const ordemMes = {}; ORDEM_MESES_M.forEach((m, i) => ordemMes[m] = i);
+  const porAno = {}; anos.forEach(a => porAno[a] = Array(12).fill(0));
+  (dados.linhas || []).forEach(l => {
+    const i = ordemMes[l.mes];
+    if (i === undefined) return;
+    Object.entries(l.por_ano || {}).forEach(([a, v]) => { if (porAno[a] !== undefined) porAno[a][i] = _valorPontoM(v); });
+  });
+  const acumUlt = porAno[ultimoAno].reduce((a, b) => a + b, 0);
+  const realizado = ultimoAno === at ? porAno[ultimoAno].slice(0, mesAtual + 1).reduce((a, b) => a + b, 0) : acumUlt;
+  const meta = ehVisaoCampo ? _metaAnoM(ultimoAno, 'total_missoes') : 0;
+  const pct = meta > 0 ? realizado / meta * 100 : null;
+  const anoAnt = anos.length > 1 ? anos[anos.length - 2] : null;
+  box.innerHTML =
+    cardM(`Meta ${ultimoAno} (campo)`, meta > 0 ? moedaM(meta) : '—', '#34d399') +
+    cardM(`Realizado ${ultimoAno} até ${ultimoAno === at ? ORDEM_MESES_M[Math.min(mesAtual, 11)] : 'Dezembro'}`, moedaM(realizado), '#fb923c') +
+    cardM('Atingido', pct === null ? '—' : pct.toFixed(1) + '%', pct !== null && pct >= 100 ? '#10b981' : '#38bdf8') +
+    cardM(anoAnt ? `Ano ${anoAnt} (fechado)` : 'Ano anterior', anoAnt ? moedaM(porAno[anoAnt].reduce((a, b) => a + b, 0)) : '—', '#94a3b8');
+}
+
 function _renderStatsM(d){
   const box = $m('mis-stats'); if (!box) return;
   const f = M.hist;
   const series = d.series || [];
+  if (f.modo === 'acumulado'){ _renderStatsAcumuladoM(d.tabela); return; }
   if (f.modo === 'tabela' || !series.length){ box.innerHTML = ''; return; }
   const vals = series.map(_valorPontoM);
   const ult = vals[vals.length - 1], ant = vals.length > 1 ? vals[vals.length - 2] : null;
@@ -755,7 +843,6 @@ async function _realizadoAnoM(ano){
     }
     t.total_missoes = CONTAS_MIS.reduce((s, c) => s + t[c.chave], 0);
     for (const c of CATS_MIS) acc[c.chave] += t[c.chave];
-    acc.total_missoes += t.total_missoes;
     porMes.push({ mes: p.mes, ...t });
     const sc = numM(aba?.totais?.saldo_campo);
     if (aba?.totais && 'saldo_campo' in aba.totais) saldoCampo = sc;
