@@ -632,6 +632,18 @@
 </div>
 <div id="sge-manutencao-banner" class="hidden fixed top-0 left-0 right-0 z-[250] text-center text-[10px] font-bold py-1.5 tracking-wide" style="background: #dc2626; color: #fff;">🚧 MODO MANUTENÇÃO ATIVO — usuários gerais estão bloqueados</div>
 
+<!-- ============ OFFLINE — fundo desfocado + "Reconectando" quando a internet cai ============ -->
+<div id="sge-offline" class="hidden fixed inset-0 z-[400] items-center justify-center p-6" style="background: rgba(15,23,42,.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+  <div class="w-full max-w-xs rounded-3xl p-6 text-center border shadow-2xl" style="background: var(--bg-card); border-color: var(--border-color);">
+    <div class="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3 animate-pulse" style="background: var(--color-primary-light); color: var(--color-primary);">
+      <i class="fa-solid fa-wifi text-xl"></i>
+    </div>
+    <h3 class="font-bold text-sm mb-1" style="color: var(--text-main);">Sem conexão com a internet</h3>
+    <p class="text-[11px] mb-4" style="color: var(--text-muted);">Reconectando automaticamente…<br>Seus dados estão seguros.</p>
+    <div class="w-6 h-6 mx-auto rounded-full animate-spin" style="border: 3px solid var(--border-color); border-top-color: var(--color-primary);"></div>
+  </div>
+</div>
+
 <!-- ============ MODAL TRAVA — ativação exige 2 admins por senha + 2 tokens de e-mail ============ -->
 <div id="modal-trava" class="hidden fixed inset-0 z-[290] items-center justify-center p-5" style="background:rgba(15,23,42,.55);backdrop-filter:blur(4px)">
   <div class="w-full max-w-sm rounded-3xl p-5 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 30px 80px -20px rgba(0,0,0,.5)">
@@ -765,11 +777,18 @@ const $ = id => document.getElementById(id);
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Device-Id': (typeof sgeDeviceId === 'function' ? sgeDeviceId() : ''), ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
-    body: JSON.stringify({ action, ...(payload || {}) })
-  });
+  let res;
+  try {
+    res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'X-Device-Id': (typeof sgeDeviceId === 'function' ? sgeDeviceId() : ''), ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+      body: JSON.stringify({ action, ...(payload || {}) })
+    });
+  } catch(e) {
+    sgeOffline(true);
+    throw new Error('Sem conexão com a internet. Reconectando automaticamente…');
+  }
+  if (res.ok) sgeOffline(false);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && token) { limparSessao(); limparSessaoBio(); location.reload(); }
@@ -1573,11 +1592,40 @@ function sairDoApp(){
 }
 
 /* ---------- navegação de módulos (sidebar global) ---------- */
+/* ---------- Conexão: overlay "Reconectando" quando a internet cai ---------- */
+let _sgeOfflineTimer = null;
+function sgeOffline(v){
+  const m = $('sge-offline'); if (!m) return;
+  m.classList.toggle('hidden', !v);
+  m.classList.toggle('flex', v);
+  clearInterval(_sgeOfflineTimer); _sgeOfflineTimer = null;
+  if (v) _sgeOfflineTimer = setInterval(sgeTentarReconectar, 5000);
+}
+async function sgeTentarReconectar(){
+  if (!navigator.onLine) return;
+  try { await fetch(API, { method: 'OPTIONS', cache: 'no-store' }); sgeOffline(false); } catch(e) {}
+}
+window.addEventListener('offline', () => sgeOffline(true));
+window.addEventListener('online', () => sgeTentarReconectar());
+if (!navigator.onLine) sgeOffline(true);
+
+/* ---------- Restauração de navegação após reload (pull-to-refresh) ---------- */
+let _navSaveT = null;
+function sgeSalvarNav(){
+  try { sessionStorage.setItem('sge_nav_state', JSON.stringify({ modulo: moduloAtual, scroll: window.scrollY })); } catch(e){}
+}
+window.addEventListener('scroll', () => {
+  clearTimeout(_navSaveT);
+  _navSaveT = setTimeout(sgeSalvarNav, 200);
+}, { passive: true });
+window.addEventListener('pagehide', sgeSalvarNav);
+
 let moduloAtual = 'dashboard';
 function mudarVisao(mod){
   if (mod === moduloAtual) return;
   if (!sgeModuloPermitido(mod)) return;
   moduloAtual = mod;
+  try { sessionStorage.setItem('sge_nav_state', JSON.stringify({ modulo: mod, scroll: 0 })); } catch(e){}
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === mod));
   const conteudo = $('dash-conteudo');
   conteudo.classList.add('hub-conteudo-esmaecido');
@@ -1793,13 +1841,19 @@ async function entrarNoApp(){
   if (await sgeVerificarManutencao()) return;
   $('tela-app').style.display = 'block';
   document.body.classList.add('app-aberto');
-  moduloAtual = 'dashboard';
-  document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('ativa', b.dataset.mod === 'dashboard'));
+  // Após um reload (pull-to-refresh), volta ao módulo e à posição de rolagem anteriores
+  let navSalvo = null;
+  try { navSalvo = JSON.parse(sessionStorage.getItem('sge_nav_state') || 'null'); } catch(e){}
+  let alvo = String(navSalvo?.modulo || 'dashboard');
+  if (typeof sgeModoAtual === 'function' && sgeModoAtual() === 'membro' && !alvo.startsWith('membro')) alvo = 'membro_inicio';
+  if (!sgeModuloPermitido(alvo)) alvo = 'dashboard';
+  moduloAtual = '';
+  mudarVisao(alvo);
   if (typeof sgeAplicarModoNav === 'function') sgeAplicarModoNav();
-  if (typeof sgeModoAtual === 'function' && sgeModoAtual() === 'membro') { moduloAtual = ''; mudarVisao('membro_inicio'); }
   aplicarPermissoesNav();
   sgeSincronizarAcessos();
-  if (moduloAtual === 'dashboard') renderPanorama();
+  const scrollAlvo = Math.max(0, Number(navSalvo?.scroll) || 0);
+  if (scrollAlvo > 0) [500, 1200, 2200].forEach(ms => setTimeout(() => window.scrollTo(0, scrollAlvo), ms));
   prepararPushNotificacoes();
 }
 
