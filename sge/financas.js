@@ -1017,13 +1017,15 @@ const RC_CATS = [
     'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto das Crianças', 'Culto Público', 'Outros'] },
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
 ];
-/* Tipos de saída padronizados — 'Outros' no topo habilita descrição livre. */
-const RC_SAIDAS_SUBS = ['Outros',
+/* Tipos de saída padronizados — 'Outros' fixo no topo habilita descrição livre;
+   o restante sai em ordem alfabética. */
+const RC_SAIDAS_SUBS = ['Outros', ...[
   'Telefone e Internet', 'Material de Expediente', 'Material de Limpeza',
   'Energia', 'Água e Esgoto', 'Alimentação para Eventos', 'Lanche EBD ou Santa Ceia',
   'Material de Som', 'Vestuário ou Ornamentação', 'Medicação', 'Presentes',
   'Construção, Reforma ou Ampliação', 'Aquisição de Imóveis',
-  'Materiais de Bens Duráveis ou Utensílios'];
+  'Materiais de Bens Duráveis ou Utensílios'
+].sort((a, b) => a.localeCompare(b, 'pt-BR'))];
 const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
 // Sub que exige o nome do ofertante na descrição (mantenedor missionário).
 const RC_SUB_MANTENEDOR = 'Oferta Missionária';
@@ -1197,7 +1199,7 @@ function rcRenderTela(){
                 <i class="fa-solid fa-calendar-days absolute right-2.5 top-1/2 text-xs opacity-50" style="transform:translateY(-50%);pointer-events:none"></i>
               </div></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
-              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmMarcarSujo();rcmRenderDoc();rcmAvisoSemana()")}</div>
+              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "rcmMudarSemana()")}</div>
             <div class="col-span-2">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira do RC</span>
@@ -1566,6 +1568,8 @@ function rcmLerForm(p){
 }
 
 window.rcmAdicionar = function(){
+  const trv = _rcmSemanaTravadaMsg();
+  if (trv){ toast(trv); rcmAvisoSemana(); return; }
   const l = rcmLerForm('');
   if (l.erro){ toast(l.erro); return; }
   if (!l.saida && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
@@ -1739,6 +1743,8 @@ window.rcmEditar = function(i){
 
 window.rcmSalvarEdicao = function(i){
   const it = RC.lancamentos[i]; if (!it) return;
+  const trv = _rcmSemanaTravadaMsg();
+  if (trv){ toast(trv); return; }
   const l = rcmLerForm('ed-');
   if (l.erro){ toast(l.erro); return; }
   if (!l.saida && RC.lancamentos.some((x, j) => j !== i && x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
@@ -1877,7 +1883,7 @@ window.rcmAvisoSemana = async function(){
       ? `<button onclick="rcmTocarSemana(${_rcSemanaNum(prox)})" class="px-2 py-1 rounded-lg text-[9px] font-extrabold text-white shrink-0 cursor-pointer" style="background:#ef4444">Ir para a ${prox}</button>` : '';
     const txt = prox ? `Semana financeira fechada — a próxima aberta é a <b>${prox}</b>`
                      : 'Semana financeira fechada — as demais semanas deste mês também estão fechadas';
-    return `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">${txt}${admin ? ' (admin pode retificar)' : ''}</span>${btn}</div>`;
+    return `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">${txt}${admin ? ' (admin: reabra pelo cadeado para retificar)' : ''}</span>${btn}</div>`;
   };
   if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){
     box.innerHTML = htmlTrava(rel.semana ? rcSemanaFechada(rel.ano, rel.mes, rel.semana) : false); return;
@@ -1903,6 +1909,30 @@ const _rcPeriodoRelatorio = () => {
 };
 /* Filtro do grid: independe da data do relatório (admin navega entre meses). */
 const _rcPeriodoAtual = () => sgeEhAdmin() ? (RC.periodoGrid || _rcPeriodoRelatorio()) : _rcPeriodoRelatorio();
+/* Trava de lançamento: semana fechada não aceita rascunho para NINGUÉM —
+   o tesoureiro é orientado à próxima aberta; o admin reabre pelo cadeado. */
+function _rcmSemanaTravadaMsg(){
+  const sem = String(el('rcm-semana')?.value || RC.meta?.semana || '').trim();
+  if (!sem) return null;
+  const p = _rcPeriodoRelatorio();
+  if (!rcSemanaFechada(p.ano, p.mes, sem)) return null;
+  if (typeof sgeEhAdmin === 'function' && sgeEhAdmin())
+    return 'Semana fechada — toque no cadeado para reabrir antes de retificar.';
+  const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
+  return prox ? `Semana fechada — a próxima aberta é a ${prox}.`
+              : 'Semana fechada — não há semana aberta neste mês.';
+}
+window.rcmMudarSemana = function(){
+  const sel = el('rcm-semana'); const sem = sel?.value || '';
+  const p = _rcPeriodoRelatorio();
+  if (sem && rcSemanaFechada(p.ano, p.mes, sem) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
+    const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
+    if (prox && sel) sel.value = prox;
+    toast(prox ? `Semana fechada — a próxima aberta é a ${prox}.` : 'Semana fechada — não há semana aberta neste mês.');
+  }
+  F.rcSemana = el('rcm-semana')?.value || sem;
+  rcmMarcarSujo(); rcmRenderDoc(); rcmAvisoSemana();
+};
 window.rcmMesGrid = function(dir){
   if (!sgeEhAdmin()) return;
   const p = { ..._rcPeriodoAtual() };
