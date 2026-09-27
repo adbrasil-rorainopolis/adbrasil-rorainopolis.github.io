@@ -7,90 +7,213 @@
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #0b1220; color: #e8ecf3; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { width: 100%; max-width: 440px; background: #131c2e; border: 1px solid #243048; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    .card { width: 100%; max-width: 460px; background: #131c2e; border: 1px solid #243048; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
     .topo { padding: 22px 24px 16px; border-bottom: 1px solid #243048; text-align: center; }
     .topo h1 { font-size: 15px; letter-spacing: 2px; color: #d9b45b; font-weight: 700; }
     .topo p { font-size: 11px; color: #8a94a8; margin-top: 4px; }
+    .chip-tipo { display: inline-block; margin-top: 10px; padding: 4px 14px; border-radius: 999px; background: rgba(217,180,91,.12); border: 1px solid rgba(217,180,91,.35); color: #d9b45b; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
     .selo { margin: 22px auto 8px; width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; }
     .selo.ok { background: rgba(16,185,129,.15); border: 2px solid #10b981; color: #10b981; }
     .selo.erro { background: rgba(239,68,68,.15); border: 2px solid #ef4444; color: #ef4444; }
+    .selo.neutro { background: rgba(245,158,11,.15); border: 2px solid #f59e0b; color: #f59e0b; }
     .veredito { text-align: center; padding: 0 24px 18px; }
     .veredito h2 { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
     .veredito h2.ok { color: #10b981; }
     .veredito h2.erro { color: #ef4444; }
-    .veredito p { font-size: 11px; color: #8a94a8; margin-top: 4px; }
-    .dados { padding: 14px 24px 22px; }
-    .linha { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #1e2a42; font-size: 12px; }
+    .veredito h2.neutro { color: #f59e0b; }
+    .veredito p { font-size: 11px; color: #8a94a8; margin-top: 4px; line-height: 1.5; }
+    .sec-tit { padding: 12px 24px 4px; font-size: 9px; letter-spacing: 1.6px; color: #5a6478; text-transform: uppercase; font-weight: 700; }
+    .dados { padding: 4px 24px 10px; }
+    .linha { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #1e2a42; font-size: 12px; }
     .linha:last-child { border-bottom: none; }
     .linha .lbl { color: #8a94a8; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; padding-top: 2px; }
     .linha .val { font-weight: 600; text-align: right; }
-    .codigo { margin: 4px 24px 20px; background: #0b1220; border: 1px dashed #33415e; border-radius: 10px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 11px; color: #d9b45b; text-align: center; letter-spacing: 1px; }
-    .rodape { text-align: center; font-size: 9px; color: #5a6478; padding: 0 24px 18px; letter-spacing: .5px; }
+    .linha .val.neg { color: #ef4444; }
+    .linha .val.pos { color: #10b981; }
+    .codigo { margin: 8px 24px 6px; background: #0b1220; border: 1px dashed #33415e; border-radius: 10px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 11px; color: #d9b45b; text-align: center; letter-spacing: 1px; word-break: break-all; }
+    .seg { margin: 0 24px 14px; background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.18); border-radius: 10px; padding: 10px 14px; font-size: 10px; color: #9fb4c9; line-height: 1.55; }
+    .rodape { text-align: center; font-size: 9px; color: #5a6478; padding: 0 24px 18px; letter-spacing: .5px; line-height: 1.6; }
 </style>
 </head>
 <body>
 <div class="card">
     <div class="topo">
         <h1>SGE • AD BRASIL</h1>
-        <p>Verificação de autenticidade — Relatório Movimento Caixa</p>
+        <p>Verificação de autenticidade de documento</p>
+        <div class="chip-tipo" id="chip-tipo">Documento SGE</div>
     </div>
     <div class="selo" id="selo">…</div>
     <div class="veredito">
         <h2 id="veredito">VERIFICANDO…</h2>
         <p id="veredito-sub">Conferindo a assinatura digital do documento.</p>
     </div>
+    <div class="sec-tit">Dados do documento</div>
     <div class="dados" id="dados"></div>
     <div class="codigo" id="codigo">—</div>
-    <div class="rodape">Documento gerado eletronicamente pelo SGE — Sistema de Gestão Eclesiástica</div>
+    <div class="sec-tit">Verificação</div>
+    <div class="dados" id="verif"></div>
+    <div class="seg" id="seg"></div>
+    <div class="rodape">Documento gerado eletronicamente pelo SGE — Sistema de Gestão Eclesiástica<br>Verificador público • v2.0</div>
 </div>
 <script>
-async function sha16(texto) {
-    try {
-        if (crypto?.subtle) {
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
-            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,16).toUpperCase();
-        }
-    } catch(e) {}
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+async function sha256Hex(texto) {
+    if (crypto?.subtle) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+        return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').toUpperCase();
+    }
+    return null;
+}
+function djb2(texto) {
     let h = 5381;
     for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) >>> 0;
     return h.toString(16).toUpperCase().padStart(8,'0');
 }
+/* RC: sha256 completo truncado em 16 hex; fallback djb2 de 8 hex */
+async function hashRc(texto) {
+    const h = await sha256Hex(texto);
+    return h ? h.substring(0, 16) : djb2(texto);
+}
+/* DRE: sha256 truncado em 4 hex; fallback djb2 8 hex → 4 */
+async function hashDre(texto) {
+    const h = await sha256Hex(texto);
+    return h ? h.substring(0, 4) : djb2(texto).slice(0, 4);
+}
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtBrl(v) {
+    const num = parseFloat(String(v).replace(',', '.'));
+    if (isNaN(num)) return '—';
+    const txt = num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return num < 0 ? txt.replace('-', '- ') : txt;
+}
+function fmtDataHora(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso || '—');
+    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+function linha(lbl, val, cls) {
+    return `<div class="linha"><div class="lbl">${esc(lbl)}</div><div class="val ${cls || ''}">${esc(val)}</div></div>`;
+}
+function linhaHtml(lbl, html) {
+    return `<div class="linha"><div class="lbl">${esc(lbl)}</div><div class="val">${html}</div></div>`;
+}
+function pintar(estado, textoSelo, titulo, sub) {
+    const selo = document.getElementById('selo');
+    const ver = document.getElementById('veredito');
+    selo.className = 'selo ' + estado;
+    selo.textContent = textoSelo;
+    ver.className = estado;
+    ver.textContent = titulo;
+    document.getElementById('veredito-sub').textContent = sub;
+}
+function blocoVerif(codigo, algoritmo, resultado) {
+    document.getElementById('codigo').textContent = codigo;
+    document.getElementById('verif').innerHTML =
+        linha('Algoritmo', algoritmo) +
+        linha('Verificado em', new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' })) +
+        linha('Assinatura', resultado);
+    document.getElementById('seg').textContent =
+        'A assinatura é recalculada nesta página a partir dos dados exibidos acima e comparada ao código impresso no documento. '
+        + 'Qualquer alteração nos valores invalida a assinatura.';
+}
 
 (async () => {
     const p = new URLSearchParams(location.search);
+    const tipo = (p.get('t') || 'caixa').toLowerCase();
+    const hRecebido = (p.get('h') || '').toUpperCase();
+
+    if (tipo === 'dre') {
+        /* DRE — Demonstração do Resultado do Exercício.
+           Formato novo: x = "b1,res,consf;b1,res,consf;…" (uma tripla por coluna)
+           e  = anos da série (só no modo série) */
+        const c = p.get('c') || 'rorainopolis';
+        const ano = p.get('a') || '';
+        const mNum = parseInt(p.get('m') || '0', 10);
+        const modo = (p.get('o') || '').toLowerCase();
+        const v = p.get('v') || '';
+        const x = p.get('x') || '';
+        const e = p.get('e') || '';
+        const mes = MESES[mNum - 1] || '';
+
+        document.getElementById('chip-tipo').textContent = 'DRE — Demonstração do Resultado';
+
+        const modoNome = { balancete: 'Balancete mensal', anual: 'Demonstração anual', serie: 'Série histórica' }[modo] || modo || '—';
+        const numCols = modo === 'serie' ? (e ? e.split(',').length : null) : (x ? x.split(';').length : null);
+        const vShow = (v === '' && modo === 'serie' && x) ? (x.split(',')[1] ?? '') : v;
+        let dados =
+            linha('Campo', 'AD Brasil — Rorainópolis') +
+            linha('Modalidade', modoNome);
+        if (modo === 'serie') {
+            const anos = e ? e.split(',') : [];
+            dados += linha('Exercícios', anos.length ? anos.slice().reverse().join(' a ') : (ano || '—'));
+            if (numCols) dados += linha('Colunas comparadas', String(numCols));
+        } else {
+            dados += linha('Exercício', ano || '—');
+            dados += linha('Competência', mes ? `${mes}/${ano}` : (mNum ? `${String(mNum).padStart(2,'0')}/${ano}` : '—'));
+            if (numCols) dados += linha('Colunas do demonstrativo', String(numCols));
+        }
+        const saldoNum = vShow === '' ? NaN : parseFloat(vShow);
+        dados += linhaHtml(modo === 'serie' ? 'Saldo consolidado (exercício recente)' : 'Saldo consolidado',
+            `<span class="${saldoNum < 0 ? 'neg' : 'pos'}" style="font-weight:600">${esc(fmtBrl(vShow))}</span>`);
+        document.getElementById('dados').innerHTML = dados;
+
+        let base = null;
+        if (modo === 'serie' && e && x) {
+            const partes = x.split(',');
+            base = `serie|${e}|${partes[0]}|${partes[1] ?? ''}`;
+        } else if (modo !== 'serie' && x && mes) {
+            const triplas = x.split(';').map(t => t.split(',').join('/')).join('|');
+            base = `${modo}|${ano}|${mes}|${triplas}`;
+        }
+
+        if (base !== null) {
+            const hCalc = await hashDre(base);
+            const integro = hRecebido && hRecebido === hCalc;
+            pintar(integro ? 'ok' : 'erro', integro ? '✓' : '✕',
+                integro ? 'DOCUMENTO ÍNTEGRO' : 'ATENÇÃO: DADOS DIFEREM',
+                integro ? 'Esta demonstração foi gerada pelo SGE e não sofreu alterações.'
+                        : 'O conteúdo exibido não confere com a assinatura digital. O documento pode ter sido alterado.');
+            blocoVerif(`SGE-DRE·${hRecebido || '—'}`, 'SHA-256 (4 hex)',
+                `recebida ${hRecebido || '—'} • calculada ${hCalc}`);
+        } else {
+            /* QR gerado antes do formato v2 — dados da assinatura não trafegam na URL */
+            pintar('neutro', 'ℹ', 'DOCUMENTO SGE — FORMATO ANTERIOR',
+                'Este código identifica um documento emitido pelo SGE. QRs desta versão não carregam os dados para recomputar a assinatura nesta página — confira os valores exibidos com o documento original.');
+            blocoVerif(`SGE-DRE·${hRecebido || '—'}`, 'SHA-256 (4 hex)', 'não recomputável nesta versão');
+            document.getElementById('seg').textContent =
+                'Documentos emitidos pelas versões atuais do SGE permitem a verificação completa da assinatura nesta página. Para conferir este documento, compare os dados acima com o impresso.';
+        }
+        return;
+    }
+
+    /* Relatório Movimento Caixa (formato padrão) */
     const c = p.get('c') || '', d = p.get('d') || '', s = p.get('s') || '';
     const a = p.get('a') || '', g = p.get('g') || '';
     const n = p.get('n') || '0', v = p.get('v') || '0';
-    const hRecebido = (p.get('h') || '').toUpperCase();
+
+    document.getElementById('chip-tipo').textContent = 'Relatório Movimento Caixa';
+
     const base = `SGE-CAIXA|${c}|${d}|${s}|${n}|${v}`;
-    const hCalc = await sha16(base);
+    const hCalc = await hashRc(base);
     const integro = hRecebido && hRecebido === hCalc;
 
-    const selo = document.getElementById('selo');
-    const ver = document.getElementById('veredito');
-    const sub = document.getElementById('veredito-sub');
-    selo.className = 'selo ' + (integro ? 'ok' : 'erro');
-    selo.textContent = integro ? '✓' : '✕';
-    ver.className = integro ? 'ok' : 'erro';
-    ver.textContent = integro ? 'DOCUMENTO ORIGINAL' : 'ATENÇÃO: DADOS DIFEREM';
-    sub.textContent = integro
-        ? 'Este relatório foi gerado pelo SGE e não sofreu alterações.'
-        : 'O conteúdo exibido não confere com a assinatura digital. O documento pode ter sido alterado.';
+    pintar(integro ? 'ok' : 'erro', integro ? '✓' : '✕',
+        integro ? 'DOCUMENTO ÍNTEGRO' : 'ATENÇÃO: DADOS DIFEREM',
+        integro ? 'Este relatório foi gerado pelo SGE e não sofreu alterações.'
+                : 'O conteúdo exibido não confere com a assinatura digital. O documento pode ter sido alterado.');
 
-    let dataGrav = '—';
-    if (g) { try { dataGrav = new Date(g).toLocaleString('pt-BR'); } catch(e) { dataGrav = g; } }
-    const saldo = Number(v || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-    document.getElementById('dados').innerHTML = [
-        ['Congregação', c ? ('CONGREGAÇÃO ' + c).toUpperCase() : '—'],
-        ['Data do relatório', d || '—'],
-        ['Fechamento', s || '—'],
-        ['Lançamentos', n],
-        ['Saldo declarado', saldo],
-        ['Registrado por', a || '—'],
-        ['Gravado em', dataGrav],
-    ].map(([l, val]) => `<div class="linha"><span class="lbl">${l}</span><span class="val">${esc(val)}</span></div>`).join('');
-    document.getElementById('codigo').textContent = 'SGE-CX-' + (hRecebido || '—');
+    const saldoNum = parseFloat(v);
+    document.getElementById('dados').innerHTML =
+        linha('Congregação', c ? ('CONGREGAÇÃO ' + c).toUpperCase() : '—') +
+        linha('Data do relatório', d || '—') +
+        linha('Fechamento', s || '—') +
+        linha('Lançamentos', n) +
+        linhaHtml('Saldo declarado', `<span class="${saldoNum < 0 ? 'neg' : 'pos'}" style="font-weight:600">${esc(fmtBrl(v))}</span>`) +
+        linha('Registrado por', a || '—') +
+        linha('Gravado em', g ? fmtDataHora(g) : '—');
+    blocoVerif(`SGE-CX-${hRecebido || '—'}`, 'SHA-256 (16 hex)',
+        `recebida ${hRecebido || '—'} • calculada ${hCalc}`);
 })();
 </script>
 </body>

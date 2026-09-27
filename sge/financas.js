@@ -4378,13 +4378,14 @@ async function dreMontarDados(ano, mes, modo){
     if (!agregados.length) return { erro: 'Nenhum fechamento importado.' };
     const calcs = agregados.map(_dreCalc);
     const linhasSerie = _dreLinhasN(agregados);
-    const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[0].b1.toFixed(2)}`;
+    const consRef = calcs[0].consF;
+    const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[0].b1.toFixed(2)}|${consRef == null ? '' : consRef.toFixed(2)}`;
     let codigo = '';
     try { if (crypto?.subtle){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)); codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,4).toUpperCase(); } } catch(e){}
     if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8,'0').slice(0,4); }
     return { modo: 'serie', colunas, linhas_serie: linhasSerie, avisos, assinado: false,
       subtitulo: `Demonstração do resultado por exercício — ${colunas[colunas.length-1].ano} a ${colunas[0].ano} (*exercício parcial)`,
-      verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&o=serie&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
+      verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${colunas[0].ano}&o=serie&e=${colunas.map(c => c.ano).join(',')}&x=${calcs[0].b1.toFixed(2)},${consRef == null ? '' : consRef.toFixed(2)}&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
   }
 
   const anoB = String(+ano - 1);
@@ -4449,10 +4450,11 @@ async function dreMontarDados(ano, mes, modo){
   } catch(e){}
   if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8, '0').slice(0, 4); }
   const mm = String(idx).padStart(2, '0');
+  const xQr = calcs.map(c => `${c.b1.toFixed(2)},${c.res.toFixed(2)},${c.consF == null ? '' : c.consF.toFixed(2)}`).join(';');
   return { modo, ano, mes, colunas, blocos, linhas: _dreLinhasN(aggs), avisos,
     rotulo_a: colunas[0].rotulo, rotulo_b: colunas[1]?.rotulo || '',
     subtitulo: subt, assinado: true,
-    verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
+    verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF.toFixed(2)}&x=${xQr}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
 }
 
 /* CSS isolado do documento contábil — independente do RCM_CSS, garante que o
