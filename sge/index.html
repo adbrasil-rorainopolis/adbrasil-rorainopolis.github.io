@@ -98,7 +98,7 @@
     position: fixed; left: 0; right: 0; top: 57px; bottom: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  html { overflow-x: hidden; overflow-x: clip; }
+  html { overflow-x: hidden; overflow-x: clip; overscroll-behavior-y: none; }
   .app-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
     display: none; width: 100%; max-width: 100vw;
@@ -293,9 +293,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.146'); toast('Versão copiada: v1.146')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.145'); toast('Versão copiada: v1.145')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.146</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.145</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -1131,7 +1131,7 @@ async function atualizarAgora(){
     if ('caches' in window) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
     if ('serviceWorker' in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); }
   } catch(e) {}
-  location.reload(true);
+  sgeSolicitarRecarga();
 }
 function fecharMenuEngrenagem(){ $('menu-engrenagem').classList.add('hidden'); }
 
@@ -1736,6 +1736,70 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+/* ---------- Pull-to-refresh próprio ----------
+   O gesto nativo do navegador está desativado (overscroll-behavior-y:none no
+   <html>). Este gesto mostra um indicador do app e, ao soltar, passa pelo
+   portão sgeSolicitarRecarga() — se houver edições não gravadas no Envio de
+   Caixa, abre a confirmação do app com a lista de pendências em vez do
+   diálogo nativo do navegador. */
+const PTR_LIMIAR = 78;
+let _ptr = null;
+
+function ptrIndicar(dy){
+  let ind = document.getElementById('ptr-ind');
+  if (dy <= 4){ if (ind){ ind.style.opacity = '0'; setTimeout(() => ind.remove(), 180); ind.dataset.pronto = '0'; } return; }
+  if (!ind){
+    ind = document.createElement('div');
+    ind.id = 'ptr-ind';
+    ind.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.4px;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-muted);box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .18s';
+    ind.innerHTML = '<i class="fa-solid fa-rotate-right" style="color:var(--color-primary)"></i><span>Puxe para atualizar</span>';
+    document.body.appendChild(ind);
+  }
+  const pronto = dy >= PTR_LIMIAR;
+  ind.dataset.pronto = pronto ? '1' : '0';
+  const icone = ind.firstElementChild, txt = ind.lastElementChild;
+  icone.style.transform = `rotate(${Math.min(dy * 2.2, 200)}deg)`;
+  ind.style.borderColor = pronto ? 'var(--color-primary)' : 'var(--border-color)';
+  txt.textContent = pronto ? 'Solte para atualizar' : 'Puxe para atualizar';
+}
+
+window.addEventListener('touchstart', (e) => {
+  if (window.scrollY > 2 || e.touches.length !== 1) { _ptr = null; return; }
+  /* Dentro de modal/lista rolável própria, o gesto pertence a ela — não é PTR */
+  if (e.target.closest('.overflow-y-auto, .overflow-y-scroll, .max-h-44, .modal')) { _ptr = null; return; }
+  _ptr = { y: e.touches[0].clientY };
+}, { passive: true });
+window.addEventListener('touchmove', (e) => {
+  if (!_ptr) return;
+  const dy = e.touches[0].clientY - _ptr.y;
+  ptrIndicar(dy > 0 && window.scrollY <= 2 ? dy : 0);
+}, { passive: true });
+window.addEventListener('touchend', () => {
+  if (!_ptr) return;
+  _ptr = null;
+  const ind = document.getElementById('ptr-ind');
+  const pronto = ind && ind.dataset.pronto === '1';
+  ptrIndicar(0);
+  if (pronto) sgeSolicitarRecarga();
+}, { passive: true });
+
+/* Porta única de recarga: usada pelo pull-to-refresh, pelo toast de nova
+   versão e pelo botão "Atualizar agora" das configurações. */
+function sgeSolicitarRecarga(){
+  if (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente()){
+    if (window.rcmConfirmarPerdaEdicao){ rcmConfirmarPerdaEdicao(() => location.reload()); return; }
+    if (window.rcmConfirmar){
+      rcmConfirmar({ titulo:'Sair e recarregar?', icone:'fa-triangle-exclamation', cor:'#f59e0b',
+        okTexto:'Sair e recarregar', naoTexto:'Continuar editando',
+        msg:'Existem lançamentos do Envio de Caixa editados e <b>ainda não gravados</b>. Recarregar agora descarta essas alterações.' })
+        .then(ok => { if (ok) location.reload(); });
+      return;
+    }
+  }
+  location.reload();
+}
+window.sgeSolicitarRecarga = sgeSolicitarRecarga;
+
 let moduloAtual = 'dashboard';
 function mudarVisao(mod){
   if (mod === moduloAtual) return;
@@ -2024,18 +2088,7 @@ function avisarAtualizacaoPronta(){
     '<div class="flex-1"><div class="text-xs font-bold">Nova versão instalada</div>' +
     '<div class="text-[10px]" style="color: var(--text-muted);">Toque para atualizar — seu preenchimento atual não será perdido se não tocar.</div></div>' +
     '<span class="text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white" style="background: var(--color-primary);">Atualizar</span>';
-  t.onclick = () => {
-    if (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente()){
-      if (window.rcmConfirmar){
-        rcmConfirmar({ titulo:'Atualizar e descartar?', icone:'fa-triangle-exclamation', cor:'#f59e0b',
-          okTexto:'Atualizar mesmo assim', naoTexto:'Continuar editando',
-          msg:'Existem lançamentos do Envio de Caixa editados e <b>ainda não gravados</b>. Atualizar agora descarta essas alterações. Deseja mesmo continuar?' })
-          .then(ok => { if (ok) location.reload(); });
-      }
-      return;
-    }
-    location.reload();
-  };
+  t.onclick = () => sgeSolicitarRecarga();
   document.body.appendChild(t);
 }
 navigator.serviceWorker.addEventListener('controllerchange', () => {

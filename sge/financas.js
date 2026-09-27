@@ -2440,6 +2440,49 @@ window.rcmConfirmar = function(o){
   });
 };
 
+/* Confirmação de recarga/fechamento com a lista do que será perdido —
+   chamada pelo portão global sgeSolicitarRecarga() (pull-to-refresh do app,
+   toast de nova versão, botão "Atualizar agora"). */
+window.rcmConfirmarPerdaEdicao = function(acao){
+  const itens = RC.lancamentos || [];
+  const total = itens.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
+  const sem  = String(el('rcm-semana')?.value || RC.meta?.semana || '').trim();
+  const data = String(el('rcm-data')?.value || RC.meta?.data || '').trim();
+  const linhas = itens.slice(0, 8).map(l =>
+    `<div class="flex items-center gap-2 py-1" style="border-bottom:1px solid var(--border-color)">
+       <i class="fa-solid fa-receipt text-[9px] shrink-0" style="color:var(--text-muted)"></i>
+       <span class="flex-1 min-w-0 truncate text-[10px]">${rcEsc(l.descricao || l.tipo)}${l.recibo ? ` <span class="opacity-50">· nº ${rcEsc(l.recibo)}</span>` : ''}</span>
+       <b class="text-[10px] shrink-0" style="color:var(--text-main)">${rcMoeda(l.valor)}</b>
+     </div>`).join('');
+  const mais = itens.length > 8 ? `<p class="text-[9px] text-center pt-1" style="color:var(--text-muted)">…e mais ${itens.length - 8} lançamento(s)</p>` : '';
+  el('rcm-perda')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-perda" class="fixed inset-0 z-[99] flex items-center justify-center p-5" style="background:rgba(0,0,0,.65);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-sm rounded-2xl p-4 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 24px 60px rgba(0,0,0,.5)">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:#f59e0b22;color:#f59e0b"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <p class="text-[12px] font-extrabold">Tem certeza que deseja sair e recarregar a página?</p>
+        </div>
+        <div class="rounded-xl p-2.5 space-y-1" style="background:var(--bg-input);border:1px solid var(--border-color)">
+          <p class="text-[10px] font-bold" style="color:var(--text-main)">${rcEsc(cong || 'Congregação não selecionada')}${sem ? ' • ' + rcEsc(sem) : ''}${data ? ' • ' + rcEsc(data) : ''}</p>
+          <p class="text-[10px]" style="color:#f59e0b"><b>${itens.length}</b> lançamento(s) editado(s) e <b>não gravado(s)</b> — total de ${rcMoeda(total)}</p>
+        </div>
+        <div class="max-h-44 overflow-y-auto rounded-xl px-2.5" style="border:1px solid var(--border-color)">
+          ${linhas || '<p class="text-[10px] py-2 text-center" style="color:var(--text-muted)">Alterações nos campos do relatório</p>'}${mais}
+        </div>
+        <p class="text-[10px] leading-relaxed" style="color:var(--text-muted)">Se recarregar agora, tudo que não foi gravado será <b>perdido</b>. Toque em <b>Continuar editando</b> e use GRAVAR para não perder.</p>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="rcm-perda-nao" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer text-white" style="background:linear-gradient(135deg,#047857,#10b981)">Continuar editando</button>
+          <button id="rcm-perda-sim" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:#ef4444;color:#ef4444">Sair e recarregar</button>
+        </div>
+      </div>
+    </div>`);
+  el('rcm-perda-sim').onclick = () => { el('rcm-perda')?.remove(); acao && acao(); };
+  el('rcm-perda-nao').onclick = () => el('rcm-perda')?.remove();
+  el('rcm-perda').addEventListener('click', e => { if (e.target.id === 'rcm-perda') el('rcm-perda')?.remove(); });
+};
+
 window.rcmExcluir = async function(id){
   if (!await rcmConfirmar({ titulo:'Excluir relatório', icone:'fa-trash', cor:'#ef4444', okTexto:'Excluir',
       msg:'Excluir este relatório <b>definitivamente</b>?<br>Esta ação não pode ser desfeita.' })) return;
