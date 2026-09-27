@@ -1004,7 +1004,6 @@ const G = {
 const ABAS = [
   ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
   ['mensal', 'Análise do Mês', 'fa-calendar-week', '#8b5cf6'],
-  ['fluxo', 'Projeção de Despesas', 'fa-money-bill-transfer', '#10b981'],
   ['indicadores', 'Indicadores', 'fa-chart-line', '#38bdf8'],
   ['relatorios', 'Relatórios', 'fa-file-pdf', '#ef4444'],
 ];
@@ -1059,7 +1058,6 @@ window.gestaoAba = async function(aba){
   if (!G.periodos.length) G.periodos = await listarPeriodos();
   if (aba === 'cruzamento' || aba === 'indicadores' || aba === 'relatorios') renderAbaCruzamento();
   else if (aba === 'mensal') renderAbaMensal();
-  else if (aba === 'fluxo') renderAbaFluxo();
 };
 
 /* ===================== ABA 1/4/5 — Cruzamento + Indicadores + Relatórios ===================== */
@@ -1590,18 +1588,21 @@ function graficosMensal(res){
   }
 }
 
-/* ===================== ABA 3 — Projeção de Despesas & Fluxo ===================== */
-function renderAbaFluxo(){
+/* ===================== Contas a Pagar e a Receber (Módulo Contábil) ========= */
+async function renderAbaFluxo(hostId){
+  const host = el(hostId || 'gestao-corpo');
+  if (!host) return;
   _mmFiltroInit();
+  if (!G.periodos.length) G.periodos = await listarPeriodos();
   const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
   const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
   const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
   if (!anos.length) anos.push([String(ult.ano), String(ult.ano)]);
   const m = G.fluxoSel || { ano: ult.ano, mes: ult.mes };
   G.fluxoSel = m;
-  el('gestao-corpo').innerHTML = `
+  host.innerHTML = `
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Projeção de Despesas & Fluxo de Caixa</h3><p class="text-[10px] opacity-60 mt-0.5">Semáforo de caixa e despesas fixas do mês. <span class="text-amber-500">Somente leitura — a gestão é feita no desktop.</span></p></div>
+      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Contas a Pagar e a Receber</h3><p class="text-[10px] opacity-60 mt-0.5">Semáforo de caixa e despesas fixas do mês. <span class="text-amber-500">Somente leitura — a gestão é feita no desktop.</span></p></div>
       ${selHtml('fx-ano', anos, m.ano, 'gestaoFluxoSel()')}${selHtml('fx-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoFluxoSel()')}
       ${_filtroEscopoUIFluxo()}
     </div>
@@ -1615,11 +1616,17 @@ function renderAbaFluxo(){
   _popularFiltrosEscopo('fx');
   gestaoFluxoCarregar();
 }
-window.gestaoFluxoSel = () => { G.fluxoSel = { ano: el('fx-ano').value, mes: el('fx-mes').value }; gestaoFluxoCarregar(); };
+window.gestaoFluxoSel = () => {
+  G.fluxoSel = { ano: el('fx-ano').value, mes: el('fx-mes').value };
+  const dA = el('dre-ano'), dM = el('dre-mes'); // mantém o seletor do Módulo Contábil em sincronia
+  if (dA && dA !== document.activeElement) { dA.value = G.fluxoSel.ano; }
+  if (dM && dM !== document.activeElement) { dM.value = G.fluxoSel.mes; }
+  gestaoFluxoCarregar();
+};
 window.gestaoFluxoCarregar = async function(){
   const sem = el('fx-semaforo'); if (sem) sem.innerHTML = '<div class="flex items-center gap-2 opacity-60 text-xs justify-center"><i class="fa-solid fa-circle-notch fa-spin"></i>Calculando fluxo de caixa…</div>';
   const c = await calcularFluxo(G.fluxoSel.ano, G.fluxoSel.mes);
-  if (G.aba !== 'fluxo') return;
+  if (!el('fx-semaforo')) return;
   if (!c.sucesso){ if (sem) sem.innerHTML = `<div class="text-red-500 text-xs text-center">${esc(c.mensagem)}</div>`; return; }
   G.fluxo = c;
   const kcard = (t2, v, cor, det) => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-black tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
@@ -2244,6 +2251,6 @@ window.acessosAba = function(aba){
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
   listarPeriodos, mapaConselhos, obterCiclo, salvarCiclo, listarDespesas, adicionarDespesa,
   atualizarDespesa, removerDespesa, alternarQuitacao, mediaReferencia, ordenarConselhosG,
-  ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, G };
+  ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, renderAbaFluxo, G };
 
 })();

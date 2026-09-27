@@ -218,7 +218,7 @@ function finRenderRol(){
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Status</span>${selF('dz-status', [['Todos','Todos'],['Ativos','Ativos'],['Inativos','Inativos'],['Com Telefone','Com Telefone'],['Sem Telefone','Sem Telefone']], F.filtros.status)}</div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Busca</span><input id="dz-busca" value="${esc(F.filtros.busca)}" placeholder="Nome, ID ou telefone…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Busca</span><input id="dz-busca" value="${esc(F.filtros.busca)}" oninput="dzBuscaDigitar()" placeholder="Nome, ID ou telefone…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
         </div>
         <button onclick="dzCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-magnifying-glass mr-1.5"></i>Filtrar dizimistas</button>
       </div>
@@ -268,6 +268,12 @@ window.dzMudaConselho = async function(){
   cong.innerHTML = '<option value="Todas">Todas</option>' + [...new Set(lista)].sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 };
 
+let _dzBuscaTimer = null;
+window.dzBuscaDigitar = function(){
+  clearTimeout(_dzBuscaTimer);
+  _dzBuscaTimer = setTimeout(() => dzCarregar(), 350);
+};
+
 window.dzCarregar = async function(){
   const f = F.filtros;
   f.conselho = el('dz-conselho')?.value || 'Todos';
@@ -293,7 +299,7 @@ window.dzCarregar = async function(){
           <span class="px-2 py-0.5 rounded-full text-[9px] font-bold border ${ativo ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' : 'text-red-500 border-red-500/30 bg-red-500/10'}">${m.status}</span>
           <div class="flex gap-1">
             ${semPodeEditar() ? `<button onclick="semAbrirEditarMembro('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(59,130,246,.15)" title="Editar membro"><i class="fa-solid fa-user-pen text-[11px] text-blue-400"></i></button>` : ''}
-            <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Histórico de Dízimos"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
+            <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Espelho de Contribuições"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
             ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
           </div>
@@ -310,8 +316,8 @@ window.dzHistDizimos = async function(id){
   _dzModal();
   const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
   F.membroSel = id;
-  el('dz-modal-titulo').textContent = `Histórico de Dízimos — ${mem.nome}`;
-  el('dz-modal-sub').textContent = `ID do Membro: ${id} • ${mem.conselho || ''} • ${mem.congregacao || ''}`;
+  el('dz-modal-titulo').textContent = `Espelho de Contribuições — ${mem.nome}`;
+  el('dz-modal-sub').textContent = `${mem.conselho || ''} • ${mem.congregacao || ''} • ID ${id}`;
   const anosDisp = [...new Set((F.membros || []).length ? ['2025','2026','2027'] : ['2026'])];
   const mesesOpts = MESES_ORD.map(m => [m, m]);
   el('dz-modal-filtros').innerHTML = `
@@ -334,10 +340,16 @@ window.dzFiltrarHist = async function(){
       corpo.innerHTML = '<p class="text-center text-xs opacity-60 py-8">Nenhum lançamento no período selecionado.</p>';
       return;
     }
+    const mesesDist = new Set(r.historico.map(h => `${h.ano}/${h.mes}`)).size;
     corpo.innerHTML = `
       <div class="border rounded-xl p-3 flex items-center justify-between" style="background:rgba(139,92,246,.08);border-color:var(--border-color)">
         <span class="text-[10px] font-bold uppercase opacity-70">Total acumulado • ${r.total_registros} lançamento(s)</span>
         <strong class="text-sm text-purple-400 tabular-nums">${moeda(r.total_acumulado)}</strong>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[9px] font-bold uppercase opacity-50">Lançamentos</p><p class="font-black text-xs tabular-nums">${r.total_registros}</p></div>
+        <div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[9px] font-bold uppercase opacity-50">Meses</p><p class="font-black text-xs tabular-nums">${mesesDist}</p></div>
+        <div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[9px] font-bold uppercase opacity-50">Média/lanç.</p><p class="font-black text-xs tabular-nums text-emerald-500">${moeda(r.total_registros ? r.total_acumulado / r.total_registros : 0)}</p></div>
       </div>
       ${r.historico.map(h => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-center justify-between gap-2">
@@ -4032,7 +4044,9 @@ const DRE_INVEST = ['Construção, Reforma ou Ampliação','Aquisição de Imove
 const DRE_IDX_MES = {}; MESES_ORD.forEach((m, i) => DRE_IDX_MES[m] = i + 1);
 const DRE_ABREV = m => String(m || '').slice(0, 3);
 
-const DR = { modo: 'mensal', ano: '', mes: '', doc: null };
+const DR = { modo: 'mensal', ano: '', mes: '', doc: null, sub: 'dre' };
+const CONT_SM = { 2023: 1320.00, 2024: 1412.00, 2025: 1518.00, 2026: 1621.00 };
+const _contSM = a => CONT_SM[+a] || CONT_SM[Math.max(...Object.keys(CONT_SM).filter(k => +k <= +a))] || CONT_SM[2023];
 
 const dreNeg = v => (v == null || Math.abs(v) < 0.005) ? null : -v;
 const dreFmt = v => (v == null || Math.abs(v) < 0.005) ? '-' : ((v < 0 ? '(' : '') + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (v < 0 ? ')' : ''));
@@ -4342,19 +4356,49 @@ window.renderContabil = function(){
         <h2 class="font-bold text-sm flex items-center gap-2" style="color:var(--text-accent)"><i class="fa-solid fa-scale-balanced" style="color:#818cf8"></i> Módulo Contábil</h2>
         <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — exclusivo de administradores.</p>
       </div>
-      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="grid grid-cols-5 gap-1.5" id="dre-modos">
-          ${[['individual','Mês'],['mensal','Balancete'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
-            `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('dre-ano', [], DR.ano, 'dreCarregar()')}</div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>${selF('dre-mes', MESES_ORD.map(m => [m, m]), DR.mes, 'dreCarregar()')}</div>
-        </div>
-        <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
+      <div class="grid grid-cols-3 gap-1.5">
+        ${[['dre','Demonstrações','fa-scale-balanced','#818cf8'],['contas','Contas a Pagar/Receber','fa-money-bill-transfer','#10b981'],['indicadores','Indicadores','fa-chart-line','#38bdf8']].map(([v, t, ico, cor]) =>
+          `<button onclick="contSub('${v}')" data-sub="${v}" class="cont-sub px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid ${ico} mr-0.5" style="color:${cor}"></i>${t}</button>`).join('')}
       </div>
-      <div id="dre-doc-m" class="overflow-x-auto"></div>
+      <div class="grid grid-cols-2 gap-2 border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('dre-ano', [], DR.ano, 'contPeriodoMudou()')}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>${selF('dre-mes', MESES_ORD.map(m => [m, m]), DR.mes, 'contPeriodoMudou()')}</div>
+      </div>
+      <div id="cont-sub-dre" class="cont-sub-pane space-y-3">
+        <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="grid grid-cols-5 gap-1.5" id="dre-modos">
+            ${[['individual','Mês'],['mensal','Balancete'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
+              `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
+          </div>
+          <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
+        </div>
+        <div id="dre-doc-m" class="overflow-x-auto"></div>
+      </div>
+      <div id="cont-sub-contas" class="cont-sub-pane hidden space-y-3">
+        <div id="cont-fluxo-host"></div>
+      </div>
+      <div id="cont-sub-indicadores" class="cont-sub-pane hidden space-y-3">
+        <div class="border rounded-2xl p-3 flex items-center gap-2.5" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.30)">
+          <i class="fa-solid fa-scale-balanced text-sky-400 text-lg shrink-0"></i>
+          <p class="text-[10px] opacity-70">Resultados convertidos em <b>salários mínimos</b> do exercício vigente e <b>crescimento interanual</b> (mês × mesmo mês do ano anterior, e acumulado jan–mês).</p>
+        </div>
+        <div id="ind-sm-banner-m"></div>
+        <div id="ind-yoy-cards-m" class="grid grid-cols-1 gap-2.5"></div>
+        <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="px-4 py-3 border-b" style="border-color:var(--border-color)"><h3 class="font-bold text-sm">Resultados em salários mínimos</h3><span id="ind-sm-legenda-m" class="text-[10px] opacity-60"></span></div>
+          <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr>
+            <th class="p-3">Rubrica</th><th class="p-3 text-right">Mês (R$)</th><th class="p-3 text-right">Mês (SM)</th><th class="p-3 text-right">Acum. (R$)</th><th class="p-3 text-right">Acum. (SM)</th></tr></thead>
+            <tbody id="ind-sm-tbody-m" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
+        </div>
+        <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+          <div class="px-4 py-3 border-b" style="border-color:var(--border-color)"><h3 class="font-bold text-sm">Crescimento interanual (YoY)</h3><span id="ind-yoy-legenda-m" class="text-[10px] opacity-60"></span></div>
+          <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr>
+            <th class="p-3">Período</th><th class="p-3 text-right">Atual</th><th class="p-3 text-right">Ano ant.</th><th class="p-3 text-right">Δ nominal</th><th class="p-3 text-right">Em SM</th><th class="p-3 text-right">Δ real</th></tr></thead>
+            <tbody id="ind-yoy-tbody-m" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
+        </div>
+      </div>
     </div>`;
+  _contEstiloSub();
   _dreEstiloModo();
   SGEG.listarPeriodos().then(ps => {
     const anos = [...new Set((ps || []).map(p => String(p.ano)))].sort();
@@ -4362,6 +4406,141 @@ window.renderContabil = function(){
     if (sel && !sel.options.length) anos.forEach(a => sel.add(new Option(a, a, false, a === DR.ano)));
     dreCarregar();
   });
+}
+
+window.contSub = function(sub){
+  DR.sub = sub;
+  _contEstiloSub();
+  ['dre','contas','indicadores'].forEach(n => el('cont-sub-' + n)?.classList.toggle('hidden', n !== sub));
+  if (sub === 'dre') dreCarregar();
+  else if (sub === 'contas') contContas();
+  else if (sub === 'indicadores') contIndicadores();
+};
+window.contPeriodoMudou = function(){
+  DR.ano = el('dre-ano')?.value || DR.ano; DR.mes = el('dre-mes')?.value || DR.mes;
+  if ((DR.sub || 'dre') === 'dre') dreCarregar();
+  else if (DR.sub === 'contas') contContas();
+  else if (DR.sub === 'indicadores') contIndicadores();
+};
+function contContas(){
+  if (window.SGEG?.G) SGEG.G.fluxoSel = { ano: DR.ano, mes: DR.mes };
+  SGEG.renderAbaFluxo('cont-fluxo-host');
+}
+function _contEstiloSub(){
+  document.querySelectorAll('.cont-sub').forEach(b => {
+    const ativo = b.dataset.sub === (DR.sub || 'dre');
+    b.style.background = ativo ? 'rgba(99,102,241,.16)' : 'var(--bg-card)';
+    b.style.borderColor = ativo ? '#818cf8' : 'var(--border-color)';
+    b.style.color = ativo ? '#a5b4fc' : 'var(--text-muted)';
+  });
+}
+
+/* ---------- Indicadores Contábeis (SM + YoY) ---------- */
+async function _contDados(ano, mes){
+  const mov = await SGEG.carregarMovimento(ano, mes);
+  const d = dreDadosMes(mov);
+  if (!d) return null;
+  d.mes = mes; d.ano = ano;
+  d.circulo = await dreCirculo(ano, mes);
+  return _dreCalc(_dreAgregar([d]));
+}
+async function _contAcum(ano, idxMes){
+  const lista = [];
+  for (const m of MESES_ORD.slice(0, idxMes)){
+    const d = await _contMesBruto(ano, m);
+    if (d) lista.push(d);
+  }
+  return lista.length ? _dreCalc(_dreAgregar(lista)) : null;
+}
+async function _contMesBruto(ano, mes){
+  const mov = await SGEG.carregarMovimento(ano, mes);
+  const d = dreDadosMes(mov);
+  if (!d) return null;
+  d.mes = mes; d.ano = ano;
+  d.circulo = await dreCirculo(ano, mes);
+  return d;
+}
+const _contYoy = (at, ant) => (ant == null || Math.abs(ant) < 0.005)
+  ? { atual: at, anterior: ant, pct: null, sem_base: true }
+  : { atual: at, anterior: ant, pct: +(((at - ant) / Math.abs(ant)) * 100).toFixed(1), sem_base: false };
+
+window.contIndicadores = async function(){
+  const ano = el('dre-ano')?.value || DR.ano, mes = el('dre-mes')?.value || DR.mes;
+  const idx = DRE_IDX_MES[mes] || 12;
+  const tbody = el('ind-sm-tbody-m');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center opacity-70"><div class="spin" style="display:inline-block"></div> Calculando…</td></tr>';
+  const anoB = String(+ano - 1);
+  const [mA, mB, acA, acB] = await Promise.all([
+    _contDados(ano, mes), _contDados(anoB, mes), _contAcum(ano, idx), _contAcum(anoB, idx)]);
+  const smA = _contSM(ano), smB = _contSM(anoB);
+  const emSM = (c, sm) => !c ? null : {
+    receita: c.b1, deducoes: c.b2, despesas: c.op + c.iv, resultado: c.res, caixa: c.consF,
+    receita_sm: c.b1 / sm, deducoes_sm: c.b2 / sm, despesas_sm: (c.op + c.iv) / sm,
+    resultado_sm: c.res / sm, caixa_sm: c.consF == null ? null : c.consF / sm };
+  const ind = {
+    rotulo: `${DRE_ABREV(mes)}/${ano}`, rotulo_ant: `${DRE_ABREV(mes)}/${anoB}`,
+    sm_ano: ano, sm_valor: smA, sm_ano_ant: anoB, sm_valor_ant: smB,
+    mes: emSM(mA, smA), mes_anterior: emSM(mB, smB),
+    acumulado: emSM(acA, smA), acumulado_anterior: emSM(acB, smB),
+    yoy_mes: _contYoy(mA?.b1, mB?.b1), yoy_acumulado: _contYoy(acA?.b1, acB?.b1),
+    yoy_resultado: _contYoy(mA?.res, mB?.res),
+    yoy_sm_mes: _contYoy(mA ? mA.b1 / smA : null, mB ? mB.b1 / smB : null),
+    yoy_sm_acumulado: _contYoy(acA ? acA.b1 / smA : null, acB ? acB.b1 / smB : null),
+    sem_base: !mB && !acB,
+  };
+  _contRenderInd(ind, mes, ano);
+};
+
+function _contRenderInd(ind, mes, ano){
+  const fmtSM = v => (v === null || v === undefined || !isFinite(v)) ? '—' : `${v.toFixed(2)} SM`;
+  const seloVar = y => {
+    if (!y || y.sem_base) return '<span class="text-[10px] opacity-50">sem base</span>';
+    const bom = y.pct >= 0;
+    return `<span class="${bom ? 'text-emerald-500' : 'text-red-500'} text-[10px] font-bold"><i class="fa-solid ${bom ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-0.5"></i>${y.pct >= 0 ? '+' : ''}${y.pct.toFixed(1)}%</span>`;
+  };
+  el('ind-sm-banner-m').innerHTML = `
+    <div class="border rounded-2xl p-3 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex-1"><p class="font-bold text-xs">Salário mínimo de referência — ${ind.sm_ano}</p>
+      <p class="text-[10px] opacity-60 mt-0.5">R$ ${num(ind.sm_valor).toFixed(2)} federal · ano anterior (${ind.sm_ano_ant}): R$ ${num(ind.sm_valor_ant).toFixed(2)}</p></div>
+    </div>`;
+  el('ind-sm-legenda-m').textContent = `1 SM = R$ ${num(ind.sm_valor).toFixed(2)} (${ind.sm_ano})`;
+  el('ind-yoy-legenda-m').textContent = `${ind.rotulo} contra ${ind.rotulo_ant} e acumulado jan–${mes} de ${ano} contra ${+ano - 1}`;
+  const add = (rot, kR, kSM) => {
+    const m = ind.mes, ac = ind.acumulado;
+    return `<tr><td class="p-3 font-semibold">${rot}</td>
+      <td class="p-3 text-right tabular-nums">${m ? moeda(m[kR]) : '—'}</td>
+      <td class="p-3 text-right tabular-nums font-bold text-sky-400">${m ? fmtSM(m[kSM]) : '—'}</td>
+      <td class="p-3 text-right tabular-nums">${ac ? moeda(ac[kR]) : '—'}</td>
+      <td class="p-3 text-right tabular-nums font-bold text-sky-400">${ac ? fmtSM(ac[kSM]) : '—'}</td></tr>`;
+  };
+  el('ind-sm-tbody-m').innerHTML =
+    add('Receita bruta', 'receita', 'receita_sm') +
+    add('Deduções vinculadas', 'deducoes', 'deducoes_sm') +
+    add('Despesas (op. + invest.)', 'despesas', 'despesas_sm') +
+    add('Resultado do período', 'resultado', 'resultado_sm') +
+    add('Caixa consolidado', 'caixa', 'caixa_sm');
+  const linhaYoY = (rot, y, ysm) => `<tr><td class="p-3 font-semibold">${rot}</td>
+    <td class="p-3 text-right tabular-nums">${y?.atual != null ? moeda(y.atual) : '—'}</td>
+    <td class="p-3 text-right tabular-nums opacity-80">${y && !y.sem_base ? moeda(y.anterior) : '—'}</td>
+    <td class="p-3 text-right">${seloVar(y)}</td>
+    <td class="p-3 text-right tabular-nums">${ysm && !ysm.sem_base ? `${num(ysm.atual).toFixed(2)}→${num(ysm.anterior).toFixed(2)}` : '—'}</td>
+    <td class="p-3 text-right">${seloVar(ysm)}</td></tr>`;
+  el('ind-yoy-tbody-m').innerHTML =
+    linhaYoY(`Mês (${ind.rotulo} × ${ind.rotulo_ant})`, ind.yoy_mes, ind.yoy_sm_mes) +
+    linhaYoY(`Acumulado (jan–${mes})`, ind.yoy_acumulado, ind.yoy_sm_acumulado) +
+    linhaYoY('Resultado do mês', ind.yoy_resultado, null) +
+    (ind.sem_base ? '<tr><td colspan="6" class="p-3 text-center text-[10px] opacity-60">Sem fechamentos do exercício anterior — sem base comparável.</td></tr>' : '');
+  const cardYoY = (rot, y) => {
+    const base = !y || y.sem_base;
+    return `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[10px] font-bold uppercase opacity-60">${rot}</p>
+      <p class="mt-1 text-lg font-black tabular-nums" style="color:${base ? 'inherit' : (y.pct >= 0 ? '#10b981' : '#ef4444')};${base ? 'opacity:.4' : ''}">${base ? '—' : `${y.pct >= 0 ? '+' : ''}${y.pct.toFixed(1)}%`}</p>
+      <p class="text-[10px] opacity-50 mt-0.5">${base ? 'sem base comparável' : `${moeda(y.atual)} vs ${moeda(y.anterior)}`}</p></div>`;
+  };
+  el('ind-yoy-cards-m').innerHTML =
+    cardYoY(`Arrecadação do mês — ${ind.rotulo} × ${ind.rotulo_ant}`, ind.yoy_mes) +
+    cardYoY(`Arrecadação acumulada (jan–${mes})`, ind.yoy_acumulado) +
+    cardYoY('Resultado do mês', ind.yoy_resultado);
 }
 
 function _dreEstiloModo(){
