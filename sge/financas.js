@@ -158,6 +158,17 @@ async function obterHistoricoCongregacoes(idMembro){
 /* ===================== UI — Rol de Dizimistas ===================== */
 const selF = (id, opts, val, onchange) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
 
+/* Metadados das seções — nomes alinhados ao desktop (sidebar do Hub Financeiro) */
+const FIN_ABAS_META = {
+  rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',          cor: '#38bdf8' },
+  frequencia: { nome: 'Frequência / Turnover BI', desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
+  semanal:    { nome: 'Movimento Semanal',        desc: 'Lançamentos de dízimos por semana',        icone: 'fa-calendar-week',       cor: '#f59e0b' },
+  relatorio:  { nome: 'Relatório de Caixa',       desc: 'Fechar e enviar a semana à central',       icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
+  prestacao:  { nome: 'Prestação de Contas',      desc: 'Prestações das congregações',              icone: 'fa-clipboard-check',     cor: '#f472b6' },
+  orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
+};
+const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'relatorio', 'prestacao', 'orcamentos'];
+
 window.renderFinanceiro = function(){
   el('dash-conteudo').innerHTML = `
     <div class="space-y-3">
@@ -165,17 +176,32 @@ window.renderFinanceiro = function(){
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas e lançamentos semanais</p></div>
       </div>
-      <div class="flex gap-2 overflow-x-auto -mx-1 px-1" id="fin-tabs" style="scrollbar-width:none">
-        ${['rol','frequencia'].filter(finAbaPermitida).map(t => `<button onclick="finAba('${t}')" data-aba="${t}" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap">${t === 'rol' ? '<i class="fa-solid fa-users-line mr-1"></i>Dizimistas' : '<i class="fa-solid fa-chart-line mr-1"></i>Frequência'}</button>`).join('')}
-        ${finAbaPermitida('semanal') ? `<button onclick="finAba('semanal')" data-aba="semanal" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calendar-week mr-1"></i>Semanal</button>` : ''}
-        ${finAbaPermitida('relatorio') ? `<button onclick="finAba('relatorio')" data-aba="relatorio" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>Relatório</button>` : ''}
-        ${finAbaPermitida('prestacao') ? `<button onclick="finAba('prestacao')" data-aba="prestacao" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-clipboard-check mr-1"></i>Prestação</button>` : ''}
-        ${finAbaPermitida('orcamentos') ? `<button onclick="finAba('orcamentos')" data-aba="orcamentos" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer fin-tab whitespace-nowrap"><i class="fa-solid fa-calculator mr-1"></i>Eventos</button>` : ''}
-      </div>
+      <div id="fin-menu"></div>
+      <div id="fin-ctx" class="hidden"></div>
       <div id="fin-sub"></div>
     </div>
 `;
-  finAba(finAbaPermitida(F.aba) ? F.aba : (['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol'));
+  if (F.aba && finAbaPermitida(F.aba)) finAba(F.aba);
+  else finMenu();
+};
+
+window.finMenu = function(){
+  F.aba = null;
+  el('fin-ctx')?.classList.add('hidden');
+  const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
+  const menu = el('fin-menu'); if (!menu) return;
+  const itens = FIN_ABAS_ORDEM.filter(finAbaPermitida);
+  menu.innerHTML = `<div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+    ${itens.map(t => {
+      const m = FIN_ABAS_META[t];
+      return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
+        <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
+        <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
+        <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
+      </button>`;
+    }).join('')}
+  </div>`;
+  menu.classList.remove('hidden');
 };
 
 /* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
@@ -191,15 +217,23 @@ function finAbaPermitida(t){
 }
 
 window.finAba = function(aba){
-  if (!finAbaPermitida(aba)) aba = ['rol','frequencia','semanal','relatorio','prestacao','orcamentos'].find(finAbaPermitida) || 'rol';
+  if (!finAbaPermitida(aba)) aba = FIN_ABAS_ORDEM.find(finAbaPermitida) || 'rol';
   F.aba = aba;
   if (aba !== 'orcamentos'){ ORC.id = null; ORC.dados = null; }
-  document.querySelectorAll('#fin-tabs .fin-tab').forEach(b => {
-    const ativa = b.dataset.aba === aba;
-    b.style.background = ativa ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)' : 'var(--bg-card)';
-    b.style.color = ativa ? '#fff' : 'var(--text-muted)';
-    b.style.borderColor = ativa ? 'transparent' : 'var(--border-color)';
-  });
+  const meta = FIN_ABAS_META[aba] || {};
+  const menu = el('fin-menu'); if (menu) menu.classList.add('hidden');
+  const ctx = el('fin-ctx');
+  if (ctx){
+    ctx.classList.remove('hidden');
+    ctx.innerHTML = `
+      <div class="flex items-center gap-2">
+        <button onclick="finMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}</p>
+          <p class="text-[9px] opacity-55">${meta.desc}</p>
+        </div>
+      </div>`;
+  }
   if (aba === 'semanal') return finRenderSemanal();
   if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'prestacao') return window.prestRender();
