@@ -329,13 +329,18 @@ window.dzCarregar = async function(){
   const lista = el('dz-lista');
   lista.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando membros…</div>';
   try {
+    const rVinc = await api('listar_membros_vinculados_ids', {}, sessao()?.token).catch(() => null);
+    const idsVinc = new Set();
+    if (rVinc?.ok && Array.isArray(rVinc.ids)) rVinc.ids.forEach(i => { const s = String(i || '').trim(); if (s) { idsVinc.add(s); const n = s.replace(/^0+/, ''); if (n) idsVinc.add(n); } });
+    const ehVinculado = id => { const s = String(id || '').trim(); return idsVinc.has(s) || idsVinc.has(s.replace(/^0+/, '')); };
     await carregarMembros();
     const membros = listarMembrosDizimistas(f);
     el('dz-total').textContent = `${membros.length} membro(s) cadastrados`;
     lista.innerHTML = membros.map(m => {
       const ativo = m.status === 'Ativo';
+      const vinc = ehVinculado(m.id);
       return `<div class="border rounded-2xl p-3 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-user text-purple-400"></i></div>
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${vinc ? 'rgba(16,185,129,.15)' : 'rgba(139,92,246,.12)'}" ${vinc ? 'title="Vinculado a um usuário do Portal"' : ''}><i class="fa-solid ${vinc ? 'fa-user-check text-emerald-400' : 'fa-user text-purple-400'}"></i></div>
         <div class="flex-1 min-w-0">
           <p class="font-bold text-xs truncate">${esc(m.nome)}</p>
           <p class="text-[10px] opacity-60 truncate">${esc(m.conselho)} • ${esc(m.congregacao)}</p>
@@ -347,7 +352,7 @@ window.dzCarregar = async function(){
             ${semPodeEditar() ? `<button onclick="semAbrirEditarMembro('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(59,130,246,.15)" title="Editar membro"><i class="fa-solid fa-user-pen text-[11px] text-blue-400"></i></button>` : ''}
             <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Espelho de Contribuições"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
-            ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15)" title="Vincular usuário do Portal"><i class="fa-solid fa-link text-[11px] text-emerald-500"></i></button>` : ''}
+            ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15);${vinc ? '' : 'opacity:.45'}" title="${vinc ? 'Vínculo ativo — alterar ou remover' : 'Vincular usuário do Portal'}"><i class="fa-solid ${vinc ? 'fa-link' : 'fa-link-slash'} text-[11px] text-emerald-500"></i></button>` : ''}
           </div>
         </div>
       </div>`;

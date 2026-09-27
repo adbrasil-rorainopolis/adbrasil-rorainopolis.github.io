@@ -1835,8 +1835,46 @@ function guRenderLista(){
     </button>`).join('')
     : `<div class="border rounded-2xl p-8 text-center text-xs opacity-60" style="border-color:var(--border-color)">Nenhum usuário neste filtro.</div>`;
 
-  corpo.innerHTML = kpis + chips + busca + `<div class="space-y-2">${cards}</div>
+  const grafCard = `
+    <div class="border rounded-2xl overflow-hidden mb-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <button onclick="guToggleGraf()" class="w-full flex items-center justify-between px-3.5 py-2.5 cursor-pointer">
+        <span class="text-[9px] font-bold uppercase tracking-wider opacity-60 flex items-center gap-1.5"><i class="fa-solid fa-chart-line" style="color:#38bdf8"></i>Evolução de cadastros — usuários ao longo do tempo</span>
+        <i id="gu-graf-icone" class="fa-solid ${GU.grafAberto ? 'fa-chevron-up' : 'fa-chevron-down'} text-[9px] opacity-50"></i>
+      </button>
+      <div id="gu-graf-corpo" class="${GU.grafAberto ? '' : 'hidden'} px-3 pb-3"><div class="h-44"><canvas id="gu-graf-canvas"></canvas></div></div>
+    </div>`;
+
+  corpo.innerHTML = kpis + grafCard + chips + busca + `<div class="space-y-2">${cards}</div>
     <p class="text-[9px] opacity-45 text-center pt-2">Toque no usuário para aprovar, bloquear, configurar acessos ou redefinir senha.</p>`;
+  if (GU.grafAberto) guRenderGrafEvo();
+}
+
+window.guToggleGraf = function(){
+  GU.grafAberto = !GU.grafAberto;
+  el('gu-graf-corpo')?.classList.toggle('hidden', !GU.grafAberto);
+  const ic = el('gu-graf-icone'); if (ic) ic.className = `fa-solid ${GU.grafAberto ? 'fa-chevron-up' : 'fa-chevron-down'} text-[9px] opacity-50`;
+  if (GU.grafAberto) guRenderGrafEvo();
+};
+
+async function guRenderGrafEvo(){
+  if (GU.evo === undefined){
+    try { const r = await guApi('evolucao_usuarios', {}); GU.evo = r?.ok ? r : null; }
+    catch { GU.evo = null; }
+  }
+  const cv = el('gu-graf-canvas');
+  if (!cv || !GU.evo || typeof Chart === 'undefined') return;
+  const rotulos = GU.evo.meses.map(m => { const [a, mm] = m.split('-'); return `${MESES[Number(mm) - 1]?.slice(0, 3) || mm}/${String(a).slice(2)}`; });
+  window._guGraf?.destroy();
+  window._guGraf = new Chart(cv, { type: 'bar',
+    data: { labels: rotulos, datasets: [
+      { type: 'line', label: 'Acumulado', data: GU.evo.acumulado, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.12)', fill: true, tension: .35, pointRadius: 3, yAxisID: 'y1' },
+      { label: 'Novos', data: GU.evo.novos, backgroundColor: 'rgba(245,158,11,.75)', borderRadius: 4, yAxisID: 'y' },
+      { label: 'Aprovados', data: GU.evo.aprovados, backgroundColor: 'rgba(52,211,153,.75)', borderRadius: 4, yAxisID: 'y' } ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth: 9, font: { size: 9 } } } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+                y1: { position: 'right', beginAtZero: true, grid: { display: false }, ticks: { precision: 0, font: { size: 8 } } },
+                x: { ticks: { font: { size: 8 } } } } } });
 }
 
 window.guFiltro = v => { GU.filtro = v; guRenderLista(); };
