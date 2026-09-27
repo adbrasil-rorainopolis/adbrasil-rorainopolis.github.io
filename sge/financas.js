@@ -1360,9 +1360,8 @@ window.rcmMudarCategoria = function(p){
   const cssS = 'background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)';
   if (cat.dizimo){
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nome do dizimista *</span>
-      <input id="rcm-${pre}irmao" list="rcm-${pre}irmaos" placeholder="Selecione ou digite o dizimista" autocomplete="off" class="${cssI}" style="${cssS}">
-      <datalist id="rcm-${pre}irmaos"></datalist>
-      <p class="text-[9px] opacity-50 mt-1">Obrigatório — a lista sugere os membros da congregação.</p>`;
+      <input id="rcm-${pre}irmao" readonly onclick="rcmAbrirIrmao('${pre}')" placeholder="Toque para selecionar o dizimista" autocomplete="off" class="${cssI} cursor-pointer" style="${cssS}">
+      <p class="text-[9px] opacity-50 mt-1">Obrigatório — toque para escolher na lista oficial da congregação.</p>`;
     rcmPopularIrmaos(pre);
   } else if (cat.saida){
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição / Histórico *</span>
@@ -1385,16 +1384,97 @@ window.rcmMudarSub = function(p){
   if (inp) inp.placeholder = mantenedor ? 'Nome do mantenedor missionário (obrigatório)' : 'Descreva o lançamento (obrigatório)';
 };
 
+let rcmListaIrmaos = [];
+let rcmListaIrmaosCong = '';
+let rcmIrmaoAlvo = '';
 async function rcmPopularIrmaos(pre){
-  const p = pre || '';
-  const dl = el(`rcm-${p}irmaos`); if (!dl) return;
   try { await carregarMembros(); } catch(e){}
-  const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim().toLowerCase();
-  const nomes = (F.membros || [])
-    .filter(m => !cong || String(m.congregacao || '').trim().toLowerCase() === cong)
+  const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
+  const nomes = listarMembrosDizimistas({ congregacao: cong || 'Todas', status: 'Ativos' })
     .map(m => String(m.nome || '').trim()).filter(Boolean);
-  dl.innerHTML = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(n => `<option value="${rcEsc(n)}">`).join('');
+  rcmListaIrmaos = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  rcmListaIrmaosCong = cong;
 }
+
+/* Seletor oficial de dizimista (paridade desktop): lista alfabética com busca;
+   "Não encontrou? Digite aqui" no topo habilita digitação livre. */
+function _rcmIrmaoModal(){
+  let m = el('rcm-irmao-modal');
+  if (!m){
+    document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-irmao-modal" class="hidden fixed inset-0 z-[97] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)rcmFecharIrmao()">
+      <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-t-3xl border theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
+        <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+          <div class="min-w-0"><h3 class="font-bold text-sm">Selecionar Dizimista</h3><p id="rcm-irmao-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="rcmFecharIrmao()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="px-4 pb-2 shrink-0 space-y-2">
+          <div id="rcm-irmao-livre-wrap">
+            <button onclick="rcmIrmaoLivre()" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold cursor-pointer text-left flex items-center gap-2" style="border-color:rgba(245,158,11,.4);color:#f59e0b;background:rgba(245,158,11,.08)"><i class="fa-solid fa-pen-to-square"></i>Não encontrou o irmão? Digite o nome aqui</button>
+          </div>
+          <div id="rcm-irmao-livre-form" class="hidden space-y-2">
+            <input id="rcm-irmao-livre-nome" placeholder="Digite o nome completo do dizimista" class="w-full px-3 py-2.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <div class="flex gap-2">
+              <button onclick="rcmConfirmarIrmaoLivre()" class="flex-1 py-2.5 rounded-lg text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-check mr-1"></i>Usar este nome</button>
+              <button onclick="rcmIrmaoVoltar()" class="px-3 py-2.5 rounded-lg border text-xs font-bold cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)">Voltar</button>
+            </div>
+          </div>
+          <input id="rcm-irmao-busca" oninput="rcmRenderIrmaos()" placeholder="Buscar na lista…" class="w-full px-3 py-2.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        </div>
+        <div id="rcm-irmao-lista" class="overflow-y-auto px-4 pb-6 space-y-1.5" style="-webkit-overflow-scrolling:touch"></div>
+      </div>
+    </div>`);
+    m = el('rcm-irmao-modal');
+  }
+  return m;
+}
+
+window.rcmAbrirIrmao = async function(pre){
+  rcmIrmaoAlvo = pre || '';
+  const congAtual = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
+  if (congAtual !== rcmListaIrmaosCong) await rcmPopularIrmaos();
+  const m = _rcmIrmaoModal();
+  const sub = el('rcm-irmao-sub'); if (sub) sub.textContent = congAtual ? `Lista oficial — ${congAtual}` : 'Lista oficial de dizimistas';
+  el('rcm-irmao-busca').value = '';
+  rcmIrmaoVoltar();
+  rcmRenderIrmaos();
+  m.classList.remove('hidden');
+};
+
+window.rcmRenderIrmaos = function(){
+  const lista = el('rcm-irmao-lista'); if (!lista) return;
+  const termo = cfq(el('rcm-irmao-busca')?.value || '');
+  const itens = termo ? rcmListaIrmaos.filter(n => cfq(n).includes(termo)) : rcmListaIrmaos;
+  lista.innerHTML = itens.map(n =>
+    `<button onclick="rcmEscolherIrmao(this.dataset.n)" data-n="${rcEsc(n)}" class="w-full px-3 py-2.5 rounded-xl border text-left text-xs font-bold cursor-pointer flex items-center gap-2" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-user opacity-50"></i>${rcEsc(n)}</button>`
+  ).join('') || `<p class="text-center text-xs opacity-60 py-8">Nenhum dizimista encontrado.<br>Use a opção acima para digitar o nome.</p>`;
+};
+
+window.rcmEscolherIrmao = function(nome){
+  const inp = el(`rcm-${rcmIrmaoAlvo}irmao`); if (inp) inp.value = nome || '';
+  rcmFecharIrmao();
+};
+window.rcmIrmaoLivre = function(){
+  el('rcm-irmao-livre-wrap')?.classList.add('hidden');
+  el('rcm-irmao-livre-form')?.classList.remove('hidden');
+  el('rcm-irmao-busca')?.classList.add('hidden');
+  el('rcm-irmao-lista')?.classList.add('hidden');
+  setTimeout(() => el('rcm-irmao-livre-nome')?.focus(), 80);
+};
+window.rcmIrmaoVoltar = function(){
+  el('rcm-irmao-livre-wrap')?.classList.remove('hidden');
+  el('rcm-irmao-livre-form')?.classList.add('hidden');
+  el('rcm-irmao-busca')?.classList.remove('hidden');
+  el('rcm-irmao-lista')?.classList.remove('hidden');
+  const n = el('rcm-irmao-livre-nome'); if (n) n.value = '';
+};
+window.rcmConfirmarIrmaoLivre = function(){
+  const nome = String(el('rcm-irmao-livre-nome')?.value || '').trim();
+  if (!nome) return toast('Digite o nome do dizimista.');
+  const inp = el(`rcm-${rcmIrmaoAlvo}irmao`); if (inp) inp.value = nome;
+  rcmFecharIrmao();
+};
+window.rcmFecharIrmao = function(){ el('rcm-irmao-modal')?.classList.add('hidden'); };
 
 /* Lê o formulário (p='' inclusão, p='ed-' edição) e devolve o lançamento validado */
 function rcmLerForm(p){
