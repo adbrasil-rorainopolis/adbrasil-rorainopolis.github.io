@@ -161,7 +161,7 @@ const selF = (id, opts, val, onchange) => `<select id="${id}" ${onchange ? `onch
 /* Metadados das seções — nomes alinhados ao desktop (sidebar do Hub Financeiro) */
 const FIN_ABAS_META = {
   rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',          cor: '#38bdf8' },
-  frequencia: { nome: 'Frequência / Turnover BI', desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
+  frequencia: { nome: 'Frequência',                desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
   semanal:    { nome: 'Movimento Semanal',        desc: 'Lançamentos de dízimos por semana',        icone: 'fa-calendar-week',       cor: '#f59e0b' },
   relatorio:  { nome: 'Relatório de Caixa',       desc: 'Fechar e enviar a semana à central',       icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
   prestacao:  { nome: 'Prestação de Contas',      desc: 'Prestações das congregações',              icone: 'fa-clipboard-check',     cor: '#f472b6' },
@@ -501,7 +501,7 @@ window.dzSalvarVinculo = async function(id, remover){
 };
 
 
-/* ===================== Frequência / Turnover BI =====================
+/* ===================== Frequência =====================
    Port fiel de sge_bridge.obter_dados_frequencia_bi (somente leitura) */
 
 const _normIdMembro = v => {
