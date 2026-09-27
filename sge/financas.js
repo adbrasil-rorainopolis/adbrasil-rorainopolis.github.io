@@ -4770,8 +4770,10 @@ window.drePdf = async function(){
       doc.text('SGE • AD BRASIL — DEMONSTRAÇÃO DO RESULTADO GERADA ELETRONICAMENTE', W / 2, 291, { align: 'center' });
     };
     let startY = 48;
-    for (const bloco of blocos){
+    for (let bi = 0; bi < blocos.length; bi++){
+      const bloco = blocos[bi];
       const bc = bloco.cols;
+      if (bi){ doc.addPage(); startY = 18; }
       if (bloco.titulo){
         doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.setTextColor(17, 17, 17);
         doc.text(bloco.titulo, W / 2, startY + 3, { align: 'center' });
