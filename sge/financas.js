@@ -1017,6 +1017,13 @@ const RC_CATS = [
     'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto das Crianças', 'Culto Público', 'Outros'] },
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
 ];
+/* Tipos de saída padronizados — 'Outros' no topo habilita descrição livre. */
+const RC_SAIDAS_SUBS = ['Outros',
+  'Telefone e Internet', 'Material de Expediente', 'Material de Limpeza',
+  'Energia', 'Água e Esgoto', 'Alimentação para Eventos', 'Lanche EBD ou Santa Ceia',
+  'Material de Som', 'Vestuário ou Ornamentação', 'Medicação', 'Presentes',
+  'Construção, Reforma ou Ampliação', 'Aquisição de Imóveis',
+  'Materiais de Bens Duráveis ou Utensílios'];
 const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
 // Sub que exige o nome do ofertante na descrição (mantenedor missionário).
 const RC_SUB_MANTENEDOR = 'Oferta Missionária';
@@ -1409,8 +1416,10 @@ window.rcmMudarCategoria = function(p){
       <p class="text-[9px] opacity-50 mt-1">Obrigatório — toque para escolher na lista oficial da congregação.</p>`;
     rcmPopularIrmaos(pre);
   } else if (cat.saida){
-    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição / Histórico *</span>
-      <input id="rcm-${pre}descricao" placeholder="Ex.: Conta de energia, material de limpeza..." class="${cssI}" style="${cssS}">`;
+    slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de saída *</span>
+      ${selF(`rcm-${pre}sub`, RC_SAIDAS_SUBS.map(s => [s, s]), null, `rcmMudarSub('${pre}')`)}
+      <div id="rcm-${pre}outros-wrap" class="hidden mt-2"><input id="rcm-${pre}outros" placeholder="Tipo não encontrado? Descreva a saída (obrigatório)" class="${cssI}" style="${cssS}"></div>`;
+    rcmMudarSub(pre);
   } else {
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Detalhe da oferta *</span>
       ${selF(`rcm-${pre}sub`, rcSubsDaCat(cat).map(s => [s, s]), null, `rcmMudarSub('${pre}')`)}
@@ -1533,8 +1542,12 @@ function rcmLerForm(p){
     if (!nome) return { erro: 'Informe o nome do dizimista.' };
     descricao = `Dízimo — ${nome}`;
   } else if (cat.saida){
-    descricao = String(el(`rcm-${p}descricao`)?.value || '').trim();
-    if (!descricao) return { erro: 'Informe a descrição da saída.' };
+    const sub = el(`rcm-${p}sub`)?.value || '';
+    if (RC_OUTROS.includes(sub)){
+      descricao = String(el(`rcm-${p}outros`)?.value || '').trim();
+      if (!descricao) return { erro: 'Tipo não encontrado? Descreva a saída no campo de texto livre.' };
+    } else if (sub) descricao = sub;
+    else return { erro: 'Selecione o tipo de saída.' };
   } else {
     const sub = el(`rcm-${p}sub`)?.value || '';
     if (sub === RC_SUB_MANTENEDOR){
@@ -1702,7 +1715,11 @@ window.rcmEditar = function(i){
     const mm = /^D.zimo\s*.\s*(.+)$/u.exec(it.descricao || '');
     const inp = el('rcm-ed-irmao'); if (inp) inp.value = mm ? mm[1] : (it.descricao || '');
   } else if (catEd.saida){
-    const d = el('rcm-ed-descricao'); if (d) d.value = it.descricao || '';
+    const d = String(it.descricao || '').trim();
+    const s = el('rcm-ed-sub');
+    if (s && RC_SAIDAS_SUBS.includes(d) && !RC_OUTROS.includes(d)){ s.value = d; }
+    else { if (s) s.value = 'Outros'; const o = el('rcm-ed-outros'); if (o) o.value = RC_OUTROS.includes(d) ? '' : d; }
+    rcmMudarSub('ed-');
   } else {
     const subs = rcSubsDaCat(catEd);
     const s = el('rcm-ed-sub');
