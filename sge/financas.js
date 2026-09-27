@@ -24,7 +24,7 @@ const F = {
   membroSel: null,
   aba: 'rol',
   sem: { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: 'Semana 1',
-    conselho: 'Todos', congregacao: 'Todas', busca: '', lancs: {}, fechada: false, fechPorAno: {} },
+    conselho: 'Todos', congregacao: 'Todas', situacao: 'todos', busca: '', lancs: {}, fechada: false, fechPorAno: {} },
   fq: { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], conselho: 'Todos', congregacao: 'Todas', perfil: 'Todos', faixa: null, dados: null },
 };
 
@@ -3177,6 +3177,10 @@ async function finRenderSemanal(){
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="sem-congregacao" onchange="semMudarFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
         </div>
         <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar por nome, ID ou valor…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+        <div>
+          <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Situação</span>
+          <div class="flex flex-wrap gap-1.5" id="sem-situacao">${[['todos','Todos'],['lancados','Com valor'],['sem','Sem lançamento'],['enviados','Enviados'],['edicao','Em edição']].map(([v, t]) => `<button onclick="semSituacao('${v}')" data-sit="${v}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer sem-sit whitespace-nowrap">${t}</button>`).join('')}</div>
+        </div>
       </div>
       <div id="sem-aviso"></div>
       <div class="flex items-center gap-1.5 px-1">
@@ -3188,9 +3192,20 @@ async function finRenderSemanal(){
       <div id="sem-lista" class="space-y-2 pb-6"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando grade…</div></div>
     </div>`;
   _semMarcarChip();
+  _semMarcarSituacao();
   _semPopularConselhos();
   await semCarregar();
 }
+
+function _semMarcarSituacao(){
+  document.querySelectorAll('.sem-sit').forEach(b => {
+    const on = b.dataset.sit === F.sem.situacao;
+    b.style.background = on ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)' : 'var(--bg-card)';
+    b.style.color = on ? '#fff' : 'var(--text-muted)';
+    b.style.borderColor = on ? 'transparent' : 'var(--border-color)';
+  });
+}
+window.semSituacao = function(v){ F.sem.situacao = v; _semMarcarSituacao(); _semRenderLista(); };
 
 function _semMarcarChip(){
   const n = +(_semNorm(F.sem.semana).replace('Semana ', '') || 0);
@@ -3280,11 +3295,23 @@ function _semRenderLista(){
   const vigOf = m => { const k = String(m.id ?? '').trim(); if (!(k in vigCache)) vigCache[k] = _semVigente(m.id, s.mes, s.ano, s.histMap); return vigCache[k]; };
   const congEfetiva = m => vigOf(m)?.congregacao || m.congregacao || 'Sede';
   const consEfetivo = m => vigOf(m)?.conselho || m.conselho || 'Conselho 1';
+  const regOf = m => { const k = String(m.id ?? '').trim(); return s.lancs[k] || s.lancs[String(parseInt(k, 10)).padStart(6, '0')]; };
+  const sitOk = m => {
+    if (s.situacao === 'todos') return true;
+    const reg = regOf(m), v = parseValor(reg?.valor);
+    const enviado = ['enviado','conferido'].includes(cf(reg?.status)) && v > 0;
+    if (s.situacao === 'lancados') return v > 0;
+    if (s.situacao === 'sem') return v <= 0;
+    if (s.situacao === 'enviados') return enviado;
+    if (s.situacao === 'edicao') return v > 0 && !enviado;
+    return true;
+  };
   const rows = (F.membros || []).filter(m => {
     if (String(m.excluido_em ?? '').trim()) return false;
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
     if (s.conselho !== 'Todos' && cf(consEfetivo(m)) !== cf(s.conselho)) return false;
     if (s.congregacao !== 'Todas' && cf(congEfetiva(m)) !== cf(s.congregacao)) return false;
+    if (!sitOk(m)) return false;
     if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo) && !bateValor(m.id)) return false;
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
@@ -3295,7 +3322,7 @@ function _semRenderLista(){
 
   lista.innerHTML = rows.map(m => {
     const id = String(m.id ?? '').trim();
-    const reg = s.lancs[id];
+    const reg = regOf(m);
     const v = parseValor(reg?.valor);
     if (v > 0) lancados++;
     totalSem += v;
