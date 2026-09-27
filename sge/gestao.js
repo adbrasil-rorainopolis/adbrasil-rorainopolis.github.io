@@ -1222,8 +1222,8 @@ function renderAbaCruzamento(){
       </div>
       <div id="rel-kpis" class="grid grid-cols-2 gap-2.5"></div>
       <div class="border rounded-xl overflow-x-auto" style="border-color:var(--border-color)">
-        <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Período</th><th class="p-3">Congregação</th><th class="p-3">Conselho</th><th class="p-3">Entradas</th><th class="p-3">Despesas</th><th class="p-3">Saldo</th></tr></thead>
-        <tbody id="rel-tbody" class="divide-y" style="border-color:var(--border-color)"><tr><td colspan="6" class="p-8 text-center opacity-60">Sem dados para pré-visualização.</td></tr></tbody></table>
+        <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Período</th><th class="p-3">Congregação</th><th class="p-3">Entradas</th><th class="p-3">Despesas</th><th class="p-3">Saldo</th></tr></thead>
+        <tbody id="rel-tbody" class="divide-y" style="border-color:var(--border-color)"><tr><td colspan="5" class="p-8 text-center opacity-60">Sem dados para pré-visualização.</td></tr></tbody></table>
       </div>` : '');
   _popularConselhos();
   gestaoModoUI();
@@ -1327,7 +1327,22 @@ function renderizarCruzamento(dados){
   setHtml('rel-kpis', card('Entradas', moeda(t.entradas)) + card('Saídas', moeda(t.despesas), 'text-red-500') + card('Registros', String(linhas.length), 'text-sky-500') + card('Contas selecionadas', String(nContas), 'text-amber-500'));
   const rs = el('rel-resumo'); if (rs) rs.textContent = `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${f.conselho || 'Todos'} • ${linhas.length} registro(s).`;
   const rtb = el('rel-tbody');
-  if (rtb) rtb.innerHTML = linhas.map(i => `<tr><td class="p-3">${esc(i.periodo)}</td><td class="p-3 font-semibold">${esc(i.congregacao)}</td><td class="p-3">${esc(i.conselho)}</td><td class="p-3 text-emerald-500">${moeda(i.entradas)}</td><td class="p-3 text-red-500">${moeda(i.despesas)}</td><td class="p-3 font-bold">${moeda(i.saldo)}</td></tr>`).join('') || '<tr><td colspan="6" class="p-8 text-center opacity-60">Sem dados.</td></tr>';
+  if (rtb){
+    const grupos = {};
+    for (const i of linhas) (grupos[i.conselho || 'Sem conselho'] ||= []).push(i);
+    const conselhosOrd = ordenarConselhosG(Object.keys(grupos));
+    const multiplos = conselhosOrd.length > 1;
+    rtb.innerHTML = linhas.length ? conselhosOrd.map(cons => {
+      const ls = grupos[cons];
+      const sub = { entradas: 0, despesas: 0, saldo: 0 };
+      for (const i of ls){ sub.entradas += num(i.entradas); sub.despesas += num(i.despesas); sub.saldo += num(i.saldo); }
+      return `
+      <tr style="background:var(--bg-input)"><td colspan="5" class="py-1.5 px-3 text-[9px] font-black uppercase tracking-wider" style="color:var(--color-primary)"><i class="fa-solid fa-layer-group mr-1.5 opacity-60"></i>${esc(cons)}</td></tr>
+      ${ls.map(i => `<tr><td class="p-3">${esc(i.periodo)}</td><td class="p-3 font-semibold">${esc(i.congregacao)}</td><td class="p-3 text-emerald-500">${moeda(i.entradas)}</td><td class="p-3 text-red-500">${moeda(i.despesas)}</td><td class="p-3 font-bold ${num(i.saldo) < 0 ? 'text-red-500' : ''}">${moeda(i.saldo)}</td></tr>`).join('')}
+      ${multiplos ? `<tr style="border-top:2px solid var(--border-color);background:rgba(148,163,184,.06)"><td colspan="2" class="p-3 text-[9px] font-bold uppercase opacity-70">Subtotal ${esc(cons)}</td><td class="p-3 text-emerald-500 font-bold tabular-nums">${moeda(sub.entradas)}</td><td class="p-3 text-red-500 font-bold tabular-nums">${moeda(sub.despesas)}</td><td class="p-3 font-black tabular-nums ${sub.saldo < 0 ? 'text-red-500' : 'text-emerald-500'}">${moeda(sub.saldo)}</td></tr>` : ''}`;
+    }).join('')
+      : '<tr><td colspan="5" class="p-8 text-center opacity-60">Sem dados.</td></tr>';
+  }
   gestaoGrafico();
 }
 
