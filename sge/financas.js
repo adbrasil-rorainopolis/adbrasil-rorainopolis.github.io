@@ -3460,6 +3460,8 @@ async function finRenderSemanal(){
       <div id="sem-aviso"></div>
       <div class="flex items-center gap-1.5 px-1">
         <p id="sem-total" class="flex-1 text-[10px] font-bold uppercase opacity-60">Carregando…</p>
+        <button onclick="semRecarregar()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted);background:var(--bg-card)" title="Atualizar dados da nuvem"><i class="fa-solid fa-rotate"></i></button>
+        <button onclick="semExportarWhatsApp()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(37,211,102,.5);color:#25d366;background:rgba(37,211,102,.1)" title="Exportar lançamentos do mês para o WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
         <button onclick="semAbrirDivergencias()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(37,99,235,.5);color:#60a5fa;background:rgba(37,99,235,.1)" title="Divergências"><i class="fa-solid fa-magnifying-glass-chart"></i></button>
         ${sgeEhAdmin() ? `<button onclick="semAbrirLotes()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(142,68,173,.5);color:#a855f7;background:rgba(142,68,173,.1)" title="Gestão de Lotes"><i class="fa-solid fa-lock"></i></button>` : ''}
         ${pode ? `<button onclick="semAbrirNovoMembro()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(5,150,105,.5);color:#10b981;background:rgba(5,150,105,.1)" title="Cadastrar membro"><i class="fa-solid fa-user-plus"></i></button>` : ''}
@@ -3630,6 +3632,113 @@ function _semRenderLista(){
 
   if (tot) tot.textContent = `${lancados} de ${rows.length} lançados • ${s.mes}/${s.ano} • ${_semNorm(s.semana).replace('Semana ', '')}ª Sem • Total ${moeda(totalSem)}`;
 }
+
+/* Força nova leitura da nuvem — o ano fica cacheado em memória (F.lancPorAno),
+   então sem isso uma edição feita em outra estação só aparece ao reabrir o app. */
+window.semRecarregar = async function(){
+  const s = F.sem;
+  F.lancPorAno[s.ano] = null; F.lancTodos = null;
+  F.histCongs = null; F.membros = null;
+  if (s.fechPorAno) s.fechPorAno[s.ano] = null;
+  await semCarregar();
+};
+
+/* ===================== Exportação do mês p/ WhatsApp (contingência) =====================
+   Gera um texto legível com todos os lançamentos do mês selecionado,
+   agrupados por semana — respeita os filtros de conselho/congregação da
+   grade. Serve como "backup manual": se a nuvem falhar, o operador envia
+   o texto e os lançamentos podem ser refeitos em outra estação. */
+
+window.semExportarWhatsApp = async function(){
+  const s = F.sem;
+  toast(`Gerando lançamentos de ${s.mes}/${s.ano}…`);
+  try {
+    const [lancs, membros, hist] = await Promise.all([
+      carregarLancamentosAno(s.ano), carregarMembros(), carregarHistoricoCongs()
+    ]);
+    const histMap = {};
+    for (const r of (hist || [])){
+      const k = String(r.id_membro ?? '').trim();
+      (histMap[k] = histMap[k] || []).push(r);
+    }
+    const memMap = {};
+    for (const m of (membros || [])){
+      if (String(m.excluido_em ?? '').trim()) continue;
+      if (!_semMembroAtivo(m, s.mes, s.ano)) continue;
+      memMap[String(m.id ?? '').trim()] = m;
+      memMap[String(parseInt(m.id, 10)).padStart(6, '0')] = m;
+    }
+    /* conselho/congregação vigentes no mês — paridade com a grade. */
+    const vigOf = m => _semVigente(m.id, s.mes, s.ano, histMap);
+    const congEfetiva = m => vigOf(m)?.congregacao || m.congregacao || 'Sede';
+    const consEfetivo = m => vigOf(m)?.conselho || m.conselho || 'Conselho 1';
+    const dentroEscopo = m => m
+      && (s.conselho === 'Todos' || cf(consEfetivo(m)) === cf(s.conselho))
+      && (s.congregacao === 'Todas' || cf(congEfetiva(m)) === cf(s.congregacao));
+
+    const porSemana = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+    for (const r of (lancs || [])){
+      if (cf(r.mes) !== cf(s.mes)) continue;
+      const n = +(_semNorm(r.semana).replace('Semana ', '') || 0);
+      if (!porSemana[n]) continue;
+      const v = parseValor(r.valor);
+      if (v <= 0) continue;
+      const m = memMap[String(r.id ?? '').trim()];
+      if (m && !dentroEscopo(m)) continue;
+      porSemana[n].push({ reg: r, mem: m, v });
+    }
+
+    const stTxt = reg => {
+      const st = cf(reg.status);
+      return ['enviado','conferido'].includes(st) ? 'enviado' : st === 'retificado' ? 'retificado' : 'em edição';
+    };
+    const detalheParcelas = (reg, base) => {
+      const ps = _semParseParcelas(reg).filter(p => (p.especie || 0) + (p.pix || 0) > 0);
+      if (!ps.length) return '';
+      const te = ps.reduce((a, p) => a + (p.especie || 0), 0);
+      const tp = ps.reduce((a, p) => a + (p.pix || 0), 0);
+      const canal = te > 0 && tp > 0 ? 'Esp+PIX' : tp > 0 ? 'PIX' : 'Esp';
+      const itins = [...new Set(ps.map(p => cf(p.cong)).filter(c => c && c !== cf(base)))];
+      const dest = String(reg.destino_congregacao || '').trim();
+      const itin = itins.length ? `→${itins.join('+')}` : (dest && cf(dest) !== cf(base) ? `→${dest}` : '');
+      return ` [${canal}${itin}]`;
+    };
+
+    const linhas = [];
+    linhas.push(`*SGE • DÍZIMOS — ${String(s.mes).toUpperCase()}/${s.ano}*`);
+    linhas.push(`Conselho: ${s.conselho} · Congregação: ${s.congregacao}`);
+    linhas.push(`Exportado em ${new Date().toLocaleString('pt-BR')}`);
+    let totalMes = 0, qtdMes = 0;
+    for (const n of [1, 2, 3, 4, 5]){
+      const arr = porSemana[n].sort((a, b) => String(a.mem?.nome || a.reg.id).localeCompare(String(b.mem?.nome || b.reg.id), 'pt-BR'));
+      const soma = arr.reduce((a, x) => a + x.v, 0);
+      totalMes += soma; qtdMes += arr.length;
+      linhas.push('');
+      linhas.push(`*▸ ${n}ª SEMANA* — ${arr.length ? `${arr.length} lanç. · ${moeda(soma)}` : 'sem lançamentos'}`);
+      for (const { reg, mem, v } of arr){
+        const nome = mem?.nome || 'Membro Sem Nome';
+        const cong = mem ? congEfetiva(mem) : (reg.destino_congregacao || '—');
+        linhas.push(`${String(reg.id ?? '').trim()} · ${nome} · ${cong} · *${moeda(v)}*${detalheParcelas(reg, cong)} · ${stTxt(reg)}`);
+      }
+    }
+    linhas.push('');
+    linhas.push(`*TOTAL DO MÊS: ${qtdMes} lançamentos · ${moeda(totalMes)}*`);
+
+    const txt = linhas.join('\n');
+    if (qtdMes === 0){ toast(`Nenhum lançamento em ${s.mes}/${s.ano} para exportar.`); return; }
+    if (navigator.share){
+      try { await navigator.share({ title: `Lançamentos ${s.mes}/${s.ano}`, text: txt }); return; }
+      catch(e){ if (e?.name === 'AbortError') return; }
+    }
+    let copiou = false;
+    try { await navigator.clipboard.writeText(txt); copiou = true; } catch(e){}
+    if (txt.length <= 4500) window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+    else if (copiou) toast('Relatório copiado — cole na conversa do WhatsApp.');
+    else toast('Falha ao compartilhar — tente novamente.');
+  } catch(e){
+    toast(e?.message || 'Falha ao gerar a exportação.');
+  }
+};
 
 /* ===================== Lançamento por membro — subtela dedicada =====================
    Paridade com abrir_modal_multiplos_dizimos do desktop: parcelas com canal
@@ -3866,7 +3975,17 @@ window.semLancSalvar = async function(){
       : operacao === 'retificar' ? 'Retificação salva.' : 'Lançamento salvo.');
     await semCarregar();
   } catch(e){
-    toast(e.message || 'Falha ao salvar lançamento.');
+    if (e?.data?.conflito){
+      /* A nuvem tem uma versão mais nova do registro — descarta o cache em
+         memória e recarrega a grade para o usuário ver o dado real antes
+         de tentar de novo (sem isso o cache velho repete o conflito). */
+      F.lancPorAno[s.ano] = null; F.lancTodos = null;
+      semFecharLanc();
+      toast('A nuvem tinha uma versão mais nova — dados atualizados. Confira e salve de novo se precisar.');
+      await semCarregar();
+    } else {
+      toast(e.message || 'Falha ao salvar lançamento.');
+    }
   } finally {
     if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Salvar lançamento'; }
   }
