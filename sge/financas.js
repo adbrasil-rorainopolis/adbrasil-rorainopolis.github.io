@@ -1824,6 +1824,15 @@ function rcSemanaFechada(ano, mes, semana){
     && String(b.mes || '').toLowerCase() === String(mes || '').toLowerCase()
     && (b.bloqueado === true || +b.bloqueado === 1) && _rcSemanaNum(b.semana) >= n);
 }
+/* Próxima semana aberta depois da informada (mesmo mês) — orienta o tesoureiro
+   que tocou numa semana travada. null = todas as seguintes estão fechadas. */
+function rcmProximaSemanaAberta(ano, mes, semanaAtual){
+  for (let n = _rcSemanaNum(semanaAtual) + 1; n <= 5; n++){
+    const s = n + 'ª Semana';
+    if (!rcSemanaFechada(ano, mes, s)) return s;
+  }
+  return null;
+}
 async function rcSincronizarBloqueios(){
   try { const res = await api('listar_relatorios_caixa', null, sessao()?.token); if (res?.bloqueios) RC.bloqueios = res.bloqueios; } catch(e){}
 }
@@ -1844,9 +1853,15 @@ window.rcmAvisoSemana = async function(){
   };
   rcmGridSemanas();
   const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
-  const htmlTrava = fd =>
-    (fd ? `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">Semana financeira fechada — tente a semana seguinte${admin ? ' (admin pode retificar)' : ''}</span></div>` : '')
-;
+  const htmlTrava = fd => {
+    if (!fd) return '';
+    const prox = rel.semana ? rcmProximaSemanaAberta(rel.ano, rel.mes, rel.semana) : null;
+    const btn = (prox && !admin)
+      ? `<button onclick="rcmTocarSemana(${_rcSemanaNum(prox)})" class="px-2 py-1 rounded-lg text-[9px] font-extrabold text-white shrink-0 cursor-pointer" style="background:#ef4444">Ir para a ${prox}</button>` : '';
+    const txt = prox ? `Semana financeira fechada — a próxima aberta é a <b>${prox}</b>`
+                     : 'Semana financeira fechada — as demais semanas deste mês também estão fechadas';
+    return `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">${txt}${admin ? ' (admin pode retificar)' : ''}</span>${btn}</div>`;
+  };
   if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){
     box.innerHTML = htmlTrava(rel.semana ? rcSemanaFechada(rel.ano, rel.mes, rel.semana) : false); return;
   }
@@ -1905,13 +1920,30 @@ window.rcmGridSemanas = function(){
   if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar até aquela semana ou reabrir a partir dela</p>`;
 };
 
-window.rcmTocarSemana = function(w){
+window.rcmTocarSemana = async function(w){
   const sem = w + 'ª Semana';
+  const p = _rcPeriodoRelatorio();
+  const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
+  if (rcSemanaFechada(p.ano, p.mes, sem) && !admin){
+    /* Tesoureiro tocou numa semana travada: não seleciona — oferece a próxima aberta */
+    const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
+    const ir = await rcmConfirmar({
+      titulo: 'Semana fechada', icone: 'fa-lock', cor: '#ef4444',
+      okTexto: prox ? `Ir para a ${prox}` : 'Entendi', naoTexto: 'Voltar',
+      msg: prox
+        ? `A <b>${sem}</b> de ${p.mes}/${p.ano} está <b>FECHADA</b> para lançamentos.<br>A próxima semana aberta é a <b>${prox}</b> — deseja lançar nela?`
+        : `A <b>${sem}</b> de ${p.mes}/${p.ano} está <b>FECHADA</b> e não há semana aberta depois dela neste mês.<br>Procure a tesouraria da central.` });
+    if (ir && prox){
+      const sel = el('rcm-semana'); if (sel) sel.value = prox;
+      F.rcSemana = prox;
+      rcmMarcarSujo();
+    }
+    rcmRenderDoc(); rcmAvisoSemana();
+    return;
+  }
   const sel = el('rcm-semana'); if (sel) sel.value = sem;
   F.rcSemana = sem;
-  const p = _rcPeriodoRelatorio();
-  if (rcSemanaFechada(p.ano, p.mes, sem) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin()))
-    toast('Semana financeira fechada — tente a semana seguinte.');
+  rcmMarcarSujo();
   rcmRenderDoc(); rcmAvisoSemana();
 };
 
@@ -1955,7 +1987,10 @@ window.rcmSalvar = async function(enviar){
   const congFixa = rcCongFixa();
   if (congFixa && rel.congregacao !== congFixa){ toast(`Tesoureiro: relatório só pode ser da congregação ${congFixa}.`); return; }
   if (rcSemanaFechada(rel.ano, rel.mes, rel.semana) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
-    toast('Semana financeira fechada — tente a semana seguinte.'); rcmAvisoSemana(); return;
+    const prox = rcmProximaSemanaAberta(rel.ano, rel.mes, rel.semana);
+    toast(prox ? `Semana financeira fechada — a próxima aberta é a ${prox}.`
+               : 'Semana financeira fechada — as demais semanas deste mês também estão fechadas.');
+    rcmAvisoSemana(); return;
   }
   /* Trava anti-duplicata: mesma congregação + semana + período já tem relatório? */
   const existente = await rcmExisteSemana(rel);
@@ -2554,7 +2589,9 @@ window.rcmSugerirSemana = async function(){
       .filter(r => String(r.congregacao || '').trim().toLowerCase() === cong.toLowerCase()
                && (!mm || String(r.data_relatorio || '').substring(3) === mm))
       .map(r => r.semana));
-    const prox = SEM.find(s => !usadas.has(s)) || '5ª Semana';
+    const per = _rcPeriodoRelatorio();
+    const prox = SEM.find(s => !usadas.has(s) && !rcSemanaFechada(per.ano, per.mes, s));
+    if (!prox) return null;
     if (F.rcSemana !== prox){
       F.rcSemana = prox;
       const s = el('rcm-semana'); if (s) s.value = prox;
