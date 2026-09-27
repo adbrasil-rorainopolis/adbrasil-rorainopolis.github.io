@@ -166,8 +166,9 @@ const FIN_ABAS_META = {
   relatorio:  { nome: 'Envio de Caixa',            desc: 'Fechamento e envio semanal',               icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
   prestacao:  { nome: 'Conferência de Caixa',      desc: 'Gestão e recebimento das congregações',    icone: 'fa-clipboard-check',     cor: '#f472b6' },
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
+  movfin:     { nome: 'Movimento Financeiro',     desc: 'Grade ágil por congregação — só admin',    icone: 'fa-table-list',          cor: '#f43f5e' },
 };
-const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'relatorio', 'prestacao', 'orcamentos'];
+const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'relatorio', 'prestacao', 'orcamentos', 'movfin'];
 
 window.renderFinanceiro = function(){
   el('dash-conteudo').innerHTML = `
@@ -213,6 +214,7 @@ function finAbaPermitida(t){
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
+  if (t === 'movfin') return typeof sgeEhAdmin === 'function' && sgeEhAdmin();
   return false;
 }
 
@@ -239,6 +241,7 @@ window.finAba = function(aba){
   if (aba === 'prestacao') return window.prestRender();
   if (aba === 'frequencia') return finRenderFrequencia();
   if (aba === 'orcamentos') return orcRenderTela();
+  if (aba === 'movfin') return mvmRenderTela();
   finRenderRol();
 };
 
@@ -5095,7 +5098,203 @@ window.drePdf = async function(){
   } catch(e){ toast(e.message || 'Falha ao gerar o PDF.'); }
 };
 
+/* ===================== MOVIMENTO FINANCEIRO (protótipo admin) =====================
+   Grade ágil por congregação com digitação em sequência, check que trava a
+   edição e autosoma por linha. Rascunho local por competência — mesma chave
+   localStorage do desktop para futura integração. */
+const MVM_LINHAS = {
+  entradas: RC_CATS.filter(c => !c.saida).map(c => ({ id: 'ENT::' + c.id, label: c.rotulo })),
+  saidas: RC_SAIDAS_SUBS.filter(s => s !== 'Outros').concat(['Outros / Diversos'])
+            .map(s => ({ id: 'SAI::' + s, label: s })),
+};
+const MVM = { congs: [], sel: '', ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], store: { checks: {}, linhas: {} } };
+const mvmChave = () => `sge_mvfin_${MVM.ano}_${MVM.mes}`;
+function mvmCarregarStore(){
+  try { MVM.store = JSON.parse(localStorage.getItem(mvmChave()) || '{}') || {}; } catch(e){ MVM.store = {}; }
+  MVM.store.checks = MVM.store.checks || {}; MVM.store.linhas = MVM.store.linhas || {};
+}
+const mvmSalvarStore = () => { try { localStorage.setItem(mvmChave(), JSON.stringify(MVM.store)); } catch(e){} };
+const mvmItens = (cong, lid) => (MVM.store.linhas[cong] || {})[lid] || [];
+function mvmSetItens(cong, lid, itens){
+  const l = MVM.store.linhas[cong] || (MVM.store.linhas[cong] = {});
+  if (itens.length) l[lid] = itens; else delete l[lid];
+  mvmSalvarStore();
+}
+const mvmTotalLinha = (cong, lid) => mvmItens(cong, lid).reduce((a, x) => a + (+x.v || 0), 0);
+function mvmTotais(cong){
+  const e = MVM_LINHAS.entradas.reduce((a, l) => a + mvmTotalLinha(cong, l.id), 0);
+  const s = MVM_LINHAS.saidas.reduce((a, l) => a + mvmTotalLinha(cong, l.id), 0);
+  return { e, s, saldo: e - s };
+}
+const mvmTravada = cong => MVM.store.checks[cong] === true;
+
+window.mvmRenderTela = async function(){
+  const corpo = el('fin-sub'); if (!corpo) return;
+  mvmCarregarStore();
+  corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando congregações…</div>';
+  try {
+    if (!MVM.congs.length){
+      const res = await api('listar_congregacoes', null, sessao()?.token);
+      MVM.congs = (res?.dados || []).filter(c => c.ativo !== 0 && c.ativo !== false).map(c => String(c.nome || '')).filter(Boolean);
+    }
+  } catch(e){ MVM.congs = []; }
+  if (!MVM.sel || !MVM.congs.includes(MVM.sel)) MVM.sel = MVM.congs[0] || '';
+  const anos = [+MVM.ano - 1, +MVM.ano, +MVM.ano + 1].map(String);
+  corpo.innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[9px] font-extrabold uppercase tracking-widest" style="color:#f43f5e">Protótipo · uso exclusivo do administrador</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Competência</span>${selF('mvm-mes', MESES_ORD.map(m => [m, m]), MVM.mes, 'MVM.mes=this.value;mvmRenderTela()')}</div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('mvm-ano', anos.map(a => [a, a]), MVM.ano, 'MVM.ano=this.value;mvmRenderTela()')}</div>
+        </div>
+        <p class="text-[9px] opacity-55">Digite o valor e confirme para somar • o botão <i class="fa-solid fa-list"></i> abre vários lançamentos na linha • o check trava a congregação conferida</p>
+      </div>
+      <div id="mvm-congs" class="flex gap-2 overflow-x-auto pb-1"></div>
+      <div id="mvm-trava"></div>
+      <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+        <h4 class="px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-widest" style="background:rgba(52,211,153,.1);color:#34d399"><i class="fa-solid fa-arrow-trend-up mr-1"></i>Entradas</h4>
+        <div id="mvm-entradas" class="divide-y" style="border-color:var(--border-color)"></div>
+      </div>
+      <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+        <h4 class="px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-widest" style="background:rgba(248,113,113,.1);color:#f87171"><i class="fa-solid fa-arrow-trend-down mr-1"></i>Saídas</h4>
+        <div id="mvm-saidas" class="divide-y" style="border-color:var(--border-color)"></div>
+      </div>
+      <div id="mvm-rodape" class="sticky bottom-2 border rounded-2xl px-3.5 py-2.5" style="background:var(--bg-surface);border-color:var(--border-color)"></div>
+    </div>`;
+  mvmRenderCorpo();
+};
+
+function mvmRenderCorpo(){
+  const box = el('mvm-congs'); if (!box) return;
+  box.innerHTML = MVM.congs.map((c, i) => {
+    const t = mvmTotais(c), on = c === MVM.sel, ok = mvmTravada(c);
+    return `<div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border shrink-0 cursor-pointer ${on ? '' : 'opacity-80'}" style="${on ? 'background:var(--color-primary-light);border-color:var(--color-primary)' : 'border-color:var(--border-color)'}" onclick="mvmSelCong(${i})">
+      <input type="checkbox" ${ok ? 'checked' : ''} onclick="event.stopPropagation();mvmCheck(${i}, this)" title="Conferida — trava a edição" class="accent-emerald-500 w-4 h-4 shrink-0">
+      <span class="min-w-0"><b class="text-[10px] block truncate" style="max-width:110px">${esc(c)}</b><span class="text-[8px] opacity-55 block">${moeda(t.saldo)}</span></span>
+      ${ok ? '<i class="fa-solid fa-lock text-emerald-500 text-[9px]"></i>' : ''}
+    </div>`;
+  }).join('') || '<p class="text-[11px] opacity-60 p-2">Nenhuma congregação.</p>';
+
+  const dis = MVM.sel ? mvmTravada(MVM.sel) : false;
+  const trava = el('mvm-trava');
+  if (trava) trava.innerHTML = dis
+    ? `<div class="rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(52,211,153,.10);color:#34d399;border:1px solid rgba(52,211,153,.35)"><i class="fa-solid fa-lock"></i><span><b>${esc(MVM.sel)}</b> conferida — grade travada. Desmarque o check para retificar.</span></div>` : '';
+  const linha = (l, tipo) => {
+    const tot = mvmTotalLinha(MVM.sel, l.id);
+    const multi = mvmItens(MVM.sel, l.id).length > 1;
+    const cor = tipo === 'sai' ? '#f87171' : '#34d399';
+    return `<div class="flex items-center gap-2 px-3 py-2" style="border-color:var(--border-color)">
+      <span class="flex-1 min-w-0 text-[11px] font-semibold truncate">${esc(l.label)}</span>
+      <input class="mvm-inp w-24 px-2 py-1.5 rounded-lg border text-xs text-right font-bold" data-l="${l.id}" value="${tot ? moeda(tot) : ''}" placeholder="0,00" inputmode="decimal" ${dis ? 'disabled' : ''}
+        style="background:var(--bg-input);border-color:var(--border-color);color:${cor}"
+        oninput="rcmMascaraValor(this)" onchange="mvmCommitCel(this)" onkeydown="mvmEnter(event,this)">
+      <button onclick="mvmDetalhe('${l.id}')" title="Vários lançamentos na linha" ${dis ? 'disabled' : ''} class="w-8 h-8 rounded-lg border text-[10px] cursor-pointer shrink-0 ${multi ? 'text-amber-400' : 'opacity-50'}" style="border-color:var(--border-color)"><i class="fa-solid fa-list"></i></button>
+    </div>`;
+  };
+  const eb = el('mvm-entradas'), sb = el('mvm-saidas');
+  if (eb) eb.innerHTML = MVM.sel ? MVM_LINHAS.entradas.map(l => linha(l, 'ent')).join('') : '';
+  if (sb) sb.innerHTML = MVM.sel ? MVM_LINHAS.saidas.map(l => linha(l, 'sai')).join('') : '';
+  const t = MVM.sel ? mvmTotais(MVM.sel) : { e: 0, s: 0, saldo: 0 };
+  const g = MVM.congs.reduce((a, c) => { const x = mvmTotais(c); a.e += x.e; a.s += x.s; return a; }, { e: 0, s: 0 });
+  const rod = el('mvm-rodape');
+  if (rod) rod.innerHTML = `<div class="flex items-center gap-3 text-[10px] font-bold">
+    <span class="opacity-60 uppercase text-[8px] truncate" style="max-width:90px">${esc(MVM.sel || '—')}</span>
+    <span style="color:#34d399">+${moeda(t.e)}</span>
+    <span style="color:#f87171">−${moeda(t.s)}</span>
+    <span style="color:${t.saldo >= 0 ? '#38bdf8' : '#f59e0b'}">=${moeda(t.saldo)}</span>
+    <span class="ml-auto opacity-55 text-[8px]">Campo ${moeda(g.e - g.s)} · ${Object.keys(MVM.store.checks).length}/${MVM.congs.length} ok</span>
+  </div>`;
+}
+
+window.mvmSelCong = function(i){ MVM.sel = MVM.congs[i] || ''; mvmRenderCorpo(); };
+
+window.mvmCheck = async function(i, chk){
+  const cong = MVM.congs[i]; if (!cong) return;
+  if (chk.checked){
+    const ok = await rcmConfirmar({ titulo: 'Conferir congregação', icone: 'fa-check-double', cor: '#34d399', okTexto: 'Conferir e travar', naoTexto: 'Voltar',
+      msg: `Marcar <b>${esc(cong)}</b> como conferida? A grade dela ficará travada até você desmarcar.` });
+    if (!ok){ chk.checked = false; return; }
+    MVM.store.checks[cong] = true;
+  } else delete MVM.store.checks[cong];
+  mvmSalvarStore(); mvmRenderCorpo();
+};
+
+window.mvmCommitCel = function(inp){
+  const lid = inp.dataset.l; if (!lid || mvmTravada(MVM.sel)) return;
+  const v = rcmValorNum(inp.value) || 0;
+  const atual = mvmItens(MVM.sel, lid);
+  if (v > 0) mvmSetItens(MVM.sel, lid, [{ h: atual[0]?.h || '', v }]);
+  else mvmSetItens(MVM.sel, lid, []);
+  inp.value = v > 0 ? moeda(v) : '';
+  mvmRenderCorpo();
+};
+
+window.mvmEnter = function(ev, inp){
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault(); mvmCommitCel(inp);
+  const inps = [...document.querySelectorAll('#fin-sub .mvm-inp:not([disabled])')];
+  const i = inps.indexOf(inp);
+  if (i >= 0 && i + 1 < inps.length){ inps[i + 1].focus(); inps[i + 1].select(); }
+};
+
+/* Editor de múltiplos lançamentos da linha — autosoma até Confirmar */
+let mvmDet = null;
+window.mvmDetalhe = function(lid){
+  if (mvmTravada(MVM.sel)){ toast('Congregação conferida — desmarque o check para retificar.'); return; }
+  const l = [...MVM_LINHAS.entradas, ...MVM_LINHAS.saidas].find(x => x.id === lid); if (!l) return;
+  mvmDet = { lid, itens: mvmItens(MVM.sel, lid).map(x => ({ ...x })) };
+  let m = el('mvm-modal');
+  if (!m){
+    document.body.insertAdjacentHTML('beforeend', `
+    <div id="mvm-modal" class="hidden fixed inset-0 z-[90] flex items-end justify-center" style="background:rgba(0,0,0,.6)" onclick="if(event.target===this)mvmFecharDetalhe()">
+      <div class="w-full max-w-md max-h-[80vh] flex flex-col rounded-t-3xl border theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
+        <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+          <div class="min-w-0"><h3 id="mvm-m-titulo" class="font-bold text-sm truncate"></h3><p id="mvm-m-sub" class="text-[10px] opacity-60"></p></div>
+          <button onclick="mvmFecharDetalhe()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="mvm-m-itens" class="px-4 space-y-2 overflow-y-auto"></div>
+        <div class="px-4 py-3 space-y-2.5 border-t mt-2 shrink-0" style="border-color:var(--border-color)">
+          <button onclick="mvmDetAdd()" class="w-full py-2 rounded-xl border border-dashed text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-plus mr-1"></i> Adicionar lançamento</button>
+          <div class="flex items-center justify-between text-xs font-bold"><span class="opacity-60">Total da linha</span><span id="mvm-m-total" style="color:var(--color-primary)"></span></div>
+          <div class="flex gap-2">
+            <button onclick="mvmFecharDetalhe()" class="flex-1 py-2.5 rounded-xl border text-xs font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button>
+            <button onclick="mvmConfirmarDetalhe()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#10b981,#059669)">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>`);
+    m = el('mvm-modal');
+  }
+  el('mvm-m-titulo').textContent = l.label;
+  el('mvm-m-sub').textContent = (MVM.sel || '') + ' — cada lançamento soma no total da linha';
+  mvmDetRender();
+  m.classList.remove('hidden');
+};
+function mvmDetRender(){
+  const box = el('mvm-m-itens'); if (!box || !mvmDet) return;
+  if (!mvmDet.itens.length) mvmDet.itens.push({ h: '', v: 0 });
+  box.innerHTML = mvmDet.itens.map((it, i) => `
+    <div class="flex items-center gap-1.5">
+      <input value="${esc(it.h)}" placeholder="Histórico" oninput="mvmDet.itens[${i}].h=this.value" class="flex-1 min-w-0 px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      <input value="${it.v ? moeda(it.v) : ''}" placeholder="R$ 0,00" inputmode="decimal" oninput="rcmMascaraValor(this);mvmDet.itens[${i}].v=rcmValorNum(this.value)||0;mvmDetTotal()" class="w-24 px-2 py-2 rounded-lg border text-xs text-right font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      <button onclick="mvmDet.itens.splice(${i},1);mvmDetRender();mvmDetTotal()" class="w-8 h-8 rounded-lg border text-[10px] text-red-400 cursor-pointer shrink-0" style="border-color:var(--border-color)"><i class="fa-solid fa-trash"></i></button>
+    </div>`).join('');
+  mvmDetTotal();
+}
+function mvmDetTotal(){
+  const t = (mvmDet?.itens || []).reduce((a, x) => a + (+x.v || 0), 0);
+  const e = el('mvm-m-total'); if (e) e.textContent = moeda(t);
+}
+window.mvmDetAdd = function(){ if (!mvmDet) return; mvmDet.itens.push({ h: '', v: 0 }); mvmDetRender(); };
+window.mvmConfirmarDetalhe = function(){
+  if (!mvmDet) return;
+  mvmSetItens(MVM.sel, mvmDet.lid, mvmDet.itens.filter(x => (+x.v || 0) > 0));
+  mvmFecharDetalhe(); mvmRenderCorpo();
+};
+window.mvmFecharDetalhe = function(){ mvmDet = null; el('mvm-modal')?.classList.add('hidden'); };
+
 /* depuração/testes */
-window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC, DR };
+window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC, DR, MVM };
 
 })();
