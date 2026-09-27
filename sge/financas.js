@@ -4044,7 +4044,7 @@ const DRE_INVEST = ['Construção, Reforma ou Ampliação','Aquisição de Imove
 const DRE_IDX_MES = {}; MESES_ORD.forEach((m, i) => DRE_IDX_MES[m] = i + 1);
 const DRE_ABREV = m => String(m || '').slice(0, 3);
 
-const DR = { modo: 'mensal', ano: '', mes: '', doc: null, sub: 'dre' };
+const DR = { modo: 'balancete', ano: '', mes: '', doc: null, sub: 'dre' };
 const CONT_SM = { 2023: 1320.00, 2024: 1412.00, 2025: 1518.00, 2026: 1621.00 };
 const _contSM = a => CONT_SM[+a] || CONT_SM[Math.max(...Object.keys(CONT_SM).filter(k => +k <= +a))] || CONT_SM[2023];
 
@@ -4124,64 +4124,71 @@ function _dreCalc(d){
     consF: c.saldo != null ? d.saldo_campo + c.saldo : null };
 }
 
-function _dreLinhas(dA, dB){
+function _dreLinhasN(periodos){
   const L = [];
+  const cs = periodos.map(_dreCalc);
+  const col = fn => periodos.map((d, i) => fn(d, cs[i]));
   const gap = () => { if (L.length && (L[L.length-1].tipo === 'tot' || L[L.length-1].tipo === 'sub')) L.push({ tipo: 'gap' }); };
   const sec = r => { gap(); L.push({ tipo: 'sec', rotulo: r.toUpperCase() }); };
-  const it = (r, a, b) => L.push({ tipo: 'it', rotulo: r, a, b });
-  const sub = (r, a, b) => L.push({ tipo: 'sub', rotulo: r, a, b });
-  const tot = (r, a, b) => L.push({ tipo: 'tot', rotulo: r, a, b });
-  const A = _dreCalc(dA), B = _dreCalc(dB);
+  const it = (r, v) => L.push({ tipo: 'it', rotulo: r, valores: v });
+  const sub = (r, v) => L.push({ tipo: 'sub', rotulo: r, valores: v });
+  const tot = (r, v) => L.push({ tipo: 'tot', rotulo: r, valores: v });
+  const uniao = dic => {
+    const s = new Set();
+    for (const d of periodos) for (const [k, v] of Object.entries(d[dic])) if (Math.abs(v || 0) > 0.004) s.add(k);
+    return s;
+  };
 
   sec('Receita bruta');
-  const chavesEnt = new Set([...Object.keys(dA.entradas), ...Object.keys(dB.entradas)]);
-  for (const [k] of _dreOrd(Object.fromEntries([...chavesEnt].map(k => [k, 1])), DRE_ORDEM_ENT)) it(k, dA.entradas[k], dB.entradas[k]);
-  tot('Total da receita bruta', A.b1, B.b1);
+  const chavesEnt = uniao('entradas');
+  const ordEnt = DRE_ORDEM_ENT.filter(k => chavesEnt.has(k))
+    .concat([...chavesEnt].filter(k => !DRE_ORDEM_ENT.includes(k)).sort());
+  for (const k of ordEnt) it(k, col(d => d.entradas[k]));
+  tot('Total da receita bruta', col((d, c) => c.b1));
 
   sec('Deduções e destinações vinculadas');
-  const chavesDed = new Set([...Object.keys(dA.deducoes), ...Object.keys(dB.deducoes)]);
-  for (const k of DRE_ORDEM_DED) if (chavesDed.delete(k)) it(k, dreNeg(dA.deducoes[k]), dreNeg(dB.deducoes[k]));
-  for (const k of [...chavesDed].sort()) it(k, dreNeg(dA.deducoes[k]), dreNeg(dB.deducoes[k]));
-  it('Caixa da Oferta do Círculo de Oração (fundo vinculado)', dreNeg(dA.repasse_circulo), dreNeg(dB.repasse_circulo));
-  tot('Total das deduções', -A.b2, -B.b2);
-  sub('Receita líquida operacional do campo', A.b1 - A.b2, B.b1 - B.b2);
+  const chavesDed = uniao('deducoes');
+  for (const k of DRE_ORDEM_DED) if (chavesDed.delete(k)) it(k, col(d => dreNeg(d.deducoes[k])));
+  for (const k of [...chavesDed].sort()) it(k, col(d => dreNeg(d.deducoes[k])));
+  it('Caixa da Oferta do Círculo de Oração (fundo vinculado)', col(d => dreNeg(d.repasse_circulo)));
+  tot('Total das deduções', col((d, c) => c.b2 ? -c.b2 : null));
+  sub('Receita líquida operacional do campo', col((d, c) => c.b1 - c.b2));
 
   sec('Despesas operacionais');
   const usado = new Set();
   for (const [grupo, itens] of DRE_GRUPOS){
-    const chaves = itens.filter(k => Math.abs(dA.despesas[k] || 0) > 0.004 || Math.abs(dB.despesas[k] || 0) > 0.004);
+    const chaves = itens.filter(k => periodos.some(d => Math.abs(d.despesas[k] || 0) > 0.004));
     if (!chaves.length) continue;
     chaves.forEach(k => usado.add(k));
     sec(grupo);
-    for (const k of chaves.sort()) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k]));
-    sub('Subtotal — ' + grupo, dreNeg(chaves.reduce((s, k) => s + (dA.despesas[k] || 0), 0) || null), dreNeg(chaves.reduce((s, k) => s + (dB.despesas[k] || 0), 0) || null));
+    for (const k of chaves.sort()) it(k, col(d => dreNeg(d.despesas[k])));
+    sub('Subtotal — ' + grupo, col(d => dreNeg(chaves.reduce((s, k) => s + (d.despesas[k] || 0), 0) || null)));
   }
-  const resto = [...new Set([...Object.keys(dA.despesas), ...Object.keys(dB.despesas)])]
-    .filter(k => !usado.has(k) && !DRE_INVEST.includes(k) && (Math.abs(dA.despesas[k] || 0) > 0.004 || Math.abs(dB.despesas[k] || 0) > 0.004));
-  if (resto.length){ sec('Outras despesas operacionais'); for (const k of resto.sort()) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k])); }
-  sub('Total das despesas operacionais', -A.op, -B.op);
+  const resto = [...uniao('despesas')].filter(k => !usado.has(k) && !DRE_INVEST.includes(k));
+  if (resto.length){ sec('Outras despesas operacionais'); for (const k of resto.sort()) it(k, col(d => dreNeg(d.despesas[k]))); }
+  sub('Total das despesas operacionais', col((d, c) => c.op ? -c.op : null));
 
   sec('Investimentos e ampliação');
-  for (const k of DRE_INVEST){ if (dA.despesas[k] || dB.despesas[k]) it(k, dreNeg(dA.despesas[k]), dreNeg(dB.despesas[k])); }
-  sub('Total de investimentos e ampliação', A.iv ? -A.iv : null, B.iv ? -B.iv : null);
-  const tgA = A.b2 + A.op + A.iv, tgB = B.b2 + B.op + B.iv;
-  tot('Total geral de despesas', tgA ? -tgA : null, tgB ? -tgB : null);
-  tot('Resultado do período — ' + (A.res >= 0 ? 'superávit' : 'déficit'), A.res, B.res);
+  const temInv = cs.some(c => c.iv);
+  for (const k of DRE_INVEST){ if (periodos.some(d => d.despesas[k])) it(k, col(d => dreNeg(d.despesas[k]))); }
+  sub('Total de investimentos e ampliação', col((d, c) => temInv ? (c.iv ? -c.iv : null) : null));
+  tot('Total geral de despesas', col((d, c) => (c.b2 + c.op + c.iv) ? -(c.b2 + c.op + c.iv) : null));
+  tot('Resultado do período — ' + (cs[cs.length - 1].res >= 0 ? 'superávit' : 'déficit'), col((d, c) => c.res));
 
   sec('Fundo vinculado — Círculo de Oração (caixa à parte)');
-  it('Saldo do fundo no início do período', A.c.anterior, B.c.anterior);
-  it('Entradas do fundo (repasse do campo e arrecadação própria)', A.c.entradas, B.c.entradas);
-  it('Saídas do fundo', dreNeg(A.c.despesas), dreNeg(B.c.despesas));
-  sub('Variação do fundo no período', A.varF, B.varF);
-  tot('Saldo acumulado do fundo', A.c.saldo, B.c.saldo);
+  it('Saldo do fundo no início do período', col((d, c) => c.c.anterior));
+  it('Entradas do fundo (repasse do campo e arrecadação própria)', col((d, c) => c.c.entradas));
+  it('Saídas do fundo', col((d, c) => dreNeg(c.c.despesas)));
+  sub('Variação do fundo no período', col((d, c) => c.varF));
+  tot('Saldo acumulado do fundo', col((d, c) => c.c.saldo));
 
   sec('Fechamento consolidado — caixa real');
-  it('Saldo de caixa no início do período (campo + fundo)', A.consI, B.consI);
-  it('Resultado do período', A.res, B.res);
-  it('Variação do fundo do Círculo', A.varF, B.varF);
-  it('Caixa operacional do campo', dA.saldo_campo, dB.saldo_campo);
-  it('Caixa do fundo (Círculo de Oração)', A.c.saldo, B.c.saldo);
-  tot('Saldo de caixa consolidado', A.consF, B.consF);
+  it('Saldo de caixa no início do período (campo + fundo)', col((d, c) => c.consI));
+  it('Resultado do período', col((d, c) => c.res));
+  it('Variação do fundo do Círculo', col((d, c) => c.varF));
+  it('Caixa operacional do campo', col(d => d.saldo_campo));
+  it('Caixa do fundo (Círculo de Oração)', col((d, c) => c.c.saldo));
+  tot('Saldo de caixa consolidado', col((d, c) => c.consF));
   return L;
 }
 
@@ -4212,20 +4219,7 @@ async function dreMontarDados(ano, mes, modo){
     }
     if (!agregados.length) return { erro: 'Nenhum fechamento importado.' };
     const calcs = agregados.map(_dreCalc);
-    const linhasSerie = [
-      { tipo: 'sec', rotulo: 'DEMONSTRAÇÃO POR EXERCÍCIO' },
-      { tipo: 'it', rotulo: 'Receita bruta', valores: calcs.map(c => c.b1) },
-      { tipo: 'it', rotulo: '(−) Deduções e destinações vinculadas', valores: calcs.map(c => c.b2 ? -c.b2 : null) },
-      { tipo: 'sub', rotulo: 'Receita líquida operacional', valores: calcs.map(c => c.b1 - c.b2) },
-      { tipo: 'it', rotulo: '(−) Despesas operacionais', valores: calcs.map(c => c.op ? -c.op : null) },
-      { tipo: 'it', rotulo: '(−) Investimentos e ampliação', valores: calcs.map(c => c.iv ? -c.iv : null) },
-      { tipo: 'tot', rotulo: 'Resultado do período', valores: calcs.map(c => c.res) },
-      { tipo: 'gap' },
-      { tipo: 'it', rotulo: '(+) Variação do fundo do Círculo', valores: calcs.map(c => c.varF) },
-      { tipo: 'it', rotulo: 'Caixa operacional do campo', valores: agregados.map(d => d.saldo_campo) },
-      { tipo: 'it', rotulo: 'Caixa do fundo (Círculo de Oração)', valores: calcs.map(c => c.c?.saldo) },
-      { tipo: 'tot', rotulo: 'Saldo de caixa consolidado', valores: calcs.map(c => c.consF) },
-    ];
+    const linhasSerie = _dreLinhasN(agregados);
     const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[calcs.length-1].b1.toFixed(2)}`;
     let codigo = '';
     try { if (crypto?.subtle){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)); codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,4).toUpperCase(); } } catch(e){}
@@ -4235,33 +4229,31 @@ async function dreMontarDados(ano, mes, modo){
       verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&o=serie&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
   }
 
-  let paresA = [], paresB = [], rotA = '', rotB = '', subt = '';
+  const anoB = String(+ano - 1);
+  let listaPares = [], colunas = [], subt = '';
   if (modo === 'anual'){
-    paresA = MESES_ORD.filter(m => tem(ano, m)).map(m => [ano, m]);
-    const anoB = String(+ano - 1);
-    paresB = MESES_ORD.filter(m => tem(anoB, m)).map(m => [anoB, m]);
-    const curso = paresA.length < 12;
-    rotA = ano + (curso ? '*' : ''); rotB = anoB;
+    listaPares = [
+      MESES_ORD.filter(m => tem(ano, m)).map(m => [ano, m]),
+      MESES_ORD.filter(m => tem(anoB, m)).map(m => [anoB, m]),
+    ];
+    const curso = listaPares[0].length < 12;
+    colunas = [{ rotulo: ano + (curso ? '*' : '') }, { rotulo: anoB }];
     subt = !curso ? `Exercícios findos em 31 de dezembro de ${ano} e ${anoB}`
       : `Exercício de ${ano} em curso (acumulado até ${mes.toLowerCase()}) e exercício completo de ${anoB} (*parcial)`;
-  } else if (modo === 'acumulado'){
-    const anoB = String(+ano - 1);
-    paresA = MESES_ORD.slice(0, idx).filter(m => tem(ano, m)).map(m => [ano, m]);
-    paresB = MESES_ORD.slice(0, idx).filter(m => tem(anoB, m)).map(m => [anoB, m]);
-    rotA = `Jan–${DRE_ABREV(mes)}/${ano}`; rotB = `Jan–${DRE_ABREV(mes)}/${anoB}`;
-    subt = `Períodos acumulados de janeiro a ${mes.toLowerCase()} de ${ano} e de ${anoB}`;
-  } else if (modo === 'individual'){
-    paresA = tem(ano, mes) ? [[ano, mes]] : [];
-    paresB = [];
-    rotA = `${DRE_ABREV(mes)}/${ano}`; rotB = '';
-    subt = `Competência finda em ${mes.toLowerCase()} de ${ano} — visão individual`;
+    modo = 'anual';
   } else {
-    paresA = tem(ano, mes) ? [[ano, mes]] : [];
-    const anoB = idx <= 1 ? String(+ano - 1) : ano;
-    const mesB = idx <= 1 ? 'Dezembro' : MESES_ORD[idx - 2];
-    paresB = tem(anoB, mesB) ? [[anoB, mesB]] : [];
-    rotA = `${DRE_ABREV(mes)}/${ano}`; rotB = `${DRE_ABREV(mesB)}/${anoB}`;
-    subt = `Competências findas em ${mes.toLowerCase()} de ${ano} e ${mesB.toLowerCase()} de ${anoB}`;
+    // balancete: mês + acumulado num documento só (4 colunas, assinado)
+    modo = 'balancete';
+    const abr = DRE_ABREV(mes);
+    listaPares = [
+      tem(ano, mes) ? [[ano, mes]] : [],
+      tem(anoB, mes) ? [[anoB, mes]] : [],
+      MESES_ORD.slice(0, idx).filter(m => tem(ano, m)).map(m => [ano, m]),
+      MESES_ORD.slice(0, idx).filter(m => tem(anoB, m)).map(m => [anoB, m]),
+    ];
+    colunas = [{ rotulo: `${abr}/${ano}` }, { rotulo: `${abr}/${anoB}` },
+               { rotulo: `Jan–${abr}/${String(ano).slice(-2)}` }, { rotulo: `Jan–${abr}/${anoB.slice(-2)}` }];
+    subt = `Competência finda em ${mes.toLowerCase()} de ${ano} e acumulado do exercício até ${mes.toLowerCase()}, comparados aos mesmos períodos de ${anoB}`;
   }
   const carrega = async pares => {
     const lista = [], falt = [];
@@ -4275,16 +4267,19 @@ async function dreMontarDados(ano, mes, modo){
     }
     return [_dreAgregar(lista), falt];
   };
-  const [dA, fA] = await carrega(paresA);
-  const [dB, fB] = await carrega(paresB);
-  if (!dA.meses.length) return { erro: `Nenhum fechamento importado para o período (${rotA}).` };
+  const carregados = await Promise.all(listaPares.map(carrega));
+  const aggs = carregados.map(c => c[0]);
+  const falts = carregados.map(c => c[1]);
+  const dA = aggs[0];
+  if (!dA.meses.length) return { erro: `Nenhum fechamento importado para o período (${colunas[0].rotulo}).` };
   const avisos = [];
-  if (fA.length) avisos.push(`Meses sem fechamento no período atual: ${fA.join(', ')}.`);
-  if (fB.length) avisos.push(`Meses sem fechamento no período comparado: ${fB.join(', ')}.`);
-  if (!dB.meses.length && modo !== 'individual') avisos.push('Sem período anterior para comparação.');
+  if (falts[0].length) avisos.push(`Meses sem fechamento no período atual: ${falts[0].join(', ')}.`);
+  const fB = [...new Set(falts.slice(1).flat())];
+  if (fB.length) avisos.push(`Meses sem fechamento no período comparado (${anoB}): ${fB.join(', ')}.`);
   if (dA.circulo.anterior == null) avisos.push('Fundo do Círculo: planilha do círculo ainda não publicada pelo desktop — bloco exibido parcialmente.');
-  const A = _dreCalc(dA);
-  const base = `${modo}|${ano}|${mes}|${A.b1.toFixed(2)}|${A.res.toFixed(2)}|${A.consF == null ? '' : A.consF.toFixed(2)}`;
+  const calcs = aggs.map(_dreCalc);
+  const A = calcs[0];
+  const base = `${modo}|${ano}|${mes}|` + calcs.map(c => `${c.b1.toFixed(2)}/${c.res.toFixed(2)}/${c.consF == null ? '' : c.consF.toFixed(2)}`).join('|');
   let codigo = '';
   try {
     if (crypto?.subtle){
@@ -4294,9 +4289,9 @@ async function dreMontarDados(ano, mes, modo){
   } catch(e){}
   if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8, '0').slice(0, 4); }
   const mm = String(idx).padStart(2, '0');
-  return { modo, ano, mes, rotulo_a: rotA, rotulo_b: rotB, subtitulo: subt,
-    a: dA, b: dB, linhas: _dreLinhas(dA, dB), avisos,
-    assinado: modo !== 'acumulado', coluna_unica: modo === 'individual',
+  return { modo, ano, mes, colunas, linhas: _dreLinhasN(aggs), avisos,
+    rotulo_a: colunas[0].rotulo, rotulo_b: colunas[1]?.rotulo || '',
+    subtitulo: subt, assinado: true,
     verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
 }
 
@@ -4367,8 +4362,8 @@ window.renderContabil = function(){
       </div>
       <div id="cont-sub-dre" class="cont-sub-pane space-y-3">
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-          <div class="grid grid-cols-5 gap-1.5" id="dre-modos">
-            ${[['individual','Mês'],['mensal','Balancete'],['acumulado','Comparativo'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
+          <div class="grid grid-cols-3 gap-1.5" id="dre-modos">
+            ${[['balancete','Balancete'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
               `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
           </div>
           <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
@@ -4662,49 +4657,26 @@ window.dreCarregar = async function(){
   const dre = await dreMontarDados(DR.ano, DR.mes, DR.modo);
   if (dre.erro){ host.innerHTML = `<p class="text-xs text-center py-10" style="color:var(--text-muted)">${esc(dre.erro)}</p>`; return; }
   DR.doc = dre;
-  const titulos = { individual: 'Demonstração do resultado econômico-financeiro — mês individual',
-    mensal: 'Demonstração do resultado econômico-financeiro — balancete mensal',
-    acumulado: 'Demonstração do resultado econômico-financeiro — comparativo de exercício',
+  const titulos = { balancete: 'Demonstração do resultado econômico-financeiro — balancete do período',
     anual: 'Demonstração do resultado econômico-financeiro do exercício',
     serie: 'Demonstração do resultado econômico-financeiro — série de exercícios' };
   const notaAvisos = (dre.avisos || []).length
     ? `<p class="dd-nota">${dre.avisos.map(a => '• ' + esc(a)).join('<br>')}</p>` : '';
 
-  if (dre.modo === 'serie'){
-    const cols = dre.colunas || [];
-    let html = `<div class="dre-doc" style="min-width:${120 + cols.length * 82}px;padding:10px 10px 14px">
-      <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
-      <div class="dd-tit">${esc(titulos.serie)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
-      <table style="margin-top:8px"><thead><tr>
-        <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
-        ${cols.map(c => `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
-    for (const ln of dre.linhas_serie){
-      if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${cols.length + 1}"></td></tr>`; continue; }
-      if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${cols.length + 1}">${esc(ln.rotulo)}</td></tr>`; continue; }
-      const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
-      html += `<tr class="${cls}"><td>${esc(ln.rotulo)}</td>${(ln.valores || []).map(v => `<td class="dd-v">${dreFmt(v)}</td>`).join('')}</tr>`;
-    }
-    html += `</tbody></table>${notaAvisos}</div>`;
-    host.innerHTML = html;
-    _dreQrNo('dre-qr-m', dre);
-    return;
-  }
-
-  const unica = !!dre.coluna_unica;
-  const colsN = unica ? 2 : 3;
-  let html = `<div class="dre-doc" style="min-width:430px;padding:10px 10px 14px">
+  const cols = dre.colunas || [];
+  const linhas = dre.linhas_serie || dre.linhas || [];
+  let html = `<div class="dre-doc" style="min-width:${110 + cols.length * 74}px;padding:10px 10px 14px">
     <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
-    <div class="dd-tit">${esc(titulos[dre.modo])}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
+    <div class="dd-tit">${esc(titulos[dre.modo] || titulos.balancete)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
     <table style="margin-top:8px"><thead><tr>
       <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
-      <td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_a)}</td>
-      ${unica ? '' : `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(dre.rotulo_b)}</td>`}</tr></thead><tbody>`;
-  for (const ln of dre.linhas){
-    if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${colsN}"></td></tr>`; continue; }
-    if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${colsN}">${esc(ln.rotulo)}</td></tr>`; continue; }
+      ${cols.map(c => `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
+  for (const ln of linhas){
+    if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${cols.length + 1}"></td></tr>`; continue; }
+    if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${cols.length + 1}">${esc(ln.rotulo)}</td></tr>`; continue; }
     const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
     const pad = ln.tipo === 'it' ? ' style="padding-left:14px"' : '';
-    html += `<tr class="${cls}"><td${pad}>${esc(ln.rotulo)}</td><td class="dd-v">${dreFmt(ln.a)}</td>${unica ? '' : `<td class="dd-v">${dreFmt(ln.b)}</td>`}</tr>`;
+    html += `<tr class="${cls}"><td${pad}>${esc(ln.rotulo)}</td>${cols.map((_, i) => `<td class="dd-v">${dreFmt((ln.valores || [])[i])}</td>`).join('')}</tr>`;
   }
   html += `</tbody></table>${notaAvisos}`;
   if (dre.assinado){
@@ -4742,30 +4714,19 @@ window.drePdf = async function(){
     doc.setFontSize(9); doc.setTextColor(17,17,17);
     doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, W / 2, 36, { align: 'center' });
     doc.text(dre.subtitulo || '', W / 2, 40, { align: 'center' }); doc.text('(Em reais)', W / 2, 44, { align: 'center' });
-    let corpo, headRow, nCols;
-    if (dre.modo === 'serie'){
-      const cols = dre.colunas || [];
-      nCols = cols.length + 1;
-      headRow = [''].concat(cols.map(c => c.rotulo));
-      corpo = (dre.linhas_serie || []).map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
-        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
-        : [{ content: ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
-          .concat((ln.valores || []).map(v => ({ content: dreFmt(v), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
-    } else {
-      const unica = !!dre.coluna_unica;
-      nCols = unica ? 2 : 3;
-      headRow = unica ? ['', dre.rotulo_a] : ['', dre.rotulo_a, dre.rotulo_b];
-      corpo = (dre.linhas || []).map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
-        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
-        : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } },
-           { content: dreFmt(ln.a), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
-          .concat(unica ? [] : [{ content: dreFmt(ln.b), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]));
-    }
+    const cols = dre.colunas || [];
+    const nCols = cols.length + 1;
+    const headRow = [''].concat(cols.map(c => c.rotulo));
+    const linhas = dre.linhas_serie || dre.linhas || [];
+    const corpo = linhas.map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
+      : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
+      : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
+        .concat((ln.valores || []).map(v => ({ content: dreFmt(v), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
     doc.autoTable({
       startY: 48, head: [headRow],
-      body: corpo, theme: 'plain', styles: { fontSize: 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
-      headStyles: { fontStyle: 'bold', halign: 'right' },
-      columnStyles: Object.assign({ 0: { cellWidth: nCols === 2 ? 122 : nCols > 3 ? 78 : 108 } },
+      body: corpo, theme: 'plain', styles: { fontSize: nCols > 4 ? 6.6 : 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
+      headStyles: { fontStyle: 'bold', halign: 'right', fontSize: nCols > 4 ? 6.4 : 7.2 },
+      columnStyles: Object.assign({ 0: { cellWidth: nCols > 3 ? 62 : nCols === 2 ? 122 : 96 } },
         Object.fromEntries([...Array(nCols - 1).keys()].map(i => [i + 1, { halign: 'right' }]))),
       margin: { left: 14, right: 14, bottom: 14 },
       didDrawPage: () => {
