@@ -249,14 +249,37 @@ const _memStatusRot = st => {
   const s = String(st || '').toLowerCase();
   return s === 'conferido' ? 'Conferido' : s === 'enviado' ? 'Registrado' : 'Em registro';
 };
-const _memPdfCab = (doc, titulo, sub) => {
+/* Logo AD Brasil como dataURL — cacheado para reuse nos PDFs. */
+let _memPdfLogoCache = null;
+const _memPdfLogo = async () => {
+  if (_memPdfLogoCache) return _memPdfLogoCache;
+  try {
+    const blob = await (await fetch('icons/logo_ad_brasil.png')).blob();
+    _memPdfLogoCache = await new Promise(res => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = () => res(null);
+      fr.readAsDataURL(blob);
+    });
+  } catch(e) { _memPdfLogoCache = null; }
+  return _memPdfLogoCache;
+};
+const _memPdfCab = async (doc, titulo, sub) => {
   const larg = doc.internal.pageSize.getWidth();
-  doc.setFillColor(26, 20, 7); doc.rect(0, 0, larg, 22, 'F');
-  doc.setTextColor(217, 180, 91); doc.setFontSize(8); doc.setFont(undefined, 'bold');
-  doc.text('AD BRASIL RORAINÓPOLIS — PORTAL DO MEMBRO', larg / 2, 7, { align: 'center' });
+  doc.setFillColor(26, 20, 7); doc.rect(0, 0, larg, 30, 'F');
+  doc.setDrawColor(217, 180, 91); doc.setLineWidth(0.8); doc.line(0, 30, larg, 30);
+  const logo = await _memPdfLogo();
+  if (logo) {
+    try { doc.addImage(logo, 'PNG', larg / 2 - 9, 4, 18, 18); } catch(e){}
+    doc.setTextColor(217, 180, 91); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+    doc.text('AD BRASIL RORAINÓPOLIS — PORTAL DO MEMBRO', larg / 2, 24.5, { align: 'center' });
+  } else {
+    doc.setTextColor(217, 180, 91); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+    doc.text('AD BRASIL RORAINÓPOLIS — PORTAL DO MEMBRO', larg / 2, 8, { align: 'center' });
+  }
   doc.setTextColor(240, 214, 138); doc.setFontSize(13);
-  doc.text(titulo, larg / 2, 14, { align: 'center' });
-  if (sub) { doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(184, 168, 120); doc.text(sub, larg / 2, 19.5, { align: 'center' }); }
+  doc.text(titulo, larg / 2, 36, { align: 'center' });
+  if (sub) { doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(140, 125, 90); doc.text(sub, larg / 2, 42, { align: 'center' }); }
 };
 const _memPdfRodape = (doc) => {
   const larg = doc.internal.pageSize.getWidth(), alt = doc.internal.pageSize.getHeight();
@@ -267,18 +290,18 @@ const _memPdfRodape = (doc) => {
   doc.text(`Documento gerado pelo Portal do Membro em ${new Date().toLocaleString('pt-BR')} — confere com os registros da tesouraria.`, larg / 2, alt - 6, { align: 'center' });
 };
 
-window.memFinPdfExtrato = function(){
+window.memFinPdfExtrato = async function(){
   const m = _memFinMembro, ano = _memFinAno, lista = _memFinDoAno;
   if (!m) { toast('Financeiro não carregado.'); return; }
   if (!lista.length) { toast('Sem contribuições para exportar.'); return; }
   if (typeof window.jspdf === 'undefined') { toast('Biblioteca de PDF não carregou.'); return; }
   const doc = new window.jspdf.jsPDF();
   const larg = doc.internal.pageSize.getWidth();
-  _memPdfCab(doc, `Extrato de Contribuições — ${ano}`, `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
+  await _memPdfCab(doc, `Extrato de Contribuições — ${ano}`, `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
   const corpo = [...lista].sort((a, b) => (a._p - b._p) || (a._s - b._s))
     .map(l => [l.mes, l.semana, _memFormaPagto(l.detalhes_parcelas), _memStatusRot(l.status), l.data_envio || '-', brl(l._v)]);
   doc.autoTable({
-    startY: 27,
+    startY: 48,
     head: [['Mês', 'Semana', 'Forma', 'Status', 'Registrado em', 'Valor']],
     body: corpo,
     styles: { fontSize: 8.5 }, headStyles: { fillColor: [168, 132, 44], textColor: [255, 250, 235] },
@@ -296,14 +319,14 @@ window.memFinPdfExtrato = function(){
   doc.save(`extrato-contribuicoes-${ano}-${String(m.id || 'membro')}.pdf`);
 };
 
-window.memFinPdfRecibo = function(idx){
+window.memFinPdfRecibo = async function(idx){
   const m = _memFinMembro, l = _memFinDoAno[idx];
   if (!m || !l) { toast('Lançamento não encontrado.'); return; }
   if (typeof window.jspdf === 'undefined') { toast('Biblioteca de PDF não carregou.'); return; }
   const doc = new window.jspdf.jsPDF();
   const larg = doc.internal.pageSize.getWidth();
-  _memPdfCab(doc, 'Comprovante de Contribuição', `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
-  let y = 34;
+  await _memPdfCab(doc, 'Comprovante de Contribuição', `${m.nome}  ·  ${m.congregacao || ''}  ·  ${m.conselho || ''}`);
+  let y = 48;
   doc.setTextColor(95, 107, 122); doc.setFontSize(9); doc.setFont(undefined, 'normal');
   doc.text(`Referência: ${l.semana} — ${l.mes}/${l.ano}`, larg / 2, y, { align: 'center' }); y += 10;
   doc.setFillColor(247, 240, 222); doc.roundedRect(larg / 2 - 45, y, 90, 22, 3, 3, 'F');
@@ -336,9 +359,28 @@ const MEM_FIN_VERSICULOS = [
   ['Cada um contribua segundo propôs no seu coração.', '2 Coríntios 9:7'],
   ['Seja fiel no pouco e também no muito.', 'Lucas 16:10'],
 ];
-const _memFinVersiculo = () => MEM_FIN_VERSICULOS[new Date().getDate() % MEM_FIN_VERSICULOS.length];
+const _memFinVersiculo = () => MEM_FIN_VERSICULOS[Math.floor(Date.now() / 900000) % MEM_FIN_VERSICULOS.length];
+let _memFinVersTimer = null;
+const _memFinIniciarRotacaoVerso = () => {
+  clearInterval(_memFinVersTimer);
+  let i = Math.floor(Date.now() / 900000) % MEM_FIN_VERSICULOS.length;
+  _memFinVersTimer = setInterval(() => {
+    const t = $('memfin-verso-txt'), r = $('memfin-verso-ref');
+    if (!t || !r) { clearInterval(_memFinVersTimer); _memFinVersTimer = null; return; }
+    i = (i + 1) % MEM_FIN_VERSICULOS.length;
+    t.style.opacity = '0'; r.style.opacity = '0';
+    setTimeout(() => {
+      if (!$('memfin-verso-txt')) return;
+      t.textContent = `"${MEM_FIN_VERSICULOS[i][0]}"`;
+      r.textContent = `— ${MEM_FIN_VERSICULOS[i][1]}`;
+      t.style.opacity = '1'; r.style.opacity = '1';
+    }, 350);
+  }, 20000);
+};
 
-const _memFinHero = (m) => `
+const _memFinHero = (m) => {
+  const v = _memFinVersiculo();
+  return `
   <div class="rounded-3xl overflow-hidden border mb-3" style="border-color:${_OURO}55;background:linear-gradient(160deg,#241c08 0%,#1a1407 55%,#141005 100%)">
     <div class="px-4 pt-4 pb-3 text-center">
       <img src="icons/logo_ad_brasil.png" alt="AD Brasil" class="h-11 mx-auto object-contain mb-2" style="filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))">
@@ -346,10 +388,11 @@ const _memFinHero = (m) => `
       <p class="text-[10px] mt-0.5" style="color:#b8a878">${memEsc(m.nome)} · ${memEsc(m.congregacao || 'Congregação')} · ${memEsc(m.conselho || '')}</p>
     </div>
     <div class="mx-3 mb-3 rounded-2xl px-3.5 py-3 text-center" style="background:rgba(217,180,91,.10);border:1px solid rgba(217,180,91,.25)">
-      <p class="text-[11px] italic leading-relaxed" style="color:#e8d9ae">"${memEsc(_memFinVersiculo()[0])}"</p>
-      <p class="text-[9px] font-bold mt-1 tracking-wider uppercase" style="color:${_OURO}">— ${memEsc(_memFinVersiculo()[1])}</p>
+      <p id="memfin-verso-txt" class="text-[11px] italic leading-relaxed transition-opacity duration-300" style="color:#e8d9ae">"${memEsc(v[0])}"</p>
+      <p id="memfin-verso-ref" class="text-[9px] font-bold mt-1 tracking-wider uppercase transition-opacity duration-300" style="color:${_OURO}">— ${memEsc(v[1])}</p>
     </div>
   </div>`;
+};
 const _memFinContexto = `
   <div class="rounded-2xl px-3.5 py-3 mb-3" style="background:var(--bg-card);border:1px dashed ${_OURO}55">
     <p class="text-[10.5px] leading-relaxed" style="color:var(--text-muted)">
@@ -432,4 +475,5 @@ window.renderMembroFinanceiro = async function(anoSel) {
         </div>`).join('')}</div>`)).join('')
       : memEmBreve('fa-receipt', _OURO, 'Nenhuma contribuição em ' + ano, 'Quando a tesouraria registrar seus dízimos e ofertas em Lançamentos Semanais, eles aparecem aqui automaticamente.')}
     ${_memFinRodape(doAno.length > 0)}`;
+  _memFinIniciarRotacaoVerso();
 };
