@@ -163,8 +163,8 @@ const FIN_ABAS_META = {
   rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',          cor: '#38bdf8' },
   frequencia: { nome: 'Frequência',                desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
   semanal:    { nome: 'Movimento Semanal',        desc: 'Lançamentos de dízimos por semana',        icone: 'fa-calendar-week',       cor: '#f59e0b' },
-  relatorio:  { nome: 'Relatório de Caixa',       desc: 'Fechar e enviar a semana à central',       icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
-  prestacao:  { nome: 'Prestação de Contas',      desc: 'Prestações das congregações',              icone: 'fa-clipboard-check',     cor: '#f472b6' },
+  relatorio:  { nome: 'Envio de Caixa',            desc: 'Fechamento e envio semanal',               icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
+  prestacao:  { nome: 'Conferência de Caixa',      desc: 'Gestão e recebimento das congregações',    icone: 'fa-clipboard-check',     cor: '#f472b6' },
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
 };
 const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'relatorio', 'prestacao', 'orcamentos'];
