@@ -1419,8 +1419,10 @@ window.rcmMudarCategoria = function(p){
     rcmPopularIrmaos(pre);
   } else if (cat.saida){
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de saída *</span>
-      ${selF(`rcm-${pre}sub`, RC_SAIDAS_SUBS.map(s => [s, s]), null, `rcmMudarSub('${pre}')`)}
-      <div id="rcm-${pre}outros-wrap" class="hidden mt-2"><input id="rcm-${pre}outros" placeholder="Tipo não encontrado? Descreva a saída (obrigatório)" class="${cssI}" style="${cssS}"></div>`;
+      ${selF(`rcm-${pre}sub`, RC_SAIDAS_SUBS.map(s => [s, s === 'Outros' ? '✏️ Outros — não encontrou? Clique e descreva manualmente' : s]), null, `rcmMudarSub('${pre}')`)}
+      <div id="rcm-${pre}outros-wrap" class="hidden mt-2">
+        <span class="text-[9px] font-extrabold block mb-1" style="color:#f59e0b">NÃO ENCONTROU O QUE PROCURA? DESCREVA MANUALMENTE:</span>
+        <input id="rcm-${pre}outros" placeholder="Descreva a saída (obrigatório)" class="${cssI}" style="${cssS};border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.08)"></div>`;
     rcmMudarSub(pre);
   } else {
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Detalhe da oferta *</span>
