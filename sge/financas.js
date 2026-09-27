@@ -4353,7 +4353,7 @@ window.renderContabil = function(){
     <div class="space-y-3">
       <div class="border rounded-2xl p-3.5" style="background:var(--bg-card);border-color:var(--border-color)">
         <h2 class="font-bold text-sm flex items-center gap-2" style="color:var(--text-accent)"><i class="fa-solid fa-scale-balanced" style="color:#818cf8"></i> Módulo Contábil</h2>
-        <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — exclusivo de administradores.</p>
+        <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — acesso restrito (administradores ou concessão na Gestão de Usuários).</p>
       </div>
       <div class="grid grid-cols-3 gap-1.5">
         ${[['dre','Demonstrações','fa-scale-balanced','#818cf8'],['contas','Contas a Pagar/Receber','fa-money-bill-transfer','#10b981'],['indicadores','Indicadores','fa-chart-line','#38bdf8']].map(([v, t, ico, cor]) =>
@@ -4424,11 +4424,21 @@ window.renderContabil = function(){
     const anos = [...new Set((ps || []).map(p => String(p.ano)))].sort();
     const sel = el('dre-ano');
     if (sel && !sel.options.length) anos.forEach(a => sel.add(new Option(a, a, false, a === DR.ano)));
-    dreCarregar();
+    contSub(DR.sub || 'dre');
   });
 }
 
+function contSubPermitida(sub){
+  if (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) return true;
+  const ac = (typeof sgeAcessos === 'function' ? sgeAcessos() : {}) || {};
+  return (ac.permissoes || []).some(p => p.modulo === 'contabil' && (!p.aba || p.aba === sub));
+}
 window.contSub = function(sub){
+  ['dre','contas','indicadores'].forEach(n => {
+    const b = document.querySelector(`.cont-sub[data-sub="${n}"]`);
+    if (b) b.classList.toggle('hidden', !contSubPermitida(n));
+  });
+  if (!contSubPermitida(sub)) sub = ['dre','contas','indicadores'].find(contSubPermitida) || 'dre';
   DR.sub = sub;
   _contEstiloSub();
   ['dre','contas','indicadores'].forEach(n => el('cont-sub-' + n)?.classList.toggle('hidden', n !== sub));

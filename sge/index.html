@@ -1165,7 +1165,11 @@ function sgeModuloPermitido(mod){
   if (mod === 'dashboard') return true;
   if (mod === 'comunidade') return typeof comPermitidoMobile === 'function' && comPermitidoMobile();
   if (mod === 'acessos') return sgeEhAdmin();
-  if (mod === 'contabil') return sgeEhAdmin();
+  if (mod === 'contabil') {
+    if (sgeEhAdmin()) return true;
+    const ac = sgeAcessos();
+    return (ac.permissoes || []).some(p => p.modulo === 'contabil');
+  }
   if (mod.startsWith('membro_')) return typeof sgeModoPodeAlternar === 'function' && sgeModoPodeAlternar() && sgeModoAtual() === 'membro';
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
