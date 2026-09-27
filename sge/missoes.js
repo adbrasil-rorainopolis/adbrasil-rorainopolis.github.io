@@ -846,8 +846,12 @@ window.salvarMetasM = async function(){
 
 /* ---------- ABA 3 — Metas Anuais (configuração, progresso e semáforo) ---------- */
 async function _realizadoAnoM(ano){
-  const meses = M.periodos.filter(p => String(p.ano) === String(ano))
-    .sort((a, b) => idxMesM(a.mes) - idxMesM(b.mes));
+  const vistos = new Set();
+  const meses = M.periodos.filter(p => {
+    const chave = `${p.ano}_${String(p.mes || '').toLowerCase()}`;
+    if (String(p.ano) !== String(ano) || vistos.has(chave)) return false;
+    vistos.add(chave); return true;
+  }).sort((a, b) => idxMesM(a.mes) - idxMesM(b.mes));
   const acc = _zeraM();
   const porMes = [];
   let saldoCampo = null;
