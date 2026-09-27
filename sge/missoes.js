@@ -542,12 +542,31 @@ function _renderResultadosM(){
   const tbody = $m('mis-hist-tbody');
   if (tbody){
     const linhas = Object.values(porCong).sort((a, b) => SGEG.ordemCongregacaoIdxG(a.nome, a.conselho) - SGEG.ordemCongregacaoIdxG(b.nome, b.conselho));
-    tbody.innerHTML = linhas.length ? linhas.map(l => `
+    const grupos = {};
+    for (const l of linhas) (grupos[l.conselho || 'Sem conselho'] ||= []).push(l);
+    const conselhosOrd = SGEG.ordenarConselhosG(Object.keys(grupos));
+    const linhaCong = l => `
       <tr class="border-b" style="border-color:var(--border-color)">
-        <td class="py-2 pr-2"><span class="font-semibold">${escM(l.nome)}</span><span class="block text-[9px] opacity-50">${escM(l.conselho)}</span></td>
+        <td class="py-2 pr-2"><span class="font-semibold">${escM(l.nome)}</span></td>
         ${CONTAS_MIS.map(c => `<td class="py-2 px-1 text-right tabular-nums ${l[c.chave] && M.cats[c.chave] ? '' : 'opacity-30'}">${l[c.chave] && M.cats[c.chave] ? moedaM(l[c.chave]) : '-'}</td>`).join('')}
         <td class="py-2 pl-1 text-right tabular-nums font-bold text-orange-400">${moedaM(_valorPontoM(l))}</td>
-      </tr>`).join('')
+      </tr>`;
+    tbody.innerHTML = linhas.length ? conselhosOrd.map(cons => {
+      const ls = grupos[cons];
+      const sub = _zeraM();
+      for (const l of ls){ CONTAS_MIS.forEach(c => sub[c.chave] += numM(l[c.chave])); sub.total_missoes += _valorPontoM(l); }
+      const multiplos = conselhosOrd.length > 1;
+      return `
+      <tr style="background:var(--bg-input)">
+        <td colspan="6" class="py-1.5 px-2 text-[9px] font-black uppercase tracking-wider" style="color:var(--color-primary)"><i class="fa-solid fa-layer-group mr-1.5 opacity-60"></i>${escM(cons)}</td>
+      </tr>
+      ${ls.map(linhaCong).join('')}
+      ${multiplos ? `<tr class="border-b-2" style="border-color:var(--border-color);background:rgba(148,163,184,.06)">
+        <td class="py-1.5 pr-2 text-[9px] font-bold uppercase opacity-70">Subtotal</td>
+        ${CONTAS_MIS.map(c => `<td class="py-1.5 px-1 text-right tabular-nums text-[10px] font-bold ${sub[c.chave] && M.cats[c.chave] ? 'opacity-80' : 'opacity-30'}">${sub[c.chave] && M.cats[c.chave] ? moedaM(sub[c.chave]) : '-'}</td>`).join('')}
+        <td class="py-1.5 pl-1 text-right tabular-nums text-[10px] font-black text-orange-400">${moedaM(sub.total_missoes)}</td>
+      </tr>` : ''}`;
+    }).join('')
       : '<tr><td colspan="6" class="py-8 text-center text-xs" style="color:var(--text-muted)">Sem arrecadação missionária no período/filtro.</td></tr>';
   }
 }
