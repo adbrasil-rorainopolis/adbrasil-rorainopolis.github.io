@@ -251,16 +251,19 @@ const _memStatusRot = st => {
 };
 const _memPdfCab = (doc, titulo, sub) => {
   const larg = doc.internal.pageSize.getWidth();
-  doc.setFillColor(15, 122, 77); doc.rect(0, 0, larg, 22, 'F');
-  doc.setTextColor(190, 235, 210); doc.setFontSize(8); doc.setFont(undefined, 'bold');
-  doc.text('SGE AD BRASIL — PORTAL DO MEMBRO', larg / 2, 7, { align: 'center' });
-  doc.setTextColor(255, 255, 255); doc.setFontSize(13);
+  doc.setFillColor(26, 20, 7); doc.rect(0, 0, larg, 22, 'F');
+  doc.setTextColor(217, 180, 91); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+  doc.text('AD BRASIL RORAINÓPOLIS — PORTAL DO MEMBRO', larg / 2, 7, { align: 'center' });
+  doc.setTextColor(240, 214, 138); doc.setFontSize(13);
   doc.text(titulo, larg / 2, 14, { align: 'center' });
-  if (sub) { doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(215, 240, 227); doc.text(sub, larg / 2, 19.5, { align: 'center' }); }
+  if (sub) { doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(184, 168, 120); doc.text(sub, larg / 2, 19.5, { align: 'center' }); }
 };
 const _memPdfRodape = (doc) => {
   const larg = doc.internal.pageSize.getWidth(), alt = doc.internal.pageSize.getHeight();
-  doc.setFontSize(7); doc.setTextColor(120, 130, 145);
+  const v = _memFinVersiculo();
+  doc.setFontSize(7.5); doc.setTextColor(168, 132, 44); doc.setFont(undefined, 'italic');
+  doc.text(`"${v[0]}" — ${v[1]}`, larg / 2, alt - 11, { align: 'center' });
+  doc.setFont(undefined, 'normal'); doc.setFontSize(7); doc.setTextColor(120, 130, 145);
   doc.text(`Documento gerado pelo Portal do Membro em ${new Date().toLocaleString('pt-BR')} — confere com os registros da tesouraria.`, larg / 2, alt - 6, { align: 'center' });
 };
 
@@ -278,14 +281,17 @@ window.memFinPdfExtrato = function(){
     startY: 27,
     head: [['Mês', 'Semana', 'Forma', 'Status', 'Registrado em', 'Valor']],
     body: corpo,
-    styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 122, 77] },
-    alternateRowStyles: { fillColor: [232, 244, 238] },
+    styles: { fontSize: 8.5 }, headStyles: { fillColor: [168, 132, 44], textColor: [255, 250, 235] },
+    alternateRowStyles: { fillColor: [247, 240, 222] },
     columnStyles: { 1: { halign: 'center', cellWidth: 26 }, 2: { halign: 'center', cellWidth: 27 }, 3: { halign: 'center', cellWidth: 24 }, 5: { halign: 'right', cellWidth: 26 } },
   });
   const total = lista.reduce((t, l) => t + l._v, 0);
   let y = doc.lastAutoTable.finalY + 8;
-  doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(15, 122, 77);
+  doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(168, 132, 44);
   doc.text(`TOTAL ${ano}: ${brl(total)}   ·   ${lista.length} contribuição(ões)`, larg - 14, y, { align: 'right' });
+  y += 7;
+  doc.setFontSize(8); doc.setFont(undefined, 'italic'); doc.setTextColor(120, 100, 60);
+  doc.text('Sua fidelidade sustenta a obra — templos, missões e vidas alcançadas. Deus te abençoe!', larg / 2, y + 3, { align: 'center' });
   _memPdfRodape(doc);
   doc.save(`extrato-contribuicoes-${ano}-${String(m.id || 'membro')}.pdf`);
 };
@@ -300,8 +306,8 @@ window.memFinPdfRecibo = function(idx){
   let y = 34;
   doc.setTextColor(95, 107, 122); doc.setFontSize(9); doc.setFont(undefined, 'normal');
   doc.text(`Referência: ${l.semana} — ${l.mes}/${l.ano}`, larg / 2, y, { align: 'center' }); y += 10;
-  doc.setFillColor(232, 244, 238); doc.roundedRect(larg / 2 - 45, y, 90, 22, 3, 3, 'F');
-  doc.setTextColor(15, 122, 77); doc.setFontSize(17); doc.setFont(undefined, 'bold');
+  doc.setFillColor(247, 240, 222); doc.roundedRect(larg / 2 - 45, y, 90, 22, 3, 3, 'F');
+  doc.setTextColor(168, 132, 44); doc.setFontSize(17); doc.setFont(undefined, 'bold');
   doc.text(brl(l._v), larg / 2, y + 14, { align: 'center' }); y += 32;
   doc.autoTable({
     startY: y,
@@ -320,24 +326,67 @@ window.memFinPdfRecibo = function(idx){
   doc.save(`comprovante-${l.mes}-${l.ano}-${_memNumSemana(l.semana)}sem.pdf`);
 };
 
+/* ---------- MEU FINANCEIRO — extrato do dizimista (identidade dourada AD Brasil) ---------- */
+const _OURO = '#d9b45b', _OURO_F = '#f0d68a', _OURO_E = '#a8842c';
+const MEM_FIN_VERSICULOS = [
+  ['Deus ama quem contribui com alegria.', '2 Coríntios 9:7'],
+  ['Honra ao Senhor com os teus bens e com as primícias de toda a tua renda.', 'Provérbios 3:9'],
+  ['Trazei todos os dízimos à casa do tesouro... e provai-me nisto.', 'Malaquias 3:10'],
+  ['Há maior felicidade em dar do que em receber.', 'Atos 20:35'],
+  ['Cada um contribua segundo propôs no seu coração.', '2 Coríntios 9:7'],
+  ['Seja fiel no pouco e também no muito.', 'Lucas 16:10'],
+];
+const _memFinVersiculo = () => MEM_FIN_VERSICULOS[new Date().getDate() % MEM_FIN_VERSICULOS.length];
+
+const _memFinHero = (m) => `
+  <div class="rounded-3xl overflow-hidden border mb-3" style="border-color:${_OURO}55;background:linear-gradient(160deg,#241c08 0%,#1a1407 55%,#141005 100%)">
+    <div class="px-4 pt-4 pb-3 text-center">
+      <img src="icons/logo_ad_brasil.png" alt="AD Brasil" class="h-11 mx-auto object-contain mb-2" style="filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))">
+      <p class="font-cinzel font-bold text-[13px] tracking-widest uppercase" style="color:${_OURO_F}">Extrato de Contribuições</p>
+      <p class="text-[10px] mt-0.5" style="color:#b8a878">${memEsc(m.nome)} · ${memEsc(m.congregacao || 'Congregação')} · ${memEsc(m.conselho || '')}</p>
+    </div>
+    <div class="mx-3 mb-3 rounded-2xl px-3.5 py-3 text-center" style="background:rgba(217,180,91,.10);border:1px solid rgba(217,180,91,.25)">
+      <p class="text-[11px] italic leading-relaxed" style="color:#e8d9ae">"${memEsc(_memFinVersiculo()[0])}"</p>
+      <p class="text-[9px] font-bold mt-1 tracking-wider uppercase" style="color:${_OURO}">— ${memEsc(_memFinVersiculo()[1])}</p>
+    </div>
+  </div>`;
+const _memFinContexto = `
+  <div class="rounded-2xl px-3.5 py-3 mb-3" style="background:var(--bg-card);border:1px dashed ${_OURO}55">
+    <p class="text-[10.5px] leading-relaxed" style="color:var(--text-muted)">
+      <i class="fa-solid fa-circle-info mr-1" style="color:${_OURO}"></i>
+      Este extrato reúne os <b>dízimos e ofertas registrados pela tesouraria</b> no seu nome, semana a semana.
+      É um documento de transparência: se algo estiver divergente, procure a tesouraria da sua congregação.
+    </p>
+  </div>`;
+const _memFinRodape = (temLancs) => `
+  <div class="rounded-2xl px-4 py-3.5 mt-1 mb-3 text-center" style="background:linear-gradient(135deg,${_OURO}18,${_OURO}08);border:1px solid ${_OURO}44">
+    <i class="fa-solid fa-hands-praying text-base mb-1.5 block" style="color:${_OURO}"></i>
+    <p class="text-[11px] font-bold leading-relaxed" style="color:${_OURO_F}">
+      ${temLancs
+        ? 'Sua fidelidade sustenta a obra — templos, missões e vidas alcançadas.<br>Deus te abençoe e te prospere!'
+        : 'Cada semente plantada na obra tem valor eterno.<br>Comece hoje — Deus honra quem é fiel!'}
+    </p>
+    <p class="text-[9px] mt-1" style="color:#b8a878">Tesouraria — AD Brasil Rorainópolis</p>
+  </div>`;
+
 window.renderMembroFinanceiro = async function(anoSel) {
   const c = $('dash-conteudo');
   if (!c) return;
   c.innerHTML = `
-    ${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+    ${memHeader('fa-hand-holding-heart', _OURO, 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
     ${memCard(`<p class="text-[11px] opacity-50 text-center py-8"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Carregando suas contribuições…</p>`)}`;
   if (!_memFinCache) {
     try {
       _memFinCache = await api('meu_financeiro', {}, sessao()?.token);
     } catch (e) {
-      c.innerHTML = `${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+      c.innerHTML = `${memHeader('fa-hand-holding-heart', _OURO, 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
         ${memCard(`<p class="text-[11px] opacity-60 text-center py-8">${memEsc(e?.data?.erro || e?.message || 'Falha ao carregar seu financeiro.')}</p>`)}`;
       return;
     }
   }
   const r = _memFinCache;
   if (!r?.vinculado || !r.membro) {
-    c.innerHTML = `${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+    c.innerHTML = `${memHeader('fa-hand-holding-heart', _OURO, 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
       ${memCard(`<div class="flex flex-col items-center text-center py-6 gap-2">
         <i class="fa-solid fa-link-slash text-2xl" style="color:#f59e0b;opacity:.6"></i>
         <p class="text-xs font-bold">Cadastro de membro não localizado</p>
@@ -359,25 +408,28 @@ window.renderMembroFinanceiro = async function(anoSel) {
   doAno.forEach(l => { (mesesGrp[l.mes] = mesesGrp[l.mes] || []).push(l); });
   const mesesOrd = Object.keys(mesesGrp).sort((a, b) => (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(b) - MESES_ORD.indexOf(a) : 0));
   c.innerHTML = `
-    ${memHeader('fa-hand-holding-heart', '#10b981', 'Meu Financeiro', `${memEsc(m.nome)} · ${memEsc(m.congregacao || '')}`)}
+    ${memHeader('fa-hand-holding-heart', _OURO, 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
+    ${_memFinHero(m)}
+    ${_memFinContexto}
     <div class="flex gap-2 mb-3">
-      ${_memKpi(`Total ${ano}`, brl(totalAno), '#10b981')}
+      ${_memKpi(`Total ${ano}`, brl(totalAno), _OURO)}
       ${_memKpi('Contribuições', doAno.length, '#0ea5e9')}
       ${_memKpi('Acumulado geral', brl(totalGeral), '#f59e0b')}
     </div>
     <div class="flex flex-wrap items-center gap-1.5 mb-3">
-      ${anos.length > 1 ? anos.map(a => `<button onclick="renderMembroFinanceiro('${a}')" class="px-3 py-1.5 rounded-xl border text-[11px] font-bold" style="border-color:var(--border-color);${a === ano ? 'background:var(--color-primary);color:#fff' : 'color:var(--text-muted)'}">${a}</button>`).join('') : ''}
-      ${doAno.length ? `<button onclick="memFinPdfExtrato()" class="ml-auto px-3 py-1.5 rounded-xl text-[11px] font-bold text-white" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-file-pdf mr-1"></i>Extrato ${ano}</button>` : ''}
+      ${anos.length > 1 ? anos.map(a => `<button onclick="renderMembroFinanceiro('${a}')" class="px-3 py-1.5 rounded-xl border text-[11px] font-bold" style="border-color:${_OURO}55;${a === ano ? `background:linear-gradient(135deg,${_OURO},${_OURO_E});color:#1a1407` : 'color:var(--text-muted)'}">${a}</button>`).join('') : ''}
+      ${doAno.length ? `<button onclick="memFinPdfExtrato()" class="ml-auto px-3 py-1.5 rounded-xl text-[11px] font-bold" style="background:linear-gradient(135deg,${_OURO},${_OURO_E});color:#1a1407"><i class="fa-solid fa-file-pdf mr-1"></i>Extrato ${ano}</button>` : ''}
     </div>
     ${doAno.length ? mesesOrd.map(mes => memCard(`
-      <div class="flex items-center justify-between mb-2"><p class="text-[9px] font-bold uppercase tracking-wider" style="color:#10b981">${mes} ${ano}</p><p class="text-[10px] font-bold opacity-60">${brl(mesesGrp[mes].reduce((t, l) => t + l._v, 0))}</p></div>
+      <div class="flex items-center justify-between mb-2"><p class="text-[9px] font-bold uppercase tracking-wider" style="color:${_OURO}">${mes} ${ano}</p><p class="text-[10px] font-bold opacity-60">${brl(mesesGrp[mes].reduce((t, l) => t + l._v, 0))}</p></div>
       <div class="divide-y" style="border-color:var(--border-color)">${mesesGrp[mes].map(l => `
         <div class="flex items-center gap-2.5 py-2.5">
-          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background:#10b98115"><i class="fa-solid fa-hand-holding-heart text-[10px]" style="color:#10b981"></i></div>
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background:${_OURO}18"><i class="fa-solid fa-hand-holding-heart text-[10px]" style="color:${_OURO}"></i></div>
           <div class="flex-1 min-w-0"><p class="text-[11px] font-bold">${memEsc(l.semana)}</p><p class="text-[9px] opacity-50">${_memFormaPagto(l.detalhes_parcelas)}${l.data_envio ? ' · ' + memEsc(l.data_envio) : ''}</p></div>
-          <p class="text-[11px] font-bold shrink-0" style="color:#10b981">${brl(l._v)}</p>
+          <p class="text-[11px] font-bold shrink-0" style="color:${_OURO}">${brl(l._v)}</p>
           ${_memStatusBadge(l.status)}
-          <button onclick="memFinPdfRecibo(${l._i})" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#10b98115" title="Comprovante PDF"><i class="fa-solid fa-file-pdf text-[10px]" style="color:#10b981"></i></button>
+          <button onclick="memFinPdfRecibo(${l._i})" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:${_OURO}18" title="Comprovante PDF"><i class="fa-solid fa-file-pdf text-[10px]" style="color:${_OURO}"></i></button>
         </div>`).join('')}</div>`)).join('')
-      : memEmBreve('fa-receipt', '#10b981', 'Nenhuma contribuição em ' + ano, 'Quando a tesouraria registrar seus dízimos e ofertas em Lançamentos Semanais, eles aparecem aqui automaticamente.')}`;
+      : memEmBreve('fa-receipt', _OURO, 'Nenhuma contribuição em ' + ano, 'Quando a tesouraria registrar seus dízimos e ofertas em Lançamentos Semanais, eles aparecem aqui automaticamente.')}
+    ${_memFinRodape(doAno.length > 0)}`;
 };
