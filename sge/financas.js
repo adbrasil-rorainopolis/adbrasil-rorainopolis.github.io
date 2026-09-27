@@ -4193,7 +4193,7 @@ const DRE_ORDEM_ENT = ['Dízimos','Oferta Missionária','Oferta do Culto de Miss
 const DRE_ORDEM_DED = ['Repasse da Oferta de Missões','Fundo Convencional','Auxílio Presidencial 5%','S.O.S Baixo Rio Branco 1%','Prebenda','Prebenda pastores auxiliares','Auxílio lideres de Congregação'];
 const DRE_GRUPOS = [
   ['Despesas administrativas', ['Telefone e Internet','Material de Expediente','Material de Limpeza','INSS, Taxas e Impostos Diversos']],
-  ['Despesas de ocupação e infraestrutura', ['Energia','Água e Esgoto','Locação de Imóveis']],
+  ['Despesas de ocupação', ['Energia','Água e Esgoto','Locação de Imóveis']],
   ['Despesas com veículos e viagens', ['Combustivel e Lubrificantes','Manutenção de Veículo','Frete ou Aluguel de Veiculo','Passagens','Hospedagem']],
   ['Despesas com eventos e atividades', ['Alimentação para Eventos','Lanche EBD ou Santa Ceia','Material de Som','Divulgação de Eventos, Propaganda e Rádio','Vestuário ou Ornamentação']],
   ['Despesas sociais e assistenciais', ['Atendimento Social','Medicação','Presentes']],
@@ -4312,7 +4312,6 @@ function _dreLinhasN(periodos){
   tot('Total das deduções', col((d, c) => c.b2 ? -c.b2 : null));
   sub('Receita líquida operacional do campo', col((d, c) => c.b1 - c.b2));
 
-  sec('Despesas operacionais');
   const usado = new Set();
   for (const [grupo, itens] of DRE_GRUPOS){
     const chaves = itens.filter(k => periodos.some(d => Math.abs(d.despesas[k] || 0) > 0.004));
@@ -4465,7 +4464,7 @@ const DRE_CSS = `
 .dre-doc table{border-collapse:collapse;width:100%}
 .dre-doc td{padding:2px 5px}
 .dre-doc .dd-cab{display:flex;align-items:flex-start;justify-content:center;position:relative}
-.dre-doc .dd-timb{max-width:78%;max-height:52px;object-fit:contain;margin:0 auto}
+.dre-doc .dd-timb{max-width:84%;max-height:70px;object-fit:contain;margin:0 auto}
 .dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center}
 .dre-doc .dd-tit{font-size:9px;margin-top:8px;line-height:1.55;text-align:center}
 .dre-doc .dd-bloco-tit{font-size:9px;font-weight:bold;text-align:center;margin:16px 0 0;letter-spacing:.2px}
@@ -4492,9 +4491,9 @@ function _dreQrNo(elId, dre){
     try {
       if (typeof QRCode !== 'undefined'){
         qrEl.innerHTML = '';
-        new QRCode(qrEl, { text: dre.verificacao.url, width: 52, height: 52, correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(qrEl, { text: dre.verificacao.url, width: 68, height: 68, correctLevel: QRCode.CorrectLevel.M });
         const k = document.createElement('div');
-        k.style.cssText = 'font-size:5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
+        k.style.cssText = 'font-size:6.5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
         k.textContent = dre.verificacao.codigo;
         qrEl.appendChild(k);
       }
