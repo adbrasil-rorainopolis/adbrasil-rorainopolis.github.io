@@ -4230,7 +4230,7 @@ async function dreMontarDados(ano, mes, modo){
   }
 
   const anoB = String(+ano - 1);
-  let listaPares = [], colunas = [], subt = '';
+  let listaPares = [], colunas = [], subt = '', blocos = null;
   if (modo === 'anual'){
     listaPares = [
       MESES_ORD.filter(m => tem(ano, m)).map(m => [ano, m]),
@@ -4242,18 +4242,19 @@ async function dreMontarDados(ano, mes, modo){
       : `Exercício de ${ano} em curso (acumulado até ${mes.toLowerCase()}) e exercício completo de ${anoB} (*parcial)`;
     modo = 'anual';
   } else {
-    // balancete: mês + acumulado num documento só (4 colunas, assinado)
+    // balancete: bloco do mês isolado + bloco do acumulado comparativo (assinado)
     modo = 'balancete';
     const abr = DRE_ABREV(mes);
     listaPares = [
       tem(ano, mes) ? [[ano, mes]] : [],
-      tem(anoB, mes) ? [[anoB, mes]] : [],
       MESES_ORD.slice(0, idx).filter(m => tem(ano, m)).map(m => [ano, m]),
       MESES_ORD.slice(0, idx).filter(m => tem(anoB, m)).map(m => [anoB, m]),
     ];
-    colunas = [{ rotulo: `${abr}/${ano}` }, { rotulo: `${abr}/${anoB}` },
+    colunas = [{ rotulo: `${abr}/${ano}` },
                { rotulo: `Jan–${abr}/${String(ano).slice(-2)}` }, { rotulo: `Jan–${abr}/${anoB.slice(-2)}` }];
-    subt = `Competência finda em ${mes.toLowerCase()} de ${ano} e acumulado do exercício até ${mes.toLowerCase()}, comparados aos mesmos períodos de ${anoB}`;
+    blocos = [{ titulo: `Demonstração do mês — ${mes} de ${ano}`, cols: [0] },
+              { titulo: `Acumulado do exercício — janeiro a ${mes.toLowerCase()}`, cols: [1, 2] }];
+    subt = `Competência finda em ${mes.toLowerCase()} de ${ano}, seguida do acumulado do exercício até ${mes.toLowerCase()} comparado ao mesmo período de ${anoB}`;
   }
   const carrega = async pares => {
     const lista = [], falt = [];
@@ -4274,7 +4275,8 @@ async function dreMontarDados(ano, mes, modo){
   if (!dA.meses.length) return { erro: `Nenhum fechamento importado para o período (${colunas[0].rotulo}).` };
   const avisos = [];
   if (falts[0].length) avisos.push(`Meses sem fechamento no período atual: ${falts[0].join(', ')}.`);
-  const fB = [...new Set(falts.slice(1).flat())];
+  if (modo === 'balancete' && falts[1]?.length) avisos.push(`Meses sem fechamento no acumulado de ${ano}: ${falts[1].join(', ')}.`);
+  const fB = [...new Set((falts[falts.length - 1] || []))];
   if (fB.length) avisos.push(`Meses sem fechamento no período comparado (${anoB}): ${fB.join(', ')}.`);
   if (dA.circulo.anterior == null) avisos.push('Fundo do Círculo: planilha do círculo ainda não publicada pelo desktop — bloco exibido parcialmente.');
   const calcs = aggs.map(_dreCalc);
@@ -4289,7 +4291,7 @@ async function dreMontarDados(ano, mes, modo){
   } catch(e){}
   if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8, '0').slice(0, 4); }
   const mm = String(idx).padStart(2, '0');
-  return { modo, ano, mes, colunas, linhas: _dreLinhasN(aggs), avisos,
+  return { modo, ano, mes, colunas, blocos, linhas: _dreLinhasN(aggs), avisos,
     rotulo_a: colunas[0].rotulo, rotulo_b: colunas[1]?.rotulo || '',
     subtitulo: subt, assinado: true,
     verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${ano}&m=${mm}&o=${modo}&v=${A.consF == null ? '' : A.consF}&h=${codigo}`, codigo: `SGE-DRE-${mes.slice(0, 3).toUpperCase()}${String(ano).slice(-2)}·${codigo}` } };
@@ -4306,6 +4308,7 @@ const DRE_CSS = `
 .dre-doc .dd-timb{max-width:78%;max-height:52px;object-fit:contain;margin:0 auto}
 .dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center}
 .dre-doc .dd-tit{font-size:9px;margin-top:8px;line-height:1.55;text-align:center}
+.dre-doc .dd-bloco-tit{font-size:9px;font-weight:bold;text-align:center;margin:16px 0 0;letter-spacing:.2px}
 .dre-doc .dd-sec td{background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px}
 .dre-doc .dd-sub td,.dre-doc .dd-tot td{font-weight:bold;background:#f4f6fa}
 .dre-doc .dd-sub td.dd-v,.dre-doc .dd-tot td.dd-v{border-top:.5px solid #000}
@@ -4664,21 +4667,28 @@ window.dreCarregar = async function(){
     ? `<p class="dd-nota">${dre.avisos.map(a => '• ' + esc(a)).join('<br>')}</p>` : '';
 
   const cols = dre.colunas || [];
+  const blocos = dre.blocos || [{ titulo: '', cols: cols.map((_, i) => i) }];
   const linhas = dre.linhas_serie || dre.linhas || [];
-  let html = `<div class="dre-doc" style="min-width:${110 + cols.length * 74}px;padding:10px 10px 14px">
+  const larguraDoc = 110 + Math.max(...blocos.map(b => b.cols.length), 1) * 74;
+  let html = `<div class="dre-doc" style="min-width:${larguraDoc}px;padding:10px 10px 14px">
     <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
-    <div class="dd-tit">${esc(titulos[dre.modo] || titulos.balancete)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>
-    <table style="margin-top:8px"><thead><tr>
+    <div class="dd-tit">${esc(titulos[dre.modo] || titulos.balancete)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>`;
+  for (const bloco of blocos){
+    const bc = bloco.cols;
+    if (bloco.titulo) html += `<div class="dd-bloco-tit">${esc(bloco.titulo)}</div>`;
+    html += `<table style="margin-top:8px"><thead><tr>
       <td style="border-top:1px solid #000;border-bottom:1px solid #000"></td>
-      ${cols.map(c => `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(c.rotulo)}</td>`).join('')}</tr></thead><tbody>`;
-  for (const ln of linhas){
-    if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${cols.length + 1}"></td></tr>`; continue; }
-    if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${cols.length + 1}">${esc(ln.rotulo)}</td></tr>`; continue; }
-    const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
-    const pad = ln.tipo === 'it' ? ' style="padding-left:14px"' : '';
-    html += `<tr class="${cls}"><td${pad}>${esc(ln.rotulo)}</td>${cols.map((_, i) => `<td class="dd-v">${dreFmt((ln.valores || [])[i])}</td>`).join('')}</tr>`;
+      ${bc.map(c => `<td class="dd-v" style="font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000">${esc(cols[c].rotulo)}</td>`).join('')}</tr></thead><tbody>`;
+    for (const ln of linhas){
+      if (ln.tipo === 'gap'){ html += `<tr class="dd-gap"><td colspan="${bc.length + 1}"></td></tr>`; continue; }
+      if (ln.tipo === 'sec'){ html += `<tr class="dd-sec"><td colspan="${bc.length + 1}">${esc(ln.rotulo)}</td></tr>`; continue; }
+      const cls = ln.tipo === 'tot' ? 'dd-tot' : (ln.tipo === 'sub' ? 'dd-sub' : '');
+      const pad = ln.tipo === 'it' ? ' style="padding-left:14px"' : '';
+      html += `<tr class="${cls}"><td${pad}>${esc(ln.rotulo)}</td>${bc.map(c => `<td class="dd-v">${dreFmt((ln.valores || [])[c])}</td>`).join('')}</tr>`;
+    }
+    html += `</tbody></table>`;
   }
-  html += `</tbody></table>${notaAvisos}`;
+  html += notaAvisos;
   if (dre.assinado){
     html += `<div class="dd-sigs">${DRE_ASSINATURAS
         .map(s => `<div class="dd-sig"><div class="ln"><b>${s[0]}</b><br>${s[1]}<br>${s[2]}</div></div>`).join('')}</div>`;
@@ -4715,27 +4725,40 @@ window.drePdf = async function(){
     doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, W / 2, 36, { align: 'center' });
     doc.text(dre.subtitulo || '', W / 2, 40, { align: 'center' }); doc.text('(Em reais)', W / 2, 44, { align: 'center' });
     const cols = dre.colunas || [];
-    const nCols = cols.length + 1;
-    const headRow = [''].concat(cols.map(c => c.rotulo));
+    const blocos = dre.blocos || [{ titulo: '', cols: cols.map((_, i) => i) }];
     const linhas = dre.linhas_serie || dre.linhas || [];
-    const corpo = linhas.map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
-      : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
-      : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
-        .concat((ln.valores || []).map(v => ({ content: dreFmt(v), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
-    doc.autoTable({
-      startY: 48, head: [headRow],
-      body: corpo, theme: 'plain', styles: { fontSize: nCols > 4 ? 6.6 : 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
-      headStyles: { fontStyle: 'bold', halign: 'right', fontSize: nCols > 4 ? 6.4 : 7.2 },
-      columnStyles: Object.assign({ 0: { cellWidth: nCols > 3 ? 62 : nCols === 2 ? 122 : 96 } },
-        Object.fromEntries([...Array(nCols - 1).keys()].map(i => [i + 1, { halign: 'right' }]))),
-      margin: { left: 14, right: 14, bottom: 14 },
-      didDrawPage: () => {
-        doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
-        doc.text(String(doc.internal.getNumberOfPages()), 14, 291);
-        doc.text('SGE • AD BRASIL — DEMONSTRAÇÃO DO RESULTADO GERADA ELETRONICAMENTE', W / 2, 291, { align: 'center' });
-      },
-    });
-    let y = doc.lastAutoTable.finalY + 6;
+    const rodape = () => {
+      doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
+      doc.text(String(doc.internal.getNumberOfPages()), 14, 291);
+      doc.text('SGE • AD BRASIL — DEMONSTRAÇÃO DO RESULTADO GERADA ELETRONICAMENTE', W / 2, 291, { align: 'center' });
+    };
+    let startY = 48;
+    for (const bloco of blocos){
+      const bc = bloco.cols;
+      if (bloco.titulo){
+        doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.setTextColor(17, 17, 17);
+        doc.text(bloco.titulo, W / 2, startY + 3, { align: 'center' });
+        doc.setFont(undefined, 'normal');
+        startY += 8;
+      }
+      const nCols = bc.length + 1;
+      const headRow = [''].concat(bc.map(c => cols[c].rotulo));
+      const corpo = linhas.map(ln => ln.tipo === 'gap' ? new Array(nCols).fill('')
+        : ln.tipo === 'sec' ? [{ content: ln.rotulo, colSpan: nCols, styles: { fontStyle: 'bold', fillColor: [233, 237, 246], textColor: [17, 17, 17] } }]
+        : [{ content: (ln.tipo === 'it' ? '   ' : '') + ln.rotulo, styles: { fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }]
+          .concat(bc.map(c => ({ content: dreFmt((ln.valores || [])[c]), styles: { halign: 'right', fontStyle: (ln.tipo === 'it' ? 'normal' : 'bold'), fillColor: ln.tipo === 'it' ? null : [244, 246, 250] } }))));
+      doc.autoTable({
+        startY, head: [headRow],
+        body: corpo, theme: 'plain', styles: { fontSize: nCols > 4 ? 6.6 : 7.2, cellPadding: 1.1, textColor: [17, 17, 17] },
+        headStyles: { fontStyle: 'bold', halign: 'right', fontSize: nCols > 4 ? 6.4 : 7.2 },
+        columnStyles: Object.assign({ 0: { cellWidth: nCols > 3 ? 62 : nCols === 2 ? 122 : 96 } },
+          Object.fromEntries([...Array(nCols - 1).keys()].map(i => [i + 1, { halign: 'right' }]))),
+        margin: { left: 14, right: 14, bottom: 14 },
+        didDrawPage: rodape,
+      });
+      startY = doc.lastAutoTable.finalY + 8;
+    }
+    let y = startY - 2;
     if ((dre.avisos || []).length){
       doc.setFontSize(6.5); doc.setTextColor(85, 85, 85);
       doc.text(dre.avisos.map(a => '• ' + a).join('\n'), 14, y, { maxWidth: W - 28 });
