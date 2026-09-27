@@ -56,16 +56,26 @@ async function carregarMembros(force = false){
 async function carregarLancamentosAno(ano){
   const a = String(ano);
   if (!F.lancPorAno[a]) F.lancPorAno[a] = (async () => {
-    const res = await api('listar_lancamentos', { ano: a }, sessao()?.token);
-    return res?.dados || res || [];
-  })();
+    /* A API devolve no máx. 1000 linhas por chamada (teto do PostgREST) e a
+       tabela já passou disso — busca mês a mês para não perder lançamentos. */
+    const partes = await Promise.all(MESES_ORD.map(mes =>
+      api('listar_lancamentos', { ano: a, mes }, sessao()?.token)));
+    return partes.flatMap(res => res?.dados || res || []);
+  })().catch(e => { F.lancPorAno[a] = null; throw e; });
   return F.lancPorAno[a];
 }
 async function carregarTodosLancamentos(){
   if (!F.lancTodos) F.lancTodos = (async () => {
     const res = await api('listar_lancamentos', null, sessao()?.token);
-    return res?.dados || res || [];
-  })();
+    const dados = res?.dados || res || [];
+    if (!Array.isArray(dados) || dados.length < 1000) return dados;
+    /* Resposta no teto de 1000 pode estar truncada — refaz ano a ano. */
+    const anos = new Set(dados.map(r => String(r.ano || '').trim()).filter(Boolean));
+    const hoje = new Date().getFullYear();
+    for (let a = hoje - 3; a <= hoje + 1; a++) anos.add(String(a));
+    const listas = await Promise.all([...anos].map(carregarLancamentosAno));
+    return listas.flat();
+  })().catch(e => { F.lancTodos = null; throw e; });
   return F.lancTodos;
 }
 async function carregarHistoricoCongs(){
