@@ -181,8 +181,8 @@ window.renderFinanceiro = function(){
       <div id="fin-sub"></div>
     </div>
 `;
-  if (F.aba && finAbaPermitida(F.aba)) finAba(F.aba);
-  else finMenu();
+  F.aba = null;
+  finMenu();
 };
 
 window.finMenu = function(){
@@ -1090,7 +1090,13 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
 </style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', sujo: false, meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+
+/* "Sujo" = edições feitas após a última gravação (ou sem nunca gravar).
+   O index.html consulta window.sgeTemEdicaoPendente() antes de recarregar a
+   página (pull-to-refresh, atualização do SW, fechamento) e pede confirmação. */
+function rcmMarcarSujo(){ RC.sujo = true; }
+window.sgeTemEdicaoPendente = () => !!RC.sujo;
 
 function rcDadosUsuario(){
   const u = sessao()?.usuario || {};
@@ -1174,7 +1180,7 @@ function rcRenderTela(){
         <div id="rcm-card-ident" class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
-              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria();rcmSugerirSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
+              <select id="rcm-congregacao" ${congFixa ? 'disabled' : ''} onchange="rcmMarcarSujo();rcmRenderDoc();rcmAvisoSemana();rcmMudarCategoria();rcmSugerirSemana()" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
               ${congFixa ? '<p class="text-[9px] opacity-50 mt-1"><i class="fa-solid fa-lock mr-1"></i>Congregação fixa do tesoureiro</p>' : ''}
             </div>
             <div id="rcm-aviso-semana" class="col-span-2 space-y-1.5"></div>
@@ -1184,7 +1190,7 @@ function rcRenderTela(){
                 <i class="fa-solid fa-calendar-days absolute right-2.5 top-1/2 text-xs opacity-50" style="transform:translateY(-50%);pointer-events:none"></i>
               </div></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Fechamento</span>
-              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmRenderDoc();rcmAvisoSemana()")}</div>
+              ${selF('rcm-semana', [['1ª Semana','1ª Semana'],['2ª Semana','2ª Semana'],['3ª Semana','3ª Semana'],['4ª Semana','4ª Semana'],['5ª Semana','5ª Semana']], F.rcSemana || '2ª Semana', "F.rcSemana=this.value;rcmMarcarSujo();rcmRenderDoc();rcmAvisoSemana()")}</div>
             <div class="col-span-2">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira do RC</span>
@@ -1551,6 +1557,7 @@ window.rcmAdicionar = function(){
   if (l.erro){ toast(l.erro); return; }
   if (!l.saida && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
   RC.lancamentos.push({ tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor });
+  rcmMarcarSujo();
   ['rcm-valor','rcm-recibo','rcm-outros','rcm-irmao','rcm-descricao'].forEach(id => { const x = el(id); if (x) x.value = ''; });
   rcmRenderLista();
   rcmRenderDoc();
@@ -1559,6 +1566,7 @@ window.rcmAdicionar = function(){
 window.rcmRemover = function(i){
   if (RC.somenteLeitura) return;
   RC.lancamentos.splice(i, 1);
+  rcmMarcarSujo();
   rcmRenderLista();
   rcmRenderDoc();
 };
@@ -1635,6 +1643,7 @@ window.rcmCalDia = function(iso){
   if (txt) txt.value = `${d}/${m}/${a}`;
   F.rcData = txt?.value || '';
   el('rcm-cal')?.remove();
+  rcmMarcarSujo();
   rcmRenderDoc();
   rcmAvisoSemana();
 };
@@ -1717,6 +1726,7 @@ window.rcmSalvarEdicao = function(i){
   if (l.erro){ toast(l.erro); return; }
   if (!l.saida && RC.lancamentos.some((x, j) => j !== i && x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
   RC.lancamentos[i] = { tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor };
+  rcmMarcarSujo();
   el('rcm-edita')?.remove();
   rcmRenderLista();
   rcmRenderDoc();
@@ -1725,6 +1735,7 @@ window.rcmSalvarEdicao = function(i){
 
 window.rcmExcluirLanc = function(i){
   RC.lancamentos.splice(i, 1);
+  rcmMarcarSujo();
   el('rcm-edita')?.remove();
   rcmRenderLista();
   rcmRenderDoc();
@@ -1933,6 +1944,7 @@ async function rcmEnviarAtual(){
   if (!r2?.ok){ toast(r2?.erro || 'Salvo, mas falhou ao enviar à central.'); return false; }
   RC.status = 'enviado';
   RC.gravadoEm = new Date().toISOString();
+  RC.sujo = false;
   return true;
 }
 
@@ -1967,6 +1979,7 @@ window.rcmSalvar = async function(enviar){
     RC.status = res.status || RC.status;
     RC.autor = sessao()?.usuario?.nome || RC.autor;
     RC.gravadoEm = new Date().toISOString();
+    RC.sujo = false;
     if (enviar){
       if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
     } else if (RC.status === 'enviado'){
@@ -2378,6 +2391,7 @@ window.rcmAbrir = async function(id){
     RC.podeEditar = (autorCpf && autorCpf === meuCpf) || rcEhAdmin();
     RC.somenteLeitura = !RC.podeEditar || RC.status === 'enviado';
     RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
+    RC.sujo = false;
     rcRenderTela();
     const alvo = el(RC.somenteLeitura ? 'rcm-view-previa' : 'rcm-card-ident');
     if (alvo) setTimeout(() => alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
@@ -2454,7 +2468,7 @@ window.rcmVoltar = function(){ rcmNovo(); };
 window.rcmNovo = async function(){
   RC.lancamentos = []; RC.id = null; RC.status = 'rascunho';
   RC.somenteLeitura = false; RC.podeEditar = true; RC.modo = 'editar';
-  RC.autor = ''; RC.gravadoEm = '';
+  RC.autor = ''; RC.gravadoEm = ''; RC.sujo = false;
   RC.meta = { congregacao: '', conselho: '', data: '', semana: '1ª Semana' };
   const congFixa = rcCongFixa();
   F.rcCongregacao = congFixa || '';

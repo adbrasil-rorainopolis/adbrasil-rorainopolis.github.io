@@ -293,9 +293,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.145'); toast('Versão copiada: v1.145')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.146'); toast('Versão copiada: v1.146')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.145</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.146</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -1726,6 +1726,16 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 window.addEventListener('pagehide', sgeSalvarNav);
 
+/* Trava anti-perda: se o Envio de Caixa tem lançamentos editados sem gravação,
+   o navegador pede confirmação antes de recarregar (pull-to-refresh, voltar,
+   fechar a aba/app). Cobre tanto rascunho novo quanto acréscimos após gravação. */
+window.addEventListener('beforeunload', (e) => {
+  if (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente()){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 let moduloAtual = 'dashboard';
 function mudarVisao(mod){
   if (mod === moduloAtual) return;
@@ -2014,11 +2024,22 @@ function avisarAtualizacaoPronta(){
     '<div class="flex-1"><div class="text-xs font-bold">Nova versão instalada</div>' +
     '<div class="text-[10px]" style="color: var(--text-muted);">Toque para atualizar — seu preenchimento atual não será perdido se não tocar.</div></div>' +
     '<span class="text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white" style="background: var(--color-primary);">Atualizar</span>';
-  t.onclick = () => location.reload();
+  t.onclick = () => {
+    if (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente()){
+      if (window.rcmConfirmar){
+        rcmConfirmar({ titulo:'Atualizar e descartar?', icone:'fa-triangle-exclamation', cor:'#f59e0b',
+          okTexto:'Atualizar mesmo assim', naoTexto:'Continuar editando',
+          msg:'Existem lançamentos do Envio de Caixa editados e <b>ainda não gravados</b>. Atualizar agora descarta essas alterações. Deseja mesmo continuar?' })
+          .then(ok => { if (ok) location.reload(); });
+      }
+      return;
+    }
+    location.reload();
+  };
   document.body.appendChild(t);
 }
 navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (__sgeDigitouAlgo) { avisarAtualizacaoPronta(); return; }
+    if (__sgeDigitouAlgo || (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente())) { avisarAtualizacaoPronta(); return; }
     location.reload();
   });
 }
