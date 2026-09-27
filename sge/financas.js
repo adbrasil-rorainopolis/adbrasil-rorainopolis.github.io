@@ -4199,7 +4199,7 @@ async function dreMontarDados(ano, mes, modo){
   const idx = DRE_IDX_MES[mes] || 12;
 
   if (modo === 'serie'){
-    const anos = [...new Set((periodos || []).map(p => String(p.ano)))].sort();
+    const anos = [...new Set((periodos || []).map(p => String(p.ano)))].sort().reverse().slice(0, 4);
     if (!anos.length) return { erro: 'Nenhum fechamento importado.' };
     const agregados = [], colunas = [], avisos = [];
     for (const a of anos){
@@ -4220,12 +4220,12 @@ async function dreMontarDados(ano, mes, modo){
     if (!agregados.length) return { erro: 'Nenhum fechamento importado.' };
     const calcs = agregados.map(_dreCalc);
     const linhasSerie = _dreLinhasN(agregados);
-    const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[calcs.length-1].b1.toFixed(2)}`;
+    const base = `serie|${colunas.map(c => c.ano).join(',')}|${calcs[0].b1.toFixed(2)}`;
     let codigo = '';
     try { if (crypto?.subtle){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)); codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,4).toUpperCase(); } } catch(e){}
     if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8,'0').slice(0,4); }
     return { modo: 'serie', colunas, linhas_serie: linhasSerie, avisos, assinado: false,
-      subtitulo: `Demonstração do resultado por exercício — ${colunas[0].ano} a ${colunas[colunas.length-1].ano} (*exercício parcial)`,
+      subtitulo: `Demonstração do resultado por exercício — ${colunas[colunas.length-1].ano} a ${colunas[0].ano} (*exercício parcial)`,
       verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&o=serie&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
   }
 
