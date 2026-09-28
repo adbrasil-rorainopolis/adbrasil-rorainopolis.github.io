@@ -120,6 +120,7 @@ window.renderMissoes = function(){
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(251,146,60,.14)"><i class="fa-solid fa-globe text-lg text-orange-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Missões</h2><p class="text-[10px] opacity-60">Arrecadação missionária do campo — EBD, Culto de Missões, Oferta Missionária e Círculo de Oração</p></div>
+        <button onclick="ajudaAbrir('missoes')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
         ${ABAS_MIS.filter(([id]) => sgeAbaPermitida('missoes', id)).map(([id, nome, ico, cor]) => `<button onclick="missoesAba('${id}')" id="mnav-${id}" class="mis-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}

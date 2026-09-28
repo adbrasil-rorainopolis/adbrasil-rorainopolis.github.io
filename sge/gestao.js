@@ -1032,6 +1032,7 @@ window.renderGestao = function(){
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(245,158,11,.12)"><i class="fa-solid fa-chart-pie text-lg text-amber-500"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Gestão Unificada</h2><p class="text-[10px] opacity-60">BI financeiro, projeções e relatórios — mesmos cálculos do desktop</p></div>
+        <button onclick="ajudaAbrir('gestao')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
         ${ABAS.filter(([id]) => sgeAbaPermitida('gestao', id)).map(([id, nome, ico, cor]) => `<button onclick="gestaoAba('${id}')" id="gnav-${id}" class="gestao-nav shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer whitespace-nowrap" style="border-color:var(--border-color)"><i class="fa-solid ${ico}" style="color:${cor}"></i>${nome}</button>`).join('')}
@@ -2279,6 +2280,7 @@ window.renderAcessos = function(){
         <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left text-sm" style="color:var(--text-muted)"></i></button>
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(244,63,94,.12)"><i class="fa-solid fa-user-shield text-lg" style="color:#f43f5e"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Acessos e permissões</h2><p class="text-[10px] opacity-60">Ferramentas administrativas — usuários, papéis e aparelhos</p></div>
+        <button onclick="ajudaAbrir('acessos')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div class="flex gap-1.5">
         <button onclick="acessosAba('usuarios')" id="acessos-nav-usuarios" class="acessos-nav flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-users-gear mr-1.5"></i>Usuários</button>

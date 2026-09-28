@@ -186,6 +186,7 @@ window.renderFinanceiro = function(){
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas e lançamentos semanais</p></div>
+        <button onclick="ajudaAbrir('financeiro')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div id="fin-menu"></div>
       <div id="fin-ctx" class="hidden"></div>
@@ -241,7 +242,8 @@ window.finAba = function(aba){
       <div class="flex items-center gap-2">
         <button onclick="finMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
         <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}</p>
+          <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}
+            <button onclick="ajudaAbrir('fin.${aba}')" title="Como usar — ajuda desta aba" class="w-5 h-5 rounded-full border text-[9px] font-bold cursor-pointer inline-flex items-center justify-center opacity-70 shrink-0" style="border-color:var(--border-color)"><i class="fa-solid fa-question"></i></button></p>
           <p class="text-[9px] opacity-55">${meta.desc}</p>
         </div>
       </div>`;
@@ -5120,7 +5122,8 @@ window.renderContabil = function(){
   corpo.innerHTML = `
     <div class="space-y-3">
       <div class="border rounded-2xl p-3.5" style="background:var(--bg-card);border-color:var(--border-color)">
-        <h2 class="font-bold text-sm flex items-center gap-2" style="color:var(--text-accent)"><i class="fa-solid fa-scale-balanced" style="color:#818cf8"></i> Módulo Contábil</h2>
+        <div class="flex items-center gap-2"><h2 class="font-bold text-sm flex-1 flex items-center gap-2" style="color:var(--text-accent)"><i class="fa-solid fa-scale-balanced" style="color:#818cf8"></i> Módulo Contábil</h2>
+          <button onclick="ajudaAbrir('contabil')" title="Como usar — ajuda do módulo" class="w-7 h-7 rounded-full border text-[11px] font-extrabold cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--color-primary)">?</button></div>
         <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — acesso restrito (administradores ou concessão na Gestão de Usuários).</p>
       </div>
       <div class="grid grid-cols-3 gap-1.5">

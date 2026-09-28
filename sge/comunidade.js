@@ -290,6 +290,7 @@ window.renderComunidade = async function() {
     <div class="flex items-center gap-3 pb-3 border-b mb-3" style="border-color:var(--border-color)">
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:var(--color-primary-light)"><i class="fa-solid fa-users text-lg" style="color:var(--color-primary)"></i></div>
       <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Comunidade</h2><p class="text-[10px] opacity-60">Feed interno da igreja — avisos e vida comunitária</p></div>
+      <button onclick="ajudaAbrir('comunidade')" title="Como usar — ajuda" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0 text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       <button onclick="comRecarregar()" class="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style="color:var(--color-primary)"><i class="fa-solid fa-rotate"></i></button>
     </div>
     <div id="com-feed"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando o feed…</div></div>`;

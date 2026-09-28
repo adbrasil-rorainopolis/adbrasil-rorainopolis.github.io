@@ -1,5 +1,5 @@
-const CACHE = 'sge-pwa-v186';
-const SHELL = ['./', './index.html', './gestao.js',
+const CACHE = 'sge-pwa-v187';
+const SHELL = ['./', './index.html', './ajuda.js', './gestao.js',
   './financas.js', './espiritual.js', './comunidade.js', './membro.js', './missoes.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png', './icons/logo_sge.png', './icons/cabecalho_ad_brasil.png'];
 
 self.addEventListener('install', (e) => {
