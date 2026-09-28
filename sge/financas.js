@@ -222,7 +222,7 @@ function finAbaPermitida(t){
   if (t === 'rol') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('membros');
   if (t === 'frequencia') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('frequencia');
   if (t === 'semanal') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
-  if (t === 'livro') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
+  if (t === 'livro') return sgeAbaPermitida('financeiro','dizimistas') && (sgeSubAbaDizPermitida('livro') || sgeSubAbaDizPermitida('lancamentos'));
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
