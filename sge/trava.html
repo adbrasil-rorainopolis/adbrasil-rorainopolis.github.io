@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#7f1d1d">
+<title>SGE · Trava de Emergência</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(circle at 50% -10%, #450a0a, #0c0a0a 70%);
+    color: #fecaca; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px; user-select: none;
+  }
+  .card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
+  .topo { text-align: center; }
+  .topo .icone { font-size: 46px; }
+  .topo h1 { font-size: 19px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fca5a5; margin-top: 8px; }
+  .topo p { font-size: 11px; color: #f87171; opacity: .75; margin-top: 4px; letter-spacing: .05em; }
+  .estado {
+    text-align: center; padding: 14px; border-radius: 14px; font-weight: 800;
+    font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+    border: 1px solid #3f1d1d; background: rgba(127,29,29,.25); color: #fca5a5;
+    transition: all .3s;
+  }
+  .estado.ativo { background: #dc2626; color: #fff; border-color: #ef4444; box-shadow: 0 0 32px rgba(239,68,68,.5); animation: pulsar 1.6s infinite; }
+  .estado.livre { background: rgba(6,95,70,.3); color: #6ee7b7; border-color: #065f46; }
+  @keyframes pulsar { 0%,100% { box-shadow: 0 0 22px rgba(239,68,68,.35);} 50% { box-shadow: 0 0 42px rgba(239,68,68,.7);} }
+  .estado small { display:block; font-weight:500; font-size:10px; letter-spacing:.03em; text-transform:none; opacity:.8; margin-top:5px; }
+  input[type=password] {
+    width: 100%; padding: 15px; border-radius: 12px; font-size: 15px; text-align: center;
+    border: 1px solid #7f1d1d; background: rgba(0,0,0,.45); color: #fff; outline: none; letter-spacing: .2em;
+  }
+  input[type=password]:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+  .btn-trava {
+    width: 100%; padding: 22px; border: 0; border-radius: 18px; cursor: pointer;
+    font-size: 16px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase;
+    color: #fff; transition: transform .12s, box-shadow .2s;
+  }
+  .btn-trava:active { transform: scale(.97); }
+  .btn-trava.ativar { background: linear-gradient(135deg,#991b1b,#dc2626); box-shadow: 0 8px 28px rgba(220,38,38,.4); }
+  .btn-trava.desativar { background: linear-gradient(135deg,#065f46,#059669); box-shadow: 0 8px 28px rgba(5,150,105,.35); }
+  .btn-trava:disabled { opacity: .45; cursor: wait; }
+  .msg { min-height: 18px; text-align: center; font-size: 11.5px; font-weight: 600; }
+  .msg.erro { color: #fca5a5; }
+  .msg.ok { color: #6ee7b7; }
+  .rodape { text-align: center; font-size: 9.5px; color: #7f1d1d; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  .spin { display:inline-block; width:11px; height:11px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation: girar .7s linear infinite; vertical-align:-1px; margin-right:6px; }
+  @keyframes girar { to { transform: rotate(360deg);} }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="topo">
+    <div class="icone">🛡️</div>
+    <h1>Trava de Emergência</h1>
+    <p>SGE · AD Brasil Rorainópolis — controle mestre</p>
+  </div>
+
+  <div id="estado" class="estado"><span class="spin"></span>Consultando…</div>
+
+  <input type="password" id="senha" placeholder="SENHA MESTRE" autocomplete="off" inputmode="text">
+
+  <button id="btn" class="btn-trava ativar" onclick="alternar()" disabled>…</button>
+
+  <p id="msg" class="msg"></p>
+  <p class="rodape">Bloqueio total · Blur em todas as estações · Reversível só por aqui</p>
+</div>
+
+<script>
+const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
+let ativo = null, ocupado = false;
+
+async function call(action, extra){
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action }, extra || {})),
+  });
+  return r.json().catch(() => ({ erro: 'Resposta inválida do servidor.' }));
+}
+
+function msg(t, ok){ const m = document.getElementById('msg'); m.textContent = t || ''; m.className = 'msg ' + (ok ? 'ok' : 'erro'); }
+
+function pintar(){
+  const e = document.getElementById('estado'), b = document.getElementById('btn');
+  if (ativo === null) return;
+  e.className = 'estado ' + (ativo ? 'ativo' : 'livre');
+  e.innerHTML = ativo
+    ? '🔒 BLOQUEIO ATIVO<small>Todas as telas estão travadas e os dados ocultos</small>'
+    : '🔓 SISTEMA LIBERADO<small>Operação normal — nenhuma restrição ativa</small>';
+  b.textContent = ativo ? '🔓 DESBLOQUEAR SISTEMA' : '🚨 BLOQUEIO TOTAL';
+  b.className = 'btn-trava ' + (ativo ? 'desativar' : 'ativar');
+  b.disabled = ocupado;
+}
+
+async function status(){
+  try {
+    const r = await call('status_trava_emergencia');
+    if (r && r.ok){ ativo = !!r.ativo; }
+  } catch(e){ /* offline: mantém último estado */ }
+  pintar();
+}
+
+async function alternar(){
+  const senha = document.getElementById('senha').value;
+  if (!senha){ msg('Digite a senha mestre.'); document.getElementById('senha').focus(); return; }
+  ocupado = true; pintar();
+  document.getElementById('btn').innerHTML = '<span class="spin"></span>Processando…';
+  msg('');
+  try {
+    const r = await call('kill_switch', { senha, ativar: !ativo });
+    if (r && r.ok){
+      ativo = !!r.ativo;
+      msg(ativo ? 'TRAVA ATIVADA — sistema bloqueado em toda parte.' : 'Trava desativada — sistema liberado.', true);
+      document.getElementById('senha').value = '';
+    } else {
+      msg(r.erro || 'Falha ao executar o comando.');
+    }
+  } catch(e){
+    msg('Sem conexão com a nuvem. Verifique a internet.');
+  }
+  ocupado = false; pintar();
+}
+
+document.getElementById('senha').addEventListener('keydown', e => { if (e.key === 'Enter') alternar(); });
+status();
+setInterval(status, 10000);
+</script>
+</body>
+</html>

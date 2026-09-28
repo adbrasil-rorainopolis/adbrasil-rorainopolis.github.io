@@ -294,9 +294,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.158'); toast('Versão copiada: v1.158')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.159'); toast('Versão copiada: v1.159')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.158</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.159</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -2299,6 +2299,30 @@ new MutationObserver(muts => {
 }).observe(document.documentElement, { childList: true, subtree: true });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => sgeEnhanceSelects());
 else sgeEnhanceSelects();
+</script>
+<div id="sge-emergencia-overlay" class="hidden fixed inset-0 flex-col items-center justify-center text-center px-6" style="z-index:99999; background: rgba(12,10,10,.55); backdrop-filter: blur(18px) saturate(.6); -webkit-backdrop-filter: blur(18px) saturate(.6);">
+  <div class="w-full max-w-sm rounded-3xl border-2 p-7 space-y-3" style="background: rgba(69,10,10,.88); border-color: #dc2626; box-shadow: 0 0 50px rgba(220,38,38,.35);">
+    <div class="text-4xl">🛡️</div>
+    <h2 class="text-base font-extrabold tracking-widest uppercase" style="color:#fecaca">Bloqueio de Emergência</h2>
+    <p class="text-[11px] leading-relaxed" style="color:#fca5a5">O sistema foi travado remotamente pelo controle mestre.<br>Nenhum dado foi apagado — as informações estão ocultas.</p>
+    <p class="text-[9px] uppercase tracking-wider opacity-70" style="color:#fca5a5">A liberação só acontece no app de emergência</p>
+  </div>
+</div>
+<script>
+/* Trava de Emergência (kill switch): poll da flag pública — cobre também a tela de login. */
+(function(){
+  async function verificar(){
+    try {
+      const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'status_trava_emergencia' }) }).then(x=>x.json());
+      if (r && r.ok){
+        const ov = document.getElementById('sge-emergencia-overlay');
+        if (ov){ ov.classList.toggle('hidden', !r.ativo); ov.classList.toggle('flex', !!r.ativo); }
+      }
+    } catch(e){ /* offline: mantém o estado */ }
+  }
+  verificar();
+  setInterval(verificar, 12000);
+})();
 </script>
 </body>
 </html>
