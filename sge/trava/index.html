@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#450a0a">
+<title>SGE Emergência</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SGE Emergência">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(circle at 50% -10%, #450a0a, #0c0a0a 70%);
+    color: #fecaca; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start; padding: 28px 20px; user-select: none;
+  }
+  .card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
+  .topo { text-align: center; }
+  .topo .icone { font-size: 44px; }
+  .topo h1 { font-size: 19px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fca5a5; margin-top: 8px; }
+  .topo p { font-size: 11px; color: #f87171; opacity: .75; margin-top: 4px; letter-spacing: .05em; }
+  .estado {
+    text-align: center; padding: 14px; border-radius: 14px; font-weight: 800;
+    font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+    border: 1px solid #3f1d1d; background: rgba(127,29,29,.25); color: #fca5a5;
+    transition: all .3s;
+  }
+  .estado.ativo { background: #dc2626; color: #fff; border-color: #ef4444; box-shadow: 0 0 32px rgba(239,68,68,.5); animation: pulsar 1.6s infinite; }
+  .estado.livre { background: rgba(6,95,70,.3); color: #6ee7b7; border-color: #065f46; }
+  @keyframes pulsar { 0%,100% { box-shadow: 0 0 22px rgba(239,68,68,.35);} 50% { box-shadow: 0 0 42px rgba(239,68,68,.7);} }
+  .estado small { display:block; font-weight:500; font-size:10px; letter-spacing:.03em; text-transform:none; opacity:.8; margin-top:5px; }
+  input[type=password], input[type=email] {
+    width: 100%; padding: 15px; border-radius: 12px; font-size: 15px; text-align: center;
+    border: 1px solid #7f1d1d; background: rgba(0,0,0,.45); color: #fff; outline: none;
+  }
+  input[type=password] { letter-spacing: .2em; }
+  input:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+  .btn-trava {
+    width: 100%; padding: 22px; border: 0; border-radius: 18px; cursor: pointer;
+    font-size: 16px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase;
+    color: #fff; transition: transform .12s, box-shadow .2s;
+  }
+  .btn-trava:active { transform: scale(.97); }
+  .btn-trava.ativar { background: linear-gradient(135deg,#991b1b,#dc2626); box-shadow: 0 8px 28px rgba(220,38,38,.4); }
+  .btn-trava.desativar { background: linear-gradient(135deg,#065f46,#059669); box-shadow: 0 8px 28px rgba(5,150,105,.35); }
+  .btn-trava:disabled { opacity: .45; cursor: wait; }
+  .sep { border:0; border-top:1px solid rgba(127,29,29,.6); margin:4px 0; }
+  .secao-titulo { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #f87171; text-align:center; }
+  .bkp-card {
+    display: flex; flex-direction: column; gap: 12px; padding: 16px;
+    border: 1px solid #3f1d1d; border-radius: 16px; background: rgba(30,12,12,.55);
+  }
+  .bkp-email { display:flex; gap:8px; }
+  .bkp-email input { flex:1; font-size: 13px; padding: 12px; }
+  .btn-mini {
+    padding: 12px 14px; border: 1px solid #7f1d1d; border-radius: 12px; cursor: pointer;
+    background: rgba(127,29,29,.3); color: #fecaca; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  }
+  .btn-mini:active { transform: scale(.97); }
+  .btn-bkp {
+    width: 100%; padding: 16px; border: 0; border-radius: 14px; cursor: pointer;
+    font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: #fff; background: linear-gradient(135deg,#1e3a8a,#2563eb); box-shadow: 0 6px 20px rgba(37,99,235,.3);
+    transition: transform .12s;
+  }
+  .btn-bkp:active { transform: scale(.97); }
+  .btn-bkp:disabled { opacity: .45; cursor: wait; }
+  .bkp-info { font-size: 10.5px; color: #b91c1c; color: #f87171; opacity:.8; text-align:center; line-height:1.5; min-height: 14px; }
+  .msg { min-height: 18px; text-align: center; font-size: 11.5px; font-weight: 600; }
+  .msg.erro { color: #fca5a5; }
+  .msg.ok { color: #6ee7b7; }
+  .rodape { text-align: center; font-size: 9.5px; color: #7f1d1d; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  .spin { display:inline-block; width:11px; height:11px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation: girar .7s linear infinite; vertical-align:-1px; margin-right:6px; }
+  @keyframes girar { to { transform: rotate(360deg);} }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="topo">
+    <div class="icone">🛡️</div>
+    <h1>SGE Emergência</h1>
+    <p>AD Brasil Rorainópolis — controle mestre</p>
+  </div>
+
+  <input type="password" id="senha" placeholder="SENHA MESTRE" autocomplete="off" inputmode="text">
+
+  <div id="estado" class="estado"><span class="spin"></span>Consultando…</div>
+
+  <button id="btn" class="btn-trava ativar" onclick="alternar()" disabled>…</button>
+
+  <hr class="sep">
+
+  <div class="secao-titulo">💾 Backup SQL por e-mail</div>
+  <div class="bkp-card">
+    <div class="bkp-email">
+      <input type="email" id="email" placeholder="e-mail de destino" autocomplete="off">
+      <button class="btn-mini" onclick="salvarEmail()">Salvar</button>
+    </div>
+    <button id="btnBkp" class="btn-bkp" onclick="enviarBackup()">📦 Gerar e enviar backup</button>
+    <p id="bkpInfo" class="bkp-info">O backup completo (todas as tabelas, em SQL dentro de um ZIP) será enviado como anexo.</p>
+  </div>
+
+  <p id="msg" class="msg"></p>
+  <p class="rodape">Bloqueio total · Blur em todas as estações · Backup restaurável</p>
+</div>
+
+<script>
+const API = 'https://ptegydkazodwbmjnfwnp.supabase.co/functions/v1/sge-api';
+let ativo = null, ocupado = false, bkpOcupado = false;
+
+async function call(action, extra){
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action }, extra || {})),
+  });
+  return r.json().catch(() => ({ erro: 'Resposta inválida do servidor.' }));
+}
+
+function msg(t, ok){ const m = document.getElementById('msg'); m.textContent = t || ''; m.className = 'msg ' + (ok ? 'ok' : 'erro'); }
+function senhaOk(){
+  const s = document.getElementById('senha').value;
+  if (!s){ msg('Digite a senha mestre.'); document.getElementById('senha').focus(); }
+  return s;
+}
+function fmtData(iso){
+  try { return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Boa_Vista' }); }
+  catch(e){ return iso || ''; }
+}
+
+function pintar(){
+  const e = document.getElementById('estado'), b = document.getElementById('btn');
+  if (ativo === null) return;
+  e.className = 'estado ' + (ativo ? 'ativo' : 'livre');
+  e.innerHTML = ativo
+    ? '🔒 BLOQUEIO ATIVO<small>Todas as telas estão travadas e os dados ocultos</small>'
+    : '🔓 SISTEMA LIBERADO<small>Operação normal — nenhuma restrição ativa</small>';
+  b.textContent = ativo ? '🔓 DESBLOQUEAR SISTEMA' : '🚨 BLOQUEIO TOTAL';
+  b.className = 'btn-trava ' + (ativo ? 'desativar' : 'ativar');
+  b.disabled = ocupado;
+}
+
+function pintarBkp(ultimo){
+  const info = document.getElementById('bkpInfo');
+  if (ultimo && ultimo.quando){
+    const kb = ultimo.bytes_zip ? ' · ' + (ultimo.bytes_zip/1024).toFixed(0) + ' KB' : '';
+    info.innerHTML = `Último backup: <b>${fmtData(ultimo.quando)}</b><br>${ultimo.linhas?.toLocaleString('pt-BR') || '?'} linhas em ${ultimo.tabelas || '?'} tabelas${kb} → ${ultimo.destino || ''}`;
+  }
+}
+
+async function status(){
+  try {
+    const r = await call('status_trava_emergencia');
+    if (r && r.ok){ ativo = !!r.ativo; }
+  } catch(e){ /* offline: mantém último estado */ }
+  pintar();
+}
+
+async function statusBkp(){
+  const senha = document.getElementById('senha').value;
+  if (!senha) return;
+  try {
+    const r = await call('status_backup_email', { senha });
+    if (r && r.ok){
+      if (r.email && !document.getElementById('email').value) document.getElementById('email').value = r.email;
+      pintarBkp(r.ultimo);
+    }
+  } catch(e){}
+}
+
+async function alternar(){
+  const senha = senhaOk(); if (!senha) return;
+  ocupado = true; pintar();
+  document.getElementById('btn').innerHTML = '<span class="spin"></span>Processando…';
+  msg('');
+  try {
+    const r = await call('kill_switch', { senha, ativar: !ativo });
+    if (r && r.ok){
+      ativo = !!r.ativo;
+      msg(ativo ? 'TRAVA ATIVADA — sistema bloqueado em toda parte.' : 'Trava desativada — sistema liberado.', true);
+    } else {
+      msg(r.erro || 'Falha ao executar o comando.');
+    }
+  } catch(e){
+    msg('Sem conexão com a nuvem. Verifique a internet.');
+  }
+  ocupado = false; pintar();
+}
+
+async function salvarEmail(){
+  const senha = senhaOk(); if (!senha) return;
+  const email = document.getElementById('email').value.trim();
+  if (!email){ msg('Digite o e-mail de destino do backup.'); return; }
+  msg('');
+  try {
+    const r = await call('definir_email_backup', { senha, email });
+    if (r && r.ok){ msg('E-mail de backup salvo: ' + r.email, true); }
+    else msg(r.erro || 'Falha ao salvar o e-mail.');
+  } catch(e){ msg('Sem conexão com a nuvem.'); }
+}
+
+async function enviarBackup(){
+  const senha = senhaOk(); if (!senha) return;
+  const email = document.getElementById('email').value.trim();
+  bkpOcupado = true;
+  const b = document.getElementById('btnBkp');
+  b.disabled = true;
+  b.innerHTML = '<span class="spin"></span>Gerando backup na nuvem…';
+  msg('Isso pode levar até 1 minuto — o banco inteiro está sendo exportado.', true);
+  try {
+    const r = await call('enviar_backup_email', { senha, email });
+    if (r && r.ok){
+      msg(`Backup enviado para ${r.email} — ${r.linhas.toLocaleString('pt-BR')} linhas em ${r.tabelas} tabelas.`, true);
+      statusBkp();
+    } else {
+      msg(r.erro || 'Falha ao gerar/enviar o backup.');
+    }
+  } catch(e){
+    msg('Sem conexão ou tempo esgotado. Tente de novo.');
+  }
+  b.disabled = false;
+  b.innerHTML = '📦 Gerar e enviar backup';
+  bkpOcupado = false;
+}
+
+document.getElementById('senha').addEventListener('keydown', e => { if (e.key === 'Enter') alternar(); });
+document.getElementById('senha').addEventListener('input', statusBkp);
+status();
+setInterval(status, 10000);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
+</body>
+</html>
