@@ -173,11 +173,12 @@ const FIN_ABAS_META = {
   rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',          cor: '#38bdf8' },
   frequencia: { nome: 'Frequência',                desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
   semanal:    { nome: 'Lançamentos Semanais',      desc: 'Dízimos e ofertas por irmão e semana',      icone: 'fa-receipt',             cor: '#f59e0b' },
+  livro:      { nome: 'Livro de Dizimistas',       desc: 'Livro oficial mensal e anual — digital e exportável', icone: 'fa-book-open', cor: '#d4af37' },
   relatorio:  { nome: 'Envio de Caixa',            desc: 'Fechamento e envio semanal',               icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
   prestacao:  { nome: 'Conferência de Caixa',      desc: 'Gestão e recebimento das congregações',    icone: 'fa-clipboard-check',     cor: '#f472b6' },
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
 };
-const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'relatorio', 'prestacao', 'orcamentos'];
+const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro', 'relatorio', 'prestacao', 'orcamentos'];
 
 window.renderFinanceiro = function(){
   el('dash-conteudo').innerHTML = `
@@ -220,6 +221,7 @@ function finAbaPermitida(t){
   if (t === 'rol') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('membros');
   if (t === 'frequencia') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('frequencia');
   if (t === 'semanal') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
+  if (t === 'livro') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
@@ -245,6 +247,7 @@ window.finAba = function(aba){
       </div>`;
   }
   if (aba === 'semanal') return finRenderSemanal();
+  if (aba === 'livro') return livroRender();
   if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'prestacao') return window.prestRender();
   if (aba === 'frequencia') return finRenderFrequencia();
@@ -3453,6 +3456,7 @@ async function finRenderSemanal(){
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('sem-ano', anos, s.ano, 'semMudarFiltro()')}</div>
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>${selF('sem-mes', MESES_ORD.map(m => [m, m]), s.mes, 'semMudarFiltro()')}</div>
         </div>
+        <button onclick="semExportarWhatsApp()" class="w-full py-2 rounded-xl text-[11px] font-bold border cursor-pointer flex items-center justify-center gap-1.5" style="border-color:rgba(37,211,102,.5);color:#25d366;background:rgba(37,211,102,.08)" title="Exporta todos os lançamentos do mês selecionado"><i class="fa-brands fa-whatsapp"></i>Exportar mês no WhatsApp</button>
         <div>
           <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Semana</span>
           <div class="flex gap-1.5" id="sem-semanas">${[1,2,3,4,5].map(n => `<button onclick="semSemana(${n})" data-sem="${n}" class="flex-1 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer sem-chip">${n}ª</button>`).join('')}</div>
@@ -3471,7 +3475,6 @@ async function finRenderSemanal(){
       <div class="flex items-center gap-1.5 px-1">
         <p id="sem-total" class="flex-1 text-[10px] font-bold uppercase opacity-60">Carregando…</p>
         <button onclick="semRecarregar()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted);background:var(--bg-card)" title="Atualizar dados da nuvem"><i class="fa-solid fa-rotate"></i></button>
-        <button onclick="semExportarWhatsApp()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(37,211,102,.5);color:#25d366;background:rgba(37,211,102,.1)" title="Exportar lançamentos do mês para o WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
         <button onclick="semAbrirDivergencias()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(37,99,235,.5);color:#60a5fa;background:rgba(37,99,235,.1)" title="Divergências"><i class="fa-solid fa-magnifying-glass-chart"></i></button>
         ${sgeEhAdmin() ? `<button onclick="semAbrirLotes()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(142,68,173,.5);color:#a855f7;background:rgba(142,68,173,.1)" title="Gestão de Lotes"><i class="fa-solid fa-lock"></i></button>` : ''}
         ${pode ? `<button onclick="semAbrirNovoMembro()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:rgba(5,150,105,.5);color:#10b981;background:rgba(5,150,105,.1)" title="Cadastrar membro"><i class="fa-solid fa-user-plus"></i></button>` : ''}
@@ -3748,6 +3751,340 @@ window.semExportarWhatsApp = async function(){
   } catch(e){
     toast(e?.message || 'Falha ao gerar a exportação.');
   }
+};
+
+/* ===================== Livro de Dizimistas — digital e exportável =====================
+   Documento oficial dourado: capa com timbrado e QR de autenticidade, sumário,
+   detalhamento por conselho/congregação na ordem canônica (irmãos em ordem
+   alfabética) e estatísticas. Período mensal ou anual. Exporta como página
+   de impressão (salvar em PDF) — mesma filosofia do Envio de Caixa. */
+
+function _livroCss(){
+  return `
+.lv-doc{background:linear-gradient(160deg,#fdf8ec,#f3ead2);color:#3a2d12;border-radius:18px;overflow:hidden;font-family:Georgia,'Times New Roman',serif}
+.lv-capa{padding:26px 16px 20px;text-align:center;border:3px double #b8912a;margin:12px;border-radius:14px;background:radial-gradient(circle at 50% 0%,#fffdf6,#f5ecd4)}
+.lv-timb{max-width:220px;margin:0 auto 8px;display:block}
+.lv-ig{font-size:9px;letter-spacing:.22em;font-weight:700;color:#8a6d1d;text-transform:uppercase}
+.lv-titulo{font-size:23px;font-weight:800;color:#7a5c13;letter-spacing:.05em;margin:8px 0 2px;text-transform:uppercase}
+.lv-sub{font-size:10px;color:#8a6d1d;letter-spacing:.14em;text-transform:uppercase}
+.lv-per{font-size:15px;font-weight:800;color:#3a2d12;margin-top:10px}
+.lv-orn{height:2px;background:linear-gradient(90deg,transparent,#c9a227,transparent);margin:10px 0}
+.lv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.lv-kpi{border:1px solid #ddca96;border-radius:10px;padding:8px 4px;text-align:center;background:rgba(255,253,246,.7)}
+.lv-kpi b{display:block;font-size:13px;color:#7a5c13;font-variant-numeric:tabular-nums}
+.lv-kpi span{font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;color:#a5853a}
+.lv-qr{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:14px}
+.lv-qr img{width:84px;height:84px;border:3px solid #c9a227;border-radius:8px;background:#fff;padding:3px}
+.lv-qr code{font-size:8.5px;color:#8a6d1d;letter-spacing:.08em}
+.lv-sec{padding:14px 14px 8px}
+.lv-h{font-size:12.5px;font-weight:800;color:#7a5c13;letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid #c9a227;padding-bottom:4px;margin-bottom:8px}
+.lv-cap{background:linear-gradient(90deg,#8a6d1d,#c9a227);color:#fffdf3;font-weight:800;font-size:11px;letter-spacing:.09em;text-transform:uppercase;border-radius:8px;padding:7px 10px;margin:14px 0 4px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.lv-cap small{font-weight:600;font-size:9px;opacity:.9;letter-spacing:.04em}
+.lv-cong{display:flex;align-items:baseline;gap:6px;font-size:10.5px;font-weight:800;color:#8a6d1d;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 3px}
+.lv-cong small{font-weight:600;color:#a5853a;letter-spacing:.03em;text-transform:none}
+table.lv-tb{width:100%;border-collapse:collapse;font-size:10.5px}
+table.lv-tb td{padding:5px 6px;border-bottom:1px solid #e8dcc0;vertical-align:top}
+table.lv-tb tr:nth-child(even) td{background:rgba(201,162,39,.07)}
+.lv-val{font-weight:800;color:#7a5c13;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lv-canal{display:inline-block;font-size:7.5px;font-weight:800;padding:1px 5px;border-radius:999px;border:1px solid #c9a227;color:#8a6d1d;margin-left:4px;white-space:nowrap}
+.lv-canal.pix{color:#1d6fa8;border-color:#7db4d4}
+.lv-mut{font-size:8.5px;color:#a5853a}
+.lv-stat{border:1px solid #ddca96;border-radius:10px;padding:9px 10px;background:rgba(255,253,246,.7);font-size:10px;margin-bottom:6px}
+.lv-stat b{color:#7a5c13}
+.lv-stat .lv-val{font-size:11px}
+.lv-rod{font-size:8.5px;color:#a5853a;text-align:center;padding:10px 14px 16px;letter-spacing:.06em}
+@media print{ body{background:#fff!important} .lv-doc{border-radius:0} .lv-page{page-break-before:always} .lv-no-print{display:none!important} @page{size:A4;margin:10mm} }
+`;
+}
+let _livroCssInj = false;
+function _livroCssGarantir(){
+  if (_livroCssInj) return;
+  const st = document.createElement('style');
+  st.id = 'livro-css'; st.textContent = _livroCss();
+  document.head.appendChild(st); _livroCssInj = true;
+}
+
+/* Coleta e organiza os lançamentos do período em capítulos (semanas ou meses),
+   cada um agrupado por conselho→congregação na ordem canônica. */
+async function _livroColetar(){
+  const L = F.livro;
+  const [lancs, membros, hist] = await Promise.all([
+    carregarLancamentosAno(L.ano), carregarMembros(), carregarHistoricoCongs()
+  ]);
+  const { porConselho } = await SGEG.mapaConselhos();
+  const histMap = {};
+  for (const r of (hist || [])){
+    const k = String(r.id_membro ?? '').trim();
+    (histMap[k] = histMap[k] || []).push(r);
+  }
+  const memMap = {};
+  for (const m of (membros || [])){
+    memMap[String(m.id ?? '').trim()] = m;
+    const kn = String(parseInt(m.id, 10)).padStart(6, '0');
+    if (kn !== 'NaN000') memMap[kn] = m;
+  }
+  const ordC = SGEG.ordenarConselhosG || (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
+  const ordG = SGEG.ordenarCongregacoesG || (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
+  const congCanon = [];
+  for (const c of ordC(Object.keys(porConselho || {}))) congCanon.push(...ordG(porConselho[c] || []));
+  const rankCong = c => { const i = congCanon.findIndex(x => cf(x) === cf(c)); return i < 0 ? 999 : i; };
+
+  const rows = [];
+  for (const r of (lancs || [])){
+    const v = parseValor(r.valor);
+    if (v <= 0) continue;
+    if (L.periodo === 'mensal' && cf(r.mes) !== cf(L.mes)) continue;
+    const m = memMap[String(r.id ?? '').trim()];
+    const vig = m ? _semVigente(m.id, r.mes, r.ano, histMap) : null;
+    const cons = String(r.destino_conselho || vig?.conselho || m?.conselho || 'Conselho 1').trim();
+    const cong = String(r.destino_congregacao || vig?.congregacao || m?.congregacao || 'Sede').trim();
+    const ps = _semParseParcelas(r).filter(p => (p.especie || 0) + (p.pix || 0) > 0);
+    const te = ps.reduce((a, p) => a + (p.especie || 0), 0);
+    const tp = ps.reduce((a, p) => a + (p.pix || 0), 0);
+    const canal = ps.length ? (te > 0 && tp > 0 ? 'Misto' : tp > 0 ? 'PIX/TB' : 'Espécie') : '';
+    const itin = [...new Set(ps.map(p => cf(p.cong)).filter(c => c && c !== cf(m?.congregacao)))];
+    rows.push({
+      id: String(r.id ?? '').trim(), nome: m?.nome || 'Membro Sem Nome',
+      cons, cong, mes: r.mes, semana: _semNorm(r.semana), valor: v,
+      canal, itin: itin.join(' + '), status: cf(r.status),
+    });
+  }
+
+  /* capítulos: mensal = semanas 1..5 · anual = meses Jan..Dez */
+  const capOf = r => L.periodo === 'mensal'
+    ? +(_semNorm(r.semana).replace('Semana ', '') || 0)
+    : (MESES_ORD.findIndex(x => cf(x) === cf(r.mes)) + 1);
+  const caps = {};
+  for (const r of rows){
+    const c = capOf(r);
+    if (!c) continue;
+    (caps[c] = caps[c] || []).push(r);
+  }
+  const capitulos = Object.keys(caps).map(Number).sort((a, b) => a - b).map(c => {
+    const itens = caps[c];
+    const consOrdem = ordC([...new Set(itens.map(r => r.cons))]);
+    const grupos = [];
+    for (const cons of consOrdem){
+      const congs = [...new Set(itens.filter(r => cf(r.cons) === cf(cons)).map(r => r.cong))]
+        .sort((a, b) => rankCong(a) - rankCong(b) || String(a).localeCompare(String(b), 'pt-BR'));
+      for (const cong of congs){
+        const lista = itens.filter(r => cf(r.cons) === cf(cons) && cf(r.cong) === cf(cong))
+          .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+        grupos.push({ cons, cong, lista });
+      }
+    }
+    const total = itens.reduce((a, r) => a + r.valor, 0);
+    const titulo = L.periodo === 'mensal' ? `${c}ª SEMANA` : (MESES_ORD[c - 1] || `Mês ${c}`).toUpperCase();
+    return { c, titulo, grupos, qtd: itens.length, total };
+  });
+
+  /* estatísticas */
+  const porCons = {}, porCong = {}, porCanal = {}, dizimistas = new Set();
+  let total = 0;
+  for (const r of rows){
+    total += r.valor;
+    porCons[r.cons] = (porCons[r.cons] || 0) + r.valor;
+    porCong[r.cong] = (porCong[r.cong] || 0) + r.valor;
+    dizimistas.add(_normIdJs(r.id));
+    const ch = r.canal || 'Não informado';
+    porCanal[ch] = (porCanal[ch] || 0) + r.valor;
+  }
+  return { capitulos, porCons, porCong, porCanal, total, qtd: rows.length,
+    dizimistas: dizimistas.size, ordC, rankCong };
+}
+const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
+
+function _livroCapituloHtml(cap, mesLabel){
+  const linhas = cap.grupos.map(g => `
+    <div class="lv-cong"><i class="fa-solid fa-church" style="font-size:9px"></i>${esc(g.cong)}<small>· ${esc(g.cons)}</small></div>
+    <table class="lv-tb"><tbody>
+      ${g.lista.map(r => `<tr>
+        <td><b>${esc(r.nome)}</b><span class="lv-mut"> · ID ${esc(r.id)}${mesLabel === 'anual' ? ` · ${esc(r.semana.replace('Semana ', ''))}ª sem` : ''}${r.itin ? ` · →${esc(r.itin)}` : ''}</span></td>
+        <td class="lv-val">${moeda(r.valor)}${r.canal ? `<span class="lv-canal ${cf(r.canal).includes('pix') ? 'pix' : ''}">${esc(r.canal)}</span>` : ''}</td>
+      </tr>`).join('')}
+    </tbody></table>`).join('');
+  return `<div class="lv-cap"><span><i class="fa-solid fa-bookmark mr-1"></i>${esc(cap.titulo)}${mesLabel && mesLabel !== 'anual' ? ` · ${esc(mesLabel)}` : ''}</span><small>${cap.qtd} lanç. · ${moeda(cap.total)}</small></div>${linhas}`;
+}
+
+function _livroHtml(d, opts = {}){
+  const L = F.livro;
+  const periodoTxt = L.periodo === 'mensal' ? `${L.mes} / ${L.ano}` : `Exercício ${L.ano}`;
+  const emissor = opts.emissor || sessao()?.usuario?.nome || 'Tesouraria';
+  const emitido = opts.emitido || new Date().toLocaleString('pt-BR');
+  const codigo = opts.codigo || '';
+
+  /* sumário */
+  const sumario = d.capitulos.map((cap, i) => `
+    <div class="lv-stat" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <b>Capítulo ${i + 1} — ${esc(cap.titulo)}</b>
+      <span class="lv-val">${cap.qtd} lanç. · ${moeda(cap.total)}</span>
+    </div>`).join('');
+
+  /* estatísticas */
+  const consRows = d.ordC(Object.keys(d.porCons)).map(c =>
+    `<tr><td>${esc(c)}</td><td class="lv-val">${moeda(d.porCons[c])}</td><td class="lv-val" style="color:#a5853a">${d.total ? (100 * d.porCons[c] / d.total).toFixed(1) : '0'}%</td></tr>`).join('');
+  const congRows = Object.keys(d.porCong).sort((a, b) => d.rankCong(a) - d.rankCong(b)).map(c =>
+    `<tr><td>${esc(c)}</td><td class="lv-val">${moeda(d.porCong[c])}</td><td class="lv-val" style="color:#a5853a">${d.total ? (100 * d.porCong[c] / d.total).toFixed(1) : '0'}%</td></tr>`).join('');
+  const canalRows = Object.keys(d.porCanal).sort().map(c =>
+    `<tr><td>${esc(c)}</td><td class="lv-val">${moeda(d.porCanal[c])}</td><td class="lv-val" style="color:#a5853a">${d.total ? (100 * d.porCanal[c] / d.total).toFixed(1) : '0'}%</td></tr>`).join('');
+  const melhor = d.capitulos.slice().sort((a, b) => b.total - a.total)[0];
+
+  const timb = opts.timbSrc ? `<img class="lv-timb" src="${opts.timbSrc}" alt="">` : '';
+  const qr = opts.qrSrc ? `<div class="lv-qr"><img src="${opts.qrSrc}" alt="QR"><code>${esc(codigo)}</code></div>` : (codigo ? `<div class="lv-qr"><code>${esc(codigo)}</code></div>` : '');
+
+  return `<div class="lv-doc">
+    <div class="lv-capa">
+      ${timb}
+      <p class="lv-ig">Assembleia de Deus · AD Brasil · Rorainópolis — RR</p>
+      <div class="lv-orn"></div>
+      <h2 class="lv-titulo">Livro de Dizimistas</h2>
+      <p class="lv-sub">Registro oficial de dízimos por irmão e semana</p>
+      <p class="lv-per">${esc(periodoTxt)}</p>
+      <div class="lv-kpis">
+        <div class="lv-kpi"><b>${d.qtd}</b><span>Lançamentos</span></div>
+        <div class="lv-kpi"><b>${d.dizimistas}</b><span>Dizimistas</span></div>
+        <div class="lv-kpi"><b>${moeda(d.total)}</b><span>Total</span></div>
+      </div>
+      ${qr}
+      <p class="lv-mut" style="margin-top:10px">Emitido por ${esc(emissor)} · ${esc(emitido)}</p>
+    </div>
+    <div class="lv-sec lv-page">
+      <p class="lv-h"><i class="fa-solid fa-list mr-1"></i>Sumário</p>
+      ${sumario || '<p class="lv-mut">Nenhum lançamento no período.</p>'}
+      ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
+    </div>
+    <div class="lv-sec lv-page">
+      <p class="lv-h"><i class="fa-solid fa-book-open mr-1"></i>Detalhamento</p>
+      ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual')).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
+    </div>
+    <div class="lv-sec lv-page">
+      <p class="lv-h"><i class="fa-solid fa-chart-pie mr-1"></i>Estatísticas</p>
+      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:6px 0 4px">Por conselho</p>
+      <table class="lv-tb"><tbody>${consRows}</tbody></table>
+      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por congregação</p>
+      <table class="lv-tb"><tbody>${congRows}</tbody></table>
+      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por canal</p>
+      <table class="lv-tb"><tbody>${canalRows}</tbody></table>
+    </div>
+    <p class="lv-rod">Livro de Dizimistas · ${esc(periodoTxt)} · Gerado pelo SGE AD Brasil${codigo ? ` · ${esc(codigo)}` : ''}</p>
+  </div>`;
+}
+
+window.livroRender = function(){
+  if (!F.livro) F.livro = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], periodo: 'mensal', doc: null };
+  const L = F.livro;
+  const anos = []; for (let a = new Date().getFullYear() - 2; a <= new Date().getFullYear() + 2; a++) anos.push([String(a), String(a)]);
+  _livroCssGarantir();
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>${selF('lv-ano', anos, L.ano, 'livroMudar()')}</div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Período</span>
+            <div class="flex gap-1.5">
+              <button onclick="livroPeriodo('mensal')" id="lv-p-mensal" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer">Mensal</button>
+              <button onclick="livroPeriodo('anual')" id="lv-p-anual" class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer">Anual</button>
+            </div></div>
+        </div>
+        <div id="lv-mes-wrap" ${L.periodo === 'anual' ? 'style="display:none"' : ''}>
+          <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
+          ${selF('lv-mes', MESES_ORD.map(m => [m, m]), L.mes, 'livroMudar()')}
+        </div>
+        <button onclick="livroGerar()" class="w-full py-2.5 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 text-white" style="background:linear-gradient(135deg,#8a6d1d,#c9a227)"><i class="fa-solid fa-book-open"></i>Gerar Livro</button>
+      </div>
+      <div id="livro-acoes"></div>
+      <div id="livro-doc">${L.doc || '<p class="text-center text-xs opacity-50 py-10">Escolha o período e toque em <b>Gerar Livro</b>.</p>'}</div>
+    </div>`;
+  _livroMarcarPeriodo();
+  if (L.doc) _livroAcoes();
+};
+
+function _livroMarcarPeriodo(){
+  const L = F.livro;
+  for (const p of ['mensal', 'anual']){
+    const b = el('lv-p-' + p); if (!b) continue;
+    const on = L.periodo === p;
+    b.style.background = on ? 'linear-gradient(135deg,#8a6d1d,#c9a227)' : 'var(--bg-card)';
+    b.style.color = on ? '#fff' : 'var(--text-muted)';
+    b.style.borderColor = on ? 'transparent' : 'var(--border-color)';
+  }
+  const mw = el('lv-mes-wrap'); if (mw) mw.style.display = L.periodo === 'anual' ? 'none' : '';
+}
+window.livroPeriodo = function(p){ F.livro.periodo = p; F.livro.doc = null; _livroMarcarPeriodo(); el('livro-doc').innerHTML = '<p class="text-center text-xs opacity-50 py-10">Toque em <b>Gerar Livro</b>.</p>'; el('livro-acoes').innerHTML = ''; };
+window.livroMudar = function(){
+  F.livro.ano = el('lv-ano')?.value || F.livro.ano;
+  F.livro.mes = el('lv-mes')?.value || F.livro.mes;
+};
+
+function _livroAcoes(){
+  const ac = el('livro-acoes'); if (!ac) return;
+  ac.innerHTML = `
+    <div class="flex gap-2">
+      <button onclick="livroExportar()" class="flex-1 py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer flex items-center justify-center gap-1.5" style="border-color:rgba(201,162,39,.6);color:#c9a227;background:rgba(201,162,39,.08)"><i class="fa-solid fa-print"></i>Exportar / PDF</button>
+      <button onclick="livroWhatsApp()" class="flex-1 py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer flex items-center justify-center gap-1.5" style="border-color:rgba(37,211,102,.5);color:#25d366;background:rgba(37,211,102,.08)"><i class="fa-brands fa-whatsapp"></i>Resumo WhatsApp</button>
+    </div>`;
+}
+
+window.livroGerar = async function(){
+  livroMudar();
+  const L = F.livro;
+  const doc = el('livro-doc'); if (!doc) return;
+  doc.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Montando o livro…</div>';
+  try {
+    const d = await _livroColetar();
+    const periodoTxt = L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : String(L.ano);
+    const base = `SGE-DIZIMISTAS|${L.periodo}|${periodoTxt}|${d.qtd}|${d.total.toFixed(2)}`;
+    const hash = await rcmHashVerificacao(base).catch(() => '--------');
+    const codigo = `SGE-DZ-${hash}`;
+    const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
+    const qrSrc = rcmQrDataUrl(qrTxt, 128);
+    const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || null;
+    L.dados = d; L.codigo = codigo;
+    L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc });
+    doc.innerHTML = L.doc;
+    _livroAcoes();
+    if (!d.qtd) toast('Nenhum lançamento encontrado no período.');
+  } catch(e){
+    doc.innerHTML = `<p class="text-center text-xs text-red-500 py-10">${esc(e.message || 'Falha ao montar o livro.')}</p>`;
+  }
+};
+
+window.livroExportar = function(){
+  const L = F.livro; if (!L.doc){ toast('Gere o livro primeiro.'); return; }
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Livro de Dizimistas — ${esc(L.periodo === 'mensal' ? L.mes + '/' + L.ano : L.ano)}</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>${_livroCss()}body{margin:0;background:#fdf8ec;padding:10px;font-family:Georgia,serif}.lv-doc{max-width:760px;margin:0 auto}
+.lv-print{position:sticky;top:0;z-index:9;display:flex;gap:8px;justify-content:center;padding:10px;background:#fdf8ec;border-bottom:1px solid #ddca96}
+.lv-print button{padding:10px 22px;border-radius:10px;border:0;font-weight:700;font-size:13px;cursor:pointer;background:linear-gradient(135deg,#8a6d1d,#c9a227);color:#fff}
+@media print{.lv-print{display:none}}</style></head><body>
+<div class="lv-print lv-no-print"><button onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir / Salvar PDF</button></div>
+${L.doc}
+<script>setTimeout(()=>{/* usuário imprime pelo botão */},0);</script>
+</body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (!w){ toast('Pop-up bloqueado — permita pop-ups para exportar.'); return; }
+};
+
+window.livroWhatsApp = async function(){
+  const L = F.livro, d = L.dados; if (!d || !d.qtd){ toast('Gere o livro primeiro.'); return; }
+  const periodoTxt = L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : `Ano ${L.ano}`;
+  const linhas = [`*LIVRO DE DIZIMISTAS — ${String(periodoTxt).toUpperCase()}*`, ''];
+  for (const cap of d.capitulos){
+    linhas.push(`*${cap.titulo}* — ${cap.qtd} lanç. · ${moeda(cap.total)}`);
+  }
+  linhas.push('');
+  linhas.push(`*TOTAL: ${d.qtd} lançamentos · ${moeda(d.total)}*`);
+  linhas.push(`${d.dizimistas} dizimistas · código ${L.codigo || ''}`);
+  const txt = linhas.join('\n');
+  if (navigator.share){
+    try { await navigator.share({ title: `Livro de Dizimistas ${periodoTxt}`, text: txt }); return; }
+    catch(e){ if (e?.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(txt); toast('Resumo copiado — cole no WhatsApp.'); } catch(e){}
+  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
 };
 
 /* ===================== Lançamento por membro — subtela dedicada =====================
