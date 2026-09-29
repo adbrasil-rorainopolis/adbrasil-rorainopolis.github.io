@@ -895,17 +895,20 @@ window.fqCarregar = async function(){
 function _fqRenderCorpo(){
   const d = F.fq.dados;
   if (!d || F.aba !== 'frequencia') return;
-  const kpi = (rotulo, n, cor, pct) => `<div class="border rounded-xl p-3 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)">
-    <p class="text-[9px] font-bold uppercase opacity-60 truncate">${rotulo}</p>
+  const kpi = (rotulo, n, cor, pct, perfil) => {
+    const ativo = F.fq.perfil === perfil;
+    return `<button onclick="fqPerfilCard('${perfil}')" class="border rounded-xl p-3 min-w-0 text-left cursor-pointer" style="background:${ativo ? cor + '26' : 'var(--bg-card)'};border-color:${ativo ? cor : 'var(--border-color)'};${ativo ? `box-shadow:0 0 0 1px ${cor};` : ''}" title="Toque para filtrar o gráfico e a lista">
+    <p class="text-[9px] font-bold uppercase opacity-60 truncate">${rotulo}${ativo ? ' • filtrado' : ''}</p>
     <p class="text-lg font-bold tabular-nums" style="color:${cor}">${n}</p>
-    <p class="text-[9px] opacity-50">${pct}</p></div>`;
+    <p class="text-[9px] opacity-50">${pct}</p></button>`;
+  };
   el('fq-corpo').innerHTML = `
     <p class="text-[10px] font-bold uppercase opacity-60 px-1 flex items-center gap-1.5">Competência ${esc(d.data_referencia)} • ${d.total_avaliados} membros ativos avaliados • Taxa geral de fidelidade: <span class="text-emerald-500">${esc(d.taxa_fidelidade)}</span> <button onclick="fqAjudaFreq()" class="w-5 h-5 rounded-full border text-[9px] font-bold cursor-pointer inline-flex items-center justify-center opacity-70 shrink-0" style="border-color:var(--border-color)" title="Como funciona a classificação"><i class="fa-solid fa-question"></i></button></p>
     <div class="grid grid-cols-2 gap-2">
-      ${kpi('Recorrentes / Fiéis', d.recorrentes, FQ_CORES.recorrentes, d.percentuais.recorrentes.toFixed(1) + '%')}
-      ${kpi('Irregulares', d.irregulares, FQ_CORES.irregulares, d.percentuais.irregulares.toFixed(1) + '%')}
-      ${kpi('Novos Dizimistas', d.novos, FQ_CORES.novos, d.percentuais.novos.toFixed(1) + '%')}
-      ${kpi('Ausentes', d.ausentes, FQ_CORES.ausentes, d.percentuais.ausentes.toFixed(1) + '%')}
+      ${kpi('Recorrentes / Fiéis', d.recorrentes, FQ_CORES.recorrentes, d.percentuais.recorrentes.toFixed(1) + '%', 'Recorrente / Fiel')}
+      ${kpi('Irregulares', d.irregulares, FQ_CORES.irregulares, d.percentuais.irregulares.toFixed(1) + '%', 'Irregular')}
+      ${kpi('Novos Dizimistas', d.novos, FQ_CORES.novos, d.percentuais.novos.toFixed(1) + '%', 'Novo Dizimista')}
+      ${kpi('Ausentes', d.ausentes, FQ_CORES.ausentes, d.percentuais.ausentes.toFixed(1) + '%', 'Ausente')}
     </div>
     <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-xs mb-2">Faixas de ausência <span class="opacity-50 font-normal">(toque para filtrar)</span></h3>
@@ -916,8 +919,9 @@ function _fqRenderCorpo(){
       </div>
     </div>
     <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
-      <h3 class="font-bold text-xs mb-2">Evolução mensal dos perfis</h3>
+      <h3 class="font-bold text-xs mb-2">Evolução mensal dos perfis <span class="opacity-50 font-normal">(toque num cartão acima para isolar um perfil)</span></h3>
       <div class="relative h-52"><canvas id="fq-grafico"></canvas></div>
+      <div id="fq-tab-evo" class="mt-3 overflow-x-auto"></div>
     </div>
     <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2 mb-2">
@@ -929,7 +933,7 @@ function _fqRenderCorpo(){
     <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2 mb-2">
         <h3 class="font-bold text-xs">Acompanhamento <span id="fq-lista-n" class="opacity-50 font-normal"></span></h3>
-        ${selF('fq-perfil', [['Todos','Todos os perfis'],['Recorrente / Fiel','Recorrente / Fiel'],['Irregular','Irregular'],['Novo Dizimista','Novo Dizimista'],['Ausente','Ausente']], F.fq.perfil, 'fqRenderLista()')}
+        ${selF('fq-perfil', [['Todos','Todos os perfis'],['Recorrente / Fiel','Recorrente / Fiel'],['Irregular','Irregular'],['Novo Dizimista','Novo Dizimista'],['Ausente','Ausente']], F.fq.perfil, 'fqSelPerfil()')}
       </div>
       <div id="fq-lista" class="space-y-2"></div>
     </div>`;
@@ -940,10 +944,19 @@ function _fqRenderCorpo(){
 
 window.fqFaixa = function(k){ F.fq.faixa = F.fq.faixa === k ? null : k; _fqRenderCorpo(); };
 
+window.fqPerfilCard = function(p){ F.fq.perfil = F.fq.perfil === p ? 'Todos' : p; _fqRenderCorpo(); };
+window.fqSelPerfil = function(){ F.fq.perfil = el('fq-perfil')?.value || 'Todos'; _fqRenderCorpo(); };
+
 window.fqRenderTerritorios = function(){
   const d = F.fq.dados; if (!d) return;
-  const dados = el('fq-visao')?.value === 'congregacao' ? d.por_congregacao : d.por_conselho;
-  el('fq-territorios').innerHTML = Object.entries(dados || {}).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([nome, p]) => {
+  const visao = el('fq-visao')?.value === 'congregacao' ? 'congregacao' : 'conselho';
+  const dados = visao === 'congregacao' ? d.por_congregacao : d.por_conselho;
+  const nomes = Object.keys(dados || {});
+  const ordenados = visao === 'congregacao'
+    ? (SGEG.ordenarCongregacoesG ? SGEG.ordenarCongregacoesG(nomes) : nomes.sort((a, b) => a.localeCompare(b, 'pt-BR')))
+    : (SGEG.ordenarConselhosG ? SGEG.ordenarConselhosG(nomes) : nomes.sort((a, b) => a.localeCompare(b, 'pt-BR')));
+  el('fq-territorios').innerHTML = ordenados.map(nome => {
+    const p = dados[nome];
     const total = (p.recorrentes || 0) + (p.irregulares || 0) + (p.novos || 0) + (p.ausentes || 0);
     return `<div class="border rounded-lg p-2.5" style="border-color:var(--border-color)">
       <div class="flex justify-between gap-2"><span class="font-bold text-xs truncate">${esc(nome)}</span><span class="text-[10px] opacity-60 shrink-0">${total} ativos</span></div>
@@ -989,19 +1002,40 @@ window.fqRenderLista = function(){
 };
 
 function _fqGrafico(){
-  const canvas = el('fq-grafico');
-  if (!canvas || typeof Chart === 'undefined') return;
   const series = F.fq.dados?.evolucao_mensal || [];
-  if (_fqChart) _fqChart.destroy();
-  const ds = (rotulo, chave, cor) => ({ label: rotulo, data: series.map(i => i[chave]), borderColor: cor, backgroundColor: cor, tension: .3 });
-  _fqChart = new Chart(canvas, { type: 'line',
-    data: { labels: series.map(i => i.periodo), datasets: [
-      ds('Fiel', 'recorrentes', FQ_CORES.recorrentes), ds('Irregular', 'irregulares', FQ_CORES.irregulares),
-      ds('Novo', 'novos', FQ_CORES.novos), ds('Ausente', 'ausentes', FQ_CORES.ausentes)] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } },
-      scales: { x: { ticks: { color: '#94a3b8', maxRotation: 45 }, grid: { display: false } },
-                y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: 'rgba(148,163,184,.12)' } } } } });
+  const ativo = FQ_CHAVES[F.fq.perfil];
+  const canvas = el('fq-grafico');
+  if (canvas && typeof Chart !== 'undefined'){
+    if (_fqChart) _fqChart.destroy();
+    const ds = (rotulo, chave, cor) => ({ label: rotulo, data: series.map(i => i[chave]), borderColor: cor, backgroundColor: cor, tension: .3, hidden: !!ativo && chave !== ativo });
+    _fqChart = new Chart(canvas, { type: 'line',
+      data: { labels: series.map(i => i.periodo), datasets: [
+        ds('Fiel', 'recorrentes', FQ_CORES.recorrentes), ds('Irregular', 'irregulares', FQ_CORES.irregulares),
+        ds('Novo', 'novos', FQ_CORES.novos), ds('Ausente', 'ausentes', FQ_CORES.ausentes)] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } },
+        scales: { x: { ticks: { color: '#94a3b8', maxRotation: 45 }, grid: { display: false } },
+                  y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: 'rgba(148,163,184,.12)' } } } } });
+  }
+  _fqTabelaEvo(series, ativo);
+}
+
+function _fqTabelaEvo(series, ativo){
+  const box = el('fq-tab-evo');
+  if (!box) return;
+  const cols = [['recorrentes', 'Fiel', FQ_CORES.recorrentes], ['irregulares', 'Irreg.', FQ_CORES.irregulares], ['novos', 'Novo', FQ_CORES.novos], ['ausentes', 'Aus.', FQ_CORES.ausentes]];
+  const th = 'px-2 py-1.5 text-[9px] font-bold uppercase whitespace-nowrap';
+  const ref = F.fq.dados?.data_referencia;
+  box.innerHTML = `<table class="w-full text-left" style="min-width:360px">
+    <thead><tr class="border-b" style="border-color:var(--border-color)"><th class="${th} opacity-70">Mês</th>${cols.map(([k, t, c]) => `<th class="${th} text-right" style="color:${c};${ativo && ativo !== k ? 'opacity:.45' : ''}">${t}</th>`).join('')}<th class="${th} text-right opacity-70">Total</th></tr></thead>
+    <tbody>${series.map(i => {
+      const total = (i.recorrentes || 0) + (i.irregulares || 0) + (i.novos || 0) + (i.ausentes || 0);
+      const ehRef = i.periodo === ref;
+      return `<tr class="border-b" style="border-color:var(--border-color);${ehRef ? 'background:rgba(124,58,237,.10)' : ''}">
+        <td class="px-2 py-1.5 text-[10px] whitespace-nowrap ${ehRef ? 'font-bold' : ''}">${esc(i.periodo)}${ehRef ? ' <span class="text-violet-400">◂ atual</span>' : ''}</td>
+        ${cols.map(([k, , c]) => `<td class="px-2 py-1.5 text-[10px] text-right tabular-nums" style="color:${c};${ativo && ativo !== k ? 'opacity:.35' : ativo === k ? ';font-weight:700' : ''}">${i[k] || 0}</td>`).join('')}
+        <td class="px-2 py-1.5 text-[10px] text-right tabular-nums opacity-60">${total}</td></tr>`;
+    }).join('')}</tbody></table>`;
 }
 
 /* ===================== Relatório de Caixa (Tesouraria) ===================== */
