@@ -3844,39 +3844,62 @@ window.semExportarWhatsApp = async function(){
 
 function _livroCss(){
   return `
-.lv-doc{background:linear-gradient(160deg,#fdf8ec,#f3ead2);color:#3a2d12;border-radius:18px;overflow:hidden;font-family:Georgia,'Times New Roman',serif}
-.lv-capa{padding:26px 16px 20px;text-align:center;border:3px double #b8912a;margin:12px;border-radius:14px;background:radial-gradient(circle at 50% 0%,#fffdf6,#f5ecd4)}
-.lv-timb{max-width:220px;margin:0 auto 8px;display:block}
-.lv-ig{font-size:9px;letter-spacing:.22em;font-weight:700;color:#8a6d1d;text-transform:uppercase}
-.lv-titulo{font-size:23px;font-weight:800;color:#7a5c13;letter-spacing:.05em;margin:8px 0 2px;text-transform:uppercase}
-.lv-sub{font-size:10px;color:#8a6d1d;letter-spacing:.14em;text-transform:uppercase}
-.lv-per{font-size:15px;font-weight:800;color:#3a2d12;margin-top:10px}
-.lv-orn{height:2px;background:linear-gradient(90deg,transparent,#c9a227,transparent);margin:10px 0}
-.lv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-.lv-kpi{border:1px solid #ddca96;border-radius:10px;padding:8px 4px;text-align:center;background:rgba(255,253,246,.7)}
-.lv-kpi b{display:block;font-size:13px;color:#7a5c13;font-variant-numeric:tabular-nums}
-.lv-kpi span{font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;color:#a5853a}
-.lv-qr{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:14px}
-.lv-qr img{width:84px;height:84px;border:3px solid #c9a227;border-radius:8px;background:#fff;padding:3px}
-.lv-qr code{font-size:8.5px;color:#8a6d1d;letter-spacing:.08em}
-.lv-sec{padding:14px 14px 8px}
-.lv-h{font-size:12.5px;font-weight:800;color:#7a5c13;letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid #c9a227;padding-bottom:4px;margin-bottom:8px}
-.lv-cap{background:linear-gradient(90deg,#8a6d1d,#c9a227);color:#fffdf3;font-weight:800;font-size:11px;letter-spacing:.09em;text-transform:uppercase;border-radius:8px;padding:7px 10px;margin:14px 0 4px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.lv-cap small{font-weight:600;font-size:9px;opacity:.9;letter-spacing:.04em}
-.lv-cong{display:flex;align-items:baseline;gap:6px;font-size:10.5px;font-weight:800;color:#8a6d1d;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 3px}
-.lv-cong small{font-weight:600;color:#a5853a;letter-spacing:.03em;text-transform:none}
-table.lv-tb{width:100%;border-collapse:collapse;font-size:10.5px}
-table.lv-tb td{padding:5px 6px;border-bottom:1px solid #e8dcc0;vertical-align:top}
-table.lv-tb tr:nth-child(even) td{background:rgba(201,162,39,.07)}
-.lv-val{font-weight:800;color:#7a5c13;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.lv-canal{display:inline-block;font-size:7.5px;font-weight:800;padding:1px 5px;border-radius:999px;border:1px solid #c9a227;color:#8a6d1d;margin-left:4px;white-space:nowrap}
-.lv-canal.pix{color:#1d6fa8;border-color:#7db4d4}
-.lv-mut{font-size:8.5px;color:#a5853a}
-.lv-stat{border:1px solid #ddca96;border-radius:10px;padding:9px 10px;background:rgba(255,253,246,.7);font-size:10px;margin-bottom:6px}
-.lv-stat b{color:#7a5c13}
-.lv-stat .lv-val{font-size:11px}
-.lv-rod{font-size:8.5px;color:#a5853a;text-align:center;padding:10px 14px 16px;letter-spacing:.06em}
-@media print{ body{background:#fff!important} .lv-doc{border-radius:0} .lv-page{page-break-before:always} .lv-no-print{display:none!important} @page{size:A4;margin:10mm} }
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=swap');
+.lv-doc{background:#fff;color:#1c1917;border-radius:14px;overflow:hidden;border-top:7px solid #c9a227;font-family:'Plus Jakarta Sans',system-ui,sans-serif;position:relative}
+.lv-capa{min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 22px;position:relative}
+.lv-capa:before{content:'';position:absolute;inset:12px;border:1px solid #ece5d3;border-radius:10px;pointer-events:none}
+.lv-logo{max-width:150px;display:block;margin:0 auto 24px}
+.lv-ig{font-size:9px;letter-spacing:.24em;font-weight:800;color:#a5853a;text-transform:uppercase;margin-bottom:12px}
+.lv-titulo{font-family:'Cinzel',Georgia,serif;font-size:25px;font-weight:900;color:#1c1917;letter-spacing:.04em;text-transform:uppercase;line-height:1.25;margin:0}
+.lv-titulo em{font-style:normal;color:#b8860b}
+.lv-msg{font-family:Georgia,serif;font-style:italic;font-size:12.5px;color:#57534e;line-height:1.7;max-width:330px;margin-top:16px}
+.lv-per{margin-top:20px;font-size:12px;font-weight:800;color:#fff;background:#b8860b;padding:5px 16px;border-radius:999px;letter-spacing:.06em}
+.lv-orn{display:flex;align-items:center;gap:8px;margin-top:20px;width:180px}
+.lv-orn i{color:#c9a227;font-size:8px}
+.lv-orn:before,.lv-orn:after{content:'';flex:1;height:1px}
+.lv-orn:before{background:linear-gradient(90deg,transparent,#c9a227)}
+.lv-orn:after{background:linear-gradient(90deg,#c9a227,transparent)}
+.lv-conteudo{border-top:1px dashed #d6d3d1;position:relative;padding-left:44px}
+.lv-conteudo:before{content:'';position:absolute;top:-1px;left:56px;right:20px;border-top:2px solid #c9a227}
+.lv-wm{position:absolute;left:8px;top:0;bottom:0;width:30px;pointer-events:none;user-select:none;z-index:0}
+.lv-wm b{position:absolute;left:50%;transform:translateX(-50%) rotate(180deg);writing-mode:vertical-rl;font-size:8.5px;letter-spacing:.26em;color:#b8912a;opacity:.34;font-weight:800;text-transform:uppercase;white-space:nowrap}
+.lv-wm b:first-child{top:12%}
+.lv-wm b:last-child{bottom:12%}
+.lv-cab{padding:16px 16px 6px;text-align:center}
+.lv-timb{max-width:400px;width:100%;max-height:96px;object-fit:contain;display:block;margin:0 auto}
+.lv-cab-sub{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#a5853a;font-weight:800;margin-top:8px}
+.lv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:6px 16px 10px}
+.lv-kpi{border:1px solid #e7e5e4;border-radius:10px;padding:7px 4px;text-align:center}
+.lv-kpi b{display:block;font-size:12px;color:#b8860b;font-variant-numeric:tabular-nums}
+.lv-kpi span{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:#a8a29e}
+.lv-sec{padding:6px 16px 10px 10px;position:relative;z-index:1}
+.lv-h{font-size:10.5px;font-weight:800;color:#1c1917;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lv-h i{color:#b8860b;font-size:10px}
+.lv-h:after{content:'';flex:1;height:1px;background:#e7e5e4}
+.lv-cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10.5px;font-weight:800;color:#1c1917;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px;padding:5px 0 5px 9px;border-left:4px solid #c9a227;background:linear-gradient(90deg,#fafaf9,transparent)}
+.lv-cap small{font-weight:600;font-size:8.5px;color:#78716c}
+.lv-cong{font-size:9.5px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px}
+.lv-cong small{font-weight:500;color:#a8a29e;text-transform:none;letter-spacing:0}
+table.lv-tb{width:100%;border-collapse:collapse;font-size:9.5px}
+table.lv-tb td{padding:4.5px 4px;border-bottom:1px solid #f5f5f4;vertical-align:top}
+table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
+.lv-val{font-weight:800;color:#1c1917;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lv-canal{display:inline-block;font-size:6.5px;font-weight:800;padding:1px 5px;border-radius:4px;background:#fef3c7;color:#92400e;margin-left:4px;white-space:nowrap}
+.lv-canal.pix{background:#e0f2fe;color:#0369a1}
+.lv-stat{border:1px solid #e7e5e4;border-radius:8px;padding:7px 10px;font-size:9.5px;margin-bottom:5px;background:#fafaf9}
+.lv-stat b{color:#1c1917}
+.lv-mut{font-size:8.5px;color:#a8a29e}
+.lv-final{text-align:center;padding:22px 16px 12px;position:relative;z-index:1}
+.lv-final img{width:92px;height:92px;border:1px solid #d6d3d1;border-radius:10px;padding:5px;background:#fff}
+.lv-final code{display:block;font-size:8.5px;color:#78716c;margin-top:6px;letter-spacing:.08em}
+.lv-final p{font-size:8px;color:#a8a29e;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin:2px 0 0}
+.lv-rod{font-size:8px;color:#a8a29e;text-align:center;padding:10px 14px 16px;letter-spacing:.05em;border-top:1px solid #e7e5e4}
+@media print{ body{background:#fff!important} .lv-doc{border-radius:0}
+ .lv-capa{min-height:auto;page-break-after:always}
+ .lv-cab,.lv-cap,.lv-cong,.lv-final{page-break-after:avoid;page-break-inside:avoid}
+ table.lv-tb tr{page-break-inside:avoid}
+ .lv-wm{position:fixed;left:3mm;top:0;bottom:0}
+ .lv-no-print{display:none!important} @page{size:A4;margin:10mm} }
 `;
 }
 let _livroCssInj = false;
@@ -3979,14 +4002,14 @@ const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
 
 function _livroCapituloHtml(cap, mesLabel){
   const linhas = cap.grupos.map(g => `
-    <div class="lv-cong"><i class="fa-solid fa-church" style="font-size:9px"></i>${esc(g.cong)}<small>· ${esc(g.cons)}</small></div>
+    <p class="lv-cong"><i class="fa-solid fa-church" style="font-size:8px;margin-right:2px"></i>${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
     <table class="lv-tb"><tbody>
       ${g.lista.map(r => `<tr>
-        <td><b>${esc(r.nome)}</b><span class="lv-mut"> · ID ${esc(r.id)}${mesLabel === 'anual' ? ` · ${esc(r.semana.replace('Semana ', ''))}ª sem` : ''}${r.itin ? ` · →${esc(r.itin)}` : ''}</span></td>
+        <td><b>${esc(r.nome)}</b>${mesLabel === 'anual' ? `<span class="lv-mut"> · ${esc(r.semana.replace('Semana ', ''))}ª sem</span>` : ''}${r.itin ? `<span class="lv-mut"> · →${esc(r.itin)}</span>` : ''}</td>
         <td class="lv-val">${moeda(r.valor)}${r.canal ? `<span class="lv-canal ${cf(r.canal).includes('pix') ? 'pix' : ''}">${esc(r.canal)}</span>` : ''}</td>
       </tr>`).join('')}
     </tbody></table>`).join('');
-  return `<div class="lv-cap"><span><i class="fa-solid fa-bookmark mr-1"></i>${esc(cap.titulo)}${mesLabel && mesLabel !== 'anual' ? ` · ${esc(mesLabel)}` : ''}</span><small>${cap.qtd} lanç. · ${moeda(cap.total)}</small></div>${linhas}`;
+  return `<div class="lv-cap"><span><i class="fa-solid fa-bookmark" style="margin-right:4px"></i>${esc(cap.titulo)}${mesLabel && mesLabel !== 'anual' ? ` · ${esc(mesLabel)}` : ''}</span><small>${cap.qtd} lanç. · ${moeda(cap.total)}</small></div>${linhas}`;
 }
 
 function _livroHtml(d, opts = {}){
@@ -4012,44 +4035,52 @@ function _livroHtml(d, opts = {}){
     `<tr><td>${esc(c)}</td><td class="lv-val">${moeda(d.porCanal[c])}</td><td class="lv-val" style="color:#a5853a">${d.total ? (100 * d.porCanal[c] / d.total).toFixed(1) : '0'}%</td></tr>`).join('');
   const melhor = d.capitulos.slice().sort((a, b) => b.total - a.total)[0];
 
+  const logo = opts.logoSrc ? `<img class="lv-logo" src="${opts.logoSrc}" alt="">` : '';
   const timb = opts.timbSrc ? `<img class="lv-timb" src="${opts.timbSrc}" alt="">` : '';
-  const qr = opts.qrSrc ? `<div class="lv-qr"><img src="${opts.qrSrc}" alt="QR"><code>${esc(codigo)}</code></div>` : (codigo ? `<div class="lv-qr"><code>${esc(codigo)}</code></div>` : '');
+  const qr = opts.qrSrc ? `<div class="lv-final"><img src="${opts.qrSrc}" alt="QR"><code>${esc(codigo)}</code><p>Autenticidade — verifique em adbrasil-rorainopolis.github.io/sge/verificar.html</p></div>`
+    : (codigo ? `<div class="lv-final"><code>${esc(codigo)}</code></div>` : '');
 
   return `<div class="lv-doc">
     <div class="lv-capa">
-      ${timb}
+      ${logo}
       <p class="lv-ig">Assembleia de Deus · AD Brasil · Rorainópolis — RR</p>
-      <div class="lv-orn"></div>
-      <h2 class="lv-titulo">Livro de Dizimistas</h2>
-      <p class="lv-sub">Registro oficial de dízimos por irmão e semana</p>
-      <p class="lv-per">${esc(periodoTxt)}</p>
+      <h2 class="lv-titulo">Livro de <em>Dizimistas</em></h2>
+      <p class="lv-msg">"Neste livro constam os irmãos que contribuíram de forma generosa para a continuidade desta obra."</p>
+      <div class="lv-orn"><i class="fa-solid fa-cross"></i></div>
+      <p><span class="lv-per">${esc(periodoTxt)}</span></p>
+    </div>
+    <div class="lv-conteudo">
+      <div class="lv-wm"><b>Ml 3:10</b><b>Ml 3:10</b></div>
+      <div class="lv-cab">
+        ${timb}
+        <p class="lv-cab-sub">Livro de Dizimistas · Registro oficial · ${esc(periodoTxt)}</p>
+      </div>
       <div class="lv-kpis">
         <div class="lv-kpi"><b>${d.qtd}</b><span>Lançamentos</span></div>
         <div class="lv-kpi"><b>${d.dizimistas}</b><span>Dizimistas</span></div>
         <div class="lv-kpi"><b>${moeda(d.total)}</b><span>Total</span></div>
       </div>
+      <div class="lv-sec">
+        <p class="lv-h"><i class="fa-solid fa-list"></i>Sumário</p>
+        ${sumario || '<p class="lv-mut">Nenhum lançamento no período.</p>'}
+        ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
+      </div>
+      <div class="lv-sec">
+        <p class="lv-h"><i class="fa-solid fa-book-open"></i>Detalhamento</p>
+        ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual')).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
+      </div>
+      <div class="lv-sec">
+        <p class="lv-h"><i class="fa-solid fa-chart-pie"></i>Estatísticas</p>
+        <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:6px 0 4px">Por conselho</p>
+        <table class="lv-tb"><tbody>${consRows}</tbody></table>
+        <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por congregação</p>
+        <table class="lv-tb"><tbody>${congRows}</tbody></table>
+        <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por canal</p>
+        <table class="lv-tb"><tbody>${canalRows}</tbody></table>
+      </div>
       ${qr}
-      <p class="lv-mut" style="margin-top:10px">Emitido por ${esc(emissor)} · ${esc(emitido)}</p>
+      <p class="lv-rod">Livro de Dizimistas · ${esc(periodoTxt)} · Gerado pelo SGE AD Brasil · Emitido por ${esc(emissor)} · ${esc(emitido)}</p>
     </div>
-    <div class="lv-sec lv-page">
-      <p class="lv-h"><i class="fa-solid fa-list mr-1"></i>Sumário</p>
-      ${sumario || '<p class="lv-mut">Nenhum lançamento no período.</p>'}
-      ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
-    </div>
-    <div class="lv-sec lv-page">
-      <p class="lv-h"><i class="fa-solid fa-book-open mr-1"></i>Detalhamento</p>
-      ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual')).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
-    </div>
-    <div class="lv-sec lv-page">
-      <p class="lv-h"><i class="fa-solid fa-chart-pie mr-1"></i>Estatísticas</p>
-      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:6px 0 4px">Por conselho</p>
-      <table class="lv-tb"><tbody>${consRows}</tbody></table>
-      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por congregação</p>
-      <table class="lv-tb"><tbody>${congRows}</tbody></table>
-      <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:10px 0 4px">Por canal</p>
-      <table class="lv-tb"><tbody>${canalRows}</tbody></table>
-    </div>
-    <p class="lv-rod">Livro de Dizimistas · ${esc(periodoTxt)} · Gerado pelo SGE AD Brasil${codigo ? ` · ${esc(codigo)}` : ''}</p>
   </div>`;
 }
 
@@ -4122,8 +4153,9 @@ window.livroGerar = async function(){
     const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
     const qrSrc = rcmQrDataUrl(qrTxt, 128);
     const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || null;
+    const logoSrc = (await rcmImgData('icons/logo_ad_brasil.png'))?.data || null;
     L.dados = d; L.codigo = codigo;
-    L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc });
+    L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc, logoSrc });
     doc.innerHTML = L.doc;
     _livroAcoes();
     if (!d.qtd) toast('Nenhum lançamento encontrado no período.');
@@ -4137,8 +4169,8 @@ window.livroExportar = function(){
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Livro de Dizimistas — ${esc(L.periodo === 'mensal' ? L.mes + '/' + L.ano : L.ano)}</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<style>${_livroCss()}body{margin:0;background:#fdf8ec;padding:10px;font-family:Georgia,serif}.lv-doc{max-width:760px;margin:0 auto}
-.lv-print{position:sticky;top:0;z-index:9;display:flex;gap:8px;justify-content:center;padding:10px;background:#fdf8ec;border-bottom:1px solid #ddca96}
+<style>${_livroCss()}body{margin:0;background:#fff;padding:10px;font-family:'Plus Jakarta Sans',system-ui,sans-serif}.lv-doc{max-width:760px;margin:0 auto}
+.lv-print{position:sticky;top:0;z-index:9;display:flex;gap:8px;justify-content:center;padding:10px;background:#fff;border-bottom:1px solid #e7e5e4}
 .lv-print button{padding:10px 22px;border-radius:10px;border:0;font-weight:700;font-size:13px;cursor:pointer;background:linear-gradient(135deg,#8a6d1d,#c9a227);color:#fff}
 @media print{.lv-print{display:none}}</style></head><body>
 <div class="lv-print lv-no-print"><button onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir / Salvar PDF</button></div>
