@@ -2838,7 +2838,7 @@ function prestRenderLista(){
   const GRUPOS = [
     ['Prestações recebidas', l => l.situacao === 'Prestada', '#10b981'],
     ['Justificadas', l => l.situacao === 'Justificada', '#38bdf8'],
-    ['Ausentes / pendentes', () => true, '#f59e0b'],
+    ['Ausentes / pendentes', l => l.situacao !== 'Prestada' && l.situacao !== 'Justificada', '#f59e0b'],
   ];
   const ordCons = (typeof SGEG?.ordenarConselhosG === 'function') ? SGEG.ordenarConselhosG : (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
   let html = '';
