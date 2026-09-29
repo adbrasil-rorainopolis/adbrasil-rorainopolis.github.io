@@ -2667,7 +2667,7 @@ window.rcmSugerirSemana = async function(){
 
 
 /* ===================== Prestação de Contas (Administrador) ===================== */
-const PREST = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: '1\u00ba. SEMANA', sub: 'semanal', bruto: [], saidas: [], bloqueios: [], period: {}, congs: [] };
+const PREST = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: '1\u00ba. SEMANA', sub: 'semanal', bruto: [], saidas: [], bloqueios: [], period: {}, congs: [], busca: '' };
 const PREST_SEMANAS = ['1\u00ba. SEMANA', '2\u00ba. SEMANA', '3\u00ba. SEMANA', '4\u00ba. SEMANA', '5\u00ba. SEMANA'];
 const _prestChave = v => String(v || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const _prestNumSemana = st => parseInt((String(st || '').match(/\d+/) || ['1'])[0], 10);
@@ -2776,17 +2776,33 @@ window.prestToggleSemana = async function(n){
   window.prestRender();
 };
 
+/* Ordena as linhas na ordem canônica do campo: conselho (AG→C5) e,
+   dentro de cada conselho, a posição oficial da congregação. */
+function prestLinhasOrdenadas(){
+  const ordCons = (typeof SGEG?.ordenarConselhosG === 'function') ? SGEG.ordenarConselhosG : (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
+  const ordCong = (typeof SGEG?.ordenarCongregacoesG === 'function') ? SGEG.ordenarCongregacoesG : (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
+  const porCons = {};
+  prestLinhas().forEach(l => { (porCons[l.conselho] = porCons[l.conselho] || []).push(l); });
+  const saida = [];
+  ordCons(Object.keys(porCons)).forEach(cons => {
+    const ordem = ordCong(porCons[cons].map(x => x.nome));
+    porCons[cons].sort((a, b) => ordem.indexOf(a.nome) - ordem.indexOf(b.nome));
+    saida.push(...porCons[cons]);
+  });
+  return saida;
+}
+
+window.prestBusca = v => { PREST.busca = v || ''; prestRenderLista(); };
+
 function prestRenderSemanal(){
   const corpo = el('fin-sub');
-  const linhas = prestLinhas();
+  const linhas = prestLinhasOrdenadas();
   const bloq = _prestBloqueada();
   const saidasSem = PREST.saidas.filter(x => String(x.ano) === PREST.ano && String(x.mes) === PREST.mes && String(x.semana) === PREST.semana);
   const entradas = linhas.reduce((a, l) => a + l.valor, 0);
   const totSaidas = saidasSem.reduce((a, x) => a + (Number(x.valor) || 0), 0);
-  const cont = { Prestada: 0, Pendente: 0, Justificada: 0, 'N\u00e3o exigida': 0 };
+  const cont = { Prestada: 0, Pendente: 0, Justificada: 0, 'Não exigida': 0 };
   linhas.forEach(l => { cont[l.situacao] = (cont[l.situacao] || 0) + 1; });
-  const grupos = {};
-  linhas.forEach(l => { (grupos[l.conselho] = grupos[l.conselho] || []).push(l); });
 
   corpo.innerHTML = prestTopoHtml() + `
     ${bloq ? `<div class="mb-3 px-3 py-2 rounded-xl text-[11px] font-bold text-center" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-lock mr-1"></i>Semana bloqueada para edição${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? ' · cadeado na semana reabre' : ''}</div>` : ''}
@@ -2798,15 +2814,44 @@ function prestRenderSemanal(){
       <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Pendentes</div><div class="text-sm font-extrabold text-amber-500">${cont.Pendente}</div></div>
       <div class="rounded-xl p-2.5 border text-center" style="background:var(--bg-card);border-color:var(--border-color)"><div class="text-[9px] font-extrabold uppercase opacity-60">Justificadas</div><div class="text-sm font-extrabold text-sky-400">${cont.Justificada}</div></div>
     </div>
+    <div class="relative mb-2">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[11px] opacity-50"></i>
+      <input type="text" value="${esc(PREST.busca || '')}" oninput="prestBusca(this.value)" placeholder="Buscar congregação, líder ou conselho…" class="w-full pl-8 pr-3 py-2.5 rounded-xl border text-[11.5px] outline-none" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    </div>
     <div class="grid grid-cols-2 gap-2 mb-3">
       <button onclick="prestCopiarPendencias()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#059669"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar Pendências</button>
       <button onclick="window.prestRender()" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
     </div>
     ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana</p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
-    ${Object.keys(grupos).map(cons => `
-      <p class="text-[10px] font-extrabold uppercase tracking-widest mt-3 mb-1.5" style="color:var(--text-muted)">${esc(cons)}</p>
-      ${grupos[cons].map(l => {
-        const [cor, ico] = PREST_SIT[l.situacao] || PREST_SIT['N\u00e3o exigida'];
+    <div id="prest-lista"></div>
+    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar até ela ou reabrir a partir dela.<br>' : ''}Saídas manuais: disponíveis no desktop.</p>`;
+  prestRenderLista();
+}
+
+/* Grupos da conferência: recebidas sobem ao topo, justificadas no meio,
+   ausentes/pendentes por último — tudo na ordem canônica. */
+function prestRenderLista(){
+  const alvo = el('prest-lista'); if (!alvo) return;
+  const termo = _prestChave(PREST.busca || '');
+  const linhas = prestLinhasOrdenadas().filter(l =>
+    !termo || _prestChave(l.nome).includes(termo) || _prestChave(l.lider).includes(termo) || _prestChave(l.conselho).includes(termo));
+  const GRUPOS = [
+    ['Prestações recebidas', l => l.situacao === 'Prestada', '#10b981'],
+    ['Justificadas', l => l.situacao === 'Justificada', '#38bdf8'],
+    ['Ausentes / pendentes', () => true, '#f59e0b'],
+  ];
+  const ordCons = (typeof SGEG?.ordenarConselhosG === 'function') ? SGEG.ordenarConselhosG : (l => [...l].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR')));
+  let html = '';
+  GRUPOS.forEach(([titulo, filtro, corG]) => {
+    const itens = linhas.filter(filtro);
+    if (!itens.length) return;
+    html += `<p class="text-[10px] font-extrabold uppercase tracking-widest mt-4 mb-1.5 flex items-center gap-1.5" style="color:${corG}"><i class="fa-solid ${titulo === 'Prestações recebidas' ? 'fa-circle-check' : titulo === 'Justificadas' ? 'fa-file-circle-check' : 'fa-clock'}"></i>${titulo}<span class="opacity-60">(${itens.length})</span></p>`;
+    const porCons = {};
+    itens.forEach(l => { (porCons[l.conselho] = porCons[l.conselho] || []).push(l); });
+    ordCons(Object.keys(porCons)).forEach(cons => {
+      html += `<p class="text-[9px] font-extrabold uppercase tracking-widest mt-2 mb-1 ml-1" style="color:var(--text-muted)">${esc(cons)}</p>`;
+      html += porCons[cons].map(l => {
+        const [cor2, ico] = PREST_SIT[l.situacao] || PREST_SIT['Não exigida'];
         return `<div class="rounded-xl border p-3 mb-2 flex items-center gap-3 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color)" onclick="prestEditar('${esc(l.nome).replace(/'/g, "\\'")}')">
           <div class="flex-1 min-w-0">
             <p class="text-[12px] font-bold truncate">${esc(l.nome)}</p>
@@ -2814,11 +2859,13 @@ function prestRenderSemanal(){
           </div>
           <div class="text-right shrink-0">
             <p class="text-[12px] font-extrabold ${l.valor > 0 ? 'valor-ouro' : 'opacity-40'}">${l.valor > 0 ? moeda(l.valor) : '—'}</p>
-            <span class="text-[8.5px] font-extrabold uppercase" style="color:${cor}"><i class="fa-solid ${ico} mr-0.5"></i>${l.situacao}</span>
+            <span class="text-[8.5px] font-extrabold uppercase" style="color:${cor2}"><i class="fa-solid ${ico} mr-0.5"></i>${l.situacao}</span>
           </div>
         </div>`;
-      }).join('')}`).join('')}
-    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar até ela ou reabrir a partir dela.<br>' : ''}Saídas manuais: disponíveis no desktop.</p>`;
+      }).join('');
+    });
+  });
+  alvo.innerHTML = html || '<p class="text-center text-[11px] opacity-50 py-6">Nenhuma congregação encontrada.</p>';
 }
 
 /* ---------- Edição do valor recebido (sheet) ---------- */
