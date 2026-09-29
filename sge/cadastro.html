@@ -33,6 +33,16 @@
     .passos div { display: flex; gap: 10px; margin-bottom: 10px; font-size: 12px; color: #8a94a8; }
     .passos b { color: #d9b45b; min-width: 18px; }
     .rodape { text-align: center; font-size: 9px; color: #5a6478; padding: 0 24px 18px; letter-spacing: .5px; }
+    .eula-caixa { max-height: 300px; overflow-y: auto; background: #0b1220; border: 1px solid #33415e; border-radius: 10px; padding: 16px; margin-bottom: 10px; -webkit-overflow-scrolling: touch; }
+    .eula-doc h2 { font-size: 13px; color: #d9b45b; text-align: center; letter-spacing: 1px; margin-bottom: 6px; line-height: 1.4; }
+    .eula-doc h3 { font-size: 11px; color: #d9b45b; margin: 14px 0 6px; letter-spacing: .5px; }
+    .eula-doc p { font-size: 11.5px; color: #c7cfdd; line-height: 1.6; margin-bottom: 7px; text-align: justify; }
+    .eula-sub { text-align: center; font-size: 10.5px; }
+    .eula-ver { text-align: center; font-size: 9.5px; color: #5a6478; margin-bottom: 10px; }
+    .eula-fim { text-align: center; color: #d9b45b; font-size: 10.5px; margin-top: 14px; }
+    .eula-progresso { text-align: center; font-size: 10px; color: #8a94a8; margin-bottom: 10px; letter-spacing: .4px; }
+    .eula-aceite { display: flex; gap: 10px; align-items: flex-start; font-size: 11.5px; color: #c7cfdd; cursor: pointer; margin-bottom: 12px; line-height: 1.5; }
+    .eula-aceite input { width: 18px; height: 18px; margin-top: 1px; accent-color: #d9b45b; cursor: pointer; flex-shrink: 0; }
     .hidden { display: none; }
     .link-reenvio { text-align: center; margin-top: 12px; font-size: 11px; color: #8a94a8; }
     .link-reenvio a { color: #d9b45b; cursor: pointer; text-decoration: none; }
@@ -120,6 +130,102 @@
         <div class="campo codigo-box"><input id="f-codigo" inputmode="numeric" maxlength="6" placeholder="——————" autocomplete="one-time-code"></div>
         <button class="btn" id="btn-confirmar">Confirmar código</button>
         <div class="link-reenvio">Não recebeu? <a id="lnk-reenviar">Reenviar código</a></div>
+    </div>
+
+    <!-- ETAPA TERMO: EULA + LGPD (leitura com scroll obrigatório) -->
+    <div class="corpo hidden" id="etapa-termo">
+        <div id="msg-termo"></div>
+        <p style="font-size:12px;color:#8a94a8;line-height:1.5;margin-bottom:10px">
+            Antes de concluir, leia o <b style="color:#d9b45b">Termo de Uso, Licença e Proteção de Dados (EULA/LGPD)</b> abaixo até o fim. O aceite é obrigatório para criar sua conta.
+        </p>
+        <div id="eula-scroll" class="eula-caixa">
+            <div class="eula-doc">
+                <h2>CONTRATO DE LICENÇA DE USO FINAL (EULA) E TERMO DE PROTEÇÃO DE DADOS PESSOAIS — LGPD</h2>
+                <p class="eula-sub">Sistema de Gestão Eclesiástica — SGE · Assembleia de Deus — Ministério do Brasil — Campo de Rorainópolis/RR</p>
+                <p class="eula-ver">Versão 1.0 — Vigente a partir de 2026</p>
+
+                <h3>1. DAS PARTES E DO OBJETO</h3>
+                <p>1.1. O presente instrumento regula a licença de uso do sistema de gestão eclesiástica <b>SGE</b> (aplicativo de computador e aplicativo móvel/web, doravante "Sistema"), bem como o tratamento de dados pessoais realizado por seu intermédio, nos termos da Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD), do Marco Civil da Internet (Lei nº 12.965/2014) e da legislação aplicável.</p>
+                <p>1.2. <b>Controladora</b>: a entidade eclesiástica administradora do campo — Assembleia de Deus, Ministério do Brasil, Campo de Rorainópolis/RR (doravante "Igreja" ou "Controladora"), pessoa jurídica de direito privado sem fins lucrativos.</p>
+                <p>1.3. <b>Usuário(a)</b>: a pessoa física cadastrada que acessa o Sistema mediante credenciais próprias, em qualquer perfil de acesso (Administrador, Operador, Tesoureiro, Consultor ou Membro).</p>
+
+                <h3>2. DA LICENÇA DE USO</h3>
+                <p>2.1. É concedida ao Usuário licença de uso <b>pessoal, não exclusiva, intransferível, não sublicenciável e revogável</b> do Sistema, limitada às funcionalidades e ao escopo territorial (conselho/congregação) efetivamente autorizados pela administração.</p>
+                <p>2.2. A licença <b>não</b> transmite qualquer direito de propriedade sobre o software, código-fonte, marcas, layouts ou bases de dados.</p>
+                <p>2.3. É vedado ao Usuário: (a) copiar, modificar, traduzir, realizar engenharia reversa ou criar obras derivadas do Sistema; (b) ceder, emprestar, vender ou compartilhar credenciais; (c) utilizar o Sistema para fins diversos da gestão eclesiástica da Igreja; (d) extrair dados em massa sem autorização expressa.</p>
+                <p>2.4. O acesso é condicionado à aprovação da administração e pode ser suspenso ou cancelado a qualquer tempo, por decisão administrativa ou por violação deste Termo.</p>
+
+                <h3>3. DOS DADOS PESSOAIS COLETADOS</h3>
+                <p>3.1. <b>Cadastro:</b> nome completo, CPF, data de nascimento, sexo, telefone, e-mail e endereço.</p>
+                <p>3.2. <b>Uso do Sistema:</b> registros de acesso, sessões, dispositivos, operações realizadas (auditoria), lançamentos financeiros efetuados ou alterados, frequências, relatórios e documentos emitidos.</p>
+                <p>3.3. <b>Dados de terceiros operados pelo Usuário:</b> informações de membros, dizimistas e congregações inseridas ou consultadas conforme o perfil do Usuário, incluindo dados financeiros (dízimos, ofertas, prestações de contas) e dados eclesiásticos (batismos, frequência, ministérios).</p>
+                <p>3.4. <b>Dados sensíveis:</b> a filiação religiosa e a participação em atividades eclesiásticas constituem dados sensíveis nos termos do art. 11 da LGPD, tratados no contexto das atividades regulares da entidade religiosa (art. 11, inciso I, da LGPD) e/ou mediante consentimento.</p>
+
+                <h3>4. DAS FINALIDADES DO TRATAMENTO</h3>
+                <p>4.1. Os dados são tratados para: (a) autenticação e controle de acesso; (b) gestão financeira, patrimonial, de membros e espiritual da Igreja; (c) emissão de relatórios, livros oficiais e documentos de prestação de contas; (d) comunicações operacionais (e-mail, notificações, WhatsApp); (e) auditoria, segurança e prevenção a fraudes; (f) cumprimento de obrigações legais e regulatórias; (g) histórico eclesiástico e estatístico.</p>
+                <p>4.2. Os dados <b>não</b> são vendidos, alugados ou utilizados para fins publicitários ou comerciais de terceiros.</p>
+
+                <h3>5. DAS BASES LEGAIS (art. 7º e 11 da LGPD)</h3>
+                <p>5.1. O tratamento fundamenta-se em: (a) <b>consentimento</b> do titular, manifestado neste aceite; (b) <b>execução de contrato</b> ou de procedimentos preliminares; (c) <b>legítimo interesse</b> da Controladora na gestão de suas atividades; (d) <b>cumprimento de obrigação legal ou regulatória</b>; e, para dados sensíveis vinculados à religião, (e) <b>tratamento no âmbito de atividades regulares de entidade religiosa sem fins lucrativos</b> (art. 11, I, LGPD).</p>
+
+                <h3>6. DO COMPARTILHAMENTO E DOS OPERADORES</h3>
+                <p>6.1. Para a operação do Sistema, os dados são processados por operadores contratados, incluindo: <b>Supabase Inc.</b> (banco de dados e funções em nuvem), <b>Brevo/Sendinblue</b> (envio de e-mails transacionais), <b>GitHub Pages</b> (hospedagem do aplicativo web) e <b>WhatsApp/Meta</b> (encaminhamento operacional de relatórios e pendências, quando acionado pelo usuário).</p>
+                <p>6.2. Tais operadores podem manter servidores fora do Brasil, caracterizando <b>transferência internacional de dados</b>, autorizada pelo titular neste aceite, observadas as salvaguardas contratuais e o art. 33 da LGPD.</p>
+                <p>6.3. Dados financeiros de dizimistas e membros compõem livros oficiais da Igreja e podem ser apresentados a órgãos de fiscalização, auditoria interna e assembleias deliberativas, conforme o estatuto da entidade.</p>
+
+                <h3>7. DA SEGURANÇA</h3>
+                <p>7.1. O Sistema adota medidas técnicas e administrativas: senhas armazenadas exclusivamente como hash criptográfico (PBKDF2-SHA256), controle de acesso por perfil e por escopo territorial, registro de auditoria de operações sensíveis, verificação de autenticidade de documentos por código hash/QR, sessões expiráveis, bloqueio de manutenção e <b>trava de emergência</b> de bloqueio total.</p>
+                <p>7.2. O Usuário é responsável por manter o sigilo de sua senha e por utilizar dispositivos seguros. Qualquer ação executada com suas credenciais presume-se realizada por ele.</p>
+
+                <h3>8. DOS DIREITOS DO TITULAR (art. 18 da LGPD)</h3>
+                <p>8.1. O Usuário pode, a qualquer tempo e gratuitamente, solicitar: confirmação da existência de tratamento; acesso aos seus dados; correção de dados incompletos ou desatualizados; anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade; portabilidade; eliminação dos dados tratados com consentimento (ressalvadas as hipóteses legais de retenção); informação sobre compartilhamentos; e revogação do consentimento.</p>
+                <p>8.2. As solicitações devem ser dirigidas ao Encarregado de Proteção de Dados (DPO) indicado pela administração da Igreja, pelo canal oficial informado no ato do cadastro ou junto à secretaria.</p>
+                <p>8.3. A revogação do consentimento pode acarretar a impossibilidade de uso do Sistema, sem prejuízo da retenção dos dados estritamente necessários ao cumprimento de obrigações legais e ao histórico oficial da Igreja.</p>
+
+                <h3>9. DA RETENÇÃO E ELIMINAÇÃO</h3>
+                <p>9.1. Os dados serão conservados enquanto durar a vinculação do Usuário à Igreja e, após, pelo prazo necessário ao cumprimento de obrigações legais, fiscais, contábeis e à preservação do histórico oficial e da auditoria.</p>
+                <p>9.2. Decorridos os prazos e ausente justificativa legal, os dados serão eliminados ou anonimizados.</p>
+
+                <h3>10. DAS OBRIGAÇÕES DO USUÁRIO</h3>
+                <p>10.1. O Usuário declara que as informações fornecidas são verdadeiras e compromete-se a mantê-las atualizadas.</p>
+                <p>10.2. O Usuário compromete-se a: (a) utilizar o Sistema somente nas funções autorizadas ao seu perfil; (b) não extrair, divulgar ou compartilhar dados de terceiros fora das finalidades da Igreja; (c) guardar sigilo sobre informações financeiras e pessoais de membros; (d) comunicar imediatamente qualquer uso não autorizado de suas credenciais.</p>
+                <p>10.3. O descumprimento poderá resultar em suspensão ou cancelamento do acesso, sem prejuízo das medidas administrativas e legais cabíveis.</p>
+
+                <h3>11. DA DISPONIBILIDADE E LIMITAÇÃO DE RESPONSABILIDADE</h3>
+                <p>11.1. O Sistema é fornecido "no estado em que se encontra". A Controladora empenha-se na disponibilidade, mas não garante operação ininterrupta, podendo ocorrer manutenções programadas ou emergenciais.</p>
+                <p>11.2. A Controladora não responde por indisponibilidades decorrentes de falhas de terceiros (internet, nuvem, energia), por uso indevido do Usuário ou por força maior, observados os limites da lei.</p>
+                <p>11.3. A responsabilidade pela veracidade e legalidade dos dados inseridos é de quem os insere.</p>
+
+                <h3>12. DA PROPRIEDADE INTELECTUAL</h3>
+                <p>12.1. O Sistema, seu código, documentação, relatórios, livros digitais, marcas e bases de dados pertencem à Igreja e/ou a seus licenciantes, protegidos pela Lei nº 9.609/1998 (Software), Lei nº 9.610/1998 (Direitos Autorais) e tratados internacionais.</p>
+
+                <h3>13. DO TRAVA DE EMERGÊNCIA E BLOQUEIO</h3>
+                <p>13.1. Em situações de incidente de segurança, a administração poderá acionar o bloqueio total do Sistema ("kill switch"), suspendendo logins e ocultando dados em todas as estações, sem exclusão de informações, até a regularização.</p>
+
+                <h3>14. DE MENORES DE IDADE</h3>
+                <p>14.1. O cadastro de usuários menores de 18 anos somente é admitido mediante autorização expressa de responsável legal e atribuição de perfil restrito pela administração.</p>
+
+                <h3>15. DAS ALTERAÇÕES DESTE TERMO</h3>
+                <p>15.1. Este Termo poderá ser atualizado. Alterações relevantes serão comunicadas pelo Sistema ou por e-mail, e o uso continuado após a vigência constitui aceite da nova versão, salvo manifestação contrária do Usuário.</p>
+
+                <h3>16. DA LEGISLAÇÃO E DO FORO</h3>
+                <p>16.1. Este Termo é regido pelas leis da República Federativa do Brasil.</p>
+                <p>16.2. Fica eleito o foro da Comarca de Rorainópolis/RR para dirimir controvérsias oriundas deste instrumento, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
+
+                <h3>17. DO ACEITE ELETRÔNICO</h3>
+                <p>17.1. O aceite é manifestado eletronicamente ao final da leitura, mediante marcação de concordância, sendo registrados para verificação: versão do Termo, data/hora do aceite e identificação do usuário (CPF).</p>
+                <p>17.2. O aceite eletrônico produz os mesmos efeitos jurídicos de assinatura física, nos termos do art. 10, §2º, da Medida Provisória nº 2.200-2/2001 e do Código Civil.</p>
+
+                <p class="eula-fim">— Fim do Termo. Ao prosseguir, você declara ter lido, compreendido e aceitado integralmente suas cláusulas. —</p>
+            </div>
+        </div>
+        <div class="eula-progresso" id="eula-progresso">Role até o fim para liberar o aceite <span id="eula-pct">0%</span></div>
+        <label class="eula-aceite" id="eula-aceite-wrap" style="opacity:.45">
+            <input type="checkbox" id="f-eula" disabled>
+            <span>Li integralmente e <b>ACEITO</b> o Termo de Uso, a Licença e a Política de Proteção de Dados (LGPD).</span>
+        </label>
+        <button class="btn" id="btn-eula" disabled>Aceito — concluir cadastro</button>
+        <div class="link-reenvio"><a id="lnk-voltar-termo">← Voltar e revisar meus dados</a></div>
     </div>
 
     <!-- ETAPA 3: aguardando aprovação -->
@@ -303,8 +409,49 @@ function atualizarForcaSenha() {
 }
 $('f-senha').addEventListener('input', atualizarForcaSenha);
 
+// --- EULA/LGPD: controlado por app_config.eula_ativo na nuvem.
+// Prévia restrita: cadastro.html?eula=1 força a exibição (só quem tem o link).
+let eulaAtivo = false, eulaAceito = false;
+const EULA_VERSAO = '1.0';
+(function(){
+    const preview = new URLSearchParams(location.search).get('eula') === '1';
+    if (preview) { eulaAtivo = true; return; }
+    chamar('eula_status', {}).then(r => { eulaAtivo = !!(r && r.ativo); }).catch(() => {});
+})();
+$('eula-scroll').addEventListener('scroll', function(){
+    const pct = Math.min(100, Math.round((this.scrollTop + this.clientHeight) / this.scrollHeight * 100));
+    $('eula-pct').textContent = pct + '%';
+    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 24){
+        $('eula-progresso').innerHTML = 'Leitura concluída — marque o aceite abaixo.';
+        $('f-eula').disabled = false;
+        $('eula-aceite-wrap').style.opacity = '1';
+    }
+});
+$('f-eula').addEventListener('change', () => { $('btn-eula').disabled = !$('f-eula').checked; });
+$('btn-eula').addEventListener('click', () => {
+    eulaAceito = true;
+    $('etapa-termo').classList.add('hidden');
+    $('etapa-form').classList.remove('hidden');
+    enviarCadastro();
+});
+$('lnk-voltar-termo').addEventListener('click', () => {
+    $('etapa-termo').classList.add('hidden');
+    $('etapa-form').classList.remove('hidden');
+});
+
 $('form-cadastro').addEventListener('submit', async ev => {
     ev.preventDefault();
+    if (eulaAtivo && !eulaAceito) {
+        $('etapa-form').classList.add('hidden');
+        $('etapa-termo').classList.remove('hidden');
+        $('eula-scroll').scrollTop = 0;
+        $('eula-pct').textContent = '0%';
+        return;
+    }
+    enviarCadastro();
+});
+
+async function enviarCadastro() {
     msg('msg-form','');
     const nome = $('f-nome').value.trim(), cpf = $('f-cpf').value.trim(),
           nasc = $('f-nasc').value.trim(), email = $('f-email').value.trim(),
@@ -321,6 +468,7 @@ $('form-cadastro').addEventListener('submit', async ev => {
             nome, cpf, data_nascimento: nasc, email,
             telefone: $('f-tel').value.trim(), sexo: $('f-sexo').value, senha,
             origem: origemConvite,
+            eula_aceito: eulaAceito, eula_versao: EULA_VERSAO,
         });
         if (r.ok) {
             cpfCadastro = cpf;
@@ -349,7 +497,7 @@ $('form-cadastro').addEventListener('submit', async ev => {
         msg('msg-form','Falha de conexão. Verifique sua internet e tente novamente.','erro');
     }
     btn.disabled = false; btn.textContent = 'Solicitar acesso';
-});
+}
 
 $('btn-confirmar').addEventListener('click', async () => {
     msg('msg-codigo','');
