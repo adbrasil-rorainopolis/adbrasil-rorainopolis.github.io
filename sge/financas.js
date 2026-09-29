@@ -3860,7 +3860,6 @@ function _livroCss(){
 .lv-orn:before{background:linear-gradient(90deg,transparent,#c9a227)}
 .lv-orn:after{background:linear-gradient(90deg,#c9a227,transparent)}
 .lv-conteudo{border-top:1px dashed #d6d3d1;position:relative;padding-left:44px}
-.lv-conteudo:before{content:'';position:absolute;top:-1px;left:56px;right:20px;border-top:2px solid #c9a227}
 .lv-wm{position:absolute;left:8px;top:0;bottom:0;width:30px;pointer-events:none;user-select:none;z-index:0}
 .lv-wm b{position:absolute;left:50%;transform:translateX(-50%) rotate(180deg);writing-mode:vertical-rl;font-size:8.5px;letter-spacing:.26em;color:#b8912a;opacity:.34;font-weight:800;text-transform:uppercase;white-space:nowrap}
 .lv-wm b:first-child{top:12%}
@@ -3894,8 +3893,8 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-final code{display:block;font-size:8.5px;color:#78716c;margin-top:6px;letter-spacing:.08em}
 .lv-final p{font-size:8px;color:#a8a29e;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin:2px 0 0}
 .lv-rod{font-size:8px;color:#a8a29e;text-align:center;padding:10px 14px 16px;letter-spacing:.05em;border-top:1px solid #e7e5e4}
-@media print{ body{background:#fff!important} .lv-doc{border-radius:0}
- .lv-capa{min-height:auto;page-break-after:always}
+@media print{ body{background:#fff!important} .lv-doc{border-radius:0;border-top:none}
+ .lv-capa{min-height:252mm;page-break-after:always}
  .lv-cab,.lv-cap,.lv-cong,.lv-final{page-break-after:avoid;page-break-inside:avoid}
  table.lv-tb tr{page-break-inside:avoid}
  .lv-wm{position:fixed;left:3mm;top:0;bottom:0}
