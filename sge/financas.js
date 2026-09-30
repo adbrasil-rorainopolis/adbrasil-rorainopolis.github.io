@@ -202,17 +202,29 @@ window.finMenu = function(){
   el('fin-ctx')?.classList.add('hidden');
   const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
   const menu = el('fin-menu'); if (!menu) return;
-  const itens = FIN_ABAS_ORDEM.filter(finAbaPermitida);
-  menu.innerHTML = `<div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
-    ${itens.map(t => {
-      const m = FIN_ABAS_META[t];
-      return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
-        <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
-        <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
-        <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
-      </button>`;
-    }).join('')}
-  </div>`;
+  const grupos = [
+    { titulo: 'Dizimistas',          icone: 'fa-users',        abas: ['rol', 'frequencia', 'semanal', 'livro'] },
+    { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
+    { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
+  ];
+  const blocos = grupos.map(g => {
+    const itens = g.abas.filter(finAbaPermitida);
+    if (!itens.length) return '';
+    return `<div>
+      <p class="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest px-1 mb-1.5" style="color:var(--text-muted)"><i class="fa-solid ${g.icone} text-[8px] opacity-60"></i>${g.titulo}</p>
+      <div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+      ${itens.map(t => {
+        const m = FIN_ABAS_META[t];
+        return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
+          <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
+          <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
+          <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
+        </button>`;
+      }).join('')}
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+  menu.innerHTML = `<div class="space-y-5">${blocos}</div>`;
   menu.classList.remove('hidden');
 };
 
@@ -3825,85 +3837,236 @@ window.orcPdf = function(){
   if (typeof window.jspdf === 'undefined'){ toast('Biblioteca de PDF não carregou.'); return; }
   const doc = new window.jspdf.jsPDF();
   const larg = doc.internal.pageSize.getWidth();
-  let y = 30;
-  doc.setFillColor(18, 53, 95);
-  doc.rect(0, 0, larg, 24, 'F');
-  doc.setTextColor(159, 185, 217); doc.setFontSize(8); doc.setFont(undefined, 'bold');
-  doc.text('EVENTO DIVERSO — TESOURARIA', larg / 2, 7, { align: 'center' });
-  doc.setTextColor(255, 255, 255); doc.setFontSize(13);
-  doc.text(String(o.titulo || 'Evento'), larg / 2, 15, { align: 'center' });
-  if (o.cabecalho){ doc.setFontSize(8.5); doc.setFont(undefined, 'normal'); doc.setTextColor(215, 227, 242); doc.text(String(o.cabecalho), larg / 2, 21, { align: 'center' }); }
-  doc.setTextColor(95, 107, 122); doc.setFontSize(8); doc.setFont(undefined, 'normal');
-  const st = (o.status === 'finalizado' ? 'FINALIZADO' : 'EM ANDAMENTO') + (o.arquivado ? ' · ARQUIVADO' : '');
-  doc.text(`Status: ${st}   ·   Criado em: ${_orcDataBr(o.criado_em)}   ·   Responsável: ${o.criado_por || 'Sistema'}${o.finalizado_em ? '   ·   Finalizado: ' + _orcDataBr(o.finalizado_em) : ''}`, larg / 2, y, { align: 'center' });
-  if ((o.receitas || []).length){
-    doc.autoTable({
-      startY: y + 3,
-      head: [['Data', 'Receita', 'Forma', 'Valor (R$)']],
-      body: o.receitas.map(r => [_orcDataBr(r.data), r.descricao, _orcRotuloForma(_orcForma(r.forma_pagamento)), moeda(r.valor)]),
-      styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 122, 77] },
-      alternateRowStyles: { fillColor: [230, 244, 236] },
-      columnStyles: { 0: { halign: 'center', cellWidth: 22 }, 2: { halign: 'center', cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 } },
-    });
-    y = doc.lastAutoTable.finalY + 6;
+  const alt = doc.internal.pageSize.getHeight();
+  const ML = 14, MR = larg - 14;
+  const AZUL = [18, 53, 95], AZUL_C = [232, 238, 246], DOURADO = [201, 162, 39];
+  const VERDE = [15, 122, 77], VERDE_C = [230, 244, 236];
+  const VERM = [179, 38, 30], VERM_C = [253, 236, 235];
+  const AMBAR = [180, 83, 9], AMBAR_C = [253, 243, 227];
+  const TEAL = [14, 116, 144];
+  const CINZA = [95, 107, 122], BORDA = [195, 204, 216], FUNDO = [245, 247, 250];
+  const emitido = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const operador = sessao()?.usuario?.nome || 'Sistema';
+
+  const status = (o.status === 'finalizado' ? 'FINALIZADO' : 'EM ANDAMENTO') + (o.arquivado ? ' · ARQUIVADO' : '');
+
+  // ---- Faixa de cabeçalho -----------------------------------------------------
+  doc.setFillColor(...AZUL); doc.rect(0, 0, larg, 28, 'F');
+  doc.setFillColor(...DOURADO); doc.rect(0, 28, larg, 1.4, 'F');
+  doc.setTextColor(159, 185, 217); doc.setFontSize(6.5); doc.setFont(undefined, 'normal');
+  doc.text('SGE · AD BRASIL — RORAINÓPOLIS', ML, 6);
+  doc.text('RELATÓRIO DE EVENTO — TESOURARIA', ML, 10);
+  doc.setTextColor(255, 255, 255); doc.setFontSize(14); doc.setFont(undefined, 'bold');
+  doc.text(doc.splitTextToSize(String(o.titulo || 'Evento'), larg - 70), ML, 17.5);
+  if (o.cabecalho){
+    doc.setFontSize(7.5); doc.setFont(undefined, 'normal'); doc.setTextColor(215, 227, 242);
+    doc.text(doc.splitTextToSize(String(o.cabecalho), larg - 70), ML, 23);
   }
-  doc.autoTable({
-    startY: y + 3,
-    head: [['Data', 'Descrição', 'Forma', 'Valor (R$)']],
-    body: (o.itens || []).length
-      ? o.itens.map(i => [_orcDataBr(i.data), i.descricao, _orcRotuloForma(_orcForma(i.forma_pagamento)), moeda(i.valor)])
-      : [['-', 'Nenhuma saída lançada até o momento.', '-', '-']],
-    styles: { fontSize: 8.5 }, headStyles: { fillColor: [18, 53, 95] },
-    alternateRowStyles: { fillColor: [232, 238, 246] },
-    columnStyles: { 0: { halign: 'center', cellWidth: 22 }, 2: { halign: 'center', cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 } },
+  // chip de status à direita
+  const chipTxt = status;
+  doc.setFontSize(6.5); doc.setFont(undefined, 'bold');
+  const chipW = doc.getTextWidth(chipTxt) + 8;
+  doc.setFillColor(...(o.status === 'finalizado' ? VERDE : AMBAR));
+  doc.roundedRect(MR - chipW, 5, chipW, 5.5, 1.2, 1.2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.text(chipTxt, MR - chipW / 2, 8.6, { align: 'center' });
+  doc.setFont(undefined, 'normal'); doc.setTextColor(215, 227, 242); doc.setFontSize(6.5);
+  doc.text(`Emitido em ${emitido}`, MR, 16.5, { align: 'right' });
+
+  let y = 34;
+
+  // ---- Caixa de metadados ------------------------------------------------------
+  const metas = [['CRIADO EM', _orcDataBr(o.criado_em)], ['RESPONSÁVEL', String(o.criado_por || 'Sistema')]];
+  if (o.finalizado_em) metas.push(['FINALIZADO EM', _orcDataBr(o.finalizado_em)]);
+  const wMeta = (MR - ML) / metas.length;
+  doc.setFillColor(...FUNDO); doc.setDrawColor(...BORDA); doc.setLineWidth(0.25);
+  doc.rect(ML, y, MR - ML, 11, 'FD');
+  metas.forEach(([lbl, val], i) => {
+    const x = ML + i * wMeta;
+    if (i) doc.line(x, y, x, y + 11);
+    doc.setFontSize(6); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
+    doc.text(lbl, x + 3, y + 3.6);
+    doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(34, 48, 63);
+    doc.text(doc.splitTextToSize(val, wMeta - 6)[0], x + 3, y + 8.4);
   });
-  y = doc.lastAutoTable.finalY + 6;
-  const sub = o.subtotais_forma || {};
-  const partes = Object.keys(ORC_FORMAS).filter(f => sub[f]).map(f => `${ORC_FORMAS[f]}: ${moeda(sub[f])}`);
-  if (sub.outros) partes.push(`Não informado: ${moeda(sub.outros)}`);
-  if (partes.length){
-    doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.setTextColor(18, 53, 95);
-    doc.text(partes.join('    ·    '), larg / 2, y, { align: 'center' }); y += 6;
+  y += 16;
+
+  // ---- Painel de resumo ---------------------------------------------------------
+  const kpis = [];
+  if (o.total_receitas) kpis.push(['RECEITAS', moeda(o.total_receitas), VERDE]);
+  kpis.push(['SAÍDAS', moeda(o.total_saidas), AZUL]);
+  if (o.total_reembolsado) kpis.push(['REEMBOLSOS', '- ' + moeda(o.total_reembolsado), TEAL]);
+  if (o.total_receitas){
+    const res = o.resultado || 0;
+    kpis.push(['RESULTADO', (res >= 0 ? '+ ' : '- ') + moeda(Math.abs(res)), res >= 0 ? VERDE : VERM]);
   }
-  if ((o.reembolsos || []).length){
-    doc.autoTable({
-      startY: y + 2,
-      head: [['Data', 'Reembolso', 'Valor (R$)']],
-      body: o.reembolsos.map(r => [_orcDataBr(r.data), r.descricao, moeda(r.valor)]),
-      styles: { fontSize: 8.5 }, headStyles: { fillColor: [15, 122, 77] },
-      alternateRowStyles: { fillColor: [230, 244, 236] },
-      columnStyles: { 0: { halign: 'center', cellWidth: 22 }, 2: { halign: 'right', cellWidth: 34 } },
+  const pendTot = o.total_pendente || 0;
+  if (pendTot) kpis.push(['A CONFIRMAR', moeda(pendTot), AMBAR]);
+  if (kpis.length){
+    const wk = (MR - ML) / kpis.length;
+    doc.setFillColor(255, 255, 255); doc.setDrawColor(...BORDA); doc.setLineWidth(0.3);
+    doc.rect(ML, y, MR - ML, 12, 'FD');
+    doc.setFillColor(...AZUL); doc.rect(ML, y, 1.2, 12, 'F');
+    kpis.forEach(([lbl, val, cor], i) => {
+      const xc = ML + i * wk + wk / 2;
+      if (i) { doc.setDrawColor(...BORDA); doc.line(ML + i * wk, y, ML + i * wk, y + 12); }
+      doc.setFontSize(6); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
+      doc.text(lbl, xc, y + 4, { align: 'center' });
+      doc.setFontSize(10); doc.setFont(undefined, 'bold'); doc.setTextColor(...cor);
+      doc.text(val, xc, y + 9.5, { align: 'center' });
     });
-    y = doc.lastAutoTable.finalY + 8;
-  } else {
-    y += 4;
+    y += 17;
   }
-  if (y > 268){ doc.addPage(); y = 20; }
-  doc.setFontSize(9.5); doc.setFont(undefined, 'bold');
-  if ((o.receitas || []).length){
-    doc.setTextColor(15, 122, 77);
-    doc.text(`TOTAL DE RECEITAS: ${moeda(o.total_receitas)}`, larg - 14, y, { align: 'right' }); y += 6;
+
+  // ---- Seções por coluna ----------------------------------------------------------
+  doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(...AZUL);
+  doc.text('LANÇAMENTOS POR COLUNA', ML, y); y += 3;
+
+  const ROT = { saida: ['SAÍDA', AZUL], receita: ['RECEITA', VERDE], reembolso: ['REEMBOLSO', TEAL] };
+  const cols = (o.colunas || []).filter(c => !c.lixeira);
+  const quebra = (h) => { if (y + h > alt - 22){ doc.addPage(); y = 16; } };
+
+  for (const c of cols){
+    const [rot, cor] = ROT[c.tipo || 'saida'] || ROT.saida;
+    const itens = (c.itens || []).filter(i => !i.lixeira)
+      .sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || '')));
+    const conf = itens.filter(i => i.pago);
+    const pend = itens.filter(i => !i.pago);
+    const totConf = conf.reduce((a, i) => a + (Number(i.valor) || 0), 0);
+    const totPend = pend.reduce((a, i) => a + (Number(i.valor) || 0), 0);
+
+    quebra(30);
+    // faixa da coluna
+    doc.setFillColor(...cor); doc.rect(ML, y, MR - ML, 6.5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(8); doc.setFont(undefined, 'bold');
+    doc.text(String(c.nome || 'Coluna').toUpperCase(), ML + 2.5, y + 4.4);
+    doc.setFontSize(6); doc.setTextColor(223, 233, 245);
+    doc.text(rot, MR - 2.5, y + 4.4, { align: 'right' });
+    y += 6.5;
+
+    doc.autoTable({
+      startY: y,
+      margin: { left: ML, right: ML },
+      head: [['Data', 'Descrição', 'Forma', 'Valor (R$)', 'Situação']],
+      body: itens.length
+        ? itens.map(i => [_orcDataBr(i.data), i.descricao, (c.tipo === 'reembolso' ? '-' : _orcRotuloForma(_orcForma(i.forma_pagamento))), moeda(i.valor), i.pago ? 'Pago' : 'Pendente'])
+        : [['-', 'Nenhum lançamento nesta coluna.', '-', '-', '-']],
+      styles: { fontSize: 7.5, cellPadding: 1.6 },
+      headStyles: { fillColor: FUNDO, textColor: CINZA, fontStyle: 'bold', fontSize: 6.5 },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 18 },
+        2: { halign: 'center', cellWidth: 22 },
+        3: { halign: 'right', cellWidth: 26 },
+        4: { halign: 'center', cellWidth: 20 },
+      },
+      didParseCell: d => {
+        if (d.section === 'body'){
+          if (!itens.length) d.cell.styles.textColor = CINZA;
+          else {
+            const it = itens[d.row.index];
+            if (it && !it.pago){ d.cell.styles.fillColor = AMBAR_C; d.cell.styles.textColor = [120, 90, 40]; }
+            if (d.column.index === 4){
+              d.cell.styles.fontStyle = 'bold'; d.cell.styles.fontSize = 6.5;
+              d.cell.styles.textColor = (d.cell.raw === 'Pago') ? VERDE : AMBAR;
+            }
+          }
+        }
+      },
+    });
+    y = doc.lastAutoTable.finalY;
+
+    // subtotal da coluna
+    doc.setFillColor(...FUNDO); doc.setDrawColor(...BORDA);
+    doc.rect(ML, y, MR - ML, 6, 'FD');
+    doc.setFontSize(7); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
+    doc.text('Subtotal confirmado' + (pend.length ? `   ·   ${pend.length} pendente(s): ${moeda(totPend)}` : ''), ML + 3, y + 4);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(8.5); doc.setTextColor(...cor);
+    doc.text(moeda(totConf), MR - 3, y + 4.2, { align: 'right' });
+    y += 11;
   }
-  doc.setTextColor(18, 53, 95);
-  doc.text(`TOTAL DE SAÍDAS: ${moeda(o.total_saidas)}`, larg - 14, y, { align: 'right' }); y += 6;
-  if ((o.reembolsos || []).length){
+
+  // ---- Composição por forma de pagamento -------------------------------------------
+  const boxForma = (sub, titulo, cor) => {
+    const partes = Object.keys(ORC_FORMAS).filter(f => sub[f]).map(f => `${ORC_FORMAS[f].toUpperCase()}: ${moeda(sub[f])}`);
+    if (sub.outros) partes.push(`NÃO INFORMADO: ${moeda(sub.outros)}`);
+    if (!partes.length) return;
+    quebra(16);
+    doc.setFontSize(6.5); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
+    doc.text(titulo, ML, y); y += 2;
+    const wk = (MR - ML) / partes.length;
+    doc.setFillColor(...FUNDO); doc.setDrawColor(...BORDA); doc.setLineWidth(0.25);
+    doc.rect(ML, y, MR - ML, 9, 'FD');
+    partes.forEach((p, i) => {
+      const xc = ML + i * wk + wk / 2;
+      if (i) doc.line(ML + i * wk, y, ML + i * wk, y + 9);
+      doc.setFontSize(7); doc.setFont(undefined, 'bold'); doc.setTextColor(...cor);
+      doc.text(p, xc, y + 5.8, { align: 'center' });
+    });
+    y += 13;
+  };
+  if (o.subtotais_forma_receitas) boxForma(o.subtotais_forma_receitas, 'RECEITAS POR FORMA DE PAGAMENTO', VERDE);
+  if (o.subtotais_forma) boxForma(o.subtotais_forma, 'SAÍDAS POR FORMA DE PAGAMENTO', AZUL);
+
+  // ---- Totais ----------------------------------------------------------------------
+  const linhaTotal = (rotulo, valor, corFundo, corTxt) => {
+    quebra(9);
+    doc.setFillColor(...corFundo); doc.setDrawColor(...corTxt); doc.setLineWidth(0.3);
+    doc.rect(ML, y, MR - ML, 7.5, 'FD');
+    doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.setTextColor(...corTxt);
+    doc.text(rotulo, ML + 4, y + 5.2);
+    doc.setFontSize(10);
+    doc.text(valor, MR - 4, y + 5.4, { align: 'right' });
+    y += 9.5;
+  };
+  y += 3;
+  if (o.total_receitas) linhaTotal('TOTAL DE RECEITAS', moeda(o.total_receitas), VERDE_C, VERDE);
+  linhaTotal('TOTAL DE SAÍDAS', moeda(o.total_saidas), AZUL_C, AZUL);
+  if (o.total_reembolsado){
     const saldo = o.saldo_final || 0;
     const rot = saldo > 0 ? 'SALDO A REEMBOLSAR' : (saldo < 0 ? 'REEMBOLSO EXCEDENTE' : 'QUITADO');
-    doc.setTextColor(15, 122, 77);
-    doc.text(`TOTAL REEMBOLSADO: - ${moeda(o.total_reembolsado)}`, larg - 14, y, { align: 'right' }); y += 6;
-    if (saldo > 0) doc.setTextColor(179, 38, 30); else doc.setTextColor(15, 122, 77);
-    doc.text(`${rot}: ${moeda(Math.abs(saldo))}`, larg - 14, y, { align: 'right' }); y += 6;
+    linhaTotal('TOTAL REEMBOLSADO', '- ' + moeda(o.total_reembolsado), VERDE_C, VERDE);
+    linhaTotal(rot, moeda(Math.abs(saldo)), saldo <= 0 ? VERDE_C : VERM_C, saldo <= 0 ? VERDE : VERM);
   }
-  if ((o.receitas || []).length){
+  if (o.total_receitas){
     const res = o.resultado || 0;
-    if (res >= 0) doc.setTextColor(15, 122, 77); else doc.setTextColor(179, 38, 30);
-    doc.text(`RESULTADO DO EVENTO (${res >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}): ${moeda(Math.abs(res))}`, larg - 14, y, { align: 'right' }); y += 6;
+    linhaTotal(`RESULTADO DO EVENTO — ${res >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}`, moeda(Math.abs(res)),
+               res >= 0 ? VERDE_C : VERM_C, res >= 0 ? VERDE : VERM);
   }
+
+  // ---- Observações --------------------------------------------------------------------
   if (o.observacoes){
-    y += 2;
-    doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(60, 60, 60);
-    doc.text(doc.splitTextToSize(`Obs.: ${o.observacoes}`, larg - 28), 14, y);
+    quebra(14);
+    y += 3;
+    doc.setFontSize(8); doc.setFont(undefined, 'bold'); doc.setTextColor(...AZUL);
+    doc.text('OBSERVAÇÕES', ML, y); y += 4;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+    const txt = doc.splitTextToSize(String(o.observacoes), MR - ML);
+    doc.text(txt, ML, y);
+    y += txt.length * 3.6;
   }
+
+  // ---- Assinaturas ----------------------------------------------------------------------
+  quebra(30);
+  y += 16;
+  const wA = (MR - ML) / 2 - 10;
+  doc.setDrawColor(138, 151, 168); doc.setLineWidth(0.3);
+  doc.line(ML + 6, y, ML + 6 + wA, y);
+  doc.line(MR - 6 - wA, y, MR - 6, y);
+  doc.setFontSize(7); doc.setFont(undefined, 'bold'); doc.setTextColor(...CINZA);
+  doc.text('Responsável pelo evento', ML + 6 + wA / 2, y + 4, { align: 'center' });
+  doc.text('Tesouraria — AD Brasil', MR - 6 - wA / 2, y + 4, { align: 'center' });
+
+  // ---- Rodapé em todas as páginas -------------------------------------------------------
+  const totalPag = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPag; p++){
+    doc.setPage(p);
+    doc.setDrawColor(...BORDA); doc.setLineWidth(0.2);
+    doc.line(ML, alt - 12, MR, alt - 12);
+    doc.setFontSize(6.5); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
+    doc.text(`Emitido por ${operador} em ${emitido} — SGE AD Brasil`, ML, alt - 8);
+    doc.text(`Página ${p} de ${totalPag}`, MR, alt - 8, { align: 'right' });
+  }
+
   doc.save(`evento_${(o.titulo || 'sge').replace(/[^\w]+/g, '_').slice(0, 40)}.pdf`);
 };
 
