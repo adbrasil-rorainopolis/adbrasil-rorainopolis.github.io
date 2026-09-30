@@ -1067,14 +1067,60 @@ const RC_CATS = [
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
   { id: 'CANCELADO', rotulo: 'Cancelado', titulo: 'CANCELADO', cancelado: true },
 ];
-/* Select de lançamento agrupado: Entradas (5 contas) / Saídas / Outros (Cancelado) */
+/* Seletor de lançamento agrupado: Entradas (5 contas) / Saídas / Outros (Cancelado).
+   O <select> real fica oculto — quem aparece é um botão que abre um picker
+   centralizado com os grupos coloridos (o dropdown nativo não permite cor). */
+const RC_GRUPOS = [
+  { nome: 'Entradas', cor: '#34d399', f: c => !c.saida && !c.cancelado },
+  { nome: 'Saídas',   cor: '#f87171', f: c => c.saida },
+  { nome: 'Outros',   cor: '#f59e0b', f: c => c.cancelado },
+];
 function rcCatOptsHTML(val){
   const opt = c => `<option value="${esc(c.id)}" ${c.id === val ? 'selected' : ''}>${esc(c.rotulo)}</option>`;
-  return `<optgroup label="Entradas">${RC_CATS.filter(c => !c.saida && !c.cancelado).map(opt).join('')}</optgroup>`
-       + `<optgroup label="Saídas">${RC_CATS.filter(c => c.saida).map(opt).join('')}</optgroup>`
-       + `<optgroup label="Outros">${RC_CATS.filter(c => c.cancelado).map(opt).join('')}</optgroup>`;
+  return RC_GRUPOS.map(g => `<optgroup label="${g.nome}">${RC_CATS.filter(g.f).map(opt).join('')}</optgroup>`).join('');
 }
-const selCat = (id, val, onchange) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${rcCatOptsHTML(val)}</select>`;
+const selCat = (id, val) => {
+  const atual = RC_CATS.find(c => c.id === val) || RC_CATS[1];
+  return `<select id="${id}" class="hidden">${rcCatOptsHTML(val)}</select>
+  <button type="button" onclick="rcmAbrirCatPicker('${id}')" class="w-full px-2 py-1.5 rounded-lg border text-xs flex items-center justify-between gap-1.5 cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <span id="${id}-lbl" class="font-semibold truncate">${esc(atual.rotulo)}</span>
+    <i class="fa-solid fa-chevron-down text-[9px] opacity-50 shrink-0"></i>
+  </button>`;
+};
+window.rcmAbrirCatPicker = function(selId){
+  const sel = el(selId); if (!sel) return;
+  el('rcm-catpicker')?.remove();
+  const atual = sel.value;
+  let h = '';
+  for (const g of RC_GRUPOS){
+    h += `<p class="text-[9px] font-extrabold uppercase tracking-widest mt-2.5 mb-0.5" style="color:${g.cor}">${g.nome}</p>`;
+    for (const c of RC_CATS.filter(g.f)){
+      const at = c.id === atual;
+      h += `<button type="button" onclick="rcmEscolherCat('${selId}','${c.id}')" class="w-full text-left px-3 py-2.5 rounded-xl text-[12px] font-semibold flex items-center gap-2 cursor-pointer" style="${at ? 'background:rgba(245,158,11,.16);color:var(--color-primary)' : 'color:var(--text-main)'}">${at ? '<i class="fa-solid fa-check text-[10px] shrink-0"></i>' : '<span class="w-4 shrink-0"></span>'}<span class="truncate">${esc(c.rotulo)}</span></button>`;
+    }
+  }
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-catpicker" class="fixed inset-0 z-[99] flex items-center justify-center p-6" style="background:rgba(0,0,0,.55);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-sm rounded-2xl p-4" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 24px 60px rgba(0,0,0,.5)">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-layer-group" style="color:var(--color-primary)"></i>
+          <p class="flex-1 text-[12px] font-extrabold">Lançamentos</p>
+          <button type="button" onclick="el('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-auto" style="max-height:55vh">${h}</div>
+      </div>
+    </div>`);
+  el('rcm-catpicker').addEventListener('click', e => { if (e.target.id === 'rcm-catpicker') e.target.remove(); });
+};
+window.rcmEscolherCat = function(selId, catId){
+  const sel = el(selId); if (!sel) return;
+  sel.value = catId;
+  const c = RC_CATS.find(x => x.id === catId);
+  const lbl = el(selId + '-lbl');
+  if (lbl && c) lbl.textContent = c.rotulo;
+  el('rcm-catpicker')?.remove();
+  rcmMudarCategoria(selId === 'rcm-ed-cat' ? 'ed-' : '');
+};
 /* Tipos de saída padronizados — 'Outros' fixo no topo habilita descrição livre;
    o restante sai em ordem alfabética. */
 const RC_SAIDAS_SUBS = ['Outros', ...[
@@ -1274,7 +1320,7 @@ function rcRenderTela(){
           <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Lançamentos</span>
-              ${selCat('rcm-cat', F.rcCat || 'OFERTA ORDINARIA', 'rcmMudarCategoria()')}</div>
+              ${selCat('rcm-cat', F.rcCat || 'OFERTA ORDINARIA')}</div>
             <div class="col-span-2" id="rcm-sub-slot"></div>
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
@@ -1755,7 +1801,7 @@ window.rcmEditar = function(i){
           </div>
           <div class="space-y-2.5">
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Lançamentos</span>
-              ${selCat('rcm-ed-cat', (rcCatDeTipo(it.tipo) || RC_CATS[0]).id, "rcmMudarCategoria('ed-')")}</div>
+              ${selCat('rcm-ed-cat', (rcCatDeTipo(it.tipo) || RC_CATS[0]).id)}</div>
             <div id="rcm-ed-sub-slot"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
