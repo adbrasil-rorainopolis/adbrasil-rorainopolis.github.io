@@ -5057,8 +5057,8 @@ function _dreLinhasN(periodos){
 
   sec('Fundo vinculado — Círculo de Oração (caixa à parte)');
   it('Saldo do fundo no início do período', col((d, c) => c.c.anterior));
-  it('Repasse do campo ao fundo (a mesma linha das deduções)', col(d => d.repasse_circulo || null));
-  it('Arrecadação própria do fundo (ofertas diretas do Círculo)', col((d, c) => c.c.entradas == null ? null : +(c.c.entradas - (d.repasse_circulo || 0)).toFixed(2)));
+  it('Repasse do campo ao fundo (soma das 3 ofertas do Círculo)', col(d => d.repasse_circulo || null));
+  it('Outras entradas na planilha do fundo (divergência — conferir)', col((d, c) => c.c.entradas == null ? null : +(c.c.entradas - (d.repasse_circulo || 0)).toFixed(2)));
   sub('Total de entradas do fundo', col((d, c) => c.c.entradas));
   it('Saídas do fundo', col((d, c) => dreNeg(c.c.despesas)));
   sub('Variação do fundo no período', col((d, c) => c.varF));
@@ -5098,6 +5098,8 @@ async function dreMontarDados(ano, mes, modo){
       agregados.push(_dreAgregar(lista));
       colunas.push({ ano: a, rotulo: a + (lista.length < 12 ? '*' : '') });
       if (falt.length) avisos.push(`${a}: exercício parcial — sem ${falt.join(', ')}.`);
+      const _difF = (agregados[agregados.length-1].circulo.entradas || 0) - (agregados[agregados.length-1].repasse_circulo || 0);
+      if (Math.abs(_difF) > 0.05) avisos.push(`${a}: entradas do fundo na planilha diferem do repasse em R$ ${_difF.toFixed(2)} — conferir a aba RECEITA DO CIRCULO DE ORAÇÃO.`);
     }
     if (!agregados.length) return { erro: 'Nenhum fechamento importado.' };
     const calcs = agregados.map(_dreCalc);
@@ -5134,6 +5136,8 @@ async function dreMontarDados(ano, mes, modo){
     }
     if (!lista.length) return { erro: `Nenhum fechamento importado entre ${ini} e ${fim}.` };
     const agg = _dreAgregar(lista);
+    const _difA = (agg.circulo.entradas || 0) - (agg.repasse_circulo || 0);
+    if (Math.abs(_difA) > 0.05) avisos.push(`Fundo do Círculo: entradas da planilha diferem do repasse em R$ ${_difA.toFixed(2)} no acumulado — conferir a aba RECEITA DO CIRCULO DE ORAÇÃO.`);
     const calc = _dreCalc(agg);
     const base = `acumanual|${ini}-${fim}|${calc.b1.toFixed(2)}|${calc.res.toFixed(2)}|${calc.consF == null ? '' : calc.consF.toFixed(2)}`;
     let codigo = '';
@@ -5197,6 +5201,8 @@ async function dreMontarDados(ano, mes, modo){
   const fB = [...new Set((falts[falts.length - 1] || []))];
   if (fB.length) avisos.push(`Meses sem fechamento no período comparado (${anoB}): ${fB.join(', ')}.`);
   if (dA.circulo.anterior == null) avisos.push('Fundo do Círculo: planilha do círculo ainda não publicada pelo desktop — bloco exibido parcialmente.');
+  const _difM = (dA.circulo.entradas || 0) - (dA.repasse_circulo || 0);
+  if (Math.abs(_difM) > 0.05) avisos.push(`Fundo do Círculo: entradas da planilha diferem do repasse em R$ ${_difM.toFixed(2)} — conferir a aba RECEITA DO CIRCULO DE ORAÇÃO (o correto é entradas = repasse).`);
   const calcs = aggs.map(_dreCalc);
   const A = calcs[0];
   const base = `${modo}|${ano}|${mes}|` + calcs.map(c => `${c.b1.toFixed(2)}/${c.res.toFixed(2)}/${c.consF == null ? '' : c.consF.toFixed(2)}`).join('|');
