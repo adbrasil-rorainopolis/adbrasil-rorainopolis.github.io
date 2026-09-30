@@ -3825,7 +3825,7 @@ function _orcTextoWhats(o){
     L.push('', `*Resultado do evento (${res >= 0 ? 'superávit' : 'déficit'}): ${moeda(Math.abs(res))}*`);
   }
   if (o.observacoes) L.push('', `Obs.: ${o.observacoes}`);
-  L.push('', '_Gerado pelo SGE AD Brasil_');
+  L.push('', '_Gerado pelo SGE_');
   return L.join('\n');
 }
 window.orcWhatsApp = function(){
@@ -3854,7 +3854,7 @@ window.orcPdf = function(){
   doc.setFillColor(...AZUL); doc.rect(0, 0, larg, 28, 'F');
   doc.setFillColor(...DOURADO); doc.rect(0, 28, larg, 1.4, 'F');
   doc.setTextColor(159, 185, 217); doc.setFontSize(6.5); doc.setFont(undefined, 'normal');
-  doc.text('SGE · AD BRASIL — RORAINÓPOLIS', ML, 6);
+  doc.text('SGE — RORAINÓPOLIS', ML, 6);
   doc.text('RELATÓRIO DE EVENTO — TESOURARIA', ML, 10);
   doc.setTextColor(255, 255, 255); doc.setFontSize(14); doc.setFont(undefined, 'bold');
   doc.text(doc.splitTextToSize(String(o.titulo || 'Evento'), larg - 70), ML, 17.5);
@@ -4045,17 +4045,6 @@ window.orcPdf = function(){
     y += txt.length * 3.6;
   }
 
-  // ---- Assinaturas ----------------------------------------------------------------------
-  quebra(30);
-  y += 16;
-  const wA = (MR - ML) / 2 - 10;
-  doc.setDrawColor(138, 151, 168); doc.setLineWidth(0.3);
-  doc.line(ML + 6, y, ML + 6 + wA, y);
-  doc.line(MR - 6 - wA, y, MR - 6, y);
-  doc.setFontSize(7); doc.setFont(undefined, 'bold'); doc.setTextColor(...CINZA);
-  doc.text('Responsável pelo evento', ML + 6 + wA / 2, y + 4, { align: 'center' });
-  doc.text('Tesouraria — AD Brasil', MR - 6 - wA / 2, y + 4, { align: 'center' });
-
   // ---- Rodapé em todas as páginas -------------------------------------------------------
   const totalPag = doc.getNumberOfPages();
   for (let p = 1; p <= totalPag; p++){
@@ -4063,7 +4052,7 @@ window.orcPdf = function(){
     doc.setDrawColor(...BORDA); doc.setLineWidth(0.2);
     doc.line(ML, alt - 12, MR, alt - 12);
     doc.setFontSize(6.5); doc.setFont(undefined, 'normal'); doc.setTextColor(...CINZA);
-    doc.text(`Emitido por ${operador} em ${emitido} — SGE AD Brasil`, ML, alt - 8);
+    doc.text(`Emitido por ${operador} em ${emitido} — SGE`, ML, alt - 8);
     doc.text(`Página ${p} de ${totalPag}`, MR, alt - 8, { align: 'right' });
   }
 
