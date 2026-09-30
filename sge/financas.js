@@ -1121,6 +1121,39 @@ window.rcmEscolherCat = function(selId, catId){
   el('rcm-catpicker')?.remove();
   rcmMudarCategoria(selId === 'rcm-ed-cat' ? 'ed-' : '');
 };
+const rcmSubPicker = (id, pre, pares, titulo) =>
+  `<select id="${id}" onchange="rcmMudarSub('${pre}')" class="hidden">${pares.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select>` +
+  `<button type="button" onclick="rcmAbrirOpcPicker('${id}','${titulo}')" title="${titulo}" class="w-full px-2 py-2 rounded-lg border text-xs flex items-center justify-between gap-1.5 cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><span id="${id}-lbl" class="font-semibold truncate">${esc(pares[0] ? pares[0][1] : '')}</span><i class="fa-solid fa-chevron-down text-[9px] opacity-50 shrink-0"></i></button>`;
+
+window.rcmAbrirOpcPicker = function(selId, titulo){
+  const sel = el(selId); if (!sel) return;
+  el('rcm-catpicker')?.remove();
+  let h = '';
+  [...sel.options].forEach((op, i) => {
+    const at = i === sel.selectedIndex;
+    h += `<button type="button" onclick="rcmEscolherOpc('${selId}',${i})" class="w-full text-left px-3 py-2.5 rounded-xl text-[12px] font-semibold flex items-center gap-2 cursor-pointer" style="${at ? 'background:rgba(245,158,11,.16);color:var(--color-primary)' : 'color:var(--text-main)'}">${at ? '<i class="fa-solid fa-check text-[10px] shrink-0"></i>' : '<span class="w-4 shrink-0"></span>'}<span class="truncate">${esc(op.text)}</span></button>`;
+  });
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="rcm-catpicker" class="fixed inset-0 z-[99] flex items-center justify-center p-6" style="background:rgba(0,0,0,.55);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-sm rounded-2xl p-4" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 24px 60px rgba(0,0,0,.5)">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fa-solid fa-list" style="color:var(--color-primary)"></i>
+          <p class="flex-1 text-[12px] font-extrabold">${titulo}</p>
+          <button type="button" onclick="el('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-auto" style="max-height:55vh">${h}</div>
+      </div>
+    </div>`);
+  el('rcm-catpicker').addEventListener('click', e => { if (e.target.id === 'rcm-catpicker') e.target.remove(); });
+};
+window.rcmEscolherOpc = function(selId, idx){
+  const sel = el(selId); if (!sel) return;
+  sel.selectedIndex = idx;
+  const lbl = el(selId + '-lbl'); if (lbl) lbl.textContent = sel.options[idx]?.text || sel.value;
+  el('rcm-catpicker')?.remove();
+  sel.dispatchEvent(new Event('change'));
+};
+
 /* Tipos de saída padronizados — 'Outros' fixo no topo habilita descrição livre;
    o restante sai em ordem alfabética. */
 const RC_SAIDAS_SUBS = ['Outros', ...[
@@ -1527,14 +1560,14 @@ window.rcmMudarCategoria = function(p){
     slot.innerHTML = `<div class="rounded-lg border px-2.5 py-2 text-[10px]" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:var(--text-muted)"><i class="fa-solid fa-ban mr-1" style="color:#f59e0b"></i>Anula um recibo: descrição <b>"Cancelado"</b> e valor <b>R$ 0,00</b> automáticos.</div>`;
   } else if (cat.saida){
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de saída *</span>
-      ${selF(`rcm-${pre}sub`, RC_SAIDAS_SUBS.map(s => [s, s === 'Outros' ? '✏️ Outros — não encontrou? Clique e descreva manualmente' : s]), null, `rcmMudarSub('${pre}')`)}
+      ${rcmSubPicker(`rcm-${pre}sub`, pre, RC_SAIDAS_SUBS.map(s => [s, s === 'Outros' ? '✏️ Outros — não encontrou? Clique e descreva manualmente' : s]), 'Tipo de saída')}
       <div id="rcm-${pre}outros-wrap" class="hidden mt-2">
         <span class="text-[9px] font-extrabold block mb-1" style="color:#f59e0b">NÃO ENCONTROU O QUE PROCURA? DESCREVA MANUALMENTE:</span>
         <input id="rcm-${pre}outros" placeholder="Descreva a saída (obrigatório)" class="${cssI}" style="${cssS};border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.08)"></div>`;
     rcmMudarSub(pre);
   } else {
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Detalhe da oferta *</span>
-      ${selF(`rcm-${pre}sub`, rcSubsDaCat(cat).map(s => [s, s]), null, `rcmMudarSub('${pre}')`)}
+      ${rcmSubPicker(`rcm-${pre}sub`, pre, rcSubsDaCat(cat).map(s => [s, s]), 'Detalhe da oferta')}
       <div id="rcm-${pre}outros-wrap" class="hidden mt-2"><input id="rcm-${pre}outros" placeholder="Descreva o lançamento (obrigatório)" class="${cssI}" style="${cssS}"></div>`;
     rcmMudarSub(pre);
   }
@@ -1542,7 +1575,10 @@ window.rcmMudarCategoria = function(p){
 
 window.rcmMudarSub = function(p){
   const pre = p || '';
-  const sub = el(`rcm-${pre}sub`)?.value || '';
+  const selSub = el(`rcm-${pre}sub`);
+  const lblSub = el(`rcm-${pre}sub-lbl`);
+  if (lblSub && selSub && selSub.selectedIndex >= 0) lblSub.textContent = selSub.options[selSub.selectedIndex].text;
+  const sub = selSub?.value || '';
   const w = el(`rcm-${pre}outros-wrap`);
   const mantenedor = sub === RC_SUB_MANTENEDOR;
   if (w) w.classList.toggle('hidden', !(RC_OUTROS.includes(sub) || mantenedor));
