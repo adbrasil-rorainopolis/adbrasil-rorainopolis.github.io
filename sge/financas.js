@@ -4503,8 +4503,8 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-est-ref{text-align:center;font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11px;color:#78716c;margin-top:14px}
 .lv-inst{border:1px solid #e7e5e4;border-left:4px solid #c9a227;border-radius:8px;background:#fafaf9;padding:8px 11px;font-size:9.5px;color:#57534e;line-height:1.6;margin-bottom:10px}
 .lv-inst b{color:#1c1917;text-transform:uppercase;letter-spacing:.06em;font-size:9px}
-.lv-ded{position:relative;min-height:560px}
-.lv-ded-mark{position:absolute;left:0;right:0;bottom:8%;text-align:center;pointer-events:none;line-height:0}
+.lv-ded{position:relative;min-height:960px}
+.lv-ded-mark{position:absolute;left:0;right:0;bottom:0;text-align:center;pointer-events:none;line-height:0}
 .lv-ded-selo{width:290px;opacity:.08;filter:grayscale(15%)}
 .lv-ded-txt{margin-left:auto;max-width:62%;text-align:justify;padding:56px 30px 0 0}
 .lv-ded-txt p{font-family:'EB Garamond',Georgia,serif;font-size:13.5px;line-height:1.9;color:#3f3a34;margin:0 0 13px}
