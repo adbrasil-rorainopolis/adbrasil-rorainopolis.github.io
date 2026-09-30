@@ -206,7 +206,7 @@ const _ORDEM_CONGS_IDX = (() => {
   }));
   return idx;
 })();
-function ordemConselhoIdxG(cons){ const i = ORDEM_OFICIAL_CONSELHOS.indexOf(cons); return i >= 0 ? i : 99; }
+function ordemConselhoIdxG(cons){ if (chaveNormalizada(cons) === 'obreiros') return 0.5; const i = ORDEM_OFICIAL_CONSELHOS.indexOf(cons); return i >= 0 ? i : 99; }
 function ordemCongregacaoIdxG(nome, conselho){
   const k = chaveNormalizada(nome);
   if (conselho && MAPA_OFICIAL_CONGS[conselho]){
