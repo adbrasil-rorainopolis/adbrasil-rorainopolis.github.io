@@ -4470,7 +4470,7 @@ function _livroCss(){
 .lv-cab-sub{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#a5853a;font-weight:800;margin-top:8px}
 .lv-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:6px 16px 10px}
 .lv-kpi{border:1px solid #e7e5e4;border-radius:10px;padding:7px 4px;text-align:center}
-.lv-kpi b{display:block;font-size:12px;color:#b8860b;font-variant-numeric:tabular-nums}
+.lv-kpi b{display:block;font-size:13px;color:#b8860b;font-variant-numeric:tabular-nums;font-family:'EB Garamond',Georgia,serif;font-weight:800}
 .lv-kpi span{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:#a8a29e}
 .lv-sec{padding:6px 16px 10px 10px;position:relative;z-index:1}
 .lv-h{font-family:'EB Garamond',Georgia,serif;font-size:12px;font-weight:800;color:#1c1917;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -4480,13 +4480,13 @@ function _livroCss(){
 .lv-cap small{font-weight:600;font-size:8.5px;color:#78716c}
 .lv-cong{font-family:'EB Garamond',Georgia,serif;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px}
 .lv-cong small{font-weight:500;color:#a8a29e;text-transform:none;letter-spacing:0}
-table.lv-tb{width:100%;border-collapse:collapse;font-size:9.5px}
+table.lv-tb{width:100%;border-collapse:collapse;font-size:10.5px;font-family:'EB Garamond',Georgia,serif}
 table.lv-tb td{padding:4.5px 4px;border-bottom:1px solid #f5f5f4;vertical-align:top}
 table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-val{font-weight:800;color:#1c1917;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .lv-canal{display:inline-block;font-size:6.5px;font-weight:800;padding:1px 5px;border-radius:4px;background:#fef3c7;color:#92400e;margin-left:4px;white-space:nowrap}
 .lv-canal.pix{background:#e0f2fe;color:#0369a1}
-.lv-stat{border:1px solid #e7e5e4;border-radius:8px;padding:7px 10px;font-size:9.5px;margin-bottom:5px;background:#fafaf9}
+.lv-stat{border:1px solid #e7e5e4;border-radius:8px;padding:7px 10px;font-size:10.5px;margin-bottom:5px;background:#fafaf9;font-family:'EB Garamond',Georgia,serif}
 .lv-stat b{color:#1c1917}
 .lv-mut{font-size:8.5px;color:#a8a29e}
 .lv-final{text-align:center;padding:22px 16px 12px;position:relative;z-index:1}
@@ -4503,6 +4503,19 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-est-ref{text-align:center;font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11px;color:#78716c;margin-top:14px}
 .lv-inst{border:1px solid #e7e5e4;border-left:4px solid #c9a227;border-radius:8px;background:#fafaf9;padding:8px 11px;font-size:9.5px;color:#57534e;line-height:1.6;margin-bottom:10px}
 .lv-inst b{color:#1c1917;text-transform:uppercase;letter-spacing:.06em;font-size:9px}
+.lv-ded{position:relative;min-height:560px}
+.lv-ded-mark{position:absolute;left:0;right:0;bottom:8%;text-align:center;pointer-events:none;line-height:0}
+.lv-ded-mark i{display:block;color:#b8860b}
+.lv-ded-globe{font-size:180px;opacity:.07}
+.lv-ded-hands{font-size:95px;opacity:.1;margin-top:-50px}
+.lv-ded-txt{margin-left:auto;max-width:62%;text-align:right;padding:56px 30px 0 0}
+.lv-ded-txt p{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:13.5px;line-height:1.9;color:#3f3a34;margin:0 0 13px}
+.lv-ded-txt .lv-ded-vs{font-style:normal;font-size:10px;color:#8a7355;margin-top:18px;line-height:1.7}
+.lv-ded-txt .lv-ded-vs b{color:#b8860b}
+.lv-vs{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:9.5px;color:#a8a29e;text-align:center;margin:-2px 0 10px}
+.lv-sub{text-align:right;font-family:'EB Garamond',Georgia,serif;font-size:10.5px;font-weight:700;color:#78716c;border-top:1px dashed #e7e5e4;padding-top:3px;margin:3px 0 10px}
+.lv-sub b{color:#92400e}
+.lv-pg{color:#a8a29e;font-size:8.5px}
 .lv-agrad{margin-top:20px;padding-top:14px;border-top:1px solid #ece5d3;text-align:center}
 .lv-agrad-t{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:#a5853a;font-weight:800;margin:0 0 8px}
 .lv-agrad-txt{font-family:'EB Garamond',Georgia,serif;font-size:12px;line-height:1.7;color:#44403c;margin:0 auto 8px}
@@ -4622,7 +4635,7 @@ async function _livroColetar(){
 }
 const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
 
-function _livroCapituloHtml(cap, mesLabel, seloSrc){
+function _livroCapituloHtml(cap, mesLabel, seloSrc, idx){
   const linhas = cap.grupos.map(g => `
     <p class="lv-cong">${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
     <table class="lv-tb"><tbody>
@@ -4630,8 +4643,9 @@ function _livroCapituloHtml(cap, mesLabel, seloSrc){
         <td><b>${esc(r.nome)}</b>${mesLabel === 'anual' ? `<span class="lv-mut"> · ${esc(r.semana.replace('Semana ', ''))}ª sem</span>` : ''}${r.itin ? `<span class="lv-mut"> · →${esc(r.itin)}</span>` : ''}</td>
         <td class="lv-val">${moeda(r.valor)}${r.canal ? `<span class="lv-canal ${cf(r.canal).includes('pix') ? 'pix' : ''}">${esc(r.canal)}</span>` : ''}</td>
       </tr>`).join('')}
-    </tbody></table>`).join('');
-  return `<div class="lv-cap"><span><i class="fa-solid fa-bookmark" style="margin-right:4px"></i>${esc(cap.titulo)}${mesLabel && mesLabel !== 'anual' ? ` · ${esc(mesLabel)}` : ''}</span><small>${cap.qtd} lanç. · ${moeda(cap.total)}</small></div>${linhas}`;
+    </tbody></table>
+    <div class="lv-sub">Subtotal — ${esc(g.cong)}: <b>${moeda(g.lista.reduce((a, r) => a + (r.valor || 0), 0))}</b></div>`).join('');
+  return `<div class="lv-cap" id="lv-cap-${idx}"><span><i class="fa-solid fa-bookmark" style="margin-right:4px"></i>${esc(cap.titulo)}${mesLabel && mesLabel !== 'anual' ? ` · ${esc(mesLabel)}` : ''}</span><small>${cap.qtd} lanç. · ${moeda(cap.total)}</small></div>${linhas}`;
 }
 
 function _livroHtml(d, opts = {}){
@@ -4645,7 +4659,7 @@ function _livroHtml(d, opts = {}){
   const sumario = d.capitulos.map((cap, i) => `
     <div class="lv-stat" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <b>Capítulo ${i + 1} — ${esc(cap.titulo)}</b>
-      <span class="lv-val">${cap.qtd} lanç. · ${moeda(cap.total)}</span>
+      <span class="lv-val">${cap.qtd} lanç. · ${moeda(cap.total)} · <span class="lv-pg" id="lvpg-${i}"></span></span>
     </div>`).join('');
 
   /* estatísticas */
@@ -4672,7 +4686,7 @@ function _livroHtml(d, opts = {}){
       <p><span class="lv-per">${esc(periodoTxt)}</span></p>
     </div>
     <div class="lv-conteudo">
-      <div class="lv-wm"><b>Ml 3:10</b><b>Ml 3:10</b></div>
+      <div class="lv-wm"><b>Ml 3:10</b><b>Lc 6:38</b></div>
       <div class="lv-sec lv-pag lv-est">
         <p class="lv-est-t">O Poder da Obra Missionária</p>
         <p class="lv-est-s">O dízimo e a expansão do Reino de Deus na terra</p>
@@ -4680,10 +4694,14 @@ function _livroHtml(d, opts = {}){
         <p class="lv-est-txt">Cada lançamento registrado neste livro tem um destino maior do que os números: é combustível da expansão do Reino. Pela fidelidade dos dizimistas, a <b>AD Brasil</b> mantém templos, forma obreiros e envia missionários. Em <b>Roraima</b>, a obra avança pelos vicinais, pelas <b>terras indígenas</b> e pelo <b>Baixo Rio Branco</b> — e ultrapassa fronteiras, alcançando <b>Moçambique</b>, <b>Colômbia</b>, <b>Venezuela</b> e <b>Guiana</b>. Assim o dízimo cumpre a lei da semeadura (Gl 6:7): recursos materiais convertem-se em colheita espiritual — templos levantados, famílias alcançadas e o evangelho pregado onde antes não havia mensageiro.</p>
         <p class="lv-est-txt">Por isso, este livro não é apenas um registro contábil: é um testemunho de fidelidade. Cada nome aqui escrito cooperou para que a obra missionária avançasse da nossa cidade até os confins da terra. <b>"O que semeia generosamente, generosamente também colherá" (2 Co 9:6).</b> Que a fidelidade de hoje seja a expansão de amanhã — para a glória de Deus e o crescimento do Seu Reino.</p>
         <p class="lv-est-ref">Ml 3:10 · Gl 6:7 · 2 Co 9:6</p>
-        <div class="lv-agrad">
-          <p class="lv-agrad-t">Agradecimento</p>
-          <p class="lv-agrad-txt">As informações contidas neste livro só foram possíveis graças ao esforço e ao trabalho de cada tesoureiro, líder de congregação e auxiliar — irmãos que dedicam um momento do seu tempo para organizar, contar, se deslocar e, acima de tudo, orar pela obra. Obrigado pelo carinho e pelo amor. Que Deus vos recompense.</p>
-          <p class="lv-agrad-vs">"Porque Deus não é injusto para se esquecer da vossa obra e do trabalho do amor que, em seu nome, mostrastes aos santos."<br><b>— Hebreus 6:10</b></p>
+      </div>
+      <div class="lv-pag lv-ded">
+        <div class="lv-ded-mark"><i class="fa-solid fa-globe lv-ded-globe"></i><i class="fa-solid fa-hands lv-ded-hands"></i></div>
+        <div class="lv-ded-txt">
+          <p>As páginas deste livro guardam mais do que nomes e valores: guardam o trabalho silencioso de quem serve a Deus sem aparecer.</p>
+          <p>Cada lançamento aqui registrado passou pelas mãos de tesoureiros, líderes de congregação e auxiliares — irmãos e irmãs que dedicam um momento do seu tempo para organizar, conferir, contar e se deslocar, muitas vezes depois de um dia inteiro de labuta, e que ainda encontram forças para orar pela obra.</p>
+          <p>Aos dizimistas, que sustentam fielmente a casa do Senhor, e a estes servos que fazem a engrenagem girar longe dos holofotes: obrigado pelo carinho, pelo cuidado e pelo amor. Que Deus vos recompense grandemente.</p>
+          <p class="lv-ded-vs">"Porque Deus não é injusto para se esquecer da vossa obra e do trabalho do amor que, em seu nome, mostrastes aos santos."<br><b>— Hebreus 6:10</b></p>
         </div>
       </div>
       <div class="lv-pag">
@@ -4691,6 +4709,7 @@ function _livroHtml(d, opts = {}){
         ${timb}
         <p class="lv-cab-sub">Livro de Dizimistas · Registro oficial · ${esc(periodoTxt)}</p>
       </div>
+      <p class="lv-vs">"Honra ao Senhor com os teus bens e com as primícias de toda a tua renda." — Pv 3:9</p>
       <div class="lv-kpis">
         <div class="lv-kpi"><b>${d.qtd}</b><span>Lançamentos</span></div>
         <div class="lv-kpi"><b>${d.dizimistas}</b><span>Dizimistas</span></div>
@@ -4702,12 +4721,14 @@ function _livroHtml(d, opts = {}){
         ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
       </div>
       </div>
-      <div class="lv-sec lv-pag">
+      <div class="lv-sec lv-pag lv-det">
+        <p class="lv-vs">"Cada um contribua segundo propôs no seu coração; não com tristeza, nem por necessidade, porque Deus ama ao que dá com alegria." — 2 Co 9:7</p>
         <p class="lv-h"><i class="fa-solid fa-book-open"></i>Detalhamento</p>
         <div class="lv-inst"><b>Como ler este livro</b><br>Os registros estão organizados em capítulos, por mês. Cada lançamento identifica o dizimista, a semana da contribuição e o canal (Espécie · Pix · Misto). A marca "→" indica congregação de destino diferente do cadastro do membro. Os consolidados por capítulo, conselho, congregação e canal estão no Sumário e nas Estatísticas.</div>
-        ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual', opts.seloSrc)).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
+        ${d.capitulos.map((cap, i) => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual', opts.seloSrc, i)).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
       </div>
-      <div class="lv-sec">
+      <div class="lv-sec lv-pag">
+        <p class="lv-vs">"Tudo quanto fizerdes, fazei-o de todo o coração, como ao Senhor, e não aos homens." — Cl 3:23</p>
         <p class="lv-h"><i class="fa-solid fa-chart-pie"></i>Estatísticas</p>
         <p class="lv-mut" style="text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin:6px 0 4px">Por conselho</p>
         <table class="lv-tb"><tbody>${consRows}</tbody></table>
@@ -4795,12 +4816,49 @@ window.livroGerar = async function(){
     L.dados = d; L.codigo = codigo;
     L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc, logoSrc, seloSrc: logoSrc });
     doc.innerHTML = L.doc;
+    _livroMedirPaginas();
     _livroAcoes();
     if (!d.qtd) toast('Nenhum lançamento encontrado no período.');
   } catch(e){
     doc.innerHTML = `<p class="text-center text-xs text-red-500 py-10">${esc(e.message || 'Falha ao montar o livro.')}</p>`;
   }
 };
+
+function _livroMedirPaginas(){
+  const L = F.livro; if (!L.doc) return;
+  const PAG_BASE = 4;
+  const H = 277 * 96 / 25.4;
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;height:1046px;border:none;';
+  document.body.appendChild(fr);
+  const d2 = fr.contentDocument;
+  d2.open();
+  d2.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + _livroCss() + 'body{margin:0}.lv-doc{max-width:none}.lv-pag{border-top:none}</style></head><body>' + L.doc + '</body></html>');
+  d2.close();
+  const medir = () => {
+    if (!fr.parentNode) return;
+    try {
+      const det = d2.querySelector('.lv-det');
+      if (!det) return;
+      const mapa = {};
+      d2.querySelectorAll('.lv-cap[id^="lv-cap-"]').forEach(el => {
+        const rel = el.getBoundingClientRect().top - det.getBoundingClientRect().top;
+        let pg = PAG_BASE + 1 + Math.floor(rel / H);
+        if (rel % H > H - 46) pg += 1;
+        mapa['lvpg-' + el.id.replace('lv-cap-', '')] = pg;
+      });
+      let docHtml = L.doc;
+      Object.keys(mapa).forEach(id => {
+        docHtml = docHtml.replace(new RegExp('(<span class="lv-pg" id="' + id + '">)[^<]*</span>'), '$1pág. ' + mapa[id] + '</span>');
+        const sp = document.getElementById(id);
+        if (sp) sp.textContent = 'pág. ' + mapa[id];
+      });
+      L.doc = docHtml;
+    } catch (e) {} finally { fr.remove(); }
+  };
+  setTimeout(medir, 400);
+  if (d2.fonts && d2.fonts.ready) d2.fonts.ready.then(() => setTimeout(medir, 30)).catch(() => {});
+}
 
 window.livroExportar = function(){
   const L = F.livro; if (!L.doc){ toast('Gere o livro primeiro.'); return; }
