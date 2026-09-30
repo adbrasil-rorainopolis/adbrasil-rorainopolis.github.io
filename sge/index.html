@@ -321,9 +321,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.172'); toast('Versão copiada: v1.172')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.173'); toast('Versão copiada: v1.173')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.172</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.173</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -657,6 +657,21 @@
           <i class="fa-solid fa-circle-nodes text-sm" style="color: var(--color-primary);"></i>
           <span class="text-[10px] font-semibold" style="color: var(--text-main);">Malha</span>
           <i class="fa-solid fa-check text-[9px] fundo-check hidden" data-fundo="malha" style="color: var(--color-primary);"></i>
+        </button>
+        <button type="button" onclick="aplicarFundo('brasas')" class="rounded-xl border px-2 py-2.5 flex flex-col items-center gap-1.5 cursor-pointer" style="background: var(--bg-input); border-color: var(--border-color);">
+          <i class="fa-solid fa-fire-flame-curved text-sm" style="color: var(--color-primary);"></i>
+          <span class="text-[10px] font-semibold" style="color: var(--text-main);">Brasas</span>
+          <i class="fa-solid fa-check text-[9px] fundo-check hidden" data-fundo="brasas" style="color: var(--color-primary);"></i>
+        </button>
+        <button type="button" onclick="aplicarFundo('chuva')" class="rounded-xl border px-2 py-2.5 flex flex-col items-center gap-1.5 cursor-pointer" style="background: var(--bg-input); border-color: var(--border-color);">
+          <i class="fa-solid fa-meteor text-sm" style="color: var(--color-primary);"></i>
+          <span class="text-[10px] font-semibold" style="color: var(--text-main);">Chuva</span>
+          <i class="fa-solid fa-check text-[9px] fundo-check hidden" data-fundo="chuva" style="color: var(--color-primary);"></i>
+        </button>
+        <button type="button" onclick="aplicarFundo('cordas')" class="rounded-xl border px-2 py-2.5 flex flex-col items-center gap-1.5 cursor-pointer" style="background: var(--bg-input); border-color: var(--border-color);">
+          <i class="fa-solid fa-wave-square text-sm" style="color: var(--color-primary);"></i>
+          <span class="text-[10px] font-semibold" style="color: var(--text-main);">Cordas</span>
+          <i class="fa-solid fa-check text-[9px] fundo-check hidden" data-fundo="cordas" style="color: var(--color-primary);"></i>
         </button>
       </div>
     </div>
@@ -1179,7 +1194,7 @@ function fecharModalTema(){
   const m = $('modal-tema'); m.classList.add('hidden'); m.classList.remove('flex');
 }
 /* ---------- fundo animado (mesma chave do desktop) ---------- */
-const NOMES_FUNDO = { linhas: 'Linhas', estrelas: 'Estrelas', malha: 'Malha' };
+const NOMES_FUNDO = { linhas: 'Linhas', estrelas: 'Estrelas', malha: 'Malha', brasas: 'Brasas', chuva: 'Chuva de luz', cordas: 'Cordas' };
 function aplicarFundo(modo){
   if (!NOMES_FUNDO[modo]) modo = 'linhas';
   localStorage.setItem('sge_bg_motion', modo);
@@ -1431,11 +1446,71 @@ document.addEventListener('click', (e) => {
     }
   }
 
+  function dBrasas(rgb){
+    if (!cenario || cenario.tipo !== 'brasas'){
+      const n = Math.max(20, Math.round(W * H / (26000 * DPR * DPR)));
+      const pts = [];
+      for (let i = 0; i < n; i++) pts.push({ x: Math.random()*W, y: Math.random()*H, v: (0.18+Math.random()*0.45)*DPR, w: (0.5+Math.random()*1.1)*DPR, f: Math.random()*6.28, sway: (6+Math.random()*12)*DPR });
+      cenario = { tipo:'brasas', pts };
+    }
+    for (const p of cenario.pts){
+      p.y -= p.v; if (p.y < -8*DPR){ p.y = H + 8*DPR; p.x = Math.random()*W; }
+      const tw = 0.3 + 0.7*Math.abs(Math.sin(t*1.15 + p.f));
+      const x = p.x + Math.sin(t*0.42 + p.f)*p.sway;
+      ctx.beginPath(); ctx.arc(x, p.y, p.w, 0, 6.28);
+      ctx.fillStyle = `rgba(${rgb},${0.30*tw})`; ctx.fill();
+      if (p.w > 1.05*DPR){ ctx.beginPath(); ctx.arc(x, p.y, p.w*3, 0, 6.28); ctx.fillStyle = `rgba(${rgb},${0.04*tw})`; ctx.fill(); }
+    }
+  }
+
+  function dChuva(rgb){
+    if (!cenario || cenario.tipo !== 'chuva'){
+      const n = Math.max(25, Math.round(W * H / (30000 * DPR * DPR)));
+      const pts = [];
+      for (let i = 0; i < n; i++) pts.push({ x: Math.random()*W, y: Math.random()*H, v: (2+Math.random()*3.2)*DPR, len: (0.05+Math.random()*0.08)*H, w: (0.5+Math.random()*0.7)*DPR });
+      cenario = { tipo:'chuva', pts };
+    }
+    for (const p of cenario.pts){
+      p.y += p.v; p.x += p.v*0.18;
+      if (p.y > H*1.05){ p.y = -p.len; p.x = Math.random()*W*1.1 - W*0.05; }
+      const g = ctx.createLinearGradient(p.x, p.y, p.x - p.len*0.18, p.y - p.len);
+      g.addColorStop(0, `rgba(${rgb},0.5)`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.strokeStyle = g; ctx.lineWidth = p.w;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.len*0.18, p.y - p.len); ctx.stroke();
+    }
+  }
+
+  function dCordas(rgb){
+    const N = 7;
+    for (let k = 0; k < N; k++){
+      const base = H*(0.18 + k*0.107);
+      const amp = (5 + 7*Math.abs(Math.sin(k*1.7)))*DPR;
+      const fr = (Math.PI*2*(1.6 + k*0.35))/W;
+      const vel = t*(0.5 + k*0.13);
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 3*DPR){
+        const y = base + Math.sin(x*fr + vel)*amp + Math.sin(x*fr*2 + vel*1.9)*amp*0.4 + Math.sin(x*fr*3 + vel*2.7)*amp*0.18;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(${rgb},${0.08 + (k%3 === 0 ? 0.05 : 0)})`;
+      ctx.lineWidth = 0.8*DPR;
+      ctx.stroke();
+      for (let x = W*0.12; x < W; x += W*0.19){
+        const y = base + Math.sin(x*fr + vel)*amp + Math.sin(x*fr*2 + vel*1.9)*amp*0.4;
+        ctx.beginPath(); ctx.arc(x, y, 1.1*DPR, 0, 6.28);
+        ctx.fillStyle = `rgba(${rgb},0.18)`; ctx.fill();
+      }
+    }
+  }
+
   function desenha(){
     ctx.clearRect(0, 0, W, H);
     const rgb = linhasRGB();
     if (modo === 'estrelas') dEstrelas(rgb);
     else if (modo === 'malha') dMalha(rgb);
+    else if (modo === 'brasas') dBrasas(rgb);
+    else if (modo === 'chuva') dChuva(rgb);
+    else if (modo === 'cordas') dCordas(rgb);
     else dLinhas(rgb);
     t += 0.008;
     requestAnimationFrame(desenha);

@@ -1065,7 +1065,16 @@ const RC_CATS = [
     'Oferta do Culto da UMAD', 'Culto do Diaconato', 'Culto do Instrumental', 'Culto da Família',
     'Culto da EBD', 'Culto dos Senhores', 'Culto do Amigo', 'Culto das Crianças', 'Culto Público', 'Outros'] },
   { id: 'SAIDAS', rotulo: 'Saídas', titulo: 'SAÍDAS', saida: true },
+  { id: 'CANCELADO', rotulo: 'Cancelado', titulo: 'CANCELADO', cancelado: true },
 ];
+/* Select de lançamento agrupado: Entradas (5 contas) / Saídas / Outros (Cancelado) */
+function rcCatOptsHTML(val){
+  const opt = c => `<option value="${esc(c.id)}" ${c.id === val ? 'selected' : ''}>${esc(c.rotulo)}</option>`;
+  return `<optgroup label="Entradas">${RC_CATS.filter(c => !c.saida && !c.cancelado).map(opt).join('')}</optgroup>`
+       + `<optgroup label="Saídas">${RC_CATS.filter(c => c.saida).map(opt).join('')}</optgroup>`
+       + `<optgroup label="Outros">${RC_CATS.filter(c => c.cancelado).map(opt).join('')}</optgroup>`;
+}
+const selCat = (id, val, onchange) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${rcCatOptsHTML(val)}</select>`;
 /* Tipos de saída padronizados — 'Outros' fixo no topo habilita descrição livre;
    o restante sai em ordem alfabética. */
 const RC_SAIDAS_SUBS = ['Outros', ...[
@@ -1264,8 +1273,8 @@ function rcRenderTela(){
         <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
           <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
           <div class="grid grid-cols-2 gap-2">
-            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
-              ${selF('rcm-cat', RC_CATS.map(c => [c.id, c.rotulo]), F.rcCat || 'OFERTA ORDINARIA', 'rcmMudarCategoria()')}</div>
+            <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Lançamentos</span>
+              ${selCat('rcm-cat', F.rcCat || 'OFERTA ORDINARIA', 'rcmMudarCategoria()')}</div>
             <div class="col-span-2" id="rcm-sub-slot"></div>
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
@@ -1341,7 +1350,7 @@ function rcRenderTela(){
               <div class="space-y-1.5 opacity-80">
                 <p><b>1.</b> <b>Congregação</b> — de quem é a prestação (o tesoureiro já vem com a dele travada).</p>
                 <p><b>2.</b> <b>Data da Prestação</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o NOVO já sugere).</p>
-                <p><b>3.</b> <b>Tipo de entrada</b> — dízimo, oferta ordinária, missionária, círculo de oração, domingo à noite ou saída.</p>
+                <p><b>3.</b> <b>Lançamentos</b> — agrupados em Entradas (dízimo, oferta ordinária, missionária, círculo de oração, domingo à noite), Saídas ou Cancelado (registra recibo anulado com valor zero).</p>
                 <p><b>4.</b> <b>Detalhe</b> — a oferta específica ou o nome do dizimista (com sugestão dos membros).</p>
                 <p><b>5.</b> <b>Forma de pagamento</b> — Espécie ou Pix.</p>
                 <p><b>6.</b> <b>Recibo e Valor</b> — número do recibo e valor com máscara de moeda. Depois toque em <b>+ Adicionar lançamento</b>.</p>
@@ -1459,6 +1468,8 @@ window.rcmMudarCategoria = function(p){
   const slot = el(`rcm-${pre}sub-slot`); if (!slot) return;
   const r = el(`rcm-${pre}recibo`);
   if (r){ r.disabled = !!cat.saida; if (cat.saida) r.value = ''; r.placeholder = cat.saida ? 'N/A (Saída)' : 'Nº Recibo'; }
+  const v = el(`rcm-${pre}valor`);
+  if (v){ v.disabled = !!cat.cancelado; if (cat.cancelado) v.value = ''; v.placeholder = cat.cancelado ? 'R$ 0,00 (automático)' : 'R$ 0,00'; }
   const cssI = 'w-full px-2 py-2 rounded-lg border text-xs';
   const cssS = 'background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)';
   if (cat.dizimo){
@@ -1466,6 +1477,8 @@ window.rcmMudarCategoria = function(p){
       <input id="rcm-${pre}irmao" readonly onclick="rcmAbrirIrmao('${pre}')" placeholder="Toque para selecionar o dizimista" autocomplete="off" class="${cssI} cursor-pointer" style="${cssS}">
       <p class="text-[9px] opacity-50 mt-1">Obrigatório — toque para escolher na lista oficial da congregação.</p>`;
     rcmPopularIrmaos(pre);
+  } else if (cat.cancelado){
+    slot.innerHTML = `<div class="rounded-lg border px-2.5 py-2 text-[10px]" style="border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:var(--text-muted)"><i class="fa-solid fa-ban mr-1" style="color:#f59e0b"></i>Anula um recibo: descrição <b>"Cancelado"</b> e valor <b>R$ 0,00</b> automáticos.</div>`;
   } else if (cat.saida){
     slot.innerHTML = `<span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de saída *</span>
       ${selF(`rcm-${pre}sub`, RC_SAIDAS_SUBS.map(s => [s, s === 'Outros' ? '✏️ Outros — não encontrou? Clique e descreva manualmente' : s]), null, `rcmMudarSub('${pre}')`)}
@@ -1590,6 +1603,10 @@ function rcmLerForm(p){
   const recibo = String(el(`rcm-${p}recibo`)?.value || '').trim();
   const valor = rcmValorNum(el(`rcm-${p}valor`)?.value);
   let descricao = '';
+  if (cat.cancelado){
+    if (!recibo) return { erro: 'Informe o número do recibo cancelado.' };
+    return { tipo: cat.id + (forma === 'PIX' ? ' - TB' : ''), recibo, descricao: 'Cancelado', valor: 0, saida: false };
+  }
   if (cat.dizimo){
     const nome = String(el(`rcm-${p}irmao`)?.value || '').trim();
     if (!nome) return { erro: 'Informe o nome do dizimista.' };
@@ -1623,7 +1640,7 @@ window.rcmAdicionar = function(){
   if (trv){ toast(trv); rcmAvisoSemana(); return; }
   const l = rcmLerForm('');
   if (l.erro){ toast(l.erro); return; }
-  if (!l.saida && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
+  if (!l.saida && !l.tipo.startsWith('CANCELADO') && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return; }
   RC.lancamentos.push({ tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor });
   rcmMarcarSujo();
   ['rcm-valor','rcm-recibo','rcm-outros','rcm-irmao','rcm-descricao'].forEach(id => { const x = el(id); if (x) x.value = ''; });
@@ -1737,8 +1754,8 @@ window.rcmEditar = function(i){
             <button onclick="document.getElementById('rcm-edita').remove()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="space-y-2.5">
-            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo de entrada</span>
-              ${selF('rcm-ed-cat', RC_CATS.map(c => [c.id, c.rotulo]), (rcCatDeTipo(it.tipo) || RC_CATS[0]).id, "rcmMudarCategoria('ed-')")}</div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Lançamentos</span>
+              ${selCat('rcm-ed-cat', (rcCatDeTipo(it.tipo) || RC_CATS[0]).id, "rcmMudarCategoria('ed-')")}</div>
             <div id="rcm-ed-sub-slot"></div>
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de pagamento</span>
               <div class="grid grid-cols-2 gap-1 p-1 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">

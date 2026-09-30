@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prévia — Livro de Dizimistas (modelo escolhido)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#e8e6e0;font-family:'Plus Jakarta Sans',sans-serif;padding-bottom:60px}
+.barra{position:sticky;top:0;z-index:50;background:#1c1917;color:#e7e5e4;padding:10px 14px;font-size:11px;letter-spacing:.05em}
+
+/* folha simulando A4 — cada .folha é uma página impressa */
+.folha{max-width:520px;margin:22px auto;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.18);border-radius:6px;position:relative;overflow:hidden;min-height:700px;font-family:'Plus Jakarta Sans',sans-serif;color:#1c1917;border-top:7px solid #c9a227}
+.folha.interna{padding-left:52px;border-top-width:4px}
+
+/* marca d'água no recuo — só a referência, duas por folha */
+.wm{position:absolute;left:10px;top:0;bottom:0;width:30px;pointer-events:none;user-select:none}
+.wm b{position:absolute;left:50%;transform:translateX(-50%) rotate(180deg);writing-mode:vertical-rl;font-size:8.5px;letter-spacing:.26em;color:#b8912a;opacity:.34;font-weight:800;text-transform:uppercase;white-space:nowrap}
+.wm b:nth-child(1){top:14%}
+.wm b:nth-child(2){bottom:14%}
+
+/* ---------- CAPA ---------- */
+.capa{min-height:640px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px;position:relative}
+.capa:before{content:'';position:absolute;inset:12px;border:1px solid #ece5d3;border-radius:10px;pointer-events:none}
+.capa-logo{max-width:150px;display:block;margin-bottom:26px}
+.capa-ig{font-size:9px;letter-spacing:.24em;font-weight:800;color:#a5853a;text-transform:uppercase;margin-bottom:14px}
+.capa-titulo{font-family:'Cinzel',serif;font-size:26px;font-weight:900;color:#1c1917;letter-spacing:.04em;text-transform:uppercase;line-height:1.25}
+.capa-titulo em{font-style:normal;color:#b8860b}
+.capa-msg{font-family:Georgia,serif;font-style:italic;font-size:12.5px;color:#57534e;line-height:1.7;max-width:330px;margin-top:18px}
+.capa-per{margin-top:22px;font-size:12px;font-weight:800;color:#fff;background:#b8860b;padding:5px 16px;border-radius:999px;letter-spacing:.06em}
+.capa-orn{display:flex;align-items:center;gap:8px;margin-top:22px;width:180px}
+.capa-orn i{color:#c9a227;font-size:8px}
+.capa-orn:before,.capa-orn:after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,#c9a227)}
+.capa-orn:after{background:linear-gradient(90deg,#c9a227,transparent)}
+
+/* ---------- conteúdo ---------- */
+.cab{padding:16px 18px 6px;text-align:center}
+.cab .timb{max-width:400px;max-height:96px;object-fit:contain;display:block;margin:0 auto}
+.cab .cab-sub{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#a5853a;font-weight:800;margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:6px 18px 10px}
+.kpi{border:1px solid #e7e5e4;border-radius:10px;padding:7px 4px;text-align:center}
+.kpi b{display:block;font-size:12px;color:#b8860b;font-variant-numeric:tabular-nums}
+.kpi span{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:#a8a29e}
+.sec{padding:6px 18px 10px 10px}
+.h{font-size:10.5px;font-weight:800;color:#1c1917;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.h i{color:#b8860b;font-size:10px}
+.h:after{content:'';flex:1;height:1px;background:#e7e5e4}
+.cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10.5px;font-weight:800;color:#1c1917;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px;padding:5px 0 5px 9px;border-left:4px solid #c9a227;background:linear-gradient(90deg,#fafaf9,transparent)}
+.cap small{font-weight:600;font-size:8.5px;color:#78716c}
+.cong{font-size:9.5px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px}
+.cong small{font-weight:500;color:#a8a29e;text-transform:none;letter-spacing:0}
+table.tb{width:100%;border-collapse:collapse;font-size:9.5px}
+.tb td{padding:4.5px 4px;border-bottom:1px solid #f5f5f4;vertical-align:top}
+.tb tr:nth-child(even) td{background:#fdfcf9}
+.val{font-weight:800;color:#1c1917;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.canal{display:inline-block;font-size:6.5px;font-weight:800;padding:1px 5px;border-radius:4px;background:#fef3c7;color:#92400e;margin-left:4px}
+.canal.pix{background:#e0f2fe;color:#0369a1}
+.stat{border:1px solid #e7e5e4;border-radius:8px;padding:7px 10px;font-size:9.5px;margin-bottom:5px;display:flex;justify-content:space-between;background:#fafaf9}
+.stat b{color:#1c1917}
+.mut{font-size:8.5px;color:#a8a29e}
+/* última folha: QR centralizado */
+.final{text-align:center;padding:24px 18px 14px}
+.final svg{width:92px;height:92px;border:1px solid #d6d3d1;border-radius:10px;padding:5px;background:#fff}
+.final code{display:block;font-size:8.5px;color:#78716c;margin-top:6px;letter-spacing:.08em}
+.final p{font-size:8px;color:#a8a29e;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin-top:2px}
+.rod{font-size:8px;color:#a8a29e;text-align:center;padding:10px 14px 16px;letter-spacing:.05em;border-top:1px solid #e7e5e4}
+.num-pag{position:absolute;bottom:8px;right:14px;font-size:8px;color:#a8a29e;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<div class="barra">PRÉVIA — folhas A4 simuladas · marca d'água = só "Ml 3:10" (2× por página) · QR na última página centralizado · recuo p/ perfuração</div>
+<div id="livro"></div>
+
+<script>
+function qr(seed){let s='';for(let i=0;i<121;i++){const x=i%11,y=(i/11)|0;const canto=(x<3&&y<3)||(x>7&&y<3)||(x<3&&y>7);const on=canto?((x===0||x===2||x===8||x===10||y===0||y===2||y===8||y===10)&&1):((i*7+seed*13)%5<2);s+=`<rect x="${x*7}" y="${y*7}" width="7" height="7" fill="${on?'#1a1a1a':'#fff'}"/>`}return `<svg viewBox="0 0 77 77">${s}</svg>`}
+
+const DADOS={periodo:'Março / 2026',qtd:34,dizimistas:21,total:'R$ 9.812,00',
+capitulos:[
+ {t:'1ª SEMANA · MARÇO/2026',q:'11 lanç. · R$ 3.180,00',grupos:[
+  {c:'Sede',con:'Conselho 1',rows:[['Ana Beatriz Lima','R$ 350,00','PIX/TB'],['Carlos Eduardo Souza','R$ 280,00','Espécie'],['Débora Cristina Alves','R$ 190,00','Espécie'],['Elias Barbosa Neto','R$ 300,00','PIX/TB'],['Francisca Paula Mota','R$ 140,00','Espécie']]},
+  {c:'Cidade Nova',con:'Conselho 1',rows:[['Gerson Almeida','R$ 210,00','Espécie'],['Helena Duarte','R$ 175,00','PIX/TB']]},
+  {c:'Monte Sião',con:'Conselho 2',rows:[['Maria José Santos','R$ 420,00','PIX/TB'],['Pedro Henrique Ramos','R$ 155,00','Espécie'],['Igor Matheus Pires','R$ 260,00','PIX/TB']]}]},
+ {t:'2ª SEMANA · MARÇO/2026',q:'9 lanç. · R$ 2.430,00',grupos:[
+  {c:'Sede',con:'Conselho 1',rows:[['João Marcos Vieira','R$ 380,00','PIX/TB'],['Ketlin Souza Prado','R$ 160,00','Espécie'],['Laura Beatriz Nunes','R$ 220,00','Espécie']]},
+  {c:'Novo Horizonte',con:'Conselho 4',rows:[['Marcos Vinícius Reis','R$ 310,00','PIX/TB'],['Jardim Floresta — coleta','R$ 190,00','Espécie']]},
+  {c:'Rosa de Saron',con:'Conselho 5',rows:[['Nádia Ferreira Lopes','R$ 440,00','PIX/TB'],['Otávio Bernardes','R$ 180,00','Espécie'],['Paula Cristina Melo','R$ 210,00','Misto'],['Queila Souza Brito','R$ 140,00','Espécie']]}]},
+ {t:'4ª SEMANA · MARÇO/2026',q:'14 lanç. · R$ 4.202,00',grupos:[
+  {c:'Sede',con:'Conselho 1',rows:[['Moisés Pereira','R$ 1.202,00','PIX/TB'],['Rute Nascimento','R$ 240,00','Espécie'],['Samuel Ribeiro Costa','R$ 300,00','PIX/TB'],['Talita Moura Andrade','R$ 150,00','Espécie'],['Ulisses Prado Lima','R$ 185,00','Espécie']]},
+  {c:'Monte Sião',con:'Conselho 2',rows:[['Valéria Campos','R$ 330,00','PIX/TB'],['Wesley Antunes','R$ 170,00','Espécie']]},
+  {c:'Novo Éden',con:'Conselho 5',rows:[['Xavier Gonçalves','R$ 290,00','Espécie'],['Yasmin Ferreira','R$ 260,00','PIX/TB']]},
+  {c:'El Dourado',con:'Conselho 5',rows:[['Zuleica Ramos','R$ 195,00','Espécie'],['Anderson Vilela','R$ 220,00','PIX/TB'],['Beatriz Nogueira','R$ 160,00','Espécie']]}]}],
+stats:[['Conselho 1','R$ 4.922,00','50,2%'],['Conselho 2','R$ 1.775,00','18,1%'],['Conselho 4','R$ 500,00','5,1%'],['Conselho 5','R$ 2.615,00','26,6%']]};
+
+const WM='<div class="wm"><b>Ml 3:10</b><b>Ml 3:10</b></div>';
+
+const capa=`<div class="folha"><div class="capa">
+  <img class="capa-logo" src="icons/logo_ad_brasil.png">
+  <p class="capa-ig">Assembleia de Deus · AD Brasil · Rorainópolis — RR</p>
+  <h2 class="capa-titulo">Livro de <em>Dizimistas</em></h2>
+  <p class="capa-msg">"Neste livro constam os irmãos que contribuíram de forma generosa para a continuidade desta obra."</p>
+  <div class="capa-orn"><i class="fa-solid fa-cross"></i></div>
+  <span class="capa-per">${DADOS.periodo}</span>
+</div><span class="num-pag">1</span></div>`;
+
+const sum=DADOS.capitulos.map((c,i)=>`<div class="stat"><b>Capítulo ${i+1} — ${c.t.split('·')[0].trim()}</b><span class="val">${c.q}</span></div>`).join('');
+
+function capHtml(c){return `<div class="cap"><span><i class="fa-solid fa-bookmark" style="margin-right:4px"></i>${c.t}</span><small>${c.q}</small></div>`+
+  c.grupos.map(g=>`<p class="cong"><i class="fa-solid fa-church" style="font-size:8px;margin-right:2px"></i>${g.c} <small>· ${g.con}</small></p>
+    <table class="tb"><tbody>${g.rows.map(r=>`<tr><td><b>${r[0]}</b></td><td class="val">${r[1]}<span class="canal ${r[2].includes('PIX')?'pix':''}">${r[2]}</span></td></tr>`).join('')}</tbody></table>`).join('')}
+
+const stats=DADOS.stats.map(s=>`<div class="stat"><b>${s[0]}</b><span class="val">${s[1]} · ${s[2]}</span></div>`).join('');
+
+/* página 2: cabeçalho + KPIs + sumário + início do detalhamento */
+const folha2=`<div class="folha interna">${WM}
+  <div class="cab">
+    <img class="timb" src="icons/cabecalho_ad_brasil.png">
+    <p class="cab-sub">Livro de Dizimistas · Registro oficial · ${DADOS.periodo}</p>
+  </div>
+  <div class="kpis"><div class="kpi"><b>${DADOS.qtd}</b><span>Lançamentos</span></div><div class="kpi"><b>${DADOS.dizimistas}</b><span>Dizimistas</span></div><div class="kpi"><b>${DADOS.total}</b><span>Total</span></div></div>
+  <div class="sec"><p class="h"><i class="fa-solid fa-list"></i> Sumário</p>${sum}</div>
+  <div class="sec"><p class="h"><i class="fa-solid fa-book-open"></i> Detalhamento</p>${capHtml(DADOS.capitulos[0])}</div>
+<span class="num-pag">2</span></div>`;
+
+/* página 3: continuação do detalhamento */
+const folha3=`<div class="folha interna">${WM}
+  <div class="sec" style="padding-top:14px">${capHtml(DADOS.capitulos[1])}${capHtml(DADOS.capitulos[2])}</div>
+<span class="num-pag">3</span></div>`;
+
+/* página 4: estatísticas + QR centralizado + rodapé */
+const folha4=`<div class="folha interna">${WM}
+  <div class="sec" style="padding-top:14px"><p class="h"><i class="fa-solid fa-chart-pie"></i> Estatísticas</p>${stats}</div>
+  <div class="final">${qr(7)}<code>SGE-DZ-2026-03-A4F2</code><p>Autenticidade — verifique em adbrasil-rorainopolis.github.io/sge/verificar.html</p></div>
+  <p class="rod">Livro de Dizimistas · ${DADOS.periodo} · Gerado pelo SGE AD Brasil · Emitido por Tesouraria · 31/03/2026 18:42</p>
+<span class="num-pag">4</span></div>`;
+
+document.getElementById('livro').innerHTML=capa+folha2+folha3+folha4;
+</script>
+</body>
+</html>
