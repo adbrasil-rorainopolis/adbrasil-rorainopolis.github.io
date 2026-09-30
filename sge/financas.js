@@ -3074,15 +3074,27 @@ function _orcColunas(o){
   }
   return o.colunas;
 }
+/* Re-deriva as listas legadas (itens/receitas/reembolsos) a partir das colunas —
+   só pagos e fora da lixeira, igual ao _sincronizar_legado do backend. */
+function _orcSinc(o){
+  const itens = [], receitas = [], reembolsos = [];
+  for (const c of o.colunas || []){
+    if (c.lixeira) continue;
+    const dest = c.tipo === 'receita' ? receitas : (c.tipo === 'reembolso' ? reembolsos : itens);
+    for (const i of c.itens || []){ if (i.pago && !i.lixeira) dest.push(i); }
+  }
+  o.itens = itens; o.receitas = receitas; o.reembolsos = reembolsos;
+}
 function orcTotais(o){
   const ord = (a, b) =>
     String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || ''));
   const itens = [], reembolsos = [], receitas = [];
   let pendente = 0;
   for (const c of _orcColunas(o)){
+    if (c.lixeira) continue;
     const dest = c.tipo === 'receita' ? receitas : (c.tipo === 'reembolso' ? reembolsos : itens);
     const sinal = c.tipo === 'reembolso' ? -1 : 1;
-    for (const i of c.itens){ if (i.pago) dest.push(i); else pendente += sinal * num(i.valor); }
+    for (const i of c.itens){ if (i.lixeira) continue; if (i.pago) dest.push(i); else pendente += sinal * num(i.valor); }
   }
   itens.sort(ord); reembolsos.sort(ord); receitas.sort(ord);
   const total = _orcR2(itens.reduce((a, i) => a + num(i.valor), 0));
@@ -3188,9 +3200,10 @@ function orcRenderDetalhe(){
   };
   const colCard = c => {
     const t = _ORC_TIPOS[c.tipo];
-    const pagoTot = _orcR2(c.itens.filter(i => i.pago).reduce((a, i) => a + num(i.valor), 0));
-    const pend = c.itens.filter(i => !i.pago).length;
-    const linhas = c.itens.map(i => `
+    const its = (c.itens || []).filter(i => !i.lixeira);
+    const pagoTot = _orcR2(its.filter(i => i.pago).reduce((a, i) => a + num(i.valor), 0));
+    const pend = its.filter(i => !i.pago).length;
+    const linhas = its.map(i => `
       <div class="flex items-center gap-2 py-2 border-b last:border-0 ${i.pago ? '' : 'opacity-70'}" style="border-color:var(--border-color)">
         ${check(i)}
         <div class="flex-1 min-w-0">
@@ -3202,7 +3215,7 @@ function orcRenderDetalhe(){
       </div>`).join('');
     return `<div class="border rounded-2xl p-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center gap-1.5 pb-1.5 mb-1 border-b" style="border-color:var(--border-color)">
-        <p class="flex-1 text-[10px] font-extrabold uppercase truncate" style="color:${t.cor}">${esc(c.nome)} <span class="opacity-50 normal-case font-bold">(${c.itens.length})</span></p>
+        <p class="flex-1 text-[10px] font-extrabold uppercase truncate" style="color:${t.cor}">${esc(c.nome)} <span class="opacity-50 normal-case font-bold">(${its.length})</span></p>
         <span class="text-[8px] font-extrabold px-1.5 py-0.5 rounded-full uppercase shrink-0" style="color:${t.cor};background:${t.cor}1c">${t.rot}</span>
         ${fechado ? '' : `<button onclick="orcEditarColuna('${esc(c.id)}')" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)" title="Renomear coluna"><i class="fa-solid fa-pen"></i></button>
         <button onclick="orcRemoverColuna('${esc(c.id)}')" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:rgba(239,68,68,.1);color:#f87171" title="Remover coluna"><i class="fa-solid fa-trash"></i></button>`}
@@ -3215,7 +3228,7 @@ function orcRenderDetalhe(){
     </div>`;
   };
   const pagos = [];
-  for (const c of o.colunas || []) for (const i of c.itens || []) if (i.pago) pagos.push({ ...i, _t: c.tipo, _col: c.nome });
+  for (const c of o.colunas || []){ if (c.lixeira) continue; for (const i of c.itens || []) if (i.pago && !i.lixeira) pagos.push({ ...i, _t: c.tipo, _col: c.nome }); }
   pagos.sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || '')));
   let acum = 0;
   const timeline = pagos.map(l => {
@@ -3281,13 +3294,15 @@ function orcRenderDetalhe(){
         ${o.arquivado
           ? `<button onclick="orcAcao('desarquivar')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><i class="fa-solid fa-box-open mr-2 opacity-60"></i>Desarquivar</button>`
           : `<button onclick="orcAcao('arquivar')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><i class="fa-solid fa-box-archive mr-2 opacity-60"></i>Arquivar</button>`}
+        ${(() => { const n = (o.colunas || []).reduce((a, c) => a + (c.lixeira ? 1 + (c.itens || []).length : (c.itens || []).filter(i => i.lixeira).length), 0);
+          return `<button onclick="orcLixeira()" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:${n ? '#f87171' : 'var(--text-main)'}"><i class="fa-solid fa-trash-can mr-2 opacity-60"></i>Lixeira${n ? ` (${n})` : ''}</button>`; })()}
         ${o.arquivado ? `<button onclick="orcAcao('excluir')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:#f87171"><i class="fa-solid fa-trash mr-2 opacity-60"></i>Excluir evento</button>` : ''}
       </div>
       ${fechado ? '' : `<div class="flex gap-1.5">
         <button onclick="orcLancar()" class="flex-1 py-3 rounded-2xl text-xs font-extrabold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);box-shadow:0 4px 18px rgba(124,58,237,.35)"><i class="fa-solid fa-plus mr-1.5"></i>Novo lançamento</button>
         <button onclick="orcEditarColuna('')" class="w-11 rounded-2xl text-xs font-bold cursor-pointer shrink-0" style="background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color)" title="Nova coluna"><i class="fa-solid fa-table-columns"></i></button>
       </div>`}
-      <div class="space-y-2.5">${(o.colunas || []).map(colCard).join('') || `<p class="text-xs text-center py-8 opacity-60">Sem colunas ainda — toque em <b>+ Novo lançamento</b> ou no botão de colunas.</p>`}</div>
+      <div class="space-y-2.5">${(o.colunas || []).filter(c => !c.lixeira).map(colCard).join('') || `<p class="text-xs text-center py-8 opacity-60">Sem colunas ainda — toque em <b>+ Novo lançamento</b> ou no botão de colunas.</p>`}</div>
       ${pagos.length ? `<div><p class="text-[9px] font-bold uppercase opacity-60 mb-1">Linha do tempo — confirmados</p><div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">${timeline}</div></div>` : ''}
       <div><p class="text-[9px] font-bold uppercase opacity-60 mb-1">Resumo</p><div class="flex gap-1.5 flex-wrap">${resumo}</div></div>
       <div class="pb-4"></div>
@@ -3497,48 +3512,174 @@ window.orcSalvarColuna = async function(colId){
 window.orcRemoverColuna = async function(colId){
   const c = (ORC.dados?.colunas || []).find(x => x.id === colId);
   if (!c) return;
-  const qtd = (c.itens || []).length;
-  if (!confirm(`Remover a coluna "${c.nome}"?${qtd ? ` Os ${qtd} lançamento(s) dela também serão removidos.` : ''}`)) return;
+  const qtd = (c.itens || []).filter(i => !i.lixeira).length;
+  if (!await rcmConfirmar({ titulo:'Mover para a lixeira', icone:'fa-table-columns', cor:'#ef4444', okTexto:'Mover',
+      msg:`Remover a coluna <b>"${esc(c.nome)}"</b>?${qtd ? ` Os <b>${qtd}</b> lançamento(s) vão junto.` : ''}<br>Você pode restaurar depois na <b>Lixeira</b>.` })) return;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
     if (!o){ toast('Evento não encontrado.'); return; }
     if (o.status === 'finalizado'){ toast('Evento finalizado — reabra para remover.'); return; }
     _orcColunas(o);
-    o.colunas = o.colunas.filter(x => x.id !== colId);
+    const col = o.colunas.find(x => x.id === colId);
+    if (!col){ toast('Coluna não encontrada.'); return; }
+    col.lixeira = 1; col.lixeira_em = orcHora();
     o.atualizado_em = orcHora();
+    _orcSinc(o);
     await orcGravarDados(lista);
-    toast('Coluna removida.');
+    toast('Coluna movida para a lixeira.');
     orcAbrir(ORC.id);
   } catch(e){ toast(e.message || 'Falha ao remover.'); }
 };
 window.orcRemoverItem = async function(itemId){
-  if (!confirm('Remover este lançamento do evento?')) return;
+  if (!await rcmConfirmar({ titulo:'Mover para a lixeira', icone:'fa-trash', cor:'#ef4444', okTexto:'Mover',
+      msg:'Remover este lançamento do evento?<br>Ele vai para a <b>Lixeira</b> e pode ser restaurado.' })) return;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
     if (!o){ toast('Evento não encontrado.'); return; }
     if (o.status === 'finalizado'){ toast('Evento finalizado — reabra para remover.'); return; }
     _orcColunas(o);
-    for (const c of o.colunas) c.itens = (c.itens || []).filter(x => x.id !== itemId);
-    o.itens = (o.itens || []).filter(x => x.id !== itemId);
-    o.reembolsos = (o.reembolsos || []).filter(x => x.id !== itemId);
-    o.receitas = (o.receitas || []).filter(x => x.id !== itemId);
+    let achou = false;
+    for (const c of o.colunas) for (const i of c.itens || [])
+      if (i.id === itemId){ i.lixeira = 1; i.lixeira_em = orcHora(); achou = true; }
+    if (!achou){ toast('Lançamento não encontrado.'); return; }
     o.atualizado_em = orcHora();
+    _orcSinc(o);
     await orcGravarDados(lista);
-    toast('Lançamento removido.');
+    toast('Lançamento movido para a lixeira.');
     orcAbrir(ORC.id);
   } catch(e){ toast(e.message || 'Falha ao remover.'); }
 };
 
+/* ---------- lixeira do evento ---------- */
+window.orcLixeira = function(){
+  const o = ORC.dados; if (!o) return;
+  el('orc-lixeira')?.remove();
+  const colsLix = (o.colunas || []).filter(c => c.lixeira);
+  const itensLix = [];
+  for (const c of (o.colunas || [])){
+    if (c.lixeira) continue;
+    for (const i of c.itens || []) if (i.lixeira) itensLix.push({ ...i, _col: c.nome, _tipo: c.tipo });
+  }
+  const vazio = !colsLix.length && !itensLix.length;
+  const dataLix = em => em ? ` · excluído ${esc(_orcDataBr(em))}` : '';
+  const linhaC = c => `
+    <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
+      <i class="fa-solid fa-table-columns text-[10px] shrink-0" style="color:${_ORC_TIPOS[c.tipo]?.cor || '#94a3b8'}"></i>
+      <div class="flex-1 min-w-0"><p class="text-[11px] font-bold truncate">${esc(c.nome)}</p>
+      <p class="text-[9px] opacity-50">Coluna inteira · ${(c.itens || []).length} lançamento(s)${dataLix(c.lixeira_em)}</p></div>
+      <button onclick="orcRestaurarColuna('${esc(c.id)}')" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold shrink-0" style="background:rgba(52,211,153,.15);color:#34d399"><i class="fa-solid fa-rotate-left mr-1"></i>Restaurar</button>
+    </div>`;
+  const linhaI = i => `
+    <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color)">
+      <i class="fa-solid fa-receipt text-[10px] opacity-40 shrink-0"></i>
+      <div class="flex-1 min-w-0"><p class="text-[11px] font-bold truncate">${esc(i.descricao)}</p>
+      <p class="text-[9px] opacity-50">${esc(i._col)} · ${esc(_orcDataBr(i.data))} · ${moeda(i.valor)}${dataLix(i.lixeira_em)}</p></div>
+      <button onclick="orcRestaurarItem('${esc(i.id)}')" class="w-8 h-8 rounded-lg text-[10px] shrink-0" style="background:rgba(52,211,153,.15);color:#34d399" title="Restaurar"><i class="fa-solid fa-rotate-left"></i></button>
+      <button onclick="orcExcluirItemLixeira('${esc(i.id)}')" class="w-8 h-8 rounded-lg text-[10px] shrink-0" style="background:rgba(239,68,68,.12);color:#f87171" title="Apagar de vez"><i class="fa-solid fa-xmark"></i></button>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="orc-lixeira" class="fixed inset-0 z-[99] flex items-end justify-center" style="background:rgba(0,0,0,.6);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-md rounded-t-3xl p-4 space-y-2.5" style="background:var(--bg-card);border:1px solid var(--border-color);max-height:82vh;display:flex;flex-direction:column">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-trash-can" style="color:#f87171"></i>
+          <p class="flex-1 text-[12px] font-extrabold">Lixeira do evento</p>
+          <button onclick="el('orc-lixeira')?.remove()" class="w-8 h-8 rounded-lg text-[11px]" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-auto" style="flex:1">${vazio
+          ? '<p class="text-[11px] text-center py-8 opacity-50">Lixeira vazia — nada para recuperar.</p>'
+          : colsLix.map(linhaC).join('') + itensLix.map(linhaI).join('')}</div>
+        ${vazio ? '' : `<button onclick="orcEsvaziarLixeira()" class="w-full py-2.5 rounded-xl text-[11px] font-bold border" style="border-color:rgba(239,68,68,.45);color:#f87171"><i class="fa-solid fa-trash-can mr-1"></i>Esvaziar lixeira — apaga de vez</button>`}
+        <p class="text-[9px] opacity-50 text-center">Excluídos ficam aqui até esvaziar — restaure quando quiser.</p>
+      </div>
+    </div>`);
+  el('orc-lixeira').addEventListener('click', e => { if (e.target.id === 'orc-lixeira') e.target.remove(); });
+};
+window.orcRestaurarItem = async function(itemId){
+  try {
+    const lista = await orcCarregarDados();
+    const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
+    if (!o){ toast('Evento não encontrado.'); return; }
+    _orcColunas(o);
+    let achou = false, colAlvo = null;
+    for (const c of o.colunas) for (const i of c.itens || [])
+      if (i.id === itemId){ i.lixeira = 0; i.lixeira_em = ''; achou = true; colAlvo = c; }
+    if (!achou){ toast('Lançamento não encontrado.'); return; }
+    if (colAlvo?.lixeira){ colAlvo.lixeira = 0; colAlvo.lixeira_em = ''; }
+    o.atualizado_em = orcHora();
+    _orcSinc(o);
+    await orcGravarDados(lista);
+    toast('Lançamento restaurado.');
+    el('orc-lixeira')?.remove();
+    await orcAbrir(ORC.id);
+    orcLixeira();
+  } catch(e){ toast(e.message || 'Falha ao restaurar.'); }
+};
+window.orcRestaurarColuna = async function(colId){
+  try {
+    const lista = await orcCarregarDados();
+    const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
+    if (!o){ toast('Evento não encontrado.'); return; }
+    _orcColunas(o);
+    const c = o.colunas.find(x => x.id === colId);
+    if (!c){ toast('Coluna não encontrada.'); return; }
+    c.lixeira = 0; c.lixeira_em = '';
+    o.atualizado_em = orcHora();
+    _orcSinc(o);
+    await orcGravarDados(lista);
+    toast('Coluna restaurada.');
+    el('orc-lixeira')?.remove();
+    await orcAbrir(ORC.id);
+    orcLixeira();
+  } catch(e){ toast(e.message || 'Falha ao restaurar.'); }
+};
+window.orcExcluirItemLixeira = async function(itemId){
+  if (!await rcmConfirmar({ titulo:'Excluir definitivamente', icone:'fa-xmark', cor:'#ef4444', okTexto:'Apagar',
+      msg:'Apagar este lançamento <b>de vez</b>?<br>Não dá para desfazer.' })) return;
+  try {
+    const lista = await orcCarregarDados();
+    const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
+    if (!o){ toast('Evento não encontrado.'); return; }
+    _orcColunas(o);
+    for (const c of o.colunas) c.itens = (c.itens || []).filter(x => x.id !== itemId);
+    o.atualizado_em = orcHora();
+    _orcSinc(o);
+    await orcGravarDados(lista);
+    toast('Lançamento apagado.');
+    el('orc-lixeira')?.remove();
+    await orcAbrir(ORC.id);
+    orcLixeira();
+  } catch(e){ toast(e.message || 'Falha ao excluir.'); }
+};
+window.orcEsvaziarLixeira = async function(){
+  if (!await rcmConfirmar({ titulo:'Esvaziar lixeira', icone:'fa-trash-can', cor:'#ef4444', okTexto:'Apagar tudo',
+      msg:'Apagar <b>definitivamente</b> tudo que está na lixeira do evento?<br>Essa ação não pode ser desfeita.' })) return;
+  try {
+    const lista = await orcCarregarDados();
+    const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
+    if (!o){ toast('Evento não encontrado.'); return; }
+    _orcColunas(o);
+    o.colunas = o.colunas.filter(c => !c.lixeira);
+    for (const c of o.colunas) c.itens = (c.itens || []).filter(i => !i.lixeira);
+    o.atualizado_em = orcHora();
+    _orcSinc(o);
+    await orcGravarDados(lista);
+    toast('Lixeira esvaziada.');
+    el('orc-lixeira')?.remove();
+    orcAbrir(ORC.id);
+  } catch(e){ toast(e.message || 'Falha ao esvaziar.'); }
+};
+
 /* ---------- status / exportações ---------- */
 window.orcAcao = async function(acao){
-  const conf = { finalizar: 'Finalizar este evento? Lançamentos ficam bloqueados até reabrir.',
-    reabrir: 'Reabrir o evento para novos lançamentos?',
-    arquivar: 'Arquivar este evento? Ele sai da lista principal.',
-    desarquivar: 'Desarquivar este evento?',
-    excluir: 'Excluir definitivamente este evento?' };
-  if (conf[acao] && !confirm(conf[acao])) return;
+  const conf = {
+    finalizar: { titulo:'Finalizar evento', icone:'fa-flag-checkered', cor:'#22c55e', okTexto:'Finalizar', msg:'Finalizar este evento? Lançamentos ficam bloqueados até reabrir.' },
+    reabrir: { titulo:'Reabrir evento', icone:'fa-lock-open', cor:'#f59e0b', okTexto:'Reabrir', msg:'Reabrir o evento para novos lançamentos?' },
+    arquivar: { titulo:'Arquivar evento', icone:'fa-box-archive', cor:'#64748b', okTexto:'Arquivar', msg:'Arquivar este evento? Ele sai da lista principal.' },
+    desarquivar: { titulo:'Desarquivar evento', icone:'fa-box-open', cor:'#64748b', okTexto:'Desarquivar', msg:'Desarquivar este evento?' },
+    excluir: { titulo:'Excluir evento', icone:'fa-trash', cor:'#ef4444', okTexto:'Excluir', msg:'Excluir <b>definitivamente</b> este evento?' } };
+  if (conf[acao] && !await rcmConfirmar(conf[acao])) return;
   try {
     const lista = await orcCarregarDados();
     const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
