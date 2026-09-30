@@ -4534,6 +4534,12 @@ async function _livroColetar(){
   const congCanon = [];
   for (const c of ordC(Object.keys(porConselho || {}))) congCanon.push(...ordG(porConselho[c] || []));
   const rankCong = c => { const i = congCanon.findIndex(x => cf(x) === cf(c)); return i < 0 ? 999 : i; };
+  /* canonicos: cf -> nome oficial; fora da lista, agrupa por cf com 1a grafia vista */
+  const consCanonMap = {}, congCanonMap = {}, consDin = {}, congDin = {};
+  for (const c of Object.keys(porConselho || {})) consCanonMap[cfq(c)] = c;
+  for (const c of congCanon) congCanonMap[cfq(c)] = c;
+  const consOf = raw => { const k = cfq(String(raw || '').trim()); return consCanonMap[k] || consDin[k] || (consDin[k] = String(raw || '').trim()); };
+  const congOf = raw => { const k = cfq(String(raw || '').trim()); return congCanonMap[k] || congDin[k] || (congDin[k] = String(raw || '').trim()); };
 
   const rows = [];
   for (const r of (lancs || [])){
@@ -4542,8 +4548,9 @@ async function _livroColetar(){
     if (L.periodo === 'mensal' && cf(r.mes) !== cf(L.mes)) continue;
     const m = memMap[String(r.id ?? '').trim()];
     const vig = m ? _semVigente(m.id, r.mes, r.ano, histMap) : null;
-    const cons = String(r.destino_conselho || vig?.conselho || m?.conselho || 'Conselho 1').trim();
-    const cong = String(r.destino_congregacao || vig?.congregacao || m?.congregacao || 'Sede').trim();
+    let cons = consOf(r.destino_conselho || vig?.conselho || m?.conselho || 'Conselho 1');
+    let cong = congOf(r.destino_congregacao || vig?.congregacao || m?.congregacao || 'Sede');
+    if (cfq(cong) === 'obreiros' || cfq(cons) === 'obreiros'){ cons = 'Obreiros'; cong = 'Obreiros'; }
     const ps = _semParseParcelas(r).filter(p => (p.especie || 0) + (p.pix || 0) > 0);
     const te = ps.reduce((a, p) => a + (p.especie || 0), 0);
     const tp = ps.reduce((a, p) => a + (p.pix || 0), 0);
