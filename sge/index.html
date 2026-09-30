@@ -321,9 +321,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.187'); toast('Versão copiada: v1.187')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.188'); toast('Versão copiada: v1.188')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.187</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.188</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -2370,7 +2370,7 @@ function sgePickerAbrir(sel, titulo){
      DOM atual, então options repreenchidas aparecem corretas. */
   let html = '', vistos = {}, total = 0;
   const todasOpts = Array.from(sel.options);
-  const item = (o) => {
+  const item = (o, destaque) => {
     const txt = (o.text || o.value || '').trim();
     if (!txt || vistos[o.value + '|' + txt]) return '';
     vistos[o.value + '|' + txt] = 1; total++;
@@ -2378,7 +2378,8 @@ function sgePickerAbrir(sel, titulo){
     const i = todasOpts.indexOf(o);
     return `<button type="button" data-pk-item="${String(txt).normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase()}" onclick="sgePickerEscolher(${i})"
       class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer"
-      style="color:${sel ? 'var(--color-primary)' : 'var(--text-main)'};background:${sel ? 'var(--color-primary-light)' : 'transparent'}">
+      style="color:${sel || destaque ? 'var(--color-primary)' : 'var(--text-main)'};background:${sel ? 'var(--color-primary-light)' : 'transparent'}">
+      ${destaque ? '<i class="fa-solid fa-border-all text-[10px] shrink-0" style="color:var(--color-primary)"></i>' : ''}
       <span class="flex-1 truncate">${txt}</span>
       ${sel ? '<i class="fa-solid fa-check text-[11px]" style="color:var(--color-primary)"></i>' : ''}
     </button>`;
@@ -2390,11 +2391,11 @@ function sgePickerAbrir(sel, titulo){
       const opcoes = Array.from(g.querySelectorAll('option'));
       const corpo = opcoes.map(item).join('');
       if (!corpo) continue;
-      html += `<div data-pk-grupo class="mb-1"><div class="px-3 pt-2.5 pb-1 text-[9px] font-extrabold uppercase tracking-widest opacity-55 sticky top-0" style="background:var(--bg-surface)">${g.label || ''}</div>${corpo}</div>`;
+      html += `<div data-pk-grupo class="mb-1"><div class="px-3 pt-2.5 pb-1 text-[9px] font-extrabold uppercase tracking-widest sticky top-0" style="background:var(--bg-surface);color:var(--text-muted);z-index:1">${g.label || ''}</div>${corpo}</div>`;
     }
-    /* options soltas fora de optgroup */
-    const soltas = filhos.filter(f => f.tagName === 'OPTION').map(item).join('');
-    if (soltas) html += `<div data-pk-grupo>${soltas}</div>`;
+    /* options soltas fora de optgroup — ficam no TOPO, em destaque (ex.: "Todas") */
+    const soltas = filhos.filter(f => f.tagName === 'OPTION').map(o => item(o, true)).join('');
+    if (soltas) html = `<div data-pk-grupo class="mb-1 pb-1" style="border-bottom:1px solid var(--border-color)">${soltas}</div>` + html;
   } else {
     html = `<div data-pk-grupo>${filhos.filter(f => f.tagName === 'OPTION').map(item).join('')}</div>`;
   }
