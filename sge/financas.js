@@ -5057,7 +5057,9 @@ function _dreLinhasN(periodos){
 
   sec('Fundo vinculado — Círculo de Oração (caixa à parte)');
   it('Saldo do fundo no início do período', col((d, c) => c.c.anterior));
-  it('Entradas do fundo (repasse do campo e arrecadação própria)', col((d, c) => c.c.entradas));
+  it('Repasse do campo ao fundo (a mesma linha das deduções)', col(d => d.repasse_circulo || null));
+  it('Arrecadação própria do fundo (ofertas diretas do Círculo)', col((d, c) => c.c.entradas == null ? null : +(c.c.entradas - (d.repasse_circulo || 0)).toFixed(2)));
+  sub('Total de entradas do fundo', col((d, c) => c.c.entradas));
   it('Saídas do fundo', col((d, c) => dreNeg(c.c.despesas)));
   sub('Variação do fundo no período', col((d, c) => c.varF));
   tot('Saldo acumulado do fundo', col((d, c) => c.c.saldo));
