@@ -4505,12 +4505,10 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-inst b{color:#1c1917;text-transform:uppercase;letter-spacing:.06em;font-size:9px}
 .lv-ded{position:relative;min-height:560px}
 .lv-ded-mark{position:absolute;left:0;right:0;bottom:8%;text-align:center;pointer-events:none;line-height:0}
-.lv-ded-mark i{display:block;color:#b8860b}
-.lv-ded-globe{font-size:180px;opacity:.07}
-.lv-ded-hands{font-size:95px;opacity:.1;margin-top:-50px}
-.lv-ded-txt{margin-left:auto;max-width:62%;text-align:right;padding:56px 30px 0 0}
-.lv-ded-txt p{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:13.5px;line-height:1.9;color:#3f3a34;margin:0 0 13px}
-.lv-ded-txt .lv-ded-vs{font-style:normal;font-size:10px;color:#8a7355;margin-top:18px;line-height:1.7}
+.lv-ded-selo{width:290px;opacity:.08;filter:grayscale(15%)}
+.lv-ded-txt{margin-left:auto;max-width:62%;text-align:justify;padding:56px 30px 0 0}
+.lv-ded-txt p{font-family:'EB Garamond',Georgia,serif;font-size:13.5px;line-height:1.9;color:#3f3a34;margin:0 0 13px}
+.lv-ded-txt .lv-ded-vs{font-size:10px;color:#8a7355;margin-top:18px;line-height:1.7;text-align:right}
 .lv-ded-txt .lv-ded-vs b{color:#b8860b}
 .lv-vs{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:9.5px;color:#a8a29e;text-align:center;margin:-2px 0 10px}
 .lv-sub{text-align:right;font-family:'EB Garamond',Georgia,serif;font-size:10.5px;font-weight:700;color:#78716c;border-top:1px dashed #e7e5e4;padding-top:3px;margin:3px 0 10px}
@@ -4696,11 +4694,11 @@ function _livroHtml(d, opts = {}){
         <p class="lv-est-ref">Ml 3:10 · Gl 6:7 · 2 Co 9:6</p>
       </div>
       <div class="lv-pag lv-ded">
-        <div class="lv-ded-mark"><i class="fa-solid fa-globe lv-ded-globe"></i><i class="fa-solid fa-hands lv-ded-hands"></i></div>
+        <div class="lv-ded-mark">${opts.seloSrc ? `<img src="${opts.seloSrc}" class="lv-ded-selo" alt="">` : ''}</div>
         <div class="lv-ded-txt">
           <p>As páginas deste livro guardam mais do que nomes e valores: guardam o trabalho silencioso de quem serve a Deus sem aparecer.</p>
-          <p>Cada lançamento aqui registrado passou pelas mãos de tesoureiros, líderes de congregação e auxiliares — irmãos e irmãs que dedicam um momento do seu tempo para organizar, conferir, contar e se deslocar, muitas vezes depois de um dia inteiro de labuta, e que ainda encontram forças para orar pela obra.</p>
-          <p>Aos dizimistas, que sustentam fielmente a casa do Senhor, e a estes servos que fazem a engrenagem girar longe dos holofotes: obrigado pelo carinho, pelo cuidado e pelo amor. Que Deus vos recompense grandemente.</p>
+          <p>Cada lançamento aqui registrado passou pelas mãos de tesoureiros, líderes de congregação e auxiliares — irmãos e irmãs que dedicam um momento do seu tempo para organizar, conferir, contar e se deslocar, muitas vezes depois de um dia inteiro de trabalho, e que ainda encontram forças para orar pela obra.</p>
+          <p>Aos dizimistas, que sustentam fielmente a casa do Senhor, e a estes servos que zelam pelos bastidores da obra, longe dos holofotes: obrigado pelo carinho, pelo cuidado e pelo amor. Que Deus vos recompense grandemente.</p>
           <p class="lv-ded-vs">"Porque Deus não é injusto para se esquecer da vossa obra e do trabalho do amor que, em seu nome, mostrastes aos santos."<br><b>— Hebreus 6:10</b></p>
         </div>
       </div>
