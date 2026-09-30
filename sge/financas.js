@@ -4445,15 +4445,15 @@ window.semExportarWhatsApp = async function(){
 
 function _livroCss(){
   return `
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=swap');
-.lv-doc{background:#fff;color:#1c1917;border-radius:14px;overflow:hidden;border-top:7px solid #c9a227;font-family:'Plus Jakarta Sans',system-ui,sans-serif;position:relative}
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;0,700;0,800;1,500&family=Inter:wght@400;600;700;800&display=swap');
+.lv-doc{background:#fff;color:#1c1917;border-radius:14px;overflow:hidden;border-top:7px solid #c9a227;font-family:'Inter',system-ui,sans-serif;position:relative}
 .lv-capa{min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 22px;position:relative}
 .lv-capa:before{content:'';position:absolute;inset:12px;border:1px solid #ece5d3;border-radius:10px;pointer-events:none}
 .lv-logo{max-width:150px;display:block;margin:0 auto 24px}
 .lv-ig{font-size:9px;letter-spacing:.24em;font-weight:800;color:#a5853a;text-transform:uppercase;margin-bottom:12px}
-.lv-titulo{font-family:'Cinzel',Georgia,serif;font-size:25px;font-weight:900;color:#1c1917;letter-spacing:.04em;text-transform:uppercase;line-height:1.25;margin:0}
+.lv-titulo{font-family:'EB Garamond',Georgia,serif;font-size:28px;font-weight:900;color:#1c1917;letter-spacing:.04em;text-transform:uppercase;line-height:1.25;margin:0}
 .lv-titulo em{font-style:normal;color:#b8860b}
-.lv-msg{font-family:Georgia,serif;font-style:italic;font-size:12.5px;color:#57534e;line-height:1.7;max-width:330px;margin-top:16px}
+.lv-msg{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:14px;color:#57534e;line-height:1.7;max-width:330px;margin-top:16px}
 .lv-per{margin-top:20px;font-size:12px;font-weight:800;color:#fff;background:#b8860b;padding:5px 16px;border-radius:999px;letter-spacing:.06em}
 .lv-orn{display:flex;align-items:center;gap:8px;margin-top:20px;width:180px}
 .lv-orn i{color:#c9a227;font-size:8px}
@@ -4473,12 +4473,12 @@ function _livroCss(){
 .lv-kpi b{display:block;font-size:12px;color:#b8860b;font-variant-numeric:tabular-nums}
 .lv-kpi span{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:#a8a29e}
 .lv-sec{padding:6px 16px 10px 10px;position:relative;z-index:1}
-.lv-h{font-size:10.5px;font-weight:800;color:#1c1917;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lv-h{font-family:'EB Garamond',Georgia,serif;font-size:12px;font-weight:800;color:#1c1917;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .lv-h i{color:#b8860b;font-size:10px}
 .lv-h:after{content:'';flex:1;height:1px;background:#e7e5e4}
-.lv-cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10.5px;font-weight:800;color:#1c1917;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px;padding:5px 0 5px 9px;border-left:4px solid #c9a227;background:linear-gradient(90deg,#fafaf9,transparent)}
+.lv-cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:'EB Garamond',Georgia,serif;font-size:12px;font-weight:800;color:#1c1917;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px;padding:5px 0 5px 9px;border-left:4px solid #c9a227;background:linear-gradient(90deg,#fafaf9,transparent)}
 .lv-cap small{font-weight:600;font-size:8.5px;color:#78716c}
-.lv-cong{font-size:9.5px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px}
+.lv-cong{font-family:'EB Garamond',Georgia,serif;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.06em;margin:7px 0 3px}
 .lv-cong small{font-weight:500;color:#a8a29e;text-transform:none;letter-spacing:0}
 table.lv-tb{width:100%;border-collapse:collapse;font-size:9.5px}
 table.lv-tb td{padding:4.5px 4px;border-bottom:1px solid #f5f5f4;vertical-align:top}
@@ -4607,9 +4607,9 @@ async function _livroColetar(){
 }
 const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
 
-function _livroCapituloHtml(cap, mesLabel){
+function _livroCapituloHtml(cap, mesLabel, seloSrc){
   const linhas = cap.grupos.map(g => `
-    <p class="lv-cong"><i class="fa-solid fa-church" style="font-size:8px;margin-right:2px"></i>${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
+    <p class="lv-cong">${seloSrc ? `<img src="${seloSrc}" style="height:12px;vertical-align:-1px;margin-right:4px" alt="">` : '<i class="fa-solid fa-church" style="font-size:8px;margin-right:2px"></i>'}${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
     <table class="lv-tb"><tbody>
       ${g.lista.map(r => `<tr>
         <td><b>${esc(r.nome)}</b>${mesLabel === 'anual' ? `<span class="lv-mut"> · ${esc(r.semana.replace('Semana ', ''))}ª sem</span>` : ''}${r.itin ? `<span class="lv-mut"> · →${esc(r.itin)}</span>` : ''}</td>
@@ -4674,7 +4674,7 @@ function _livroHtml(d, opts = {}){
       </div>
       <div class="lv-sec">
         <p class="lv-h"><i class="fa-solid fa-book-open"></i>Detalhamento</p>
-        ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual')).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
+        ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual', opts.seloSrc)).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
       </div>
       <div class="lv-sec">
         <p class="lv-h"><i class="fa-solid fa-chart-pie"></i>Estatísticas</p>
@@ -4760,9 +4760,9 @@ window.livroGerar = async function(){
     const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
     const qrSrc = rcmQrDataUrl(qrTxt, 128);
     const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || null;
-    const logoSrc = (await rcmImgData('icons/logo_ad_brasil.png'))?.data || null;
+    const logoSrc = (await rcmImgData('icons/logo_ad_selo.png'))?.data || null;
     L.dados = d; L.codigo = codigo;
-    L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc, logoSrc });
+    L.doc = _livroHtml(d, { codigo, qrSrc, timbSrc, logoSrc, seloSrc: logoSrc });
     doc.innerHTML = L.doc;
     _livroAcoes();
     if (!d.qtd) toast('Nenhum lançamento encontrado no período.');
