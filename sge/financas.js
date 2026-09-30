@@ -4503,6 +4503,11 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-est-ref{text-align:center;font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11px;color:#78716c;margin-top:14px}
 .lv-inst{border:1px solid #e7e5e4;border-left:4px solid #c9a227;border-radius:8px;background:#fafaf9;padding:8px 11px;font-size:9.5px;color:#57534e;line-height:1.6;margin-bottom:10px}
 .lv-inst b{color:#1c1917;text-transform:uppercase;letter-spacing:.06em;font-size:9px}
+.lv-agrad{margin-top:20px;padding-top:14px;border-top:1px solid #ece5d3;text-align:center}
+.lv-agrad-t{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:#a5853a;font-weight:800;margin:0 0 8px}
+.lv-agrad-txt{font-family:'EB Garamond',Georgia,serif;font-size:12px;line-height:1.7;color:#44403c;margin:0 auto 8px}
+.lv-agrad-vs{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11px;color:#78716c;margin-top:6px}
+.lv-agrad-vs b{color:#b8860b;font-style:normal}
 .lv-logo{max-width:180px;display:block;margin:0 auto 24px}
 @media print{ body{background:#fff!important} .lv-doc{border-radius:0;border-top:none}
  .lv-capa{min-height:252mm;page-break-after:always}
@@ -4619,7 +4624,7 @@ const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
 
 function _livroCapituloHtml(cap, mesLabel, seloSrc){
   const linhas = cap.grupos.map(g => `
-    <p class="lv-cong">${seloSrc ? `<img src="${seloSrc}" style="height:12px;vertical-align:-1px;margin-right:4px" alt="">` : '<i class="fa-solid fa-church" style="font-size:8px;margin-right:2px"></i>'}${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
+    <p class="lv-cong">${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
     <table class="lv-tb"><tbody>
       ${g.lista.map(r => `<tr>
         <td><b>${esc(r.nome)}</b>${mesLabel === 'anual' ? `<span class="lv-mut"> · ${esc(r.semana.replace('Semana ', ''))}ª sem</span>` : ''}${r.itin ? `<span class="lv-mut"> · →${esc(r.itin)}</span>` : ''}</td>
@@ -4675,6 +4680,11 @@ function _livroHtml(d, opts = {}){
         <p class="lv-est-txt">Cada lançamento registrado neste livro tem um destino maior do que os números: é combustível da expansão do Reino. Pela fidelidade dos dizimistas, a <b>AD Brasil</b> mantém templos, forma obreiros e envia missionários. Em <b>Roraima</b>, a obra avança pelos vicinais, pelas <b>terras indígenas</b> e pelo <b>Baixo Rio Branco</b> — e ultrapassa fronteiras, alcançando <b>Moçambique</b>, <b>Colômbia</b>, <b>Venezuela</b> e <b>Guiana</b>. Assim o dízimo cumpre a lei da semeadura (Gl 6:7): recursos materiais convertem-se em colheita espiritual — templos levantados, famílias alcançadas e o evangelho pregado onde antes não havia mensageiro.</p>
         <p class="lv-est-txt">Por isso, este livro não é apenas um registro contábil: é um testemunho de fidelidade. Cada nome aqui escrito cooperou para que a obra missionária avançasse da nossa cidade até os confins da terra. <b>"O que semeia generosamente, generosamente também colherá" (2 Co 9:6).</b> Que a fidelidade de hoje seja a expansão de amanhã — para a glória de Deus e o crescimento do Seu Reino.</p>
         <p class="lv-est-ref">Ml 3:10 · Gl 6:7 · 2 Co 9:6</p>
+        <div class="lv-agrad">
+          <p class="lv-agrad-t">Agradecimento</p>
+          <p class="lv-agrad-txt">As informações contidas neste livro só foram possíveis graças ao esforço e ao trabalho de cada tesoureiro, líder de congregação e auxiliar — irmãos que dedicam um momento do seu tempo para organizar, contar, se deslocar e, acima de tudo, orar pela obra. Obrigado pelo carinho e pelo amor. Que Deus vos recompense.</p>
+          <p class="lv-agrad-vs">"Porque Deus não é injusto para se esquecer da vossa obra e do trabalho do amor que, em seu nome, mostrastes aos santos."<br><b>— Hebreus 6:10</b></p>
+        </div>
       </div>
       <div class="lv-pag">
       <div class="lv-cab">
