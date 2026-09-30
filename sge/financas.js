@@ -3195,39 +3195,34 @@ function orcRenderDetalhe(){
         ${o.observacoes ? `<p class="text-[10px] opacity-70 whitespace-pre-wrap">${esc(o.observacoes)}</p>` : ''}
         <p class="text-[9px] opacity-50">Criado por ${esc(o.criado_por || '')}${o.finalizado_em ? ` · Finalizado em ${new Date(o.finalizado_em).toLocaleDateString('pt-BR')}` : ''}</p>
       </div>
-      <div class="flex gap-1.5 flex-wrap">
+      <div class="flex gap-1.5">
         ${fechado
-          ? `<button onclick="orcAcao('reabrir')" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#d97706,#f59e0b)"><i class="fa-solid fa-lock-open mr-1"></i>Reabrir</button>`
-          : `<button onclick="orcAcao('finalizar')" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#16a34a,#22c55e)"><i class="fa-solid fa-flag-checkered mr-1"></i>Finalizar</button>`}
-        ${o.arquivado
-          ? `<button onclick="orcAcao('desarquivar')" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer" style="background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color)"><i class="fa-solid fa-box-open mr-1"></i>Desarquivar</button>`
-          : `<button onclick="orcAcao('arquivar')" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer" style="background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color)"><i class="fa-solid fa-box-archive mr-1"></i>Arquivar</button>`}
-        <button onclick="orcWhatsApp()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#16a34a,#25d366)"><i class="fa-brands fa-whatsapp mr-1"></i>WhatsApp</button>
-        <button onclick="orcPdf()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>
-        ${o.arquivado ? `<button onclick="orcAcao('excluir')" class="ml-auto px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer" style="background:rgba(239,68,68,.12);color:#f87171"><i class="fa-solid fa-trash mr-1"></i>Excluir</button>`
-          : `<button onclick="orcNovo(true)" class="ml-auto px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer" style="background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color)"><i class="fa-solid fa-pen mr-1"></i>Editar</button>`}
+          ? `<button onclick="orcAcao('reabrir')" class="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#d97706,#f59e0b)"><i class="fa-solid fa-lock-open mr-1"></i>Reabrir</button>`
+          : `<button onclick="orcAcao('finalizar')" class="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#16a34a,#22c55e)"><i class="fa-solid fa-flag-checkered mr-1"></i>Finalizar</button>`}
+        <button onclick="orcWhatsApp()" class="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#16a34a,#25d366)"><i class="fa-brands fa-whatsapp mr-1"></i>WhatsApp</button>
+        <button onclick="orcPdf()" class="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#dc2626,#ef4444)"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>
+        <button onclick="orcMenuAcoes()" class="w-9 px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer shrink-0" style="background:var(--bg-input);color:var(--text-main);border:1px solid var(--border-color)" title="Mais ações"><i class="fa-solid fa-ellipsis-vertical"></i></button>
       </div>
+      <div id="orc-menu-acoes" class="hidden border rounded-2xl p-2 space-y-1" style="background:var(--bg-card);border-color:var(--border-color)">
+        ${o.arquivado ? '' : `<button onclick="orcNovo(true)" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><i class="fa-solid fa-pen mr-2 opacity-60"></i>Editar evento</button>`}
+        ${o.arquivado
+          ? `<button onclick="orcAcao('desarquivar')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><i class="fa-solid fa-box-open mr-2 opacity-60"></i>Desarquivar</button>`
+          : `<button onclick="orcAcao('arquivar')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><i class="fa-solid fa-box-archive mr-2 opacity-60"></i>Arquivar</button>`}
+        ${o.arquivado ? `<button onclick="orcAcao('excluir')" class="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold cursor-pointer" style="color:#f87171"><i class="fa-solid fa-trash mr-2 opacity-60"></i>Excluir evento</button>` : ''}
+      </div>
+      ${fechado ? '' : `<button onclick="orcLancar()" class="w-full py-3 rounded-2xl text-xs font-extrabold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);box-shadow:0 4px 18px rgba(124,58,237,.35)"><i class="fa-solid fa-plus mr-1.5"></i>Novo lançamento</button>`}
       ${_orcViewToggle()}
       ${ORC.view === 'tabela' ? `
-      <div class="flex items-center justify-between">
-        <p class="text-[10px] font-bold uppercase opacity-60">Receitas do evento (${o.total_receitas_qtd || 0})</p>
-        ${fechado ? '' : `<button onclick="orcNovoReceita()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1"></i>Receita</button>`}
-      </div>
+      <p class="text-[10px] font-bold uppercase opacity-60">Receitas do evento (${o.total_receitas_qtd || 0})</p>
       <div class="border rounded-2xl px-3 divide-y" style="background:var(--bg-card);border-color:var(--border-color)">
         ${receitas || `<p class="text-xs text-center py-6 opacity-60">Nenhuma receita lançada — ofertas, vendas, inscrições do evento.</p>`}
       </div>
-      <div class="flex items-center justify-between">
-        <p class="text-[10px] font-bold uppercase opacity-60">Saídas lançadas (${o.total_itens || 0})</p>
-        ${fechado ? '' : `<button onclick="orcNovoItem()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)"><i class="fa-solid fa-plus mr-1"></i>Saída</button>`}
-      </div>
+      <p class="text-[10px] font-bold uppercase opacity-60">Saídas lançadas (${o.total_itens || 0})</p>
       <div class="border rounded-2xl px-3 divide-y" style="background:var(--bg-card);border-color:var(--border-color)">
         ${itens || `<p class="text-xs text-center py-8 opacity-60">Nenhuma saída lançada ainda.</p>`}
       </div>
       ${chips ? `<div><p class="text-[9px] font-bold uppercase opacity-60 mb-1">Subtotal de saídas por forma de pagamento</p><div class="flex gap-1.5 flex-wrap">${chips}</div></div>` : ''}
-      <div class="flex items-center justify-between">
-        <p class="text-[10px] font-bold uppercase opacity-60">Reembolsos (${o.total_reembolsos || 0})</p>
-        ${fechado ? '' : `<button onclick="orcNovoReembolso()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1"></i>Reembolso</button>`}
-      </div>
+      <p class="text-[10px] font-bold uppercase opacity-60">Reembolsos (${o.total_reembolsos || 0})</p>
       <div class="border rounded-2xl px-3 divide-y" style="background:var(--bg-card);border-color:var(--border-color)">
         ${reembolsos || `<p class="text-xs text-center py-6 opacity-60">Nenhum reembolso lançado.</p>`}
       </div>` : _orcViewAlt(o, fechado)}
@@ -3240,8 +3235,21 @@ function orcRenderDetalhe(){
 window.orcMudarView = function(v){ ORC.view = ['tabela','colunas','timeline'].includes(v) ? v : 'tabela'; orcRenderDetalhe(); };
 function _orcViewToggle(){
   const btn = (v, rot, ico) => `<button onclick="orcMudarView('${v}')" class="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer ${ORC.view === v ? 'text-white' : ''}" style="${ORC.view === v ? 'background:linear-gradient(135deg,#7c3aed,#8b5cf6)' : 'background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border-color)'}"><i class="fa-solid ${ico} mr-1"></i>${rot}</button>`;
-  return `<div class="flex items-center gap-1.5"><span class="text-[9px] font-bold uppercase opacity-50 shrink-0">Ver como</span>${btn('tabela','Tabelas','fa-table')}${btn('colunas','Colunas','fa-table-columns')}${btn('timeline','Linha do tempo','fa-timeline')}</div>`;
+  return `<div class="flex items-center gap-1.5">${btn('tabela','Tabelas','fa-table')}${btn('colunas','Colunas','fa-table-columns')}${btn('timeline','Linha do tempo','fa-timeline')}</div>`;
 }
+window.orcMenuAcoes = function(){ el('orc-menu-acoes')?.classList.toggle('hidden'); };
+window.orcLancar = function(){
+  const op = (tipo, rot, desc, ico, cor) => `<button onclick="orcFecharModal();_orcModalItem(null,'${tipo}')" class="w-full flex items-center gap-3 px-3 py-3 rounded-2xl border text-left cursor-pointer" style="border-color:var(--border-color);background:var(--bg-input)">
+    <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${cor}1c;color:${cor}"><i class="fa-solid ${ico}"></i></span>
+    <span class="flex-1"><span class="block text-xs font-extrabold">${rot}</span><span class="block text-[9.5px] opacity-60">${desc}</span></span>
+    <i class="fa-solid fa-chevron-right opacity-30 text-xs"></i></button>`;
+  _orcModal(`<h3 class="text-sm font-extrabold mb-3">Novo lançamento</h3>
+    <div class="space-y-2">
+      ${op('receita', 'Receita', 'Oferta, venda, inscrição — dinheiro que entrou', 'fa-arrow-trend-up', '#34d399')}
+      ${op('item', 'Saída', 'Compra, pagamento, despesa do evento', 'fa-arrow-trend-down', '#f87171')}
+      ${op('reembolso', 'Reembolso', 'Devolução, troco — abate das saídas', 'fa-rotate-left', '#38bdf8')}
+    </div>`);
+};
 function _orcViewAlt(o, fechado){
   const acoes = (lanc, tipo) => fechado ? ''
     : `<button onclick="orcEditarItem('${esc(lanc.id)}','${tipo}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(14,165,233,.14);color:#38bdf8"><i class="fa-solid fa-pen"></i></button>
