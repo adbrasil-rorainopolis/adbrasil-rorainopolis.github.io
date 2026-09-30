@@ -4925,7 +4925,7 @@ const DRE_INVEST = ['Construção, Reforma ou Ampliação','Aquisição de Imove
 const DRE_IDX_MES = {}; MESES_ORD.forEach((m, i) => DRE_IDX_MES[m] = i + 1);
 const DRE_ABREV = m => String(m || '').slice(0, 3);
 
-const DR = { modo: 'balancete', ano: '', mes: '', doc: null, sub: 'dre' };
+const DR = { modo: 'balancete', ano: '', mes: '', doc: null, sub: 'dre', anoIni: '', anoFim: '' };
 const CONT_SM = { 2023: 1320.00, 2024: 1412.00, 2025: 1518.00, 2026: 1621.00 };
 const _contSM = a => CONT_SM[+a] || CONT_SM[Math.max(...Object.keys(CONT_SM).filter(k => +k <= +a))] || CONT_SM[2023];
 
@@ -5110,6 +5110,41 @@ async function dreMontarDados(ano, mes, modo){
       verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${colunas[0].ano}&o=serie&e=${colunas.map(c => c.ano).join(',')}&x=${calcs[0].b1.toFixed(2)},${consRef == null ? '' : consRef.toFixed(2)}&h=${codigo}`, codigo: `SGE-DRE-SERIE·${codigo}` } };
   }
 
+  if (modo === 'acumanual'){
+    const aI = parseInt(DR.anoIni, 10) || 0, aF = parseInt(DR.anoFim, 10) || 0;
+    const ini = Math.min(aI, aF), fim = Math.max(aI, aF);
+    if (!ini || !fim) return { erro: 'Selecione a faixa de anos (de/até).' };
+    const anosFaixa = [];
+    for (let a = ini; a <= fim; a++) anosFaixa.push(String(a));
+    const lista = [], avisos = [];
+    for (const a of anosFaixa){
+      for (const m of MESES_ORD.filter(mm => tem(a, mm))){
+        const mov = await SGEG.carregarMovimento(a, m);
+        const d = dreDadosMes(mov);
+        if (!d) continue;
+        d.mes = m; d.ano = a;
+        d.circulo = await dreCirculo(a, m);
+        lista.push(d);
+      }
+      const n = MESES_ORD.filter(mm => tem(a, mm)).length;
+      if (!n) avisos.push(`${a}: exercício sem nenhum fechamento — não entrou na soma.`);
+      else if (n < 12) avisos.push(`${a}: exercício parcial (${n}/12 meses).`);
+    }
+    if (!lista.length) return { erro: `Nenhum fechamento importado entre ${ini} e ${fim}.` };
+    const agg = _dreAgregar(lista);
+    const calc = _dreCalc(agg);
+    const base = `acumanual|${ini}-${fim}|${calc.b1.toFixed(2)}|${calc.res.toFixed(2)}|${calc.consF == null ? '' : calc.consF.toFixed(2)}`;
+    let codigo = '';
+    try { if (crypto?.subtle){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)); codigo = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('').substring(0,4).toUpperCase(); } } catch(e){}
+    if (!codigo){ let h = 5381; for (let i = 0; i < base.length; i++) h = ((h << 5) + h + base.charCodeAt(i)) >>> 0; codigo = h.toString(16).toUpperCase().padStart(8,'0').slice(0,4); }
+    const xQr = `${calc.b1.toFixed(2)},${calc.res.toFixed(2)},${calc.consF == null ? '' : calc.consF.toFixed(2)}`;
+    return { modo: 'acumanual', ano: String(fim), mes: 'Dezembro', ano_ini: String(ini), ano_fim: String(fim),
+      colunas: [{ rotulo: `${ini}–${fim}` }], blocos: [{ titulo: '', cols: [0] }],
+      linhas: _dreLinhasN([agg]), avisos, assinado: true,
+      subtitulo: `Demonstração do resultado acumulado — soma de todos os fechamentos dos exercícios de ${ini} a ${fim} (${lista.length} meses)`,
+      verificacao: { url: `https://adbrasil-rorainopolis.github.io/sge/verificar.html?t=dre&c=rorainopolis&a=${fim}&m=12&o=acumanual&e=${ini}-${fim}&x=${xQr}&h=${codigo}`, codigo: `SGE-DRE-ACUM${ini}${fim}·${codigo}` } };
+  }
+
   const anoB = String(+ano - 1);
   let listaPares = [], colunas = [], subt = '', blocos = null;
   if (modo === 'anual'){
@@ -5248,9 +5283,13 @@ window.renderContabil = function(){
       </div>
       <div id="cont-sub-dre" class="cont-sub-pane space-y-3">
         <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-          <div class="grid grid-cols-3 gap-1.5" id="dre-modos">
-            ${[['balancete','Balancete'],['anual','Exercício'],['serie','Série']].map(([v, t]) =>
+          <div class="grid grid-cols-4 gap-1.5" id="dre-modos">
+            ${[['balancete','Balancete'],['anual','Exercício'],['serie','Série'],['acumanual','Acum. Anual']].map(([v, t]) =>
               `<button onclick="dreModoM('${v}')" data-modo="${v}" class="dre-modo-m px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)">${t}</button>`).join('')}
+          </div>
+          <div id="dre-faixa-m" class="hidden grid grid-cols-2 gap-2">
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">De (ano)</span>${selF('dre-ano-de', [], DR.anoIni, 'dreCarregar()')}</div>
+            <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até (ano)</span>${selF('dre-ano-ate', [], DR.anoFim, 'dreCarregar()')}</div>
           </div>
           <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
         </div>
@@ -5307,6 +5346,10 @@ window.renderContabil = function(){
     const anos = [...new Set((ps || []).map(p => String(p.ano)))].sort();
     const sel = el('dre-ano');
     if (sel && !sel.options.length) anos.forEach(a => sel.add(new Option(a, a, false, a === DR.ano)));
+    [['dre-ano-de', anos[0]], ['dre-ano-ate', anos[anos.length - 1]]].forEach(([id, padrao]) => {
+      const s = el(id);
+      if (s && !s.options.length) anos.forEach(a => s.add(new Option(a, a, false, a === padrao)));
+    });
     contSub(DR.sub || 'dre');
   });
 }
@@ -5543,11 +5586,13 @@ function _dreEstiloModo(){
     b.style.borderColor = ativo ? '#818cf8' : 'var(--border-color)';
     b.style.color = ativo ? '#a5b4fc' : 'var(--text-muted)';
   });
+  el('dre-faixa-m')?.classList.toggle('hidden', DR.modo !== 'acumanual');
 }
 window.dreModoM = m => { DR.modo = m; _dreEstiloModo(); dreCarregar(); };
 
 window.dreCarregar = async function(){
   DR.ano = el('dre-ano')?.value || DR.ano; DR.mes = el('dre-mes')?.value || DR.mes;
+  DR.anoIni = el('dre-ano-de')?.value || DR.anoIni; DR.anoFim = el('dre-ano-ate')?.value || DR.anoFim;
   const host = el('dre-doc-m');
   host.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Montando a demonstração…</div>';
   const dre = await dreMontarDados(DR.ano, DR.mes, DR.modo);
@@ -5555,7 +5600,8 @@ window.dreCarregar = async function(){
   DR.doc = dre;
   const titulos = { balancete: 'Demonstração do resultado econômico-financeiro — balancete do período',
     anual: 'Demonstração do resultado econômico-financeiro do exercício',
-    serie: 'Demonstração do resultado econômico-financeiro — série de exercícios' };
+    serie: 'Demonstração do resultado econômico-financeiro — série de exercícios',
+    acumanual: 'Demonstração do resultado econômico-financeiro — acumulado de exercícios' };
   const notaAvisos = (dre.avisos || []).length
     ? `<p class="dd-nota">${dre.avisos.map(a => '• ' + esc(a)).join('<br>')}</p>` : '';
 
@@ -5671,6 +5717,7 @@ window.drePdf = async function(){
       });
     }
     doc.save(dre.modo === 'serie' ? 'DRE_Serie_de_Exercicios.pdf'
+      : dre.modo === 'acumanual' ? `DRE_Acumulada_Anual_${dre.ano_ini}_${dre.ano_fim}.pdf`
       : `DRE_${dre.modo}_${dre.ano}_${String(DRE_IDX_MES[dre.mes] || 0).padStart(2, '0')}.pdf`);
     toast('PDF da DRE gerado.');
   } catch(e){ toast(e.message || 'Falha ao gerar o PDF.'); }
