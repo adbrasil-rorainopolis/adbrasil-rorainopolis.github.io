@@ -4494,12 +4494,22 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-final code{display:block;font-size:8.5px;color:#78716c;margin-top:6px;letter-spacing:.08em}
 .lv-final p{font-size:8px;color:#a8a29e;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin:2px 0 0}
 .lv-rod{font-size:8px;color:#a8a29e;text-align:center;padding:10px 14px 16px;letter-spacing:.05em;border-top:1px solid #e7e5e4}
+.lv-pag{break-before:page;page-break-before:always;border-top:1px dashed #e7e5e4;padding-top:14px}
+.lv-est{padding:22px 20px 16px}
+.lv-est-t{font-family:'EB Garamond',Georgia,serif;font-size:17px;font-weight:800;color:#1c1917;text-align:center;letter-spacing:.09em;text-transform:uppercase;margin:0 0 4px}
+.lv-est-s{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#a5853a;font-weight:800;text-align:center;margin:0 0 14px}
+.lv-est-txt{font-family:'EB Garamond',Georgia,serif;font-size:12.5px;line-height:1.8;color:#292524;text-align:justify;margin:0 0 10px}
+.lv-est-txt b{color:#b8860b}
+.lv-est-ref{text-align:center;font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:11px;color:#78716c;margin-top:14px}
+.lv-inst{border:1px solid #e7e5e4;border-left:4px solid #c9a227;border-radius:8px;background:#fafaf9;padding:8px 11px;font-size:9.5px;color:#57534e;line-height:1.6;margin-bottom:10px}
+.lv-inst b{color:#1c1917;text-transform:uppercase;letter-spacing:.06em;font-size:9px}
+.lv-logo{max-width:180px;display:block;margin:0 auto 24px}
 @media print{ body{background:#fff!important} .lv-doc{border-radius:0;border-top:none}
  .lv-capa{min-height:252mm;page-break-after:always}
  .lv-cab,.lv-cap,.lv-cong,.lv-final{page-break-after:avoid;page-break-inside:avoid}
  table.lv-tb tr{page-break-inside:avoid}
  .lv-wm{position:fixed;left:3mm;top:0;bottom:0}
- .lv-no-print{display:none!important} @page{size:A4;margin:10mm} }
+ .lv-pag{border-top:none} .lv-no-print{display:none!important} @page{size:A4;margin:10mm} }
 `;
 }
 let _livroCssInj = false;
@@ -4658,6 +4668,15 @@ function _livroHtml(d, opts = {}){
     </div>
     <div class="lv-conteudo">
       <div class="lv-wm"><b>Ml 3:10</b><b>Ml 3:10</b></div>
+      <div class="lv-sec lv-pag lv-est">
+        <p class="lv-est-t">O Poder da Obra Missionária</p>
+        <p class="lv-est-s">O dízimo e a expansão do Reino de Deus na terra</p>
+        <p class="lv-est-txt">O dízimo é muito mais do que uma contribuição financeira — é um ato de mordomia, de fé e de amor a Deus. Desde Abraão, que entregou o dízimo a Melquisedeque reconhecendo o Deus Altíssimo como possuidor dos céus e da terra (Gn 14:20), até a exortação do profeta — <b>"Trazei todos os dízimos à casa do tesouro" (Ml 3:10)</b> — a fidelidade na entrega sustenta a obra do Senhor e declara que Ele é a fonte de todos os nossos recursos.</p>
+        <p class="lv-est-txt">Cada lançamento registrado neste livro tem um destino maior do que os números: é combustível da expansão do Reino. Pela fidelidade dos dizimistas, a <b>AD Brasil</b> mantém templos, forma obreiros e envia missionários. Em <b>Roraima</b>, a obra avança pelos vicinais, pelas <b>terras indígenas</b> e pelo <b>Baixo Rio Branco</b> — e ultrapassa fronteiras, alcançando <b>Moçambique</b>, <b>Colômbia</b>, <b>Venezuela</b> e <b>Guiana</b>. Assim o dízimo cumpre a lei da semeadura (Gl 6:7): recursos materiais convertem-se em colheita espiritual — templos levantados, famílias alcançadas e o evangelho pregado onde antes não havia mensageiro.</p>
+        <p class="lv-est-txt">Por isso, este livro não é apenas um registro contábil: é um testemunho de fidelidade. Cada nome aqui escrito cooperou para que a obra missionária avançasse da nossa cidade até os confins da terra. <b>"O que semeia generosamente, generosamente também colherá" (2 Co 9:6).</b> Que a fidelidade de hoje seja a expansão de amanhã — para a glória de Deus e o crescimento do Seu Reino.</p>
+        <p class="lv-est-ref">Ml 3:10 · Gl 6:7 · 2 Co 9:6</p>
+      </div>
+      <div class="lv-pag">
       <div class="lv-cab">
         ${timb}
         <p class="lv-cab-sub">Livro de Dizimistas · Registro oficial · ${esc(periodoTxt)}</p>
@@ -4672,8 +4691,10 @@ function _livroHtml(d, opts = {}){
         ${sumario || '<p class="lv-mut">Nenhum lançamento no período.</p>'}
         ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
       </div>
-      <div class="lv-sec">
+      </div>
+      <div class="lv-sec lv-pag">
         <p class="lv-h"><i class="fa-solid fa-book-open"></i>Detalhamento</p>
+        <div class="lv-inst"><b>Como ler este livro</b><br>Os registros estão organizados em capítulos, por mês. Cada lançamento identifica o dizimista, a semana da contribuição e o canal (Espécie · Pix · Misto). A marca "→" indica congregação de destino diferente do cadastro do membro. Os consolidados por capítulo, conselho, congregação e canal estão no Sumário e nas Estatísticas.</div>
         ${d.capitulos.map(cap => _livroCapituloHtml(cap, L.periodo === 'mensal' ? `${L.mes}/${L.ano}` : 'anual', opts.seloSrc)).join('') || '<p class="lv-mut">Sem lançamentos.</p>'}
       </div>
       <div class="lv-sec">
