@@ -4567,6 +4567,8 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-idx-nome{font-weight:700;color:#292524;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58%}
 .lv-idx-dots{flex:1;border-bottom:1px dotted #c4b896;transform:translateY(-2px);min-width:12px}
 .lv-idx-pg{font-size:7.5px;color:#8a7355;white-space:nowrap;font-family:'Inter',sans-serif;font-weight:600}
+.lv-pgnums{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.lv-pgnum{position:absolute;left:0;right:0;text-align:center;font-family:'Inter',sans-serif;font-size:8px;letter-spacing:.18em;color:#a8a29e;font-weight:600}
 .lv-agrad{margin-top:20px;padding-top:14px;border-top:1px solid #ece5d3;text-align:center}
 .lv-agrad-t{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:#a5853a;font-weight:800;margin:0 0 8px}
 .lv-agrad-txt{font-family:'EB Garamond',Georgia,serif;font-size:12px;line-height:1.7;color:#44403c;margin:0 auto 8px}
@@ -4803,6 +4805,7 @@ function _livroHtml(d, opts = {}){
       ${qr}
       <p class="lv-rod">Livro de Dizimistas · ${esc(periodoTxt)} · Gerado pelo SGE AD Brasil · Emitido por ${esc(emissor)} · ${esc(emitido)}</p>
     </div>
+    <div class="lv-pgnums"></div>
   </div>`;
 }
 
@@ -4942,6 +4945,15 @@ function _livroMedirPaginas(){
         const sp = document.getElementById(id);
         if (sp) sp.textContent = mapaIdx[id];
       });
+      /* numeração impressa: marcador no rodapé de cada folha (exceto a capa) */
+      const docEl = d2.querySelector('.lv-doc');
+      const totalPags = Math.max(1, Math.ceil((docEl ? docEl.getBoundingClientRect().height : 0) / H));
+      docHtml = docHtml.replace(/<div class="lv-pgnum"[^>]*>[^<]*<\/div>/g, '');
+      let mk = '';
+      for (let p = 2; p <= totalPags; p++) mk += `<div class="lv-pgnum" style="top:${(p * H - 18).toFixed(1)}px">— ${p} —</div>`;
+      docHtml = docHtml.replace('<div class="lv-pgnums"></div>', '<div class="lv-pgnums">' + mk + '</div>');
+      const pgBox = document.querySelector('#livro-doc .lv-pgnums');
+      if (pgBox) pgBox.innerHTML = mk;
       L.doc = docHtml;
     } catch (e) {} finally { fr.remove(); }
   };
