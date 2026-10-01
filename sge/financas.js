@@ -1228,8 +1228,14 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-cong{text-align:center;padding:3px;background:#e6e6e6;font-weight:bold;font-size:10px;letter-spacing:.8px;color:#000}
 .rcm-doc .rcm-cols th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px}
 .rcm-doc td{height:14px;font-size:9px}
-.rcm-doc .rcm-sec{background:#ececec;font-weight:bold;text-align:center;letter-spacing:1px;font-size:8px}
-.rcm-doc .rcm-sub{background:#f2f2f2;font-weight:bold;text-align:right;font-size:8px}
+.rcm-doc .rcm-sec{background:#d9dfe7;color:#1f2937;font-weight:bold;text-align:center;letter-spacing:1.2px;font-size:8px;padding:4px 3px}
+.rcm-doc .rcm-sub{background:#f7f7f7;font-weight:bold;text-align:right;font-size:7.5px;letter-spacing:1px;color:#555}
+.rcm-doc .rcm-subv{background:#ffe08a;font-weight:800;text-align:right;font-size:9px;color:#713f12;white-space:nowrap}
+.rcm-doc .rcm-subv.rcm-subv-sai{background:#fecaca;color:#7f1d1d}
+.rcm-doc tr.rcm-sep>td{border:none;padding:0;height:0}
+.rcm-doc tr.rcm-sep>td>i{display:flex;align-items:center;gap:5px;color:#8a8a8a;font-style:normal}
+.rcm-doc tr.rcm-sep>td>i::before,.rcm-doc tr.rcm-sep>td>i::after{content:'';flex:1;border-top:1.4px solid #9e9e9e}
+.rcm-doc tr.rcm-sep>td>i>u{text-decoration:none;font-size:6px;line-height:1}
 .rcm-doc .rcm-subt th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px 4px}
 .rcm-doc .rcm-subt td{font-size:8px}
 .rcm-doc .rcm-totais{display:flex;justify-content:space-between;gap:4%;padding:7px;border:1px solid #000;border-top:none}
@@ -2273,28 +2279,31 @@ function rcmDocHtml(){
   const marca = RC.status === 'enviado' ? 'rcm-m-enviado' : 'rcm-m-rascunho';
   const marcaTxt = RC.status === 'enviado' ? 'ENVIADO' : 'RASCUNHO';
   let rows = '';
+  let primSec = true;
   RC_SECOES.forEach(sec => {
     const itens = RC.lancamentos.filter(l => l.tipo === sec.tipo)
       .sort((a,b) => (parseInt(a.recibo)||0) - (parseInt(b.recibo)||0));
     if (!itens.length) return;
     const isSaiSec = sec.tipo.includes('SAIDAS');
     let sub = 0;
-    rows += `<tr><td></td><td colspan="7" class="rcm-sec">${sec.titulo}</td><td></td><td></td></tr>`;
+    if (!primSec) rows += `<tr class="rcm-sep"><td colspan="4"><i><u>◆</u></i></td></tr>`;
+    primSec = false;
+    rows += `<tr><td colspan="4" class="rcm-sec">${sec.titulo}</td></tr>`;
     itens.forEach(it => {
       const isSai = it.tipo.includes('SAIDAS');
       sub += it.valor;
-      rows += `<tr><td style="text-align:center">${rcEsc(it.recibo)}</td><td>${rcEsc(rcDescricaoDoc(it, sec.titulo))}</td><td></td><td></td><td></td><td></td><td></td><td></td><td style="text-align:right">${isSai ? '' : rcMoeda(it.valor)}</td><td style="text-align:right">${isSai ? rcMoeda(it.valor) : ''}</td></tr>`;
+      rows += `<tr><td style="text-align:center">${rcEsc(it.recibo)}</td><td>${rcEsc(rcDescricaoDoc(it, sec.titulo))}</td><td style="text-align:right">${isSai ? '' : rcMoeda(it.valor)}</td><td style="text-align:right">${isSai ? rcMoeda(it.valor) : ''}</td></tr>`;
     });
-    rows += `<tr><td></td><td colspan="7" class="rcm-sub">SUBTOTAL ${sec.titulo}:</td><td style="text-align:right;font-weight:bold">${isSaiSec ? '' : rcMoeda(sub)}</td><td style="text-align:right;font-weight:bold">${isSaiSec ? rcMoeda(sub) : ''}</td></tr>`;
+    rows += `<tr><td colspan="2" class="rcm-sub">SUBTOTAL</td><td class="${!isSaiSec ? 'rcm-subv' : ''}" style="text-align:right">${!isSaiSec ? rcMoeda(sub) : ''}</td><td class="${isSaiSec ? 'rcm-subv rcm-subv-sai' : ''}" style="text-align:right">${isSaiSec ? rcMoeda(sub) : ''}</td></tr>`;
   });
   if (!RC.lancamentos.length){
-    rows = `<tr><td></td><td colspan="7" style="text-align:center;color:#777;font-style:italic">Nenhum lançamento efetuado para este movimento.</td><td style="text-align:right">R$ 0,00</td><td style="text-align:right">R$ 0,00</td></tr>`;
+    rows = `<tr><td colspan="4" style="text-align:center;color:#777;font-style:italic">Nenhum lançamento efetuado para este movimento.</td></tr>`;
   }
   const congTxt = rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO';
   return `<div class="rcm-doc">
     <div class="rcm-marca ${marca}"><span>${marcaTxt}</span></div>
     <table class="rcm-main"><thead>
-      <tr><th colspan="10" class="rcm-head">
+      <tr><th colspan="4" class="rcm-head">
         <div class="rcm-head-top">
           <div class="rcm-timbrado-wrap"><img class="rcm-timbrado" src="icons/cabecalho_ad_brasil.png" alt=""></div>
           <div class="rcm-qr-box"><div id="rcm-qr" title="QR de autenticidade"></div><span class="rcm-qr-key" id="rcm-hash">—</span></div>
@@ -2308,7 +2317,7 @@ function rcmDocHtml(){
         </div>
         <div class="rcm-cong">${rcEsc(congTxt)}</div>
       </th></tr>
-      <tr class="rcm-cols"><th style="width:32px">Nº</th><th style="text-align:left">HISTÓRICO</th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:10px"></th><th style="width:82px">ENTRADAS</th><th style="width:82px">SAÍDAS</th></tr>
+      <tr class="rcm-cols"><th style="width:42px">Nº</th><th style="text-align:left">HISTÓRICO</th><th style="width:82px">ENTRADAS</th><th style="width:82px">SAÍDAS</th></tr>
     </thead><tbody>${rows}</tbody></table>
     <div class="rcm-totais">
       <div style="width:48%">
@@ -2456,37 +2465,48 @@ window.rcmPdf = async function(){
   doc.text(rel.congregacao ? ('CONGREGAÇÃO ' + rel.congregacao).toUpperCase() : 'CONGREGAÇÃO', 105, y + 4.9, { align:'center' });
   y += 7;
 
-  // tabela de lançamentos (10 colunas: Nº + HISTÓRICO + 6 colunas finas + ENTRADAS + SAÍDAS)
+  // tabela de lançamentos (4 colunas: Nº + HISTÓRICO + ENTRADAS + SAÍDAS)
   const body = [];
+  let primSec = true;
   RC_SECOES.forEach(sec => {
     const itens = RC.lancamentos.filter(l => l.tipo === sec.tipo)
       .sort((a,b) => (parseInt(a.recibo)||0) - (parseInt(b.recibo)||0));
     if (!itens.length) return;
+    if (!primSec) body.push([{ content: '', colSpan: 4, _sep: true, styles: { minCellHeight: 4.5, cellPadding: 0, lineWidth: 0, fillColor: [255,255,255] } }]);
+    primSec = false;
     const isSaiSec = sec.tipo.includes('SAIDAS');
     let sub = 0;
-    body.push([{ content: '', styles: { fillColor: [236,236,236] } },
-      { content: sec.titulo, colSpan: 7, styles: { halign: 'center', fontStyle: 'bold', fillColor: [236,236,236] } },
-      { content: '', styles: { fillColor: [236,236,236] } }, { content: '', styles: { fillColor: [236,236,236] } }]);
+    body.push([{ content: sec.titulo, colSpan: 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: [217,223,231], textColor: [31,41,55] } }]);
     itens.forEach(it => {
       const isSai = it.tipo.includes('SAIDAS');
       sub += it.valor;
-      body.push([it.recibo || '', rcDescricaoDoc(it, sec.titulo), '', '', '', '', '', '',
+      body.push([it.recibo || '', rcDescricaoDoc(it, sec.titulo),
         isSai ? '' : rcMoeda(it.valor), isSai ? rcMoeda(it.valor) : '']);
     });
-    body.push([{ content: '', styles: { fillColor: [242,242,242] } },
-      { content: 'SUBTOTAL ' + sec.titulo + ':', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
-      { content: isSaiSec ? '' : rcMoeda(sub), styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } },
-      { content: isSaiSec ? rcMoeda(sub) : '', styles: { halign: 'right', fontStyle: 'bold', fillColor: [242,242,242] } }]);
+    body.push([{ content: 'SUBTOTAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 6.5, textColor: [85,85,85], fillColor: [247,247,247] } },
+      { content: isSaiSec ? '' : rcMoeda(sub), styles: { halign: 'right', fontStyle: 'bold', fillColor: isSaiSec ? [255,255,255] : [255,224,138], textColor: isSaiSec ? 0 : [113,63,18] } },
+      { content: isSaiSec ? rcMoeda(sub) : '', styles: { halign: 'right', fontStyle: 'bold', fillColor: isSaiSec ? [254,202,202] : [255,255,255], textColor: isSaiSec ? [127,29,29] : 0 } }]);
   });
-  if (!body.length) body.push([{ content: 'Nenhum lançamento efetuado para este movimento.', colSpan: 10, styles: { halign: 'center', fontStyle: 'italic', textColor: [120,120,120] } }]);
+  if (!body.length) body.push([{ content: 'Nenhum lançamento efetuado para este movimento.', colSpan: 4, styles: { halign: 'center', fontStyle: 'italic', textColor: [120,120,120] } }]);
   doc.autoTable({
     startY: y,
-    head: [['Nº', 'HISTÓRICO', '', '', '', '', '', '', 'ENTRADAS', 'SAÍDAS']],
+    head: [['Nº', 'HISTÓRICO', 'ENTRADAS', 'SAÍDAS']],
     body, theme: 'grid',
     headStyles: { fillColor: [230,230,230], textColor: 0, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
     styles: { fontSize: 8, textColor: 0, lineColor: 0, lineWidth: .25, cellPadding: { top: 1.4, bottom: 1.4, left: 1.6, right: 1.6 }, minCellHeight: 5 },
-    columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 2: { cellWidth: 4 }, 3: { cellWidth: 4 }, 4: { cellWidth: 4 }, 5: { cellWidth: 4 }, 6: { cellWidth: 4 }, 7: { cellWidth: 4 }, 8: { cellWidth: 26, halign: 'right' }, 9: { cellWidth: 26, halign: 'right' } },
+    columnStyles: { 0: { cellWidth: 14, halign: 'center' }, 2: { cellWidth: 26, halign: 'right' }, 3: { cellWidth: 26, halign: 'right' } },
     margin: { left: ML, right: ML },
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.cell.raw && data.cell.raw._sep) {
+        const c = data.cell, midY = c.y + c.height / 2, midX = c.x + c.width / 2;
+        doc.setDrawColor(158,158,158); doc.setLineWidth(0.35);
+        doc.line(c.x + 3, midY, midX - 3, midY);
+        doc.line(midX + 3, midY, c.x + c.width - 3, midY);
+        doc.setFillColor(140,140,140);
+        doc.triangle(midX, midY - 1.4, midX - 1.4, midY, midX + 1.4, midY, 'F');
+        doc.triangle(midX - 1.4, midY, midX + 1.4, midY, midX, midY + 1.4, 'F');
+      }
+    },
   });
   y = doc.lastAutoTable.finalY;
 
@@ -4542,6 +4562,11 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-sub{text-align:right;font-family:'EB Garamond',Georgia,serif;font-size:10.5px;font-weight:700;color:#78716c;border-top:1px dashed #e7e5e4;padding-top:3px;margin:3px 0 10px}
 .lv-sub b{color:#92400e}
 .lv-pg{color:#a8a29e;font-size:8.5px}
+.lv-idx-grid{columns:2;column-gap:18px;margin-top:2px}
+.lv-idx-item{break-inside:avoid;-webkit-column-break-inside:avoid;display:flex;align-items:baseline;gap:4px;font-family:'EB Garamond',Georgia,serif;font-size:9.5px;padding:2px 0}
+.lv-idx-nome{font-weight:700;color:#292524;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58%}
+.lv-idx-dots{flex:1;border-bottom:1px dotted #c4b896;transform:translateY(-2px);min-width:12px}
+.lv-idx-pg{font-size:7.5px;color:#8a7355;white-space:nowrap;font-family:'Inter',sans-serif;font-weight:600}
 .lv-agrad{margin-top:20px;padding-top:14px;border-top:1px solid #ece5d3;text-align:center}
 .lv-agrad-t{font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:#a5853a;font-weight:800;margin:0 0 8px}
 .lv-agrad-txt{font-family:'EB Garamond',Georgia,serif;font-size:12px;line-height:1.7;color:#44403c;margin:0 auto 8px}
@@ -4656,8 +4681,14 @@ async function _livroColetar(){
     const ch = r.canal || 'Não informado';
     porCanal[ch] = (porCanal[ch] || 0) + r.valor;
   }
+  /* índice remissivo: nome → posição na lista alfabética (nkey) */
+  const nomesMap = new Map();
+  for (const r of rows){ const k = cfq(r.nome); if (k && !nomesMap.has(k)) nomesMap.set(k, r.nome); }
+  const nomesOrd = [...nomesMap.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'pt-BR'));
+  const nkeyOf = new Map(nomesOrd.map((n, i) => [n[0], i]));
+  for (const r of rows) r.nkey = nkeyOf.get(cfq(r.nome));
   return { capitulos, porCons, porCong, porCanal, total, qtd: rows.length,
-    dizimistas: dizimistas.size, ordC, rankCong };
+    dizimistas: dizimistas.size, ordC, rankCong, nomes: nomesOrd.map(n => n[1]) };
 }
 const _normIdJs = v => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
 
@@ -4665,7 +4696,7 @@ function _livroCapituloHtml(cap, mesLabel, seloSrc, idx){
   const linhas = cap.grupos.map(g => `
     <p class="lv-cong">${esc(g.cong)} <small>· ${esc(g.cons)}</small></p>
     <table class="lv-tb"><tbody>
-      ${g.lista.map(r => `<tr>
+      ${g.lista.map(r => `<tr data-nk="${r.nkey ?? ''}">
         <td><b>${esc(r.nome)}</b>${mesLabel === 'anual' ? `<span class="lv-mut"> · ${esc(r.semana.replace('Semana ', ''))}ª sem</span>` : ''}${r.itin ? `<span class="lv-mut"> · →${esc(r.itin)}</span>` : ''}</td>
         <td class="lv-val">${moeda(r.valor)}${r.canal ? `<span class="lv-canal ${cf(r.canal).includes('pix') ? 'pix' : ''}">${esc(r.canal)}</span>` : ''}</td>
       </tr>`).join('')}
@@ -4746,6 +4777,12 @@ function _livroHtml(d, opts = {}){
         ${sumario || '<p class="lv-mut">Nenhum lançamento no período.</p>'}
         ${melhor ? `<p class="lv-mut" style="margin-top:6px"><i class="fa-solid fa-trophy mr-1" style="color:#c9a227"></i>Maior arrecadação: <b>${esc(melhor.titulo)}</b> — ${moeda(melhor.total)}</p>` : ''}
       </div>
+      </div>
+      <div class="lv-sec lv-pag lv-idx">
+        <p class="lv-vs">"A memória do justo é abençoada." — Pv 10:7</p>
+        <p class="lv-h"><i class="fa-solid fa-address-book"></i>Índice de Dizimistas</p>
+        <p class="lv-mut" style="margin:-4px 0 8px">Listagem geral — ao lado de cada nome, as páginas em que seus registros aparecem no detalhamento.</p>
+        <div class="lv-idx-grid">${(d.nomes || []).map((n, i) => `<div class="lv-idx-item"><span class="lv-idx-nome">${esc(n)}</span><i class="lv-idx-dots"></i><span class="lv-idx-pg" id="lvidx-${i}"></span></div>`).join('') || '<p class="lv-mut">Sem registros no período.</p>'}</div>
       </div>
       <div class="lv-sec lv-pag lv-det">
         <p class="lv-vs">"Cada um contribua segundo propôs no seu coração; não com tristeza, nem por necessidade, porque Deus ama ao que dá com alegria." — 2 Co 9:7</p>
@@ -4852,7 +4889,6 @@ window.livroGerar = async function(){
 
 function _livroMedirPaginas(){
   const L = F.livro; if (!L.doc) return;
-  const PAG_BASE = 4;
   const H = 277 * 96 / 25.4;
   const fr = document.createElement('iframe');
   fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:718px;height:1046px;border:none;';
@@ -4866,18 +4902,45 @@ function _livroMedirPaginas(){
     try {
       const det = d2.querySelector('.lv-det');
       if (!det) return;
+      const detTop = det.getBoundingClientRect().top;
+      /* páginas antes do detalhamento: cada .lv-pag/capa inicia folha nova na impressão */
+      let detStart = 0;
+      for (const el2 of d2.querySelectorAll('.lv-doc > .lv-capa, .lv-doc .lv-conteudo > .lv-pag')) {
+        if (el2 === det) break;
+        detStart += Math.max(1, Math.ceil(el2.getBoundingClientRect().height / H));
+      }
       const mapa = {};
       d2.querySelectorAll('.lv-cap[id^="lv-cap-"]').forEach(el => {
-        const rel = el.getBoundingClientRect().top - det.getBoundingClientRect().top;
-        let pg = PAG_BASE + 1 + Math.floor(rel / H);
+        const rel = el.getBoundingClientRect().top - detTop;
+        let pg = detStart + 1 + Math.floor(rel / H);
         if (rel % H > H - 46) pg += 1;
         mapa['lvpg-' + el.id.replace('lv-cap-', '')] = pg;
+      });
+      /* índice remissivo: página de cada linha de lançamento por nome */
+      const pagsNome = {};
+      d2.querySelectorAll('.lv-det tr[data-nk]').forEach(el => {
+        const k = el.getAttribute('data-nk');
+        if (k === '') return;
+        const r2 = el.getBoundingClientRect();
+        const pg = detStart + 1 + Math.floor(Math.max(0, r2.top - detTop + r2.height - 2) / H);
+        (pagsNome[k] = pagsNome[k] || new Set()).add(pg);
+      });
+      const mapaIdx = {};
+      d2.querySelectorAll('.lv-idx-pg[id^="lvidx-"]').forEach(el => {
+        const k = el.id.replace('lvidx-', '');
+        const pags = pagsNome[k] ? [...pagsNome[k]].sort((a, b) => a - b) : [];
+        mapaIdx[el.id] = pags.length ? (pags.length > 1 ? 'págs. ' : 'pág. ') + pags.join(', ') : '—';
       });
       let docHtml = L.doc;
       Object.keys(mapa).forEach(id => {
         docHtml = docHtml.replace(new RegExp('(<span class="lv-pg" id="' + id + '">)[^<]*</span>'), '$1pág. ' + mapa[id] + '</span>');
         const sp = document.getElementById(id);
         if (sp) sp.textContent = 'pág. ' + mapa[id];
+      });
+      Object.keys(mapaIdx).forEach(id => {
+        docHtml = docHtml.replace(new RegExp('(<span class="lv-idx-pg" id="' + id + '">)[^<]*</span>'), '$1' + mapaIdx[id] + '</span>');
+        const sp = document.getElementById(id);
+        if (sp) sp.textContent = mapaIdx[id];
       });
       L.doc = docHtml;
     } catch (e) {} finally { fr.remove(); }
