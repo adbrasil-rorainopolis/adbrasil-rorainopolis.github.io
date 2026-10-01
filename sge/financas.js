@@ -6773,7 +6773,8 @@ window.mvfSalvarCong = async function(cong){
     if (r?.ok){
       toast(`${cong}: ${MVF.sem}ª semana gravada no movimento + origem.`);
       /* reflete a linha salva no cache em memória (carregarMovimento é cacheado) */
-      const aba = (MVF.mov?.abas ||= {})[MVF_SEM_LBL(MVF.sem)] ||= { registros: [], totais: {} };
+      MVF.mov = MVF.mov || { abas: {} };
+      const aba = (MVF.mov.abas ||= {})[MVF_SEM_LBL(MVF.sem)] ||= { registros: [], totais: {} };
       const reg = { numero: '', conselho: info.conselho || '', congregacao: cong,
         dizimos: linha.dizimos, ofertas: linha.ofertas, total_entradas: linha.total_entradas,
         total_despesas: linha.total_despesas, detalhes_entradas: linha.detalhes_entradas,
@@ -6781,7 +6782,14 @@ window.mvfSalvarCong = async function(cong){
         detalhes_despesas_operacionais: linha.detalhes_despesas_operacionais };
       const i = aba.registros.findIndex(rg => cf(rg.congregacao) === cf(cong));
       if (i >= 0) aba.registros[i] = { ...aba.registros[i], ...reg }; else aba.registros.push(reg);
-      const o = ((MVF.origem[MVF_SEM_ORG(MVF.sem)] ||= {})[cf(cong)] = { tb: linha.pix, esp: linha.especie });
+      /* recompute local dos totais da aba (mesma soma da edge) — Prebenda lê daqui */
+      const tot = aba.registros.reduce((t, r) => ({
+        dizimos: t.dizimos + num(r.dizimos), ofertas: t.ofertas + num(r.ofertas),
+        total_entradas: t.total_entradas + num(r.total_entradas),
+        total_despesas: t.total_despesas + num(r.total_despesas),
+      }), { dizimos: 0, ofertas: 0, total_entradas: 0, total_despesas: 0 });
+      aba.totais = { ...aba.totais, ...tot };
+      ((MVF.origem[MVF_SEM_ORG(MVF.sem)] ||= {})[cf(cong)] = { tb: linha.pix, esp: linha.especie });
       MVF.edits = {}; MVF.aberto = null; mvfRenderLista();
     } else toast(r?.erro || 'Falha ao gravar a grade.');
   } catch(e2){ toast('Sem conexão — nada foi gravado.'); }
