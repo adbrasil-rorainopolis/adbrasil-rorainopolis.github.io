@@ -282,6 +282,7 @@ function renderMisHistorico(){
     </div>
     <div id="mis-stats" class="grid grid-cols-2 gap-2"></div>
     <div id="mis-hist-kpis" class="grid grid-cols-2 gap-2"></div>
+    <div id="mis-feedback" class="hidden"></div>
     <div id="mis-grafico-wrap" class="${f.modo === 'tabela' ? 'hidden ' : ''}border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-xs mb-2 flex items-center gap-2"><i class="fa-solid fa-chart-column text-orange-400"></i><span id="mis-hist-titulo-graf">Evolução missionária</span></h3>
       <div class="h-64"><canvas id="mis-grafico"></canvas></div>
@@ -537,6 +538,7 @@ function _renderResultadosM(){
     cardM(M.cats.total_missoes ? 'Total no período' : 'Total (marcadas)', moedaM(M.cats.total_missoes ? tot.total_missoes : _valorPontoM(tot)), '#fbbf24', 'rgba(251,191,36,.12)');
 
   _renderStatsM(d);
+  _renderFeedbackM(d);
   _renderMetasM(d);
   if (f.modo === 'tabela'){ _renderTabelaM(tabela); return; }
   if (f.modo === 'acumulado') _renderGraficoAcumuladoM(tabela); else _renderGraficoM(series);
@@ -724,6 +726,69 @@ function _renderStatsM(d){
     stat(`Média móvel ${n} períodos`, moedaM(mm), pct(media > 0.004 ? (ult - media) / media * 100 : null) + ' vs média', 'fa-wave-square', '#a78bfa') +
     stat('Média do período', moedaM(media), ult >= media ? 'Último acima da média' : 'Último abaixo da média', 'fa-scale-balanced', '#f59e0b') +
     stat('Vs. ano anterior', pct(yoy), f.modo === 'evolucao' ? 'Mesma faixa, ano anterior' : 'Último ano vs penúltimo', 'fa-calendar-check', '#ec4899');
+}
+
+/* Leitura automática do comparativo anual — paridade com o painel desktop:
+   ano mais recente × média × melhor/pior ano do período filtrado. */
+function _renderFeedbackM(d){
+  const box = $m('mis-feedback'); if (!box) return;
+  const f = M.hist;
+  const porAno = {};
+  if (f.modo === 'anual'){
+    (d.series || []).forEach(s => {
+      const a = String(s.ano || '');
+      if (a) porAno[a] = (porAno[a] || 0) + _valorPontoM(s);
+    });
+  } else if ((f.modo === 'tabela' || f.modo === 'acumulado') && d.tabela){
+    for (const a of d.tabela.anos || []){
+      let v = 0;
+      for (const l of d.tabela.linhas || []) v += _valorPontoM(l.por_ano?.[a] || {});
+      porAno[a] = v;
+    }
+  }
+  const anos = Object.keys(porAno).sort();
+  if (anos.length < 2){ box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+  const alvo = anos[anos.length - 1];
+  const vAlvo = porAno[alvo];
+  const anteriores = anos.slice(0, -1);
+  const media = anteriores.reduce((a, x) => a + porAno[x], 0) / anteriores.length;
+  const melhor = anteriores.reduce((m, x) => porAno[x] > porAno[m] ? x : m, anteriores[0]);
+  const pior = anteriores.reduce((m, x) => porAno[x] < porAno[m] ? x : m, anteriores[0]);
+  const pos = 1 + anteriores.filter(a => porAno[a] > vAlvo).length;
+  const emCurso = +alvo === new Date().getFullYear();
+  const fmtPct = dd => (dd >= 0 ? '+' : '') + dd.toFixed(1) + '%';
+  const ord = pos === 1 ? 'maior' : pos === 2 ? '2º maior' : pos === 3 ? '3º maior' : pos + 'º maior';
+
+  const frases = [];
+  if (vAlvo > porAno[melhor] && porAno[melhor] > 0){
+    frases.push(`🏆 <b>${alvo}</b> já ultrapassou <b>${melhor}</b> (${moedaM(porAno[melhor])}), o melhor ano do período — ${fmtPct((vAlvo - porAno[melhor]) / porAno[melhor] * 100)} acima.`);
+  } else if (porAno[melhor] > 0){
+    frases.push(`🎯 Para igualar <b>${melhor}</b> (${moedaM(porAno[melhor])}), melhor ano do período, faltam <b>${moedaM(porAno[melhor] - vAlvo)}</b>.`);
+  }
+  if (media > 0.004){
+    const dMedia = (vAlvo - media) / media * 100;
+    frases.push(vAlvo >= media
+      ? `📈 ${alvo} (${moedaM(vAlvo)}) está ${fmtPct(dMedia)} acima da média dos outros anos (${moedaM(media)}).`
+      : `⚠️ ${alvo} (${moedaM(vAlvo)}) está ${fmtPct(dMedia)} abaixo da média dos outros anos (${moedaM(media)}).`);
+  }
+  frases.push(`📊 <b>${alvo}</b> é o <b>${ord}</b> entre os ${anos.length} anos filtrados${emCurso ? ' — e ainda está em curso (parcial)' : ''}.`);
+  if (vAlvo > 0.004 && porAno[pior] > 0 && pior !== alvo){
+    frases.push(`${fmtPct((vAlvo - porAno[pior]) / porAno[pior] * 100)} vs ${pior} (menor) · ${fmtPct((vAlvo - porAno[melhor]) / porAno[melhor] * 100)} vs ${melhor} (maior).`);
+  }
+
+  const chips = anos.map(a => {
+    const v = porAno[a], d = vAlvo > 0.004 && a !== alvo ? (v - vAlvo) / vAlvo * 100 : null;
+    const destaque = a === alvo ? 'border:1px solid rgba(251,146,60,.55);background:rgba(251,146,60,.12);color:#fb923c' : 'border-color:var(--border-color)';
+    return `<span class="px-2 py-0.5 rounded-lg border text-[10px] font-bold" style="${destaque}">${a}: ${moedaM(v)}${d !== null ? ` <span class="${d >= 0 ? 'text-emerald-500' : 'text-red-500'}">${fmtPct(d)}</span>` : ''}</span>`;
+  }).join('');
+
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="border rounded-2xl px-3 py-3" style="background:var(--bg-card);border-color:var(--border-color);border-left:3px solid #fb923c">
+    <p class="text-[9px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5"><i class="fa-solid fa-lightbulb mr-1" style="color:#fb923c"></i>Leitura do comparativo anual${emCurso ? ' — ano parcial' : ''}</p>
+    <div class="space-y-1 text-[11px] leading-relaxed">${frases.map(fr => `<p>${fr}</p>`).join('')}</div>
+    <div class="flex flex-wrap gap-1 mt-2">${chips}</div>
+  </div>`;
 }
 
 function _renderTabelaM(tabela){

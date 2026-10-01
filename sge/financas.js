@@ -177,8 +177,10 @@ const FIN_ABAS_META = {
   relatorio:  { nome: 'Envio de Caixa',            desc: 'Fechamento e envio semanal',               icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
   prestacao:  { nome: 'Conferência de Caixa',      desc: 'Gestão e recebimento das congregações',    icone: 'fa-clipboard-check',     cor: '#f472b6' },
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
+  movfin:     { nome: 'Movimento do Campo',       desc: 'Grade semanal por congregação — alimenta movimento e origem', icone: 'fa-table-list', cor: '#f43f5e' },
+  prebenda:   { nome: 'Prebenda Pastoral',        desc: 'Prebendas dos pastores — acesso restrito', icone: 'fa-hand-holding-dollar', cor: '#f59e0b' },
 };
-const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro', 'relatorio', 'prestacao', 'orcamentos'];
+const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro', 'relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda'];
 
 window.renderFinanceiro = function(){
   el('dash-conteudo').innerHTML = `
@@ -206,6 +208,7 @@ window.finMenu = function(){
     { titulo: 'Dizimistas',          icone: 'fa-users',        abas: ['rol', 'frequencia', 'semanal', 'livro'] },
     { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
     { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
+    { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda'] },
   ];
   const blocos = grupos.map(g => {
     const itens = g.abas.filter(finAbaPermitida);
@@ -238,7 +241,20 @@ function finAbaPermitida(t){
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
+  if (t === 'movfin') return sgeEhAdmin();
+  if (t === 'prebenda') return pbPodeVerM();
   return false;
+}
+
+/* Prebenda Pastoral — restrita: CPF mestre sempre; demais administradores só
+   com a aba financeiro/prebenda liberada na matriz de acessos. */
+const PB_CPF_MESTRE = '04421351229';
+function pbPodeVerM(){
+  const u = sessao()?.usuario || {};
+  if (String(u.cpf || '').replace(/\D/g, '') === PB_CPF_MESTRE) return true;
+  if (!sgeEhAdmin()) return false;
+  return (sgeAcessos().permissoes || []).some(p =>
+    p.modulo === 'financeiro' && (p.aba === 'prebenda' || p.aba === '*'));
 }
 
 window.finAba = function(aba){
@@ -266,6 +282,8 @@ window.finAba = function(aba){
   if (aba === 'prestacao') return window.prestRender();
   if (aba === 'frequencia') return finRenderFrequencia();
   if (aba === 'orcamentos') return orcRenderTela();
+  if (aba === 'movfin') return mvfRenderTela();
+  if (aba === 'prebenda') return pbRenderTela();
   finRenderRol();
 };
 
@@ -6527,6 +6545,487 @@ window.drePdf = async function(){
       : `DRE_${dre.modo}_${dre.ano}_${String(DRE_IDX_MES[dre.mes] || 0).padStart(2, '0')}.pdf`);
     toast('PDF da DRE gerado.');
   } catch(e){ toast(e.message || 'Falha ao gerar o PDF.'); }
+};
+
+/* ============================================================================
+   MOVIMENTO DO CAMPO (mobile) — grade semanal por congregação.
+   Mesma lógica do protótipo desktop: edição por semana (1ª–5ª), repasses
+   automáticos, PIX/Espécie → Origem de Valores; gravação parcial via
+   api('salvar_grade_movimento') — não apaga o que veio da planilha.
+   ============================================================================ */
+const MVF_COLS_ENT = [
+  'Dízimos', 'Oferta Extra Ordinária',
+  'Oferta Ordinária do Culto de Assembleia Geral - 2º. Feira',
+  'Oferta Ordinária - 3ª. Feira',
+  'Oferta Ordinária - Assembleia Geral - Culto de Milagres - 4º. Feira',
+  'Oferta Ordinária - 5º Feira', 'Oferta Ordinária - 6º Feira',
+  'Oferta Ordinária - Sabado', 'Oferta da EBD', 'Oferta da EBD Missionária',
+  'Oferta do Culto de Missões', 'Oferta Missionária',
+  'Oferta Missionária do Circulo de Oração',
+  'Oferta do Circulo de Oração - 6ª Feira', 'Oferta do Circulo de Oração - Sábado',
+  'Oferta do Culto do Circulo de Oração', 'Oferta do Culto da UMAD',
+  'Oferta Ordinária do Culto de Domingo Noite - Outros Departamentos',
+];
+const MVF_COLS_MISSOES = ['Oferta da EBD Missionária', 'Oferta do Culto de Missões',
+  'Oferta Missionária', 'Oferta Missionária do Circulo de Oração'];
+const MVF_COLS_CIRCULO = ['Oferta do Circulo de Oração - 6ª Feira',
+  'Oferta do Circulo de Oração - Sábado', 'Oferta do Culto do Circulo de Oração'];
+const MVF_COLS_DESP = [
+  'Materiais de Bens Duráveis ou Utensílios', 'Energia', 'Telefone e Internet',
+  'Alimentação para Eventos', 'Água e Esgoto', 'INSS, Taxas e Impostos Diversos',
+  'Divulgação de Eventos, Propaganda e Rádio', 'Locação de Imóveis',
+  'Manutenção de Veículo', 'Frete ou Aluguel de Veiculo', 'Combustivel e Lubrificantes',
+  'Passagens', 'Presentes', 'Medicação', 'Construção, Reforma ou Ampliação',
+  'Material de Som', 'Material de Expediente', 'Material de Limpeza',
+  'Atendimento Social', 'Aquisição de Imoveis', 'Hospedagem',
+  'Vestuário ou Ornamentação', 'Lanche EBD ou Santa Ceia',
+];
+/* Repasses automáticos — mesmas regras do desktop (MV_REPASSES_AUTO). */
+function mvfRepasse(col, ent, totEnt){
+  switch (col){
+    case 'Fundo Convencional': return totEnt * 0.10;
+    case 'Repasse da Oferta de Missões': return MVF_COLS_MISSOES.reduce((a, c) => a + num(ent[c]), 0);
+    case 'S.O.S Baixo Rio Branco 1%': return totEnt * 0.01;
+    case 'Auxílio Presidencial 5%': return totEnt * 0.05;
+    case 'Prebenda': return totEnt * 0.15;
+    case 'Prebenda pastores auxiliares': return totEnt * 0.15;
+    case 'Caixa da Oferta do Circulo de Oração': return MVF_COLS_CIRCULO.reduce((a, c) => a + num(ent[c]), 0);
+    case 'Auxílio lideres de Congregação': return totEnt * 0.05;
+  }
+  return 0;
+}
+const MVF_REPASSES = ['Fundo Convencional', 'Repasse da Oferta de Missões',
+  'S.O.S Baixo Rio Branco 1%', 'Auxílio Presidencial 5%', 'Prebenda',
+  'Prebenda pastores auxiliares', 'Caixa da Oferta do Circulo de Oração',
+  'Auxílio lideres de Congregação'];
+const MVF_SEM_LBL = w => `${w}º. SEMANA`;   // aba do movimento
+const MVF_SEM_ORG = w => `${w}ª SEMANA`;    // semana na origem de valores
+
+const MVF = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()],
+  sem: 1, congs: [], aberto: null, edits: {}, mov: null, origem: {}, carregando: false };
+
+function mvfParseMoeda(s){ const n = Number(String(s ?? '').replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, '')); return Number.isFinite(n) ? n : 0; }
+function mvfEdit(cong){
+  return MVF.edits[cong] || (MVF.edits[cong] = { ent: {}, desp: {}, pix: 0, esp: 0 });
+}
+/* Pré-carrega o editor da congregação com o que já está no movimento/origem. */
+function mvfPrefill(cong){
+  const e = mvfEdit(cong);
+  if (e._ok) return;
+  const reg = (MVF.mov?.abas?.[MVF_SEM_LBL(MVF.sem)]?.registros || [])
+    .find(r => cf(r.congregacao) === cf(cong));
+  if (reg){
+    e.ent = { ...(reg.detalhes_entradas || {}) };
+    e.desp = { ...(reg.detalhes_despesas_operacionais || {}) };
+  }
+  const o = (MVF.origem[MVF_SEM_ORG(MVF.sem)] || {})[cf(cong)];
+  if (o){ e.pix = num(o.tb); e.esp = num(o.esp); }
+  e._ok = true;
+}
+function mvfTotEnt(e){ return Object.values(e.ent || {}).reduce((a, v) => a + num(v), 0); }
+function mvfTotSai(e){
+  const rep = MVF_REPASSES.reduce((a, c) => a + mvfRepasse(c, e.ent, mvfTotEnt(e)), 0);
+  return rep + Object.values(e.desp || {}).reduce((a, v) => a + num(v), 0);
+}
+
+window.mvfRenderTela = function(){
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
+            <select id="mvf-ano" onchange="mvfMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === MVF.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
+            <select id="mvf-mes" onchange="mvfMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${MESES_ORD.map(m => `<option ${m === MVF.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+        </div>
+        <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button onclick="mvfSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MVF.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
+        <p id="mvf-status" class="text-[9px] opacity-55"></p>
+      </div>
+      <div id="mvf-lista" class="space-y-2"></div>
+    </div>`;
+  mvfCarregar();
+};
+window.mvfMudouFiltro = function(){
+  MVF.ano = el('mvf-ano').value; MVF.mes = el('mvf-mes').value;
+  MVF.edits = {}; MVF.aberto = null; mvfCarregar();
+};
+window.mvfSelSemana = function(w){ MVF.sem = w; MVF.edits = {}; MVF.aberto = null; mvfRenderTela(); };
+
+async function mvfCarregar(){
+  const lista = el('mvf-lista'), st = el('mvf-status');
+  if (lista) lista.innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando movimento…</p>';
+  try {
+    const [mov, org, mapa] = await Promise.all([
+      SGEG.carregarMovimento(MVF.ano, MVF.mes),
+      api('carregar_origem_valores', { ano: MVF.ano, mes: MVF.mes }, sessao()?.token).catch(() => ({})),
+      SGEG.mapaConselhos(),
+    ]);
+    MVF.mov = mov;
+    MVF.origem = {};
+    for (const l of (org.lancamentos || []))
+      ((MVF.origem[l.semana] ||= {})[cf(l.congregacao)] = { tb: num(l.valor_tb), esp: num(l.valor_especie) });
+    MVF.congs = [];
+    for (const cons of SGEG.ordenarConselhosG(Object.keys(mapa.porConselho || {})))
+      for (const nome of (mapa.porConselho[cons] || [])) MVF.congs.push({ nome, conselho: cons });
+    mvfRenderLista();
+    if (st) st.textContent = MVF.mov ? `Base: ${MVF.mov.arquivo_origem || 'nuvem'} · salvamento direto no movimento semanal + origem` : 'Competência sem movimento importado — a grade cria os registros.';
+  } catch(e){
+    if (lista) lista.innerHTML = `<p class="text-center text-xs py-8 text-red-400">Falha ao carregar: ${esc(e.message || e)}</p>`;
+  }
+}
+
+function mvfRenderLista(){
+  const lista = el('mvf-lista'); if (!lista) return;
+  const regs = MVF.mov?.abas?.[MVF_SEM_LBL(MVF.sem)]?.registros || [];
+  lista.innerHTML = MVF.congs.map(c => {
+    const reg = regs.find(r => cf(r.congregacao) === cf(c.nome));
+    const ab = MVF.aberto === c.nome;
+    const tot = reg ? num(reg.total_entradas) : 0;
+    let corpo = '';
+    if (ab){
+      mvfPrefill(c.nome);
+      const e = mvfEdit(c.nome);
+      const totEnt = mvfTotEnt(e);
+      corpo = `
+        <div class="px-3 pb-3 space-y-2 border-t" style="border-color:var(--border-color)">
+          <p class="text-[9px] font-extrabold uppercase tracking-widest pt-2.5 text-emerald-400">Entradas</p>
+          ${MVF_COLS_ENT.map(col => `
+            <div class="flex items-center gap-2">
+              <span class="flex-1 min-w-0 text-[10px] leading-tight">${esc(col)}</span>
+              <input type="text" inputmode="decimal" value="${e.ent[col] ? String(e.ent[col]).replace('.', ',') : ''}" placeholder="0,00"
+                onchange="mvfSet('${esc(c.nome)}','ent','${esc(col)}',this.value)"
+                class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            </div>`).join('')}
+          <p class="text-[9px] font-extrabold uppercase tracking-widest pt-1" style="color:#a78bfa">Divisão do recebimento</p>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex items-center gap-2"><span class="text-[10px] w-10">PIX</span>
+              <input type="text" inputmode="decimal" value="${e.pix ? String(e.pix).replace('.', ',') : ''}" placeholder="0,00"
+                onchange="mvfSet('${esc(c.nome)}','pix','',this.value)"
+                class="flex-1 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+            <div class="flex items-center gap-2"><span class="text-[10px] w-10">Espécie</span>
+              <input type="text" inputmode="decimal" value="${e.esp ? String(e.esp).replace('.', ',') : ''}" placeholder="0,00"
+                onchange="mvfSet('${esc(c.nome)}','esp','',this.value)"
+                class="flex-1 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+          </div>
+          ${Math.abs((e.pix + e.esp) - totEnt) > 0.009 && totEnt > 0 ? `<p class="text-[9px] font-bold" style="color:#f59e0b"><i class="fa-solid fa-triangle-exclamation mr-1"></i>PIX + Espécie (${moeda(e.pix + e.esp)}) difere do total de entradas (${moeda(totEnt)}).</p>` : ''}
+          <p class="text-[9px] font-extrabold uppercase tracking-widest pt-1 text-red-400">Despesas operacionais</p>
+          ${MVF_COLS_DESP.map(col => `
+            <div class="flex items-center gap-2">
+              <span class="flex-1 min-w-0 text-[10px] leading-tight">${esc(col)}</span>
+              <input type="text" inputmode="decimal" value="${e.desp[col] ? String(e.desp[col]).replace('.', ',') : ''}" placeholder="0,00"
+                onchange="mvfSet('${esc(c.nome)}','desp','${esc(col)}',this.value)"
+                class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            </div>`).join('')}
+          <p class="text-[9px] font-extrabold uppercase tracking-widest pt-1 opacity-60">Repasses automáticos</p>
+          ${MVF_REPASSES.map(col => { const v = mvfRepasse(col, e.ent, totEnt); return v > 0.004 ? `
+            <div class="flex items-center gap-2 opacity-80"><span class="flex-1 min-w-0 text-[10px] leading-tight">${esc(col)}</span>
+              <span class="text-[10px] font-bold tabular-nums">${moeda(v)}</span></div>` : ''; }).join('')}
+          <div class="flex items-center justify-between pt-2 border-t" style="border-color:var(--border-color)">
+            <span class="text-[10px] font-bold">Entradas ${moeda(totEnt)} · Saídas ${moeda(mvfTotSai(e))}</span>
+            <button onclick="mvfSalvarCong('${esc(c.nome)}')" class="px-3.5 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#f43f5e"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>Salvar</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+        <button onclick="mvfToggleCong('${esc(c.nome)}')" class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left cursor-pointer" style="color:var(--text-main)">
+          <span class="flex-1 min-w-0"><b class="text-xs block truncate">${esc(c.nome)}</b><span class="text-[9px] opacity-55">${esc(c.conselho)}</span></span>
+          ${tot > 0 ? `<span class="text-[10px] font-bold text-emerald-500 tabular-nums">${moeda(tot)}</span>` : '<span class="text-[10px] opacity-40">—</span>'}
+          <i class="fa-solid ${ab ? 'fa-chevron-up' : 'fa-pen'} text-[10px] opacity-40"></i>
+        </button>
+        ${corpo}
+      </div>`;
+  }).join('');
+}
+
+window.mvfToggleCong = function(nome){ MVF.aberto = MVF.aberto === nome ? null : nome; mvfRenderLista(); };
+window.mvfSet = function(cong, campo, col, valor){
+  const e = mvfEdit(cong), v = mvfParseMoeda(valor);
+  if (campo === 'ent'){ if (v > 0) e.ent[col] = v; else delete e.ent[col]; }
+  else if (campo === 'desp'){ if (v > 0) e.desp[col] = v; else delete e.desp[col]; }
+  else e[campo] = v;
+};
+
+window.mvfSalvarCong = async function(cong){
+  const e = mvfEdit(cong);
+  const info = MVF.congs.find(c => c.nome === cong) || {};
+  const totEnt = mvfTotEnt(e);
+  const rep = {};
+  MVF_REPASSES.forEach(col => { const v = mvfRepasse(col, e.ent, totEnt); if (v > 0.004) rep[col] = +v.toFixed(2); });
+  const ent = {}, desp = {};
+  Object.entries(e.ent).forEach(([k, v]) => { if (num(v) > 0) ent[k] = +num(v).toFixed(2); });
+  Object.entries(e.desp).forEach(([k, v]) => { if (num(v) > 0) desp[k] = +num(v).toFixed(2); });
+  const linha = {
+    congregacao: cong, conselho: info.conselho || '',
+    dizimos: +(ent['Dízimos'] || 0).toFixed(2),
+    ofertas: +(totEnt - (ent['Dízimos'] || 0)).toFixed(2),
+    total_entradas: +totEnt.toFixed(2),
+    total_despesas: +(mvfTotSai(e)).toFixed(2),
+    detalhes_entradas: ent, detalhes_saidas_repasses: rep, detalhes_despesas_operacionais: desp,
+    pix: +num(e.pix).toFixed(2), especie: +num(e.esp).toFixed(2),
+  };
+  try {
+    const r = await api('salvar_grade_movimento', {
+      ano: MVF.ano, mes: MVF.mes, aba: MVF_SEM_LBL(MVF.sem), linhas: [linha],
+    }, sessao()?.token);
+    if (r?.ok){
+      toast(`${cong}: ${MVF.sem}ª semana gravada no movimento + origem.`);
+      /* reflete a linha salva no cache em memória (carregarMovimento é cacheado) */
+      const aba = (MVF.mov?.abas ||= {})[MVF_SEM_LBL(MVF.sem)] ||= { registros: [], totais: {} };
+      const reg = { numero: '', conselho: info.conselho || '', congregacao: cong,
+        dizimos: linha.dizimos, ofertas: linha.ofertas, total_entradas: linha.total_entradas,
+        total_despesas: linha.total_despesas, detalhes_entradas: linha.detalhes_entradas,
+        detalhes_saidas_repasses: linha.detalhes_saidas_repasses,
+        detalhes_despesas_operacionais: linha.detalhes_despesas_operacionais };
+      const i = aba.registros.findIndex(rg => cf(rg.congregacao) === cf(cong));
+      if (i >= 0) aba.registros[i] = { ...aba.registros[i], ...reg }; else aba.registros.push(reg);
+      const o = ((MVF.origem[MVF_SEM_ORG(MVF.sem)] ||= {})[cf(cong)] = { tb: linha.pix, esp: linha.especie });
+      MVF.edits = {}; MVF.aberto = null; mvfRenderLista();
+    } else toast(r?.erro || 'Falha ao gravar a grade.');
+  } catch(e2){ toast('Sem conexão — nada foi gravado.'); }
+};
+
+/* ============================================================================
+   PREBENDA PASTORAL (mobile) — paridade com a aba desktop. Dados na nuvem
+   (app_config.sge_prebenda_v1): mesmos lançamentos vistos no desktop.
+   ============================================================================ */
+const PB = { pastores: null, lanc: null, ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], contra: null };
+const PB_CHAVE = 'sge_prebenda_v1';
+const pbId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const pbRd = v => Math.round(num(v) * 100) / 100;
+function pbMesAnterior(ano, mes){
+  let a = +ano, i = MESES_ORD.indexOf(mes);
+  if (i <= 0){ i = 11; a -= 1; } else i -= 1;
+  return { ano: String(a), mes: MESES_ORD[i] };
+}
+async function pbCarregarNuvem(){
+  if (PB.lanc) return;
+  try {
+    const r = await api('obter_config_sge', { chave: PB_CHAVE }, sessao()?.token);
+    const dados = r?.valor ? JSON.parse(r.valor) : {};
+    PB.lanc = Array.isArray(dados.lanc) ? dados.lanc : [];
+  } catch(e){ PB.lanc = []; }
+}
+async function pbGravarNuvem(){
+  try {
+    await api('salvar_config_sge', { chave: PB_CHAVE, valor: JSON.stringify({ lanc: PB.lanc }) }, sessao()?.token);
+  } catch(e){ toast('Sem conexão — lançamento só ficou na sessão.'); }
+}
+async function pbCarregarPastores(){
+  if (PB.pastores) return PB.pastores;
+  const lista = [];
+  try {
+    const r = await api('listar_pastores_campo', {}, sessao()?.token);
+    const cons = r?.conselhos || [];
+    const campo = cons.find(c => cf(c.conselho) === 'assembleia geral');
+    lista.push({ id: 'campo', nome: campo?.pastor || 'Pastor do Campo (a definir)', papel: 'Pastor do Campo', conselho: campo?.conselho || 'Assembleia Geral', pct: 15, cor: '#f59e0b', dizimoSemanal: true });
+    cons.filter(c => cf(c.conselho) !== 'assembleia geral').forEach(c => lista.push({
+      id: c.conselho, nome: c.pastor || 'Pastor auxiliar (a definir)', papel: 'Pastor Auxiliar',
+      conselho: c.conselho, pct: 3, cor: '#38bdf8', dizimoSemanal: false }));
+  } catch(e){}
+  if (lista.length === 1)
+    ['Conselho 1','Conselho 2','Conselho 3','Conselho 4','Conselho 5'].forEach(c =>
+      lista.push({ id: c, nome: 'Pastor auxiliar (a definir)', papel: 'Pastor Auxiliar', conselho: c, pct: 3, cor: '#38bdf8', dizimoSemanal: false }));
+  PB.pastores = lista;
+  return lista;
+}
+const pbLancs = (ano, mes, pid) => (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && (!pid || l.pastorId === pid));
+const pbSaldo = (ano, mes, pid) => pbLancs(ano, mes, pid).reduce((s, l) => s + (l.tipo === 'E' ? l.valor : -l.valor), 0);
+
+window.pbRenderTela = async function(){
+  if (!pbPodeVerM()){ el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 text-red-400">Acesso restrito à Prebenda Pastoral.</p>'; return; }
+  el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando prebendas…</p>';
+  await Promise.all([pbCarregarNuvem(), pbCarregarPastores()]);
+  pbRender();
+};
+
+function pbRender(){
+  const ant = pbMesAnterior(PB.ano, PB.mes);
+  let pendMigracao = 0;
+  const cards = (PB.pastores || []).map(pt => {
+    const lancs = pbLancs(PB.ano, PB.mes, pt.id);
+    const ent = lancs.filter(l => l.tipo === 'E').reduce((a, l) => a + l.valor, 0);
+    const sai = lancs.filter(l => l.tipo === 'S').reduce((a, l) => a + l.valor, 0);
+    const saldo = ent - sai;
+    const saldoAnt = pbSaldo(ant.ano, ant.mes, pt.id);
+    const migrado = lancs.some(l => l.grupo === 'migracao');
+    const podeMigrar = saldoAnt < -0.004 && !migrado;
+    if (podeMigrar) pendMigracao++;
+    const linhas = lancs.map(l => `
+      <div class="flex items-center gap-2 py-1.5 border-t text-[11px]" style="border-color:var(--border-color)">
+        <span class="opacity-60 w-16 shrink-0">${esc(l.data || '—')}</span>
+        <span class="flex-1 min-w-0 truncate">${esc(l.descricao)}${l.auto ? ' <b class="text-[8px] opacity-50">auto</b>' : ''}</span>
+        <span class="font-bold tabular-nums ${l.tipo === 'E' ? 'text-emerald-500' : 'text-red-400'}">${l.tipo === 'E' ? '+' : '−'}${moeda(l.valor)}</span>
+        <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button>
+      </div>`).join('') || '<p class="text-[10px] opacity-50 py-3 text-center">Sem lançamentos neste mês.</p>';
+    return `
+      <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="px-3 py-2.5" style="background:${pt.cor}14;border-bottom:1px solid var(--border-color)">
+          <p class="font-bold text-xs truncate">${esc(pt.nome)}</p>
+          <p class="text-[9px] opacity-60">${esc(pt.papel)} · ${esc(pt.conselho)} · ${pt.pct}% do Total Geral</p>
+        </div>
+        <div class="px-3 py-2 flex items-center gap-3 text-[10px]">
+          <span class="text-emerald-500 font-bold">+${moeda(ent)}</span>
+          <span class="text-red-400 font-bold">−${moeda(sai)}</span>
+          <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">${moeda(saldo)}</span>
+        </div>
+        ${saldoAnt < -0.004 ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(239,68,68,.08)">
+          <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
+          <span>Devedor ${ant.mes.slice(0, 3)}/${ant.ano}: <b class="text-red-400">${moeda(saldoAnt)}</b></span>
+          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-red-600 text-white font-bold cursor-pointer">Migrar</button>` : '<span class="ml-auto opacity-60">migrado</span>'}
+        </div>` : ''}
+        <div class="px-3 pb-1 max-h-52 overflow-y-auto">${linhas}</div>
+        <div class="px-3 py-2 flex gap-2">
+          <button onclick="pbFormLanc('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-plus mr-1"></i>Lançar</button>
+          <button onclick="pbContracheque('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-invoice-dollar mr-1" style="color:${pt.cor}"></i>Contracheque</button>
+        </div>
+      </div>`;
+  }).join('');
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
+            <select id="pb-ano" onchange="pbMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === PB.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
+            <select id="pb-mes" onchange="pbMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${MESES_ORD.map(m => `<option ${m === PB.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] font-bold uppercase opacity-60 mr-1">Semana:</span>
+          ${[1, 2, 3, 4, 5].map(w => `<button onclick="PB.sem=${w}" class="pb-sem px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color);${(PB.sem || 1) === w ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}
+          <button onclick="pbImportarSemana()" class="flex-1 py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-cloud-arrow-down mr-1"></i>Importar</button>
+        </div>
+        <p class="text-[9px] opacity-55">Campo 15% · Auxiliares 3% · Dízimo 10% automático. Base: Total Geral do movimento semanal.</p>
+      </div>
+      ${pendMigracao ? `<div class="border rounded-xl px-3 py-2 text-[10px] flex items-center gap-2" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><i class="fa-solid fa-triangle-exclamation text-red-400"></i><b>${pendMigracao} pastor(es)</b> com saldo negativo em ${ant.mes}/${ant.ano}.</div>` : ''}
+      ${cards}
+      <div id="pb-form" class="hidden"></div>
+      <div id="pb-contra" class="hidden"></div>
+    </div>`;
+}
+window.pbMudouFiltro = function(){ PB.ano = el('pb-ano').value; PB.mes = el('pb-mes').value; pbRender(); };
+
+/* Importação semanal — paridade com o desktop: lê o Total Geral da aba do
+   movimento, lança 15%/3% e o dízimo (Campo: 10% por semana; auxiliares:
+   10% do acumulado do mês). Idempotente por semana. */
+window.pbImportarSemana = async function(){
+  const sem = PB.sem || 1;
+  const mov = await SGEG.carregarMovimento(PB.ano, PB.mes);
+  const tg = num(mov?.abas?.[MVF_SEM_LBL(sem)]?.totais?.total_entradas);
+  if (tg <= 0.004){ toast(`A ${sem}ª semana de ${PB.mes}/${PB.ano} está sem entradas no movimento.`); return; }
+  const semLbl = `${sem}ª SEMANA`, hoje = new Date().toLocaleDateString('pt-BR');
+  PB.lanc = PB.lanc.filter(l => !(l.auto && l.ano === PB.ano && l.mes === PB.mes &&
+    (l.semana === semLbl || l.grupo === 'dizimo_mes')));
+  (PB.pastores || []).forEach(pt => {
+    const ent = pbRd(tg * pt.pct / 100);
+    PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'E', semana: semLbl,
+      descricao: `Prebenda ${sem}ª Sem. — ${pt.pct}% do Total Geral (${moeda(tg)})`, valor: ent, auto: true, grupo: 'prebenda', data: hoje });
+    if (pt.dizimoSemanal)
+      PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: semLbl,
+        descricao: `Dízimo — ${sem}ª Sem. (10% da prebenda)`, valor: pbRd(ent * 0.10), auto: true, grupo: 'prebenda', data: hoje });
+  });
+  (PB.pastores || []).filter(pt => !pt.dizimoSemanal).forEach(pt => {
+    const base = pbLancs(PB.ano, PB.mes, pt.id).filter(l => l.tipo === 'E' && l.auto).reduce((a, l) => a + l.valor, 0);
+    if (base > 0.004)
+      PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: '',
+        descricao: `Dízimo do mês — 10% sobre ${moeda(base)} de prebendas`, valor: pbRd(base * 0.10), auto: true, grupo: 'dizimo_mes', data: hoje });
+  });
+  await pbGravarNuvem();
+  pbRender();
+  toast(`${sem}ª semana importada — Total Geral ${moeda(tg)}.`);
+};
+
+window.pbMigrar = async function(pid){
+  const ant = pbMesAnterior(PB.ano, PB.mes);
+  const saldoAnt = pbSaldo(ant.ano, ant.mes, pid);
+  if (saldoAnt >= -0.004){ toast(`O saldo de ${ant.mes}/${ant.ano} não está negativo.`); return; }
+  if (pbLancs(PB.ano, PB.mes, pid).some(l => l.grupo === 'migracao')){ toast('Saldo já migrado para este mês.'); return; }
+  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo: 'S', semana: '',
+    descricao: `Saldo devedor migrado de ${ant.mes}/${ant.ano}`, valor: pbRd(Math.abs(saldoAnt)), auto: true, grupo: 'migracao',
+    data: new Date().toLocaleDateString('pt-BR') });
+  await pbGravarNuvem();
+  pbRender();
+  toast('Saldo devedor migrado.');
+};
+
+/* Formulário de lançamento manual (inline, sem modal). */
+window.pbFormLanc = function(pid){
+  const box = el('pb-form'); if (!box) return;
+  const pt = (PB.pastores || []).find(x => x.id === pid) || {};
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+      <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:#818cf8">Novo lançamento — ${esc(pt.nome || pid)}</p>
+      <div class="grid grid-cols-2 gap-2">
+        <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="S">Saída</option><option value="E">Entrada</option></select>
+        <select id="pbf-semana" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">—</option>${[1,2,3,4,5].map(w => `<option>${w}ª SEMANA</option>`).join('')}</select>
+        <input id="pbf-desc" placeholder="Descrição" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="el('pb-form').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button>
+        <button onclick="pbSalvarLanc('${esc(pid)}')" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#4f46e5">Salvar</button>
+      </div>
+    </div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+window.pbSalvarLanc = async function(pid){
+  const tipo = el('pbf-tipo').value, semana = el('pbf-semana').value;
+  const descricao = (el('pbf-desc').value || '').trim() || (tipo === 'E' ? 'Entrada manual' : 'Pagamento / despesa');
+  const valor = mvfParseMoeda(el('pbf-valor').value);
+  if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
+  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo: 'manual',
+    data: new Date().toLocaleDateString('pt-BR') });
+  await pbGravarNuvem();
+  el('pb-form').classList.add('hidden');
+  pbRender();
+  toast('Lançamento salvo.');
+};
+window.pbExcluir = async function(id){
+  const l = (PB.lanc || []).find(x => x.id === id); if (!l) return;
+  if (!confirm(`Excluir "${l.descricao}" (${moeda(l.valor)})?`)) return;
+  PB.lanc = PB.lanc.filter(x => x.id !== id);
+  await pbGravarNuvem();
+  pbRender();
+};
+
+/* Contracheque eletrônico mensal — overlay imprimível. */
+window.pbContracheque = function(pid){
+  const pt = (PB.pastores || []).find(x => x.id === pid); if (!pt) return;
+  const lancs = pbLancs(PB.ano, PB.mes, pid);
+  const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S');
+  const totE = ents.reduce((a, l) => a + l.valor, 0), totS = sais.reduce((a, l) => a + l.valor, 0);
+  const liq = totE - totS;
+  const linha = l => `<div class="flex justify-between gap-2 py-1 border-b" style="border-color:#e5e7eb"><span class="text-[10px] flex-1">${esc(l.descricao)}<span class="opacity-50"> · ${esc(l.data || '')}</span></span><b class="text-[10px] tabular-nums">${moeda(l.valor)}</b></div>`;
+  el('pb-contra').classList.remove('hidden');
+  el('pb-contra').innerHTML = `
+    <div class="border rounded-2xl p-4 space-y-2" style="background:#fff;color:#111;border-color:#d1d5db" id="pb-contra-doc">
+      <div class="text-center">
+        <img src="icons/cabecalho_ad_brasil.png" style="max-width:100%" onerror="this.style.display='none'">
+        <p class="font-extrabold text-sm mt-1">CONTRACHEQUE — PREBENDA PASTORAL</p>
+        <p class="text-[10px]" style="color:#555">${PB.mes}/${PB.ano} · ${esc(pt.papel)} — ${esc(pt.conselho)}</p>
+        <p class="text-xs font-bold mt-0.5">${esc(pt.nome)}</p>
+      </div>
+      <p class="text-[10px] font-extrabold pt-2" style="color:#047857">PROVENTOS</p>
+      ${ents.map(linha).join('') || '<p class="text-[10px] py-1" style="color:#777">Nenhuma entrada no mês.</p>'}
+      <p class="text-[10px] font-extrabold pt-2" style="color:#b91c1c">DESCONTOS</p>
+      ${sais.map(linha).join('') || '<p class="text-[10px] py-1" style="color:#777">Nenhuma saída no mês.</p>'}
+      <div class="pt-2 text-[11px] font-bold space-y-1">
+        <div class="flex justify-between"><span>Proventos</span><span>${moeda(totE)}</span></div>
+        <div class="flex justify-between"><span>Descontos</span><span>${moeda(totS)}</span></div>
+        <div class="flex justify-between text-sm" style="color:${liq >= 0 ? '#047857' : '#b91c1c'}"><span>LÍQUIDO DO MÊS</span><span>${moeda(liq)}</span></div>
+      </div>
+      <p class="text-center text-[10px] pt-4" style="color:#555">______________________________<br>${esc(pt.nome)}</p>
+      <div class="flex gap-2 pt-1" style="color:var(--text-main)">
+        <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
+        <button onclick="el('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
+      </div>
+    </div>`;
+  el('pb-contra').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 
 /* depuração/testes */
