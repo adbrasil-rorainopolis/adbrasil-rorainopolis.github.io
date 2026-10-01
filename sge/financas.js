@@ -1839,13 +1839,13 @@ window.rcmEditar = function(i){
   const isSai = it.tipo.includes('SAIDAS');
   el('rcm-edita')?.remove();
   document.body.insertAdjacentHTML('beforeend', `
-    <div id="rcm-edita" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)this.remove()">
+    <div id="rcm-edita" class="fixed inset-0 z-[95] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)rcmFecharEdicao()">
       <div class="w-full max-w-lg rounded-t-3xl p-4 max-h-[92dvh] flex flex-col" style="background:var(--bg-card)">
         <div class="overflow-y-auto flex-1 pb-2">
           <div class="w-10 h-1 rounded-full mx-auto mb-3" style="background:var(--border-color)"></div>
           <div class="flex items-center justify-between mb-3">
             <p class="text-xs font-extrabold uppercase tracking-wider" style="color:${isSai ? '#f87171' : '#34d399'}"><i class="fa-solid fa-pen-to-square mr-1"></i>Editar lançamento</p>
-            <button onclick="document.getElementById('rcm-edita').remove()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+            <button onclick="rcmFecharEdicao()" class="w-8 h-8 rounded-full border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <div class="space-y-2.5">
             <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Lançamentos</span>
@@ -1871,6 +1871,8 @@ window.rcmEditar = function(i){
         </div>
       </div>
     </div>`);
+  RC._edSujo = false;
+  el('rcm-edita')?.addEventListener('input', () => { RC._edSujo = true; });
   RC.edForma = it.tipo.includes('TB') ? 'PIX' : 'ESPECIE';
   const catEd = rcCatDeTipo(it.tipo) || RC_CATS[0];
   el('rcm-ed-recibo').value = it.recibo || '';
@@ -1901,6 +1903,13 @@ window.rcmEditar = function(i){
     }
     rcmMudarSub('ed-');
   }
+};
+
+window.rcmFecharEdicao = async function(){
+  if (!RC._edSujo){ el('rcm-edita')?.remove(); return; }
+  const descartar = await rcmConfirmar({ titulo:'Descartar alterações?', icone:'fa-triangle-exclamation', cor:'#f59e0b', okTexto:'Descartar', naoTexto:'Continuar editando',
+    msg:'Você alterou este lançamento e não salvou.<br>Fechar agora descarta as alterações.' });
+  if (descartar) el('rcm-edita')?.remove();
 };
 
 window.rcmSalvarEdicao = function(i){
@@ -2189,7 +2198,26 @@ async function rcmEnviarAtual(){
   return true;
 }
 
+/* Algo digitado no formulário de inclusão que ainda não entrou na lista? */
+function rcmFormDigitado(){
+  return ['rcm-recibo','rcm-valor','rcm-irmao','rcm-outros','rcm-descricao'].some(id => String(el(id)?.value || '').trim());
+}
+/* Inclui o que está digitado (se válido). true = seguir; false = abortar o salvamento. */
+function rcmCapturarDigitado(){
+  if (RC.somenteLeitura || !rcmFormDigitado()) return true;
+  const l = rcmLerForm('');
+  if (l.erro){ toast('Há um lançamento incompleto no formulário — ' + l.erro); return false; }
+  if (!l.saida && !l.tipo.startsWith('CANCELADO') && RC.lancamentos.some(x => x.recibo === l.recibo)){ toast(`O recibo "${l.recibo}" já foi lançado.`); return false; }
+  RC.lancamentos.push({ tipo: l.tipo, recibo: l.recibo, descricao: l.descricao, valor: l.valor });
+  rcmMarcarSujo();
+  ['rcm-valor','rcm-recibo','rcm-outros','rcm-irmao','rcm-descricao'].forEach(id => { const x = el(id); if (x) x.value = ''; });
+  rcmRenderLista(); rcmRenderDoc();
+  toast('O lançamento digitado foi incluído.');
+  return true;
+}
+
 window.rcmSalvar = async function(enviar){
+  if (!rcmCapturarDigitado()) return;
   const rel = rcmColetar();
   if (!rel.congregacao){ toast('Selecione a congregação do relatório.'); return; }
   if (!rel.data_relatorio){ toast('Informe a data do relatório.'); return; }
