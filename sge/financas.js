@@ -6846,7 +6846,49 @@ window.pbRenderTela = async function(){
   if (!pbPodeVerM()){ el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 text-red-400">Acesso restrito à Prebenda Pastoral.</p>'; return; }
   el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando prebendas…</p>';
   await Promise.all([pbCarregarNuvem(), pbCarregarPastores()]);
+  await pbSincronizarMes();
   pbRender();
+};
+
+/* Sincronização automática: relê o Total Geral de cada semana do mês no
+   Movimento e refaz prebendas (15%/3%) e dízimos (10%) — idempotente,
+   só grava na nuvem quando algo realmente muda. */
+async function pbSincronizarMes(){
+  const mov = await SGEG.carregarMovimento(PB.ano, PB.mes);
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const novos = [];
+  for (let sem = 1; sem <= 5; sem++){
+    const tg = num(mov?.abas?.[MVF_SEM_LBL(sem)]?.totais?.total_entradas);
+    if (tg <= 0.004) continue;
+    const semLbl = `${sem}ª SEMANA`;
+    (PB.pastores || []).forEach(pt => {
+      const ent = pbRd(tg * pt.pct / 100);
+      novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'E', semana: semLbl,
+        descricao: `Prebenda ${sem}ª Sem. — ${pt.pct}% do Total Geral (${moeda(tg)})`, valor: ent, auto: true, grupo: 'prebenda', data: hoje });
+      if (pt.dizimoSemanal)
+        novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: semLbl,
+          descricao: `Dízimo — ${sem}ª Sem. (10% da prebenda)`, valor: pbRd(ent * 0.10), auto: true, grupo: 'prebenda', data: hoje });
+    });
+  }
+  (PB.pastores || []).filter(pt => !pt.dizimoSemanal).forEach(pt => {
+    const base = novos.filter(l => l.pastorId === pt.id && l.tipo === 'E').reduce((a, l) => a + l.valor, 0);
+    if (base > 0.004)
+      novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: '',
+        descricao: `Dízimo do mês — 10% sobre ${moeda(base)} de prebendas`, valor: pbRd(base * 0.10), auto: true, grupo: 'dizimo_mes', data: hoje });
+  });
+  const ehAutoMes = l => l.auto && l.ano === PB.ano && l.mes === PB.mes && (l.grupo === 'prebenda' || l.grupo === 'dizimo_mes');
+  const chave = l => [l.pastorId, l.tipo, l.semana, l.grupo, l.valor, l.descricao].join('|');
+  const antes = (PB.lanc || []).filter(ehAutoMes).map(chave).sort();
+  const depois = novos.map(chave).sort();
+  if (JSON.stringify(antes) === JSON.stringify(depois)) return false;
+  PB.lanc = (PB.lanc || []).filter(l => !ehAutoMes(l)).concat(novos);
+  await pbGravarNuvem();
+  return true;
+}
+window.pbAtualizarPrebenda = async function(){
+  const mudou = await pbSincronizarMes();
+  pbRender();
+  toast(mudou ? 'Prebendas e dízimos atualizados com o movimento do mês.' : 'Tudo já estava sincronizado.');
 };
 
 function pbRender(){
@@ -6902,11 +6944,7 @@ function pbRender(){
             <select id="pb-mes" onchange="pbMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
               ${MESES_ORD.map(m => `<option ${m === PB.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
         </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-[9px] font-bold uppercase opacity-60 mr-1">Semana p/ importar:</span>
-          <select id="pb-sem" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${[1, 2, 3, 4, 5].map(w => `<option value="${w}" ${(PB.sem || 1) === w ? 'selected' : ''}>${w}ª</option>`).join('')}</select>
-          <button onclick="pbImportarSemana()" class="flex-1 py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-cloud-arrow-down mr-1"></i>Importar</button>
-        </div>
+        <button onclick="pbAtualizarPrebenda()" class="w-full py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-rotate mr-1"></i>Atualizar com o Movimento</button>
         <p class="text-[9px] opacity-55">Campo 15% · Auxiliares 3% · Dízimo 10% automático. Base: Total Geral do movimento semanal.</p>
       </div>
       ${pendMigracao ? `<div class="border rounded-xl px-3 py-2 text-[10px] flex items-center gap-2" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><i class="fa-solid fa-triangle-exclamation text-red-400"></i><b>${pendMigracao} pastor(es)</b> com saldo negativo em ${ant.mes}/${ant.ano}.</div>` : ''}
@@ -6920,33 +6958,7 @@ window.pbMudouFiltro = function(){ PB.ano = el('pb-ano').value; PB.mes = el('pb-
 /* Importação semanal — paridade com o desktop: lê o Total Geral da aba do
    movimento, lança 15%/3% e o dízimo (Campo: 10% por semana; auxiliares:
    10% do acumulado do mês). Idempotente por semana. */
-window.pbImportarSemana = async function(){
-  const sem = +(el('pb-sem')?.value || PB.sem || 1);
-  PB.sem = sem;
-  const mov = await SGEG.carregarMovimento(PB.ano, PB.mes);
-  const tg = num(mov?.abas?.[MVF_SEM_LBL(sem)]?.totais?.total_entradas);
-  if (tg <= 0.004){ toast(`A ${sem}ª semana de ${PB.mes}/${PB.ano} está sem entradas no movimento.`); return; }
-  const semLbl = `${sem}ª SEMANA`, hoje = new Date().toLocaleDateString('pt-BR');
-  PB.lanc = PB.lanc.filter(l => !(l.auto && l.ano === PB.ano && l.mes === PB.mes &&
-    (l.semana === semLbl || l.grupo === 'dizimo_mes')));
-  (PB.pastores || []).forEach(pt => {
-    const ent = pbRd(tg * pt.pct / 100);
-    PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'E', semana: semLbl,
-      descricao: `Prebenda ${sem}ª Sem. — ${pt.pct}% do Total Geral (${moeda(tg)})`, valor: ent, auto: true, grupo: 'prebenda', data: hoje });
-    if (pt.dizimoSemanal)
-      PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: semLbl,
-        descricao: `Dízimo — ${sem}ª Sem. (10% da prebenda)`, valor: pbRd(ent * 0.10), auto: true, grupo: 'prebenda', data: hoje });
-  });
-  (PB.pastores || []).filter(pt => !pt.dizimoSemanal).forEach(pt => {
-    const base = pbLancs(PB.ano, PB.mes, pt.id).filter(l => l.tipo === 'E' && l.auto).reduce((a, l) => a + l.valor, 0);
-    if (base > 0.004)
-      PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: '',
-        descricao: `Dízimo do mês — 10% sobre ${moeda(base)} de prebendas`, valor: pbRd(base * 0.10), auto: true, grupo: 'dizimo_mes', data: hoje });
-  });
-  await pbGravarNuvem();
-  pbRender();
-  toast(`${sem}ª semana importada — Total Geral ${moeda(tg)}.`);
-};
+
 
 window.pbMigrar = async function(pid){
   const ant = pbMesAnterior(PB.ano, PB.mes);
