@@ -7011,6 +7011,7 @@ window.pbContracheque = function(pid){
   const linha = l => `<div class="flex justify-between gap-2 py-1 border-b" style="border-color:#e5e7eb"><span class="text-[10px] flex-1">${esc(l.descricao)}<span class="opacity-50"> · ${esc(l.data || '')}</span></span><b class="text-[10px] tabular-nums">${moeda(l.valor)}</b></div>`;
   el('pb-contra').classList.remove('hidden');
   el('pb-contra').innerHTML = `
+    <style>@media print{ body *{visibility:hidden!important} #pb-contra-doc, #pb-contra-doc *{visibility:visible!important} #pb-contra-doc{position:absolute!important;left:0;top:0;width:100%;border:none!important;border-radius:0!important;background:#fff!important} }</style>
     <div class="border rounded-2xl p-4 space-y-2" style="background:#fff;color:#111;border-color:#d1d5db" id="pb-contra-doc">
       <div class="text-center">
         <img src="icons/cabecalho_ad_brasil.png" style="max-width:100%" onerror="this.style.display='none'">
@@ -7028,12 +7029,53 @@ window.pbContracheque = function(pid){
         <div class="flex justify-between text-sm" style="color:${liq >= 0 ? '#047857' : '#b91c1c'}"><span>LÍQUIDO DO MÊS</span><span>${moeda(liq)}</span></div>
       </div>
       <p class="text-center text-[10px] pt-4" style="color:#555">______________________________<br>${esc(pt.nome)}</p>
-      <div class="flex gap-2 pt-1" style="color:var(--text-main)">
-        <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
-        <button onclick="el('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
-      </div>
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar imagem</button>
+      <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
+      <button onclick="el('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
     </div>`;
   el('pb-contra').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+/* Rasteriza o contracheque (HTML → PNG) e copia pro clipboard. Fallback: baixa o PNG.
+   O foreignObject precisa do CSS embutido — serializamos as folhas de estilo da página. */
+window.pbCopiarContracheque = async function(){
+  const doc = el('pb-contra-doc');
+  if (!doc) { toast('Abra o contracheque primeiro.'); return; }
+  try {
+    let css = '';
+    for (const sh of document.styleSheets) {
+      try { for (const r of sh.cssRules) css += r.cssText + '\n'; } catch(e){}
+    }
+    const largura = Math.min(doc.scrollWidth || 480, 720);
+    const altura = doc.scrollHeight + 16;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css.replace(/</g, '&lt;')}</style>${doc.outerHTML}</div></foreignObject></svg>`;
+    const blobPng = await new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = largura * 2; cv.height = altura * 2;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
+        cv.toBlob(res, 'image/png');
+      };
+      img.onerror = () => res(null);
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+    if (!blobPng) { toast('Não consegui gerar a imagem neste aparelho.'); return; }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPng })]);
+      toast('Contracheque copiado como imagem — cole no WhatsApp.');
+    } catch(e){
+      const url = URL.createObjectURL(blobPng);
+      const a = document.createElement('a');
+      a.href = url; a.download = `contracheque_${PB.mes}_${PB.ano}.png`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast('Imagem baixada como PNG (clipboard indisponível).');
+    }
+  } catch(e){ toast('Falha ao gerar a imagem do contracheque.'); }
 };
 
 /* depuração/testes */
