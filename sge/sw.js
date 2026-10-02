@@ -1,4 +1,4 @@
-const CACHE = 'sge-pwa-v223';
+const CACHE = 'sge-pwa-v224';
 const SHELL = ['./', './index.html', './trava.html', './ajuda.js', './gestao.js',
   './financas.js', './espiritual.js', './comunidade.js', './membro.js', './missoes.js', './manifest.webmanifest', './sge-logo.css', './icons/logo.png', './icons/icon-192.png', './icons/icon-512.png', './icons/logo_ad_brasil.png', './icons/logo_ad_selo.png', './icons/logo_sge.png', './icons/cabecalho_ad_brasil.png'];
 

@@ -7008,27 +7008,29 @@ window.pbContracheque = function(pid){
   const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S');
   const totE = ents.reduce((a, l) => a + l.valor, 0), totS = sais.reduce((a, l) => a + l.valor, 0);
   const liq = totE - totS;
-  const linha = l => `<div class="flex justify-between gap-2 py-1 border-b" style="border-color:#e5e7eb"><span class="text-[10px] flex-1">${esc(l.descricao)}<span class="opacity-50"> · ${esc(l.data || '')}</span></span><b class="text-[10px] tabular-nums">${moeda(l.valor)}</b></div>`;
+  /* Doc com estilos 100% inline — obrigatório para a cópia como imagem
+     (foreignObject não enxerga classes do Tailwind). */
+  const linha = l => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e5e7eb"><span style="font-size:10px;flex:1">${esc(l.descricao)}<span style="opacity:.5"> · ${esc(l.data || '')}</span></span><b style="font-size:10px">${moeda(l.valor)}</b></div>`;
   el('pb-contra').classList.remove('hidden');
   el('pb-contra').innerHTML = `
     <style>@media print{ body *{visibility:hidden!important} #pb-contra-doc, #pb-contra-doc *{visibility:visible!important} #pb-contra-doc{position:absolute!important;left:0;top:0;width:100%;border:none!important;border-radius:0!important;background:#fff!important} }</style>
-    <div class="border rounded-2xl p-4 space-y-2" style="background:#fff;color:#111;border-color:#d1d5db" id="pb-contra-doc">
-      <div class="text-center">
+    <div style="background:#fff;color:#111;border:1px solid #d1d5db;border-radius:16px;padding:16px;font-family:Arial,sans-serif" id="pb-contra-doc">
+      <div style="text-align:center">
         <img src="icons/cabecalho_ad_brasil.png" style="max-width:100%" onerror="this.style.display='none'">
-        <p class="font-extrabold text-sm mt-1">CONTRACHEQUE — PREBENDA PASTORAL</p>
-        <p class="text-[10px]" style="color:#555">${PB.mes}/${PB.ano} · ${esc(pt.papel)} — ${esc(pt.conselho)}</p>
-        <p class="text-xs font-bold mt-0.5">${esc(pt.nome)}</p>
+        <p style="font-weight:800;font-size:14px;margin:4px 0 0">CONTRACHEQUE — PREBENDA PASTORAL</p>
+        <p style="font-size:10px;color:#555;margin:2px 0">${PB.mes}/${PB.ano} · ${esc(pt.papel)} — ${esc(pt.conselho)}</p>
+        <p style="font-size:12px;font-weight:700;margin:2px 0">${esc(pt.nome)}</p>
       </div>
-      <p class="text-[10px] font-extrabold pt-2" style="color:#047857">PROVENTOS</p>
-      ${ents.map(linha).join('') || '<p class="text-[10px] py-1" style="color:#777">Nenhuma entrada no mês.</p>'}
-      <p class="text-[10px] font-extrabold pt-2" style="color:#b91c1c">DESCONTOS</p>
-      ${sais.map(linha).join('') || '<p class="text-[10px] py-1" style="color:#777">Nenhuma saída no mês.</p>'}
-      <div class="pt-2 text-[11px] font-bold space-y-1">
-        <div class="flex justify-between"><span>Proventos</span><span>${moeda(totE)}</span></div>
-        <div class="flex justify-between"><span>Descontos</span><span>${moeda(totS)}</span></div>
-        <div class="flex justify-between text-sm" style="color:${liq >= 0 ? '#047857' : '#b91c1c'}"><span>LÍQUIDO DO MÊS</span><span>${moeda(liq)}</span></div>
+      <p style="font-size:10px;font-weight:800;color:#047857;margin:10px 0 2px">PROVENTOS</p>
+      ${ents.map(linha).join('') || '<p style="font-size:10px;color:#777;padding:4px 0">Nenhuma entrada no mês.</p>'}
+      <p style="font-size:10px;font-weight:800;color:#b91c1c;margin:10px 0 2px">DESCONTOS</p>
+      ${sais.map(linha).join('') || '<p style="font-size:10px;color:#777;padding:4px 0">Nenhuma saída no mês.</p>'}
+      <div style="padding-top:8px;font-size:11px;font-weight:700">
+        <div style="display:flex;justify-content:space-between"><span>Proventos</span><span>${moeda(totE)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Descontos</span><span>${moeda(totS)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:${liq >= 0 ? '#047857' : '#b91c1c'}"><span>LÍQUIDO DO MÊS</span><span>${moeda(liq)}</span></div>
       </div>
-      <p class="text-center text-[10px] pt-4" style="color:#555">______________________________<br>${esc(pt.nome)}</p>
+      <p style="text-align:center;font-size:10px;color:#555;padding-top:16px">______________________________<br/>${esc(pt.nome)}</p>
     </div>
     <div class="flex gap-2 pt-1">
       <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar imagem</button>
@@ -7039,18 +7041,25 @@ window.pbContracheque = function(pid){
 };
 
 /* Rasteriza o contracheque (HTML → PNG) e copia pro clipboard. Fallback: baixa o PNG.
-   O foreignObject precisa do CSS embutido — serializamos as folhas de estilo da página. */
+   Doc usa só estilos inline — foreignObject não enxerga classes externas. */
 window.pbCopiarContracheque = async function(){
   const doc = el('pb-contra-doc');
   if (!doc) { toast('Abra o contracheque primeiro.'); return; }
   try {
-    let css = '';
-    for (const sh of document.styleSheets) {
-      try { for (const r of sh.cssRules) css += r.cssText + '\n'; } catch(e){}
+    /* XMLSerializer gera XHTML bem-formado (img/br autoclose) — outerHTML cru
+       quebrava o parse do SVG no Android. Doc usa só estilos inline. */
+    const clone = doc.cloneNode(true);
+    const img = clone.querySelector('img');
+    if (img) {
+      try {
+        const rb = await fetch(img.src).then(r => r.blob());
+        img.setAttribute('src', await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(rb); }));
+      } catch(e){ /* sem timbrado na imagem */ }
     }
+    const xhtml = new XMLSerializer().serializeToString(clone);
     const largura = Math.min(doc.scrollWidth || 480, 720);
     const altura = doc.scrollHeight + 16;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css.replace(/</g, '&lt;')}</style>${doc.outerHTML}</div></foreignObject></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}"><foreignObject width="100%" height="100%">${xhtml}</foreignObject></svg>`;
     const blobPng = await new Promise(res => {
       const img = new Image();
       img.onload = () => {
