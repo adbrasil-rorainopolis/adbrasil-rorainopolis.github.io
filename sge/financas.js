@@ -1135,7 +1135,7 @@ window.rcmAbrirCatPicker = function(selId){
         <div class="flex items-center gap-2 mb-1">
           <i class="fa-solid fa-layer-group" style="color:var(--color-primary)"></i>
           <p class="flex-1 text-[12px] font-extrabold">Lançamentos</p>
-          <button type="button" onclick="el('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" onclick="document.getElementById('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-auto" style="max-height:55vh">${h}</div>
       </div>
@@ -1169,7 +1169,7 @@ window.rcmAbrirOpcPicker = function(selId, titulo){
         <div class="flex items-center gap-2 mb-1">
           <i class="fa-solid fa-list" style="color:var(--color-primary)"></i>
           <p class="flex-1 text-[12px] font-extrabold">${titulo}</p>
-          <button type="button" onclick="el('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" onclick="document.getElementById('rcm-catpicker').remove()" class="w-7 h-7 rounded-lg text-[11px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-auto" style="max-height:55vh">${h}</div>
       </div>
@@ -3745,7 +3745,7 @@ window.orcLixeira = function(){
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-trash-can" style="color:#f87171"></i>
           <p class="flex-1 text-[12px] font-extrabold">Lixeira do evento</p>
-          <button onclick="el('orc-lixeira')?.remove()" class="w-8 h-8 rounded-lg text-[11px]" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+          <button onclick="document.getElementById('orc-lixeira')?.remove()" class="w-8 h-8 rounded-lg text-[11px]" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-auto" style="flex:1">${vazio
           ? '<p class="text-[11px] text-center py-8 opacity-50">Lixeira vazia — nada para recuperar.</p>'
@@ -6903,8 +6903,8 @@ function pbRender(){
               ${MESES_ORD.map(m => `<option ${m === PB.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-[9px] font-bold uppercase opacity-60 mr-1">Semana:</span>
-          ${[1, 2, 3, 4, 5].map(w => `<button onclick="PB.sem=${w}" class="pb-sem px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color);${(PB.sem || 1) === w ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}
+          <span class="text-[9px] font-bold uppercase opacity-60 mr-1">Semana p/ importar:</span>
+          <select id="pb-sem" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${[1, 2, 3, 4, 5].map(w => `<option value="${w}" ${(PB.sem || 1) === w ? 'selected' : ''}>${w}ª</option>`).join('')}</select>
           <button onclick="pbImportarSemana()" class="flex-1 py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-cloud-arrow-down mr-1"></i>Importar</button>
         </div>
         <p class="text-[9px] opacity-55">Campo 15% · Auxiliares 3% · Dízimo 10% automático. Base: Total Geral do movimento semanal.</p>
@@ -6921,7 +6921,8 @@ window.pbMudouFiltro = function(){ PB.ano = el('pb-ano').value; PB.mes = el('pb-
    movimento, lança 15%/3% e o dízimo (Campo: 10% por semana; auxiliares:
    10% do acumulado do mês). Idempotente por semana. */
 window.pbImportarSemana = async function(){
-  const sem = PB.sem || 1;
+  const sem = +(el('pb-sem')?.value || PB.sem || 1);
+  PB.sem = sem;
   const mov = await SGEG.carregarMovimento(PB.ano, PB.mes);
   const tg = num(mov?.abas?.[MVF_SEM_LBL(sem)]?.totais?.total_entradas);
   if (tg <= 0.004){ toast(`A ${sem}ª semana de ${PB.mes}/${PB.ano} está sem entradas no movimento.`); return; }
@@ -6970,19 +6971,18 @@ window.pbFormLanc = function(pid){
       <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:#818cf8">Novo lançamento — ${esc(pt.nome || pid)}</p>
       <div class="grid grid-cols-2 gap-2">
         <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="S">Saída</option><option value="E">Entrada</option></select>
-        <select id="pbf-semana" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">—</option>${[1,2,3,4,5].map(w => `<option>${w}ª SEMANA</option>`).join('')}</select>
         <input id="pbf-desc" placeholder="Descrição" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
         <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
       </div>
       <div class="flex gap-2">
-        <button onclick="el('pb-form').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button>
+        <button onclick="document.getElementById('pb-form').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button>
         <button onclick="pbSalvarLanc('${esc(pid)}')" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#4f46e5">Salvar</button>
       </div>
     </div>`;
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 window.pbSalvarLanc = async function(pid){
-  const tipo = el('pbf-tipo').value, semana = el('pbf-semana').value;
+  const tipo = el('pbf-tipo').value, semana = '';
   const descricao = (el('pbf-desc').value || '').trim() || (tipo === 'E' ? 'Entrada manual' : 'Pagamento / despesa');
   const valor = mvfParseMoeda(el('pbf-valor').value);
   if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
@@ -7035,7 +7035,7 @@ window.pbContracheque = function(pid){
     <div class="flex gap-2 pt-1">
       <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar imagem</button>
       <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
-      <button onclick="el('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
+      <button onclick="document.getElementById('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
     </div>`;
   el('pb-contra').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
