@@ -208,6 +208,24 @@ window.renderMembroEstudos = async function() {
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:#8b5cf61a"><i class="fa-solid fa-calendar-day" style="color:#8b5cf6"></i></div>
       <div class="flex-1 min-w-0"><p class="text-[9px] font-bold uppercase tracking-wider opacity-60">Plano de leitura anual — dia ${dia}/365</p>
       <p class="text-xs font-bold mt-0.5">${memEsc(refs.join('  ·  '))}</p></div></div>`)}
+    <p class="text-[9px] font-bold uppercase tracking-wider mb-2 mt-1 opacity-60"><i class="fa-solid fa-chalkboard-user mr-1"></i>EBD — Lições da Escola Bíblica Dominical</p>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <button onclick="memAbrirLicaoEbd('licao_01','Lição 1')" class="border rounded-xl px-3 py-3 text-left cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color)">
+        <i class="fa-solid fa-file-pdf text-red-400 text-base mb-1 block"></i>
+        <p class="text-xs font-bold">Lição 1</p>
+        <p class="text-[9px] opacity-50 mt-0.5">Revista da EBD — toque para ler</p>
+      </button>
+    </div>
+    <div id="est-licao" class="hidden border rounded-2xl overflow-hidden mb-3" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center justify-between px-3 py-2 border-b" style="border-color:var(--border-color)">
+        <p class="text-[11px] font-bold"><i class="fa-solid fa-book-open-reader mr-1.5" style="color:#8b5cf6"></i><span id="est-licao-titulo">Lição</span></p>
+        <div class="flex gap-1.5">
+          <a id="est-licao-abrir" href="#" target="_blank" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold" style="border-color:var(--border-color)"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Abrir</a>
+          <button onclick="memFecharLicaoEbd()" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <iframe id="est-licao-frame" class="w-full" style="height:65vh;border:none" title="Leitor da lição"></iframe>
+    </div>
     <p class="text-[9px] font-bold uppercase tracking-wider mb-2 mt-1 opacity-60"><i class="fa-solid fa-hands-praying mr-1"></i>Devocionais publicados</p>
     <div id="est-devocionais"><div class="flex items-center justify-center gap-2.5 py-8 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando…</div></div>`;
   try {
@@ -221,6 +239,29 @@ window.renderMembroEstudos = async function() {
     const box = document.getElementById('est-devocionais');
     if (box) box.innerHTML = `<div class="text-center py-6 text-xs" style="color:var(--color-danger)">${memEsc(e?.data?.erro || e?.message || 'Falha ao carregar devocionais.')}</div>`;
   }
+};
+
+/* Leitor de lições da EBD — PDF servido pelo próprio Pages (o service worker
+   cacheia na primeira leitura e passa a abrir offline). O botão "Abrir" é o
+   fallback para aparelhos sem leitor PDF embutido. */
+window.memAbrirLicaoEbd = function(arquivo, titulo){
+  const box = document.getElementById('est-licao');
+  const frame = document.getElementById('est-licao-frame');
+  const lbl = document.getElementById('est-licao-titulo');
+  const abrir = document.getElementById('est-licao-abrir');
+  if (!box || !frame) return;
+  const url = `./licoes_ebd/${arquivo}.pdf`;
+  if (lbl) lbl.textContent = `EBD — ${titulo}`;
+  if (abrir) abrir.href = url;
+  frame.src = url;
+  box.classList.remove('hidden');
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+window.memFecharLicaoEbd = function(){
+  const box = document.getElementById('est-licao');
+  const frame = document.getElementById('est-licao-frame');
+  if (frame) frame.src = 'about:blank';
+  if (box) box.classList.add('hidden');
 };
 
 /* ---------- MEU FINANCEIRO ---------- */
