@@ -7327,25 +7327,39 @@ window.dfGerarRelatorio = async function(){
     </div>`);
   });
   const docHtml = paginas.join('');
-  let printRoot = el('df-print-root');
-  if (!printRoot){ printRoot = document.createElement('div'); printRoot.id = 'df-print-root'; printRoot.style.display = 'none'; document.body.appendChild(printRoot); }
-  printRoot.innerHTML = docHtml;
-  if (!el('df-print-style')){
-    const st = document.createElement('style'); st.id = 'df-print-style';
-    st.textContent = '@media print{body>*:not(#df-print-root){display:none!important}#df-print-root{display:block!important;color:#111;background:#fff}.df-pagina{page-break-after:always}.df-pagina:last-child{page-break-after:auto}}';
-    document.head.appendChild(st);
-  }
+  DF.docHtml = docHtml;
   el('fin-sub').innerHTML = `
     <div class="border rounded-2xl overflow-hidden" style="background:#334155;border-color:var(--border-color)">
       <div class="flex items-center justify-between gap-2 px-3 py-2.5" style="background:var(--bg-card)">
         <span class="text-[11px] font-bold" style="color:var(--text-main)">Relatório · ${esc(mes)}/${esc(ano)} · ${sem}ª semana</span>
         <div class="flex gap-1.5">
-          <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-bold cursor-pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
+          <button onclick="dfImprimir()" class="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-bold cursor-pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
           <button onclick="dfRenderTela()" class="px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-pen mr-1"></i>Editar</button>
         </div>
       </div>
       <div class="p-3 overflow-y-auto" style="max-height:75vh">${docHtml}</div>
     </div>`;
+};
+
+/* Impressão em iframe isolado — window.print() na página principal sai em
+   branco no Android porque depende de @media print esconder o app inteiro. */
+window.dfImprimir = function(){
+  if (!DF.docHtml) return;
+  let fr = el('df-print-frame');
+  if (fr) fr.remove();
+  fr = document.createElement('iframe');
+  fr.id = 'df-print-frame';
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0';
+  document.body.appendChild(fr);
+  const d = fr.contentWindow.document;
+  d.open();
+  d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Combustível dos Líderes</title>'
+    + '<style>@page{size:A4;margin:8mm}body{margin:0;background:#fff;color:#111;font-family:Arial,sans-serif}'
+    + '.df-pagina{page-break-after:always}.df-pagina:last-child{page-break-after:auto}'
+    + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>'
+    + DF.docHtml + '</body></html>');
+  d.close();
+  setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch(e){ toast('Impressão indisponível neste aparelho.'); } }, 350);
 };
 
 })();
