@@ -7158,8 +7158,6 @@ window.pbCopiarContracheque = async function(){
 /* depuração/testes */
 window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC, DR };
 
-})();
-
 /* ===================== DESPESAS FIXAS — combustível dos líderes =====================
    Valor fixo mensal por líder de congregação (exceto Assembleia Geral e Obreiros);
    relatório oficial em 6 páginas para assinatura — mesma chave do desktop. */
@@ -7332,3 +7330,4 @@ window.dfGerarRelatorio = async function(){
     </div>`;
 };
 
+})();
