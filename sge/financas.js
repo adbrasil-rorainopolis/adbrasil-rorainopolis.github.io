@@ -3229,7 +3229,7 @@ window.prestEditarSaidas = function(){
   const saidasSem = PREST.saidas.filter(x => String(x.ano) === PREST.ano && String(x.mes) === PREST.mes && String(x.semana) === PREST.semana);
   const sh = document.createElement('div');
   sh.id = 'prest-sheet'; sh.className = 'fixed inset-0 z-[97]'; sh.style.background = 'rgba(2,6,23,.8)';
-  sh.innerHTML = `<div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-4 max-h-[92vh] overflow-y-auto shadow-2xl animSheetIn" style="background:var(--bg-surface);border:1px solid var(--border-color)">
+  sh.innerHTML = `<div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-4 max-h-[92vh] overflow-y-auto shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-color)">
     <div class="flex items-start justify-between mb-1">
       <div>
         <p class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Prestação de Contas</p>
