@@ -7362,22 +7362,38 @@ window.dfGerarRelatorio = async function(){
   }
   const timb = DF.timb ? `<img src="${DF.timb}" style="width:100%;display:block;margin:0 auto 10px" alt="">` : '';
   const pgEstilo = 'width:186mm;margin:0 auto 18px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.25);page-break-after:always';
-  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de 6 — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p><p style="margin-top:3px;text-align:center;font-size:8.5px;color:#999;letter-spacing:1.5px">SGE — AD BRASIL · Rorainópolis/RR</p>`;
+  /* Paginação por conselho — cada conselho começa em página própria e nunca
+     divide folha com outro; conselho maior que a capacidade continua na página
+     seguinte (numerada dentro do próprio conselho). */
+  const porPagina = 9;
+  const grupos = [];
+  DF.linhas.forEach(c => {
+    const g = grupos[grupos.length - 1];
+    if (g && g.cons === c.conselho) g.itens.push(c);
+    else grupos.push({ cons: c.conselho, itens: [c] });
+  });
+  const pagDados = [];
+  grupos.forEach(g => {
+    const sub = g.itens.reduce((a, x) => a + (Number(DF.valores[x.nome]) || 0), 0);
+    for (let i = 0; i < g.itens.length; i += porPagina)
+      pagDados.push({ cons: g.cons, itens: g.itens.slice(i, i + porPagina), continua: i > 0, ultima: i + porPagina >= g.itens.length, subtotal: sub });
+  });
+  const totalPags = 1 + pagDados.length;
+  const extPag = ['uma','duas','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze'][totalPags - 2] || (totalPags - 1);
+  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de ${totalPags} — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p><p style="margin-top:3px;text-align:center;font-size:8.5px;color:#999;letter-spacing:1.5px">SGE — AD BRASIL · Rorainópolis/RR</p>`;
   const pag1 = `<div class="df-pagina" style="${pgEstilo}">
       ${timb}
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
-      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
+      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em ${totalPags - 1} (${extPag}) ${totalPags - 1 === 1 ? 'página' : 'páginas'}.</p>
       <p style="margin-top:60px;font-size:12px;text-align:center">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
       <div style="margin-top:110px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
       ${rodape(1)}
     </div>`;
-  const porPagina = 9, partes = [];
-  for (let i = 0; i < DF.linhas.length; i += porPagina) partes.push(DF.linhas.slice(i, i + porPagina));
-  while (partes.length < 5) partes.push([]);
   const paginas = [pag1];
-  partes.slice(0, 5).forEach((bloco, pi) => {
-    const linhasHtml = bloco.map(c => {
+  pagDados.forEach((pg, pi) => {
+    const ultimaGeral = pi === pagDados.length - 1;
+    const linhasHtml = pg.itens.map(c => {
       const idx = DF.linhas.filter(x => x.conselho === c.conselho).indexOf(c) + 1;
       const v = Number(DF.valores[c.nome]) || 0;
       return `<tr style="background:${idx % 2 ? '#fff' : '#f8fafc'}">
@@ -7389,10 +7405,10 @@ window.dfGerarRelatorio = async function(){
         <td style="padding:16px 6px;border:1px solid #cbd5e1;width:28mm;text-align:center;color:#64748b;letter-spacing:1px;font-size:10px">____/____/____</td>
       </tr>`;
     }).join('');
-    paginas.push(`<div class="df-pagina" style="${pgEstilo}${pi === 4 ? 'page-break-after:auto' : ''}">
+    paginas.push(`<div class="df-pagina" style="${pgEstilo}${ultimaGeral ? 'page-break-after:auto' : ''}">
       ${timb}
       <h3 style="text-align:center;font-size:13px;font-weight:800;letter-spacing:1px;margin:6px 0 2px">RECEBIMENTO — COMBUSTÍVEL DOS LÍDERES</h3>
-      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px">Competência <b>${esc(refMes)}/${esc(refAno)}</b> · lançado na ${sem}ª semana de ${esc(mes)}/${esc(ano)} · declaro ter recebido o valor ao lado</p>
+      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px"><b>${esc(pg.cons)}</b>${pg.continua ? ' (continuação)' : ''} · Competência <b>${esc(refMes)}/${esc(refAno)}</b> · lançado na ${sem}ª semana de ${esc(mes)}/${esc(ano)} · declaro ter recebido o valor ao lado</p>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="background:#1e3a5f;color:#fff">
           <th style="padding:7px 4px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">Nº</th>
@@ -7402,8 +7418,11 @@ window.dfGerarRelatorio = async function(){
           <th style="padding:7px 6px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">ASSINATURA DO LÍDER</th>
           <th style="padding:7px 6px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">DATA</th>
         </tr></thead>
-        <tbody>${linhasHtml || '<tr><td colspan="6" style="padding:24px;border:1px solid #cbd5e1;text-align:center;color:#999">— página reservada —</td></tr>'}</tbody>
-        ${pi === 4 ? `<tfoot><tr style="background:#fef3c7;font-weight:800"><td colspan="3" style="padding:8px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr></tfoot>` : ''}
+        <tbody>${linhasHtml}</tbody>
+        ${(pg.ultima || ultimaGeral) ? `<tfoot>
+          ${pg.ultima ? `<tr style="background:#f1f5f9;font-weight:700"><td colspan="3" style="padding:8px;border:1px solid #cbd5e1">TOTAL — ${esc(pg.cons).toUpperCase()}</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(pg.subtotal)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
+          ${ultimaGeral ? `<tr style="background:#fef3c7;font-weight:800"><td colspan="3" style="padding:8px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
+        </tfoot>` : ''}
       </table>
       ${rodape(pi + 2)}
     </div>`);
