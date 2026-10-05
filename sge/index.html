@@ -879,7 +879,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.204';
+const SGE_VERSAO = 'v1.205';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2481,8 +2481,8 @@ new MutationObserver(muts => {
   }
 }).observe(document.documentElement, { childList: true, subtree: true });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => sgeEnhanceSelects());
-{ const v = $('app-versao-lbl'); if (v) v.textContent = 'SGE Mobile · ' + SGE_VERSAO; }
 else sgeEnhanceSelects();
+{ const v = $('app-versao-lbl'); if (v) v.textContent = 'SGE Mobile · ' + SGE_VERSAO; }
 </script>
 <div id="sge-emergencia-overlay" class="hidden fixed inset-0 flex-col items-center justify-center text-center px-6" style="z-index:99999; background: rgba(12,10,10,.55); backdrop-filter: blur(18px) saturate(.6); -webkit-backdrop-filter: blur(18px) saturate(.6);">
   <div class="w-full max-w-sm rounded-3xl border-2 p-7 space-y-3" style="background: rgba(69,10,10,.88); border-color: #dc2626; box-shadow: 0 0 50px rgba(220,38,38,.35);">
