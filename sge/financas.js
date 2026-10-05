@@ -7362,13 +7362,13 @@ window.dfGerarRelatorio = async function(){
   }
   const timb = DF.timb ? `<img src="${DF.timb}" style="width:100%;display:block;margin:0 auto 10px" alt="">` : '';
   const pgEstilo = 'width:186mm;margin:0 auto 18px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.25);page-break-after:always';
-  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de 6 — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p>`;
+  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de 6 — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p><p style="margin-top:3px;text-align:center;font-size:8.5px;color:#999;letter-spacing:1.5px">SGE — AD BRASIL · Rorainópolis/RR</p>`;
   const pag1 = `<div class="df-pagina" style="${pgEstilo}">
       ${timb}
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
       <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
-      <p style="margin-top:60px;font-size:12px">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
+      <p style="margin-top:60px;font-size:12px;text-align:center">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
       <div style="margin-top:110px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
       ${rodape(1)}
     </div>`;
@@ -7437,7 +7437,7 @@ window.dfImprimir = function(){
   d.open();
   d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Combustível dos Líderes</title>'
     + '<style>@page{size:A4;margin:8mm}body{margin:0;background:#fff;color:#111;font-family:Arial,sans-serif}'
-    + '.df-pagina{page-break-after:always}.df-pagina:last-child{page-break-after:auto}'
+    + '.df-pagina{page-break-after:always;box-shadow:none !important}.df-pagina:last-child{page-break-after:auto}'
     + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>'
     + DF.docHtml + '</body></html>');
   d.close();
