@@ -321,9 +321,9 @@
         <div class="theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText(sgeDeviceId()); toast('ID do aparelho copiado: ' + sgeDeviceId())">
           <i class="fa-solid fa-mobile-screen text-[12px]" style="color: var(--text-muted);"></i> ID do aparelho (copiar)
         </div>
-        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.197'); toast('Versão copiada: v1.191')" title="Toque para copiar a versão">
+        <div class="theme-option-item px-3.5 py-2 rounded-xl flex items-center gap-2.5 text-[10px] font-semibold cursor-pointer" onclick="if(navigator.clipboard)navigator.clipboard.writeText('SGE Mobile v1.198'); toast('Versão copiada: v1.191')" title="Toque para copiar a versão">
           <i class="fa-solid fa-code-branch text-[11px]" style="color: var(--text-muted);"></i>
-          <span style="color: var(--text-muted);">SGE Mobile · v1.197</span>
+          <span style="color: var(--text-muted);">SGE Mobile · v1.198</span>
           <i class="fa-solid fa-copy ml-auto text-[9px] opacity-50"></i>
         </div>
 
@@ -791,9 +791,9 @@
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
         <i class="fa-solid fa-vault text-base text-emerald-500"></i><span class="text-[9px] font-bold">Financ.</span>
       </button>
-      <button onclick="mudarVisao('governanca')" data-mod="governanca" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Congregações e Lideranças">
+      <button onclick="mudarVisao('dizimistas')" data-mod="dizimistas" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Dizimistas — rol, frequência, lançamentos e livro">
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
-        <i class="fa-solid fa-church text-base text-sky-500"></i><span class="text-[9px] font-bold">Congr.</span>
+        <i class="fa-solid fa-hand-holding-dollar text-base text-purple-400"></i><span class="text-[9px] font-bold">Dizim.</span>
       </button>
       <button onclick="mudarVisao('secretaria')" data-mod="secretaria" class="sidebar-nav-btn flex-1 flex flex-col items-center gap-1 py-2.5" title="Secretaria e Espiritual">
         <span class="nav-ind h-0.5 w-8 rounded-full"></span>
@@ -864,6 +864,7 @@ const MODULOS = {
   gestao:     { nome: 'Gestão Unificada',          icone: 'fa-chart-pie',     cor: '#f59e0b' },
   financeiro: { nome: 'Financeiro & Tesouraria',   icone: 'fa-vault',         cor: '#10b981' },
   governanca: { nome: 'Congregações & Lideranças', icone: 'fa-church',        cor: '#38bdf8' },
+  dizimistas: { nome: 'Dizimistas',                icone: 'fa-hand-holding-dollar', cor: '#a78bfa' },
   secretaria: { nome: 'Secretaria & Espiritual',   icone: 'fa-dove',          cor: '#f472b6' },
   missoes:    { nome: 'Missões',                   icone: 'fa-globe',         cor: '#fb923c' },
   contabil:   { nome: 'Módulo Contábil',           icone: 'fa-scale-balanced', cor: '#818cf8' },
@@ -1633,11 +1634,21 @@ function sgeModuloPermitido(mod){
   if (mod.startsWith('membro_')) return typeof sgeModoPodeAlternar === 'function' && sgeModoPodeAlternar() && sgeModoAtual() === 'membro';
   const ac = sgeAcessos();
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
+  if (mod === 'dizimistas') {
+    if (sgeTesoureiro()) return true;
+    if (!ac.configurado) return true;
+    return (ac.permissoes || []).some(p => p.modulo === 'dizimistas'
+      || (p.modulo === 'financeiro' && (p.aba === '*' || String(p.aba || '').startsWith('dizimistas'))));
+  }
   if (!ac.configurado) return true;
   return (ac.permissoes || []).some(p => p.modulo === mod);
 }
 function sgeAbaPermitida(mod, aba){
   const ac = sgeAcessos(), perms = ac.permissoes || [];
+  if (mod === 'financeiro' && String(aba || '').startsWith('dizimistas'))
+    return aba === 'dizimistas' ? sgeModuloPermitido('dizimistas') : sgeSubAbaDizPermitida(String(aba).split('.')[1]);
+  if (mod === 'dizimistas')
+    return aba === '*' ? sgeModuloPermitido('dizimistas') : sgeSubAbaDizPermitida(aba);
   if (mod === 'financeiro' && aba === 'relatorio')
     return sgeEhAdmin() || sgeTesoureiro() || perms.some(p => p.modulo === 'financeiro' && (p.aba === 'relatorio' || String(p.aba || '').startsWith('relatorio.')));
   if (!ac.configurado) return true;
@@ -1646,13 +1657,16 @@ function sgeAbaPermitida(mod, aba){
   if (!regras.length) return true;
   return regras.some(p => p.aba === aba || String(p.aba || '').startsWith(aba + '.'));
 }
-/* Sub-abas de Dizimistas (financeiro) — paridade com subAbasPermitidasDizimistas */
+/* Sub-abas de Dizimistas — módulo próprio ('dizimistas/<aba>') + legado ('financeiro/dizimistas.<sub>') */
 function sgeSubAbaDizPermitida(sub){
   const ac = sgeAcessos(), perms = ac.permissoes || [];
   if (!ac.configurado) return true;
-  const regras = perms.filter(p => p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas.'));
-  if (!regras.length) return true;
-  return regras.some(p => p.aba === 'dizimistas.' + sub);
+  const temRegra = perms.some(p => p.modulo === 'dizimistas'
+    || (p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas')));
+  if (!temRegra) return true;
+  return perms.some(p =>
+    (p.modulo === 'dizimistas' && (p.aba === sub || p.aba === '*')) ||
+    (p.modulo === 'financeiro' && (p.aba === 'dizimistas.' + sub || p.aba === 'dizimistas' || p.aba === '*')));
 }
 function aplicarPermissoesNav(){
   document.querySelectorAll('.sidebar-nav-btn[data-mod]').forEach(b => {
@@ -1968,6 +1982,7 @@ window.sgeSolicitarRecarga = sgeSolicitarRecarga;
 
 let moduloAtual = 'dashboard';
 function mudarVisao(mod){
+  if (mod === 'governanca') mod = 'dizimistas'; // Congregações saiu do mobile — Dizimistas ocupa o lugar
   if (mod === moduloAtual) return;
   if (!sgeModuloPermitido(mod)) return;
   moduloAtual = mod;
@@ -1987,6 +2002,7 @@ function renderModulo(mod){
   if (mod === 'dashboard') return renderPanorama();
   if (mod === 'gestao' && typeof renderGestao === 'function') return renderGestao();
   if (mod === 'financeiro' && typeof renderFinanceiro === 'function') return renderFinanceiro();
+  if (mod === 'dizimistas' && typeof renderDizimistas === 'function') return renderDizimistas();
   if (mod === 'secretaria' && typeof renderSecretaria === 'function') return renderSecretaria();
   if (mod === 'missoes' && typeof renderMissoes === 'function') return renderMissoes();
   if (mod === 'contabil' && typeof renderContabil === 'function') return renderContabil();

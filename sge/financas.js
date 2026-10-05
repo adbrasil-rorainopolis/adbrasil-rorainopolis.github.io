@@ -180,14 +180,23 @@ const FIN_ABAS_META = {
   movfin:     { nome: 'Movimento do Campo',       desc: 'Grade semanal por congregação — alimenta movimento e origem', icone: 'fa-table-list', cor: '#f43f5e' },
   prebenda:   { nome: 'Prebenda Pastoral',        desc: 'Prebendas dos pastores — acesso restrito', icone: 'fa-hand-holding-dollar', cor: '#f59e0b' },
 };
-const FIN_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro', 'relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda'];
+const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda'];
+/* Dizimistas virou módulo próprio (paridade desktop) — ids locais -> ids do catálogo */
+const DIZ_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro'];
+const DIZ2CAT = { rol: 'membros', frequencia: 'frequencia', semanal: 'lancamentos', livro: 'livro' };
+const DIZ_TELA_META = {
+  rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',     cor: '#a78bfa' },
+  frequencia: { nome: 'Frequência',              desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check', cor: '#34d399' },
+  semanal:    { nome: 'Lançamentos Semanais',    desc: 'Dízimos e ofertas por irmão e semana',     icone: 'fa-receipt',        cor: '#f59e0b' },
+  livro:      { nome: 'Livro de Dizimistas',     desc: 'Livro oficial mensal e anual — exportável', icone: 'fa-book-open',      cor: '#d4af37' },
+};
 
 window.renderFinanceiro = function(){
   el('dash-conteudo').innerHTML = `
     <div class="space-y-3">
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
-        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Dizimistas e lançamentos semanais</p></div>
+        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Caixa, movimento e prestação de contas</p></div>
         <button onclick="ajudaAbrir('financeiro')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div id="fin-menu"></div>
@@ -195,9 +204,54 @@ window.renderFinanceiro = function(){
       <div id="fin-sub"></div>
     </div>
 `;
+  F.origem = 'fin';
   F.aba = null;
   finMenu();
 };
+
+/* ===================== MÓDULO DIZIMISTAS (top-level) ===================== */
+window.renderDizimistas = function(){
+  el('dash-conteudo').innerHTML = `
+    <div class="space-y-3">
+      <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
+        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(168,85,247,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
+        <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Dizimistas</h2><p class="text-[10px] opacity-60">Rol, frequência, lançamentos semanais e livro oficial</p></div>
+        <button onclick="ajudaAbrir('fin.dizimistas')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
+      </div>
+      <div id="fin-menu"></div>
+      <div id="fin-ctx" class="hidden"></div>
+      <div id="fin-sub"></div>
+    </div>
+`;
+  F.origem = 'diz';
+  F.aba = null;
+  dizMenu();
+};
+
+window.dizMenu = function(){
+  F.aba = null;
+  el('fin-ctx')?.classList.add('hidden');
+  const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
+  const menu = el('fin-menu'); if (!menu) return;
+  const itens = DIZ_ABAS_ORDEM.filter(dizAbaPermitida);
+  menu.innerHTML = `<div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+    ${itens.map(t => {
+      const m = DIZ_TELA_META[t];
+      return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
+        <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
+        <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
+        <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
+      </button>`;
+    }).join('')}</div>` || '<p class="text-[10px] opacity-50 text-center py-4">Nenhuma área liberada.</p>';
+  menu.classList.remove('hidden');
+};
+
+/* Permissão das abas do módulo Dizimistas (ids locais -> catálogo) */
+function dizAbaPermitida(t){
+  const cat = DIZ2CAT[t] || t;
+  if (t === 'livro') return sgeSubAbaDizPermitida('livro') || sgeSubAbaDizPermitida('lancamentos');
+  return sgeSubAbaDizPermitida(cat);
+}
 
 window.finMenu = function(){
   F.aba = null;
@@ -205,7 +259,6 @@ window.finMenu = function(){
   const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
   const menu = el('fin-menu'); if (!menu) return;
   const grupos = [
-    { titulo: 'Dizimistas',          icone: 'fa-users',        abas: ['rol', 'frequencia', 'semanal', 'livro'] },
     { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
     { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
     { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda'] },
@@ -234,10 +287,7 @@ window.finMenu = function(){
 /* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
    rol/frequencia = sub-abas de dizimistas; relatorio/prestacao/orcamentos = abas diretas. */
 function finAbaPermitida(t){
-  if (t === 'rol') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('membros');
-  if (t === 'frequencia') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('frequencia');
-  if (t === 'semanal') return sgeAbaPermitida('financeiro','dizimistas') && sgeSubAbaDizPermitida('lancamentos');
-  if (t === 'livro') return sgeAbaPermitida('financeiro','dizimistas') && (sgeSubAbaDizPermitida('livro') || sgeSubAbaDizPermitida('lancamentos'));
+  if (t === 'rol' || t === 'frequencia' || t === 'semanal' || t === 'livro') return dizAbaPermitida(t);
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
@@ -257,8 +307,11 @@ function pbPodeVerM(){
     p.modulo === 'financeiro' && (p.aba === 'prebenda' || p.aba === '*'));
 }
 
+window.finVoltarMenu = function(){ (F.origem === 'diz' ? dizMenu() : finMenu()); };
+
 window.finAba = function(aba){
-  if (!finAbaPermitida(aba)) aba = FIN_ABAS_ORDEM.find(finAbaPermitida) || 'rol';
+  const ordem = F.origem === 'diz' ? DIZ_ABAS_ORDEM : FIN_ABAS_ORDEM;
+  if (!finAbaPermitida(aba)) aba = ordem.find(finAbaPermitida) || ordem[0];
   F.aba = aba;
   if (aba !== 'orcamentos'){ ORC.id = null; ORC.dados = null; }
   const meta = FIN_ABAS_META[aba] || {};
@@ -268,7 +321,7 @@ window.finAba = function(aba){
     ctx.classList.remove('hidden');
     ctx.innerHTML = `
       <div class="flex items-center gap-2">
-        <button onclick="finMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
+        <button onclick="finVoltarMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
         <div class="flex-1 min-w-0">
           <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}
             <button onclick="ajudaAbrir('fin.${aba}')" title="Como usar — ajuda desta aba" class="w-5 h-5 rounded-full border text-[9px] font-bold cursor-pointer inline-flex items-center justify-center opacity-70 shrink-0" style="border-color:var(--border-color)"><i class="fa-solid fa-question"></i></button></p>

@@ -2046,10 +2046,14 @@ window.guAcessos = async function(cpf, aprovar){
     GU.acessos.cpf = cpf;
     GU.aprovar = !!aprovar;
     GU.selCongs = new Set(GU.acessos.congregacoes || []);
-    GU.selMods = new Set((GU.acessos.permissoes || []).map(p => p.modulo));
+    /* Migração visual: regras legadas financeiro/dizimistas.* viram dizimistas/<aba> */
+    const mapDiz = p => (p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas'))
+      ? { ...p, modulo: 'dizimistas', aba: p.aba === 'dizimistas' ? '*' : p.aba.slice('dizimistas.'.length) }
+      : p;
+    GU.selMods = new Set((GU.acessos.permissoes || []).map(p => mapDiz(p).modulo));
     GU.selDev = new Set(GU.acessos.dispositivos || []);
     GU.matriz = {};
-    (GU.acessos.permissoes || []).forEach(p => {
+    (GU.acessos.permissoes || []).map(mapDiz).forEach(p => {
       if (p.aba === '*') return;
       const mm = GU.matriz[p.modulo] = GU.matriz[p.modulo] || {};
       mm[p.aba] = (mm[p.aba] || new Set()).add(p.acao);
