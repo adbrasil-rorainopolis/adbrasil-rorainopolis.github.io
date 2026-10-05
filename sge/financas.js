@@ -7361,7 +7361,7 @@ window.dfGerarRelatorio = async function(){
     } catch(e){ DF.timb = ''; }
   }
   const timb = DF.timb ? `<img src="${DF.timb}" style="width:100%;display:block;margin:0 auto 10px" alt="">` : '';
-  const pgEstilo = 'width:186mm;margin:0 auto 18px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.25);page-break-after:always';
+  const pgEstilo = 'width:186mm;min-height:258mm;margin:0 auto 18px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.25);page-break-after:always;display:flex;flex-direction:column';
   /* Paginação por conselho — cada conselho começa em página própria e nunca
      divide folha com outro; conselho maior que a capacidade continua na página
      seguinte (numerada dentro do próprio conselho). */
@@ -7380,7 +7380,7 @@ window.dfGerarRelatorio = async function(){
   });
   const totalPags = 1 + pagDados.length;
   const extPag = ['uma','duas','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze'][totalPags - 2] || (totalPags - 1);
-  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de ${totalPags} — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p><p style="margin-top:3px;text-align:center;font-size:8.5px;color:#999;letter-spacing:1.5px">SGE — AD BRASIL · Rorainópolis/RR</p>`;
+  const rodape = n => `<p style="margin-top:auto;padding-top:14px;text-align:center;font-size:9px;color:#666">${n ? `Página ${n} de ${pagDados.length} — ` : 'Recibo — '}Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p><p style="margin-top:3px;text-align:center;font-size:8.5px;color:#999;letter-spacing:1.5px">SGE — AD BRASIL · Rorainópolis/RR</p>`;
   const pag1 = `<div class="df-pagina" style="${pgEstilo}">
       ${timb}
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
@@ -7396,7 +7396,7 @@ window.dfGerarRelatorio = async function(){
       </table>
       <p style="margin-top:34px;font-size:12px;text-align:center">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
       <div style="margin-top:60px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
-      ${rodape(1)}
+      ${rodape(0)}
     </div>`;
   const paginas = [pag1];
   pagDados.forEach((pg, pi) => {
@@ -7431,7 +7431,7 @@ window.dfGerarRelatorio = async function(){
           ${ultimaGeral ? `<tr style="background:#fef3c7;font-weight:800"><td colspan="2" style="padding:8px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
         </tfoot>` : ''}
       </table>
-      ${rodape(pi + 2)}
+      ${rodape(pi + 1)}
     </div>`);
   });
   const docHtml = paginas.join('');
