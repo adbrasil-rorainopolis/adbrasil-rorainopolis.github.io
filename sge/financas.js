@@ -179,8 +179,9 @@ const FIN_ABAS_META = {
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
   movfin:     { nome: 'Movimento do Campo',       desc: 'Grade semanal por congregação — alimenta movimento e origem', icone: 'fa-table-list', cor: '#f43f5e' },
   prebenda:   { nome: 'Prebenda Pastoral',        desc: 'Prebendas dos pastores — acesso restrito', icone: 'fa-hand-holding-dollar', cor: '#f59e0b' },
+  despesas:   { nome: 'Despesas Fixas',           desc: 'Combustível dos líderes e relatório p/ assinatura', icone: 'fa-file-signature', cor: '#14b8a6' },
 };
-const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda'];
+const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda', 'despesas'];
 /* Dizimistas virou módulo próprio (paridade desktop) — ids locais -> ids do catálogo */
 const DIZ_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro'];
 const DIZ2CAT = { rol: 'membros', frequencia: 'frequencia', semanal: 'lancamentos', livro: 'livro' };
@@ -261,7 +262,7 @@ window.finMenu = function(){
   const grupos = [
     { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
     { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
-    { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda'] },
+    { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda', 'despesas'] },
   ];
   const blocos = grupos.map(g => {
     const itens = g.abas.filter(finAbaPermitida);
@@ -293,6 +294,7 @@ function finAbaPermitida(t){
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
   if (t === 'movfin') return sgeEhAdmin();
   if (t === 'prebenda') return pbPodeVerM();
+  if (t === 'despesas') return sgeAbaPermitida('financeiro','despesas');
   return false;
 }
 
@@ -337,6 +339,7 @@ window.finAba = function(aba){
   if (aba === 'orcamentos') return orcRenderTela();
   if (aba === 'movfin') return mvfRenderTela();
   if (aba === 'prebenda') return pbRenderTela();
+  if (aba === 'despesas') return dfRenderTela();
   finRenderRol();
 };
 
@@ -7156,3 +7159,179 @@ window.pbCopiarContracheque = async function(){
 window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos, obterHistoricoCongregacoes, carregarLancamentosAno, dadosFrequenciaBI, F, RC , PREST, ORC, DR };
 
 })();
+
+/* ===================== DESPESAS FIXAS — combustível dos líderes =====================
+   Valor fixo mensal por líder de congregação (exceto Assembleia Geral e Obreiros);
+   relatório oficial em 6 páginas para assinatura — mesma chave do desktop. */
+const DF_CHAVE = 'sge_despesas_fixas_v1';
+const DF_EXC = ['assembleia geral', 'obreiros'];
+const DF = { valores: {}, linhas: [], timb: null };
+
+function dfExtenso(valor){
+  const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  const c=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  const ext999=n=>{ if(n===0)return''; if(n===100)return'cem'; let t=''; const cc=Math.floor(n/100),dd=n%100;
+    if(cc)t=c[cc]; if(dd){ if(t)t+=' e '; if(dd<20)t+=u[dd]; else{ t+=d[Math.floor(dd/10)]; if(dd%10)t+=' e '+u[dd%10]; } } return t; };
+  let v=Math.round(Math.abs(Number(valor)||0)*100); const inteiro=Math.floor(v/100), cent=v%100;
+  const bl=[[1e9,'bilhão','bilhões'],[1e6,'milhão','milhões'],[1e3,'mil','mil']];
+  let resto=inteiro; const g=[];
+  bl.forEach(([base,si,pl])=>{ const q=Math.floor(resto/base); if(q>0){ g.push({n:q,t:(base===1e3&&q===1)?'mil':ext999(q)+' '+(q===1?si:pl)}); resto%=base; } });
+  if(resto>0||!g.length)g.push({n:resto,t:ext999(resto)||'zero'});
+  let txt=g[0].t;
+  for(let i=1;i<g.length;i++) txt+=(i===g.length-1&&(g[i].n<100||g[i].n%100===0)?' e ':', ')+g[i].t;
+  txt+=inteiro===1?' real':' reais';
+  if(cent)txt+=' e '+ext999(cent)+(cent===1?' centavo':' centavos');
+  return txt;
+}
+
+async function dfLinhasCampo(){
+  const { porConselho } = await SGEG.mapaConselhos();
+  const linhas = [];
+  SGEG.ordenarConselhosG(Object.keys(porConselho || {})).forEach(cons => {
+    (porConselho[cons] || []).forEach(nome => {
+      const n = typeof nome === 'string' ? nome : (nome?.nome || '');
+      if (n && !DF_EXC.includes(n.trim().toLowerCase())) linhas.push({ conselho: cons, nome: n });
+    });
+  });
+  return linhas;
+}
+
+window.dfRenderTela = async function(){
+  el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando despesas fixas…</p>';
+  try {
+    const r = await api('obter_config_sge', { chave: DF_CHAVE }, sessao()?.token);
+    if (r?.ok && r.valor) { const d = JSON.parse(r.valor); if (d?.combustivel) DF.valores = d.combustivel; }
+  } catch(e){}
+  DF.linhas = await dfLinhasCampo();
+  const agora = new Date();
+  const anos = []; for (let a = agora.getFullYear()-2; a <= agora.getFullYear()+2; a++) anos.push(a);
+  const meses = SGEG.MESES_G || ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const selOpts = (arr, cur, fmt) => arr.map(v => `<option value="${esc(v)}" ${v===cur?'selected':''}>${fmt?fmt(v):esc(v)}</option>`).join('');
+  let total = 0;
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-gas-pump text-amber-500 mr-1"></i>Combustível — líderes de congregação</p>
+        <div class="grid grid-cols-3 gap-2">
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="df-ano" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="df-mes" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana</span><select id="df-semana" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts([1,2,3,4,5], 1, v => v+'ª')}</select></div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="dfSalvarValores()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar valores</button>
+          <button onclick="dfGerarRelatorio()" class="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-file-pdf mr-1"></i> Relatório p/ assinatura</button>
+        </div>
+      </div>
+      <div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+        ${DF.linhas.map((c, i) => {
+          const v = Number(DF.valores[c.nome]) || 0; total += v;
+          return `<div class="flex items-center gap-2.5 px-3 py-2.5">
+            <span class="w-6 text-[10px] opacity-40 shrink-0">${i+1}</span>
+            <span class="flex-1 min-w-0"><b class="text-[11px] block truncate">${esc(c.nome)}</b><span class="text-[9px] opacity-50 block">${esc(c.conselho)}</span></span>
+            <input type="number" min="0" step="0.01" value="${v || ''}" placeholder="0,00" oninput="dfSet(${i}, this.value)" class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          </div>`;
+        }).join('') || '<p class="text-[10px] opacity-50 text-center py-5">Nenhuma congregação no escopo.</p>'}
+      </div>
+      <p id="df-total" class="text-right text-[11px] font-bold" style="color:#34d399">Total do repasse: ${brl(total)}</p>
+    </div>`;
+};
+
+window.dfSet = function(i, v){
+  const c = DF.linhas[i]; if (!c) return;
+  const n = Math.max(0, Number(String(v).replace(',', '.')) || 0);
+  if (n > 0) DF.valores[c.nome] = n; else delete DF.valores[c.nome];
+  const total = DF.linhas.reduce((a, l) => a + (Number(DF.valores[l.nome]) || 0), 0);
+  const t = el('df-total'); if (t) t.textContent = 'Total do repasse: ' + brl(total);
+};
+
+window.dfSalvarValores = async function(){
+  try {
+    await api('salvar_config_sge', { chave: DF_CHAVE, valor: JSON.stringify({ combustivel: DF.valores, versao: 1 }) }, sessao()?.token);
+    toast('Valores salvos.');
+  } catch(e){ toast(e.message || 'Falha ao salvar.'); }
+};
+
+window.dfGerarRelatorio = async function(){
+  const mes = el('df-mes')?.value || '';
+  const ano = el('df-ano')?.value || String(new Date().getFullYear());
+  const sem = el('df-semana')?.value || '1';
+  const total = DF.linhas.reduce((a, l) => a + (Number(DF.valores[l.nome]) || 0), 0);
+  if (!DF.timb){
+    try { const b = await fetch('icons/cabecalho_ad_brasil.png').then(r => r.blob());
+      DF.timb = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+    } catch(e){ DF.timb = ''; }
+  }
+  const timb = DF.timb ? `<img src="${DF.timb}" style="width:100%;display:block;margin:0 auto 10px" alt="">` : '';
+  const pgEstilo = 'width:186mm;margin:0 auto 18px;background:#fff;color:#111;font-family:Arial,sans-serif;padding:10mm 8mm;box-shadow:0 2px 14px rgba(0,0,0,.25);page-break-after:always';
+  const rodape = n => `<p style="margin-top:14px;text-align:center;font-size:9px;color:#666">Página ${n} de 6 — Combustível dos líderes · ${esc(mes)}/${esc(ano)} · ${sem}ª semana de lançamento</p>`;
+  const pag1 = `<div class="df-pagina" style="${pgEstilo}">
+      ${timb}
+      <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
+      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
+      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(mes).toUpperCase())}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
+      <p style="margin-top:60px;font-size:12px">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
+      <div style="margin-top:70px;display:flex;justify-content:space-between;gap:24px">
+        <div style="flex:1;text-align:center"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesouraria Central<br>AD BRASIL — Rorainópolis</div></div>
+        <div style="flex:1;text-align:center"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Pastor do Campo</div></div>
+      </div>
+      ${rodape(1)}
+    </div>`;
+  const porPagina = 9, partes = [];
+  for (let i = 0; i < DF.linhas.length; i += porPagina) partes.push(DF.linhas.slice(i, i + porPagina));
+  while (partes.length < 5) partes.push([]);
+  const paginas = [pag1];
+  partes.slice(0, 5).forEach((bloco, pi) => {
+    const linhasHtml = bloco.map(c => {
+      const idx = DF.linhas.indexOf(c) + 1;
+      const v = Number(DF.valores[c.nome]) || 0;
+      return `<tr>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4;text-align:center;width:8mm">${idx}</td>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4;font-weight:700">${esc(c.nome)}</td>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4">${esc(c.conselho)}</td>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4;text-align:right;white-space:nowrap">${brl(v)}</td>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4;width:52mm"></td>
+        <td style="padding:7px 6px;border:1px solid #d4d4d4;width:24mm"></td>
+      </tr>`;
+    }).join('');
+    paginas.push(`<div class="df-pagina" style="${pgEstilo}${pi === 4 ? 'page-break-after:auto' : ''}">
+      ${timb}
+      <h3 style="text-align:center;font-size:13px;font-weight:800;letter-spacing:1px;margin:6px 0 2px">RECEBIMENTO — COMBUSTÍVEL DOS LÍDERES</h3>
+      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px">Competência ${esc(mes)}/${esc(ano)} · lançado na ${sem}ª semana · declaro ter recebido o valor ao lado</p>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:#f3f4f6">
+          <th style="padding:7px 6px;border:1px solid #d4d4d4">#</th>
+          <th style="padding:7px 6px;border:1px solid #d4d4d4;text-align:left">Congregação</th>
+          <th style="padding:7px 6px;border:1px solid #d4d4d4;text-align:left">Conselho</th>
+          <th style="padding:7px 6px;border:1px solid #d4d4d4;text-align:right">Valor</th>
+          <th style="padding:7px 6px;border:1px solid #d4d4d4">Assinatura do líder</th>
+          <th style="padding:7px 6px;border:1px solid #d4d4d4">Data</th>
+        </tr></thead>
+        <tbody>${linhasHtml || '<tr><td colspan="6" style="padding:24px;border:1px solid #d4d4d4;text-align:center;color:#999">— página reservada —</td></tr>'}</tbody>
+        ${pi === 4 ? `<tfoot><tr style="background:#fef3c7;font-weight:800"><td colspan="3" style="padding:8px 6px;border:1px solid #d4d4d4">TOTAL DO REPASSE</td><td style="padding:8px 6px;border:1px solid #d4d4d4;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px 6px;border:1px solid #d4d4d4"></td></tr></tfoot>` : ''}
+      </table>
+      ${rodape(pi + 2)}
+    </div>`);
+  });
+  const docHtml = paginas.join('');
+  let printRoot = el('df-print-root');
+  if (!printRoot){ printRoot = document.createElement('div'); printRoot.id = 'df-print-root'; printRoot.style.display = 'none'; document.body.appendChild(printRoot); }
+  printRoot.innerHTML = docHtml;
+  if (!el('df-print-style')){
+    const st = document.createElement('style'); st.id = 'df-print-style';
+    st.textContent = '@media print{body>*:not(#df-print-root){display:none!important}#df-print-root{display:block!important;color:#111;background:#fff}.df-pagina{page-break-after:always}.df-pagina:last-child{page-break-after:auto}}';
+    document.head.appendChild(st);
+  }
+  el('fin-sub').innerHTML = `
+    <div class="border rounded-2xl overflow-hidden" style="background:#334155;border-color:var(--border-color)">
+      <div class="flex items-center justify-between gap-2 px-3 py-2.5" style="background:var(--bg-card)">
+        <span class="text-[11px] font-bold" style="color:var(--text-main)">Relatório · ${esc(mes)}/${esc(ano)} · ${sem}ª semana</span>
+        <div class="flex gap-1.5">
+          <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-bold cursor-pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
+          <button onclick="dfRenderTela()" class="px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-pen mr-1"></i>Editar</button>
+        </div>
+      </div>
+      <div class="p-3 overflow-y-auto" style="max-height:75vh">${docHtml}</div>
+    </div>`;
+};
+
