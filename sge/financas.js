@@ -3200,7 +3200,7 @@ window.prestCopiarPendencias = async function(){
     const partes = ['*PENDÊNCIAS DE PRESTAÇÃO*', `${PREST.semana} - ${PREST.mes}/${PREST.ano}`, ''];
     for (const [cons, itens] of Object.entries(grupos)){
       partes.push(`*${cons}*`);
-      itens.forEach(i => partes.push(`- ${i.nome}` + (i.lider ? ` (${i.lider})` : '')));
+      itens.forEach(i => partes.push(`- ${i.nome}`));
       partes.push('');
     }
     txt = partes.join('\n').trim();
