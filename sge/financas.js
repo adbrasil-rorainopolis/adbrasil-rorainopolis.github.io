@@ -7407,29 +7407,28 @@ window.dfGerarRelatorio = async function(){
       return `<tr style="background:${idx % 2 ? '#fff' : '#f8fafc'}">
         <td style="padding:6px 4px;border:1px solid #cbd5e1;text-align:center;width:7mm;background:#f1f5f9;color:#475569;font-weight:700;font-size:10px">${idx}</td>
         <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700">${esc(c.nome)}</td>
-        <td style="padding:6px 8px;border:1px solid #cbd5e1;color:#475569">${esc(c.conselho)}</td>
         <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;white-space:nowrap;font-weight:700">${v ? brl(v) : '<span style="color:#94a3b8">—</span>'}</td>
-        <td style="padding:16px 6px;border:1px solid #cbd5e1;width:64mm"></td>
+        <td style="padding:16px 6px;border:1px solid #cbd5e1;width:78mm"></td>
         <td style="padding:16px 6px;border:1px solid #cbd5e1;width:28mm;text-align:center;color:#64748b;letter-spacing:1px;font-size:10px">____/____/____</td>
       </tr>`;
     }).join('');
     paginas.push(`<div class="df-pagina" style="${pgEstilo}${ultimaGeral ? 'page-break-after:auto' : ''}">
       ${timb}
       <h3 style="text-align:center;font-size:13px;font-weight:800;letter-spacing:1px;margin:6px 0 2px">RECEBIMENTO — COMBUSTÍVEL DOS LÍDERES</h3>
-      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px"><b>${esc(pg.cons)}</b>${pg.continua ? ' (continuação)' : ''} · Competência <b>${esc(refMes)}/${esc(refAno)}</b> · lançado na ${sem}ª semana de ${esc(mes)}/${esc(ano)} · declaro ter recebido o valor ao lado</p>
+      <p style="text-align:center;font-size:12px;font-weight:800;letter-spacing:.5px;color:#1e3a5f;margin:2px 0 6px">${esc(pg.cons).toUpperCase()}${pg.continua ? ' (continuação)' : ''}</p>
+      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px">Competência <b>${esc(refMes)}/${esc(refAno)}</b> · lançado na ${sem}ª semana de ${esc(mes)}/${esc(ano)} · declaro ter recebido o valor ao lado</p>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="background:#1e3a5f;color:#fff">
           <th style="padding:7px 4px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">Nº</th>
           <th style="padding:7px 8px;border:1px solid #1e3a5f;text-align:left;font-size:9px;letter-spacing:1px">CONGREGAÇÃO</th>
-          <th style="padding:7px 8px;border:1px solid #1e3a5f;text-align:left;font-size:9px;letter-spacing:1px">CONSELHO</th>
           <th style="padding:7px 8px;border:1px solid #1e3a5f;text-align:right;font-size:9px;letter-spacing:1px">VALOR</th>
           <th style="padding:7px 6px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">ASSINATURA DO LÍDER</th>
           <th style="padding:7px 6px;border:1px solid #1e3a5f;font-size:9px;letter-spacing:1px">DATA</th>
         </tr></thead>
         <tbody>${linhasHtml}</tbody>
         ${(pg.ultima || ultimaGeral) ? `<tfoot>
-          ${pg.ultima ? `<tr style="background:#f1f5f9;font-weight:700"><td colspan="3" style="padding:8px;border:1px solid #cbd5e1">TOTAL — ${esc(pg.cons).toUpperCase()}</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(pg.subtotal)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
-          ${ultimaGeral ? `<tr style="background:#fef3c7;font-weight:800"><td colspan="3" style="padding:8px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
+          ${pg.ultima ? `<tr style="background:#f1f5f9;font-weight:700"><td colspan="2" style="padding:8px;border:1px solid #cbd5e1">TOTAL — ${esc(pg.cons).toUpperCase()}</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(pg.subtotal)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
+          ${ultimaGeral ? `<tr style="background:#fef3c7;font-weight:800"><td colspan="2" style="padding:8px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:8px;border:1px solid #cbd5e1;text-align:right">${brl(total)}</td><td colspan="2" style="padding:8px;border:1px solid #cbd5e1"></td></tr>` : ''}
         </tfoot>` : ''}
       </table>
       ${rodape(pi + 2)}
