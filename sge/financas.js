@@ -7288,9 +7288,13 @@ window.dfRenderTela = async function(){
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-gas-pump text-amber-500 mr-1"></i>Combustível — líderes de congregação</p>
         <div class="grid grid-cols-3 gap-2">
-          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="df-ano" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
-          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="df-mes" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano lanç.</span><select id="df-ano" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês lanç.</span><select id="df-mes" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
           <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana</span><select id="df-semana" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts([1,2,3,4,5], 1, v => v+'ª')}</select></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1" title="Mês a que o repasse se refere — quando o pagamento atrasa"><i class="fa-solid fa-tag mr-1"></i>Referência (mês do relatório)</span><select id="df-ref-mes" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ref. ano</span><select id="df-ref-ano" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
         </div>
         <div class="flex gap-2">
           <button onclick="dfSalvarValores()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar valores</button>
@@ -7348,6 +7352,8 @@ window.dfGerarRelatorio = async function(){
   const mes = el('df-mes')?.value || '';
   const ano = el('df-ano')?.value || String(new Date().getFullYear());
   const sem = el('df-semana')?.value || '1';
+  const refMes = el('df-ref-mes')?.value || mes;
+  const refAno = el('df-ref-ano')?.value || ano;
   const total = DF.linhas.reduce((a, l) => a + (Number(DF.valores[l.nome]) || 0), 0);
   if (!DF.timb){
     try { const b = await fetch('icons/cabecalho_ad_brasil.png').then(r => r.blob());
@@ -7361,7 +7367,7 @@ window.dfGerarRelatorio = async function(){
       ${timb}
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
-      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(mes).toUpperCase())}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
+      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
       <p style="margin-top:60px;font-size:12px">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
       <div style="margin-top:110px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
       ${rodape(1)}
@@ -7386,7 +7392,7 @@ window.dfGerarRelatorio = async function(){
     paginas.push(`<div class="df-pagina" style="${pgEstilo}${pi === 4 ? 'page-break-after:auto' : ''}">
       ${timb}
       <h3 style="text-align:center;font-size:13px;font-weight:800;letter-spacing:1px;margin:6px 0 2px">RECEBIMENTO — COMBUSTÍVEL DOS LÍDERES</h3>
-      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px">Competência ${esc(mes)}/${esc(ano)} · lançado na ${sem}ª semana · declaro ter recebido o valor ao lado</p>
+      <p style="text-align:center;font-size:10px;color:#666;margin-bottom:14px">Competência ${esc(refMes)}/${esc(refAno)} · lançado na ${sem}ª semana de ${esc(mes)}/${esc(ano)} · declaro ter recebido o valor ao lado</p>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="background:#f3f4f6">
           <th style="padding:7px 6px;border:1px solid #d4d4d4">#</th>
