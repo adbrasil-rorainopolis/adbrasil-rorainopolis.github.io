@@ -1288,11 +1288,10 @@ function renderizarCruzamento(dados){
   const cardConta = nContasK ? card('Contas selecionadas', moeda(t.conta_selecionada_total), 'text-amber-500', nContasK === 1 ? dados.contas_selecionadas[0] : `${nContasK} contas no filtro`) : '';
   const f = dados.filtros || {};
   const filtraCong = !!(f.congregacao && !['Todas', 'Todos', 'Selecione...', ''].includes(String(f.congregacao).trim()));
-  setHtml('gestao-kpis', filtraCong
-    ? cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Ofertas Missionárias', moeda(t.missoes), 'text-purple-400')
-    : consultor
-    ? cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Missões', moeda(t.missoes), 'text-purple-400') + card('Despesas', moeda(t.despesas), 'text-red-500')
-    : cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(t.ofertas), 'text-amber-500') + card('Despesas', moeda(t.despesas), 'text-red-500') + card('Resultado', moeda(t.saldo_liquido), num(t.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500'));
+  const verDesp = (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) && !filtraCong;
+  setHtml('gestao-kpis', verDesp
+    ? cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(t.ofertas), 'text-amber-500') + card('Despesas', moeda(t.despesas), 'text-red-500') + card('Resultado', moeda(t.saldo_liquido), num(t.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500')
+    : cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Ofertas Missionárias', moeda(t.missoes), 'text-purple-400'));
   const pl = el('gestao-periodo-label'); if (pl) pl.textContent = `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim}`;
   const conselhos = Object.entries(t.por_conselho || {}).sort((a, b) => b[1] - a[1]);
   const congs = Object.entries(t.por_congregacao || {}).sort((a, b) => b[1] - a[1]);
@@ -1300,7 +1299,7 @@ function renderizarCruzamento(dados){
 
   const validos = series.filter(p => (num(p.entradas) > 0 || num(p.despesas) > 0) && !p.parcial);
   const at = validos.at(-1) || {}, ant = validos.at(-2) || {};
-  setHtml('gestao-comparativos', (filtraCong ? [['Entradas','entradas'],['Dízimos','dizimos'],['Ofertas','ofertas']] : consultor ? [['Entradas','entradas'],['Despesas','despesas']] : [['Entradas','entradas'],['Despesas','despesas'],['Resultado','saldo']]).map(([tt, k]) => {
+  setHtml('gestao-comparativos', (verDesp ? [['Entradas','entradas'],['Despesas','despesas'],['Resultado','saldo']] : [['Entradas','entradas'],['Dízimos','dizimos'],['Ofertas','ofertas']]).map(([tt, k]) => {
     const v = variacaoPct(at[k], ant[k]);
     return `<div class="border rounded-xl p-3 min-w-0" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60 truncate">${tt}</p><p class="mt-1 text-sm font-black tabular-nums whitespace-nowrap ${v === null ? 'opacity-60' : v >= 0 ? 'text-emerald-500' : 'text-red-500'}">${v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</p><p class="text-[10px] opacity-60 mt-1 truncate">${esc(at.periodo || '-')} vs ${esc(ant.periodo || '-')}</p></div>`;
   }).join(''));
@@ -1315,22 +1314,22 @@ function renderizarCruzamento(dados){
   }).join('') || '<tr><td colspan="9" class="p-8 text-center opacity-60">Nenhum movimento financeiro encontrado.</td></tr>';
 
   const nPts = Math.max(validos.length, 1);
-  setHtml('ind-cards', filtraCong
+  setHtml('ind-cards', verDesp
     ? card('Média de entradas', moeda(t.media_entradas), 'text-emerald-500', 'por período com movimento')
-      + card('Média de dízimos', moeda(validos.reduce((a, s) => a + num(s.dizimos), 0) / nPts), 'text-sky-500', 'por período com movimento')
-      + card('Média de ofertas', moeda(validos.reduce((a, s) => a + num(s.ofertas), 0) / nPts), 'text-amber-500', 'por período com movimento')
-    : card('Média de entradas', moeda(t.media_entradas), 'text-emerald-500', 'por período com movimento')
     + card('Média de despesas', moeda(t.media_despesas), 'text-red-500', 'por período com movimento')
-    + (consultor ? '' : card('Resultado médio', moeda(t.media_saldo), num(t.media_saldo) >= 0 ? 'text-emerald-500' : 'text-red-500') + card('Margem operacional', `${num(t.margem_operacional_pct).toFixed(1)}%`, 'text-amber-500', '(entradas − despesas) ÷ entradas')));
+    + card('Resultado médio', moeda(t.media_saldo), num(t.media_saldo) >= 0 ? 'text-emerald-500' : 'text-red-500') + card('Margem operacional', `${num(t.margem_operacional_pct).toFixed(1)}%`, 'text-amber-500', '(entradas − despesas) ÷ entradas')
+    : card('Média de entradas', moeda(t.media_entradas), 'text-emerald-500', 'por período com movimento')
+      + card('Média de dízimos', moeda(validos.reduce((a, s) => a + num(s.dizimos), 0) / nPts), 'text-sky-500', 'por período com movimento')
+      + card('Média de ofertas', moeda(validos.reduce((a, s) => a + num(s.ofertas), 0) / nPts), 'text-amber-500', 'por período com movimento'));
   const rel = num(t.entradas) > 0 ? num(t.despesas) / num(t.entradas) * 100 : 0;
   const tend = variacaoPct(at.entradas, validos[0]?.entradas);
   const ins = (ico, tit, val, det, cor) => `<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid ${ico} ${cor}"></i>${tit}</div><p class="text-lg font-bold mt-2">${val}</p><p class="text-[10px] opacity-60 mt-1">${det}</p></div>`;
   setHtml('ind-insights',
     ins('fa-trophy', 'Maior conselho', esc(conselhos[0]?.[0] || 'Sem dados'), moeda(conselhos[0]?.[1] || 0), 'text-amber-500')
     + ins('fa-building', 'Maior congregação', esc(congs[0]?.[0] || 'Sem dados'), moeda(congs[0]?.[1] || 0), 'text-sky-500')
-    + (filtraCong
-      ? ins('fa-hand-holding-dollar', 'Dízimos sobre entradas', `${num(t.pct_dizimos).toFixed(1)}%`, 'Participação dos dízimos nas entradas da congregação', 'text-sky-500')
-      : ins('fa-scale-balanced', 'Comprometimento das entradas', `${rel.toFixed(1)}%`, 'Percentual das entradas consumido por saídas', 'text-red-500'))
+    + (verDesp
+      ? ins('fa-scale-balanced', 'Comprometimento das entradas', `${rel.toFixed(1)}%`, 'Percentual das entradas consumido por saídas', 'text-red-500')
+      : ins('fa-hand-holding-dollar', 'Dízimos sobre entradas', `${num(t.pct_dizimos).toFixed(1)}%`, 'Participação dos dízimos nas entradas', 'text-sky-500'))
     + ins('fa-arrow-trend-up', 'Tendência das entradas', tend === null ? 'Sem base' : `${tend >= 0 ? '+' : ''}${tend.toFixed(1)}%`, `${esc(validos[0]?.periodo || '-')} até ${esc(at.periodo || '-')}`, tend !== null && tend >= 0 ? 'text-emerald-500' : 'text-red-500'));
   setHtml('ind-conselhos', conselhos.map(([n, v]) => linhaInd(n, v, conselhos[0]?.[1] || 1)).join('') || '<p class="text-xs opacity-60">Sem dados.</p>');
   setHtml('ind-congs', congs.slice(0, 15).map(([n, v]) => linhaInd(n, v, congs[0]?.[1] || 1)).join('') || '<p class="text-xs opacity-60">Sem dados.</p>');
@@ -1547,22 +1546,23 @@ window.gestaoMensalCarregar = async function(){
   const saldoIni = num(a.saldo_inicial_mes ?? a.saldo_mes_anterior), caixa = num(a.saldo_campo);
   const temCaixa = Math.abs(caixa) > EPS || Math.abs(saldoIni) > EPS;
   const restrito = !!res.escopo_restrito;
+  const verDespM = (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) && !restrito;
   const kcard = (t2, v, varr, cor, inv = false, det = '') => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-start justify-between gap-2"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p>${varr === false ? '' : seloVar(varr, inv)}</div><p class="mt-1 text-base font-black tabular-nums ${cor}">${v}</p>${det ? `<p class="text-[10px] opacity-50 mt-1">${det}</p>` : ''}</div>`;
   el('mm-kpis').innerHTML =
     kcard('Entradas', moeda(a.entradas), pick('var_entradas_equiv', ant.var_entradas), 'text-emerald-500', false, sub)
     + kcard('Dízimos', moeda(a.dizimos), pick('var_dizimos_equiv', ant.var_dizimos), 'text-sky-500', false, sub)
     + kcard('Ofertas', moeda(a.ofertas), pick('var_ofertas_equiv', ant.var_ofertas), 'text-amber-500', false, sub)
-    + (restrito
-      ? kcard('Ofertas Missionárias', moeda(a.ofertas_missionarias), false, 'text-violet-400', false, sub)
-      : kcard('Despesas', moeda(a.despesas), pick('var_despesas_equiv', ant.var_despesas), 'text-red-500', true, sub)
-      + (perfilConsultor() ? '' : kcard('Resultado', moeda(a.saldo_liquido), pick('var_resultado_equiv', ant.var_saldo), num(a.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500', false, sub)
-      + kcard('Caixa da Semana', moeda(caixa), false, caixa >= 0 ? 'text-emerald-500' : 'text-red-500', false, temCaixa ? `Inicial: ${moeda(saldoIni)}` : '')));
+    + (verDespM
+      ? kcard('Despesas', moeda(a.despesas), pick('var_despesas_equiv', ant.var_despesas), 'text-red-500', true, sub)
+      + kcard('Resultado', moeda(a.saldo_liquido), pick('var_resultado_equiv', ant.var_saldo), num(a.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500', false, sub)
+      + kcard('Caixa da Semana', moeda(caixa), false, caixa >= 0 ? 'text-emerald-500' : 'text-red-500', false, temCaixa ? `Inicial: ${moeda(saldoIni)}` : '')
+      : kcard('Ofertas Missionárias', moeda(a.ofertas_missionarias), false, 'text-violet-400', false, sub));
   const mmAnt = anual.media_mensal_anteriores || anual.media_mensal || {};
   const mcard = (t2, v, det, cor = 'text-sky-400') => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-bold tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
   el('mm-medias').innerHTML =
     mcard('Média semanal do mês', moeda(a.media_semanal_entradas), `${seloVar(anual.var_semanal_entradas)} vs média do ano (${moeda(anual.media_semanal_entradas)})`)
     + mcard('Média mensal do ano', moeda(mmAnt.entradas), `${seloVar(anual.var_entradas_anteriores ?? anual.var_entradas)} mês atual vs média (fechados)`)
-    + (restrito ? '' : mcard('Média semanal desp. (ano)', moeda(anual.media_semanal_despesas), `${anual.semanas_contabilizadas || 0} semanas contabilizadas`, 'text-red-400'))
+    + (verDespM ? mcard('Média semanal desp. (ano)', moeda(anual.media_semanal_despesas), `${anual.semanas_contabilizadas || 0} semanas contabilizadas`, 'text-red-400') : '')
     + mcard(yoy.dados ? `Mesmo mês em ${+res.periodo.ano - 1}` : 'Comparativo anual', yoy.dados ? moeda(yoy.dados.entradas) : 'Sem dados', yoy.dados ? `${seloVar(yoy.var_entradas)} entradas vs ${res.periodo.mes}/${res.periodo.ano}` : `Nenhum registro em ${esc(yoy.rotulo || '-')}`);
 
   const cardsProj = [];
@@ -1588,8 +1588,9 @@ function graficosMensal(res){
   if (ctxS){
     const sems = a.semanas || [], media = num(anual.media_semanal_entradas);
     if (G.grafMS) G.grafMS.destroy();
+    const ehAdmG = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
     const dsS = [{ type: 'bar', label: 'Entradas', data: sems.map(s => s.entradas), backgroundColor: '#10b981bb', borderColor: '#10b981', borderWidth: 1, borderRadius: 6 }];
-    if (!res.escopo_restrito) dsS.push({ type: 'bar', label: 'Despesas', data: sems.map(s => s.despesas), backgroundColor: '#ef4444bb', borderColor: '#ef4444', borderWidth: 1, borderRadius: 6 });
+    if (!res.escopo_restrito && ehAdmG) dsS.push({ type: 'bar', label: 'Despesas', data: sems.map(s => s.despesas), backgroundColor: '#ef4444bb', borderColor: '#ef4444', borderWidth: 1, borderRadius: 6 });
     dsS.push({ type: 'line', label: 'Média semanal do ano', data: sems.map(() => media), borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false });
     G.grafMS = new Chart(ctxS, { data: { labels: sems.map(s => s.semana), datasets: dsS },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moeda(c.raw)}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } } } } });
@@ -1608,11 +1609,12 @@ function graficosMensal(res){
       entP.push(proj.proximo_mes_entradas); despP.push(proj.proximo_mes_despesas);
     }
     if (G.grafME) G.grafME.destroy();
+    const ehAdmE = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
     G.grafME = new Chart(ctxE, { type: 'line', data: { labels: labelsP, datasets: [
       { label: 'Entradas', data: ent, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.12)', tension: .3, fill: true, pointRadius: 3 },
-      { label: 'Despesas', data: desp, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.08)', tension: .3, fill: true, pointRadius: 3 },
+      ...(ehAdmE ? [{ label: 'Despesas', data: desp, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.08)', tension: .3, fill: true, pointRadius: 3 }] : []),
       { label: 'Projeção entradas', data: entP, borderColor: '#8b5cf6', borderDash: [6, 4], borderWidth: 2, pointRadius: 4, pointStyle: 'rectRot', fill: false },
-      { label: 'Projeção despesas', data: despP, borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 4, pointStyle: 'rectRot', fill: false } ] },
+      ...(ehAdmE ? [{ label: 'Projeção despesas', data: despP, borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2, pointRadius: 4, pointStyle: 'rectRot', fill: false }] : []) ] },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${moeda(c.raw)}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } } } } });
   }
 }

@@ -24,7 +24,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="ajuda.js"></script>
-<script src="gestao.js?v=1209"></script>
+<script src="gestao.js?v=1211"></script>
 <script src="financas.js?v=1210"></script>
 <script src="espiritual.js"></script>
 <script src="comunidade.js"></script>
@@ -879,7 +879,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.210';
+const SGE_VERSAO = 'v1.211';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
