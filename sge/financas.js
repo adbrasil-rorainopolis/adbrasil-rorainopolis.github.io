@@ -7227,7 +7227,7 @@ window.dfRenderTela = async function(){
           return `<div class="flex items-center gap-2.5 px-3 py-2.5">
             <span class="w-6 text-[10px] opacity-40 shrink-0">${i+1}</span>
             <span class="flex-1 min-w-0"><b class="text-[11px] block truncate">${esc(c.nome)}</b><span class="text-[9px] opacity-50 block">${esc(c.conselho)}</span></span>
-            <input type="number" min="0" step="0.01" value="${v || ''}" placeholder="0,00" oninput="dfSet(${i}, this.value)" class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            <input type="text" inputmode="decimal" data-i="${i}" value="${v ? v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}" placeholder="0,00" oninput="dfMaskValor(this)" onkeydown="dfSetaValor(event, ${i})" class="w-24 px-2 py-1.5 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" title="Digite ou use ↑/↓ (passo de R$ 50)">
           </div>`;
         }).join('') || '<p class="text-[10px] opacity-50 text-center py-5">Nenhuma congregação no escopo.</p>'}
       </div>
@@ -7235,12 +7235,30 @@ window.dfRenderTela = async function(){
     </div>`;
 };
 
-window.dfSet = function(i, v){
+window.dfSet = function(i, n){
   const c = DF.linhas[i]; if (!c) return;
-  const n = Math.max(0, Number(String(v).replace(',', '.')) || 0);
+  n = Math.max(0, Number(n) || 0);
   if (n > 0) DF.valores[c.nome] = n; else delete DF.valores[c.nome];
   const total = DF.linhas.reduce((a, l) => a + (Number(DF.valores[l.nome]) || 0), 0);
   const t = el('df-total'); if (t) t.textContent = 'Total do repasse: ' + brl(total);
+};
+
+/* Máscara monetária pt-BR (1.234,56) ao digitar + setas ↑/↓ em passos de R$ 50. */
+const dfFmt = n => n ? n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+window.dfMaskValor = function(inp){
+  const dig = String(inp.value).replace(/\D/g, '').slice(0, 12);
+  const n = dig ? Number(dig) / 100 : 0;
+  inp.value = dfFmt(n);
+  window.dfSet(Number(inp.dataset.i), n);
+};
+window.dfSetaValor = function(ev, i){
+  if (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown') return;
+  ev.preventDefault();
+  const c = DF.linhas[i]; if (!c) return;
+  const atual = Number(DF.valores[c.nome]) || 0;
+  const n = Math.max(0, atual + (ev.key === 'ArrowUp' ? 50 : -50));
+  ev.target.value = dfFmt(n);
+  window.dfSet(i, n);
 };
 
 window.dfSalvarValores = async function(){
