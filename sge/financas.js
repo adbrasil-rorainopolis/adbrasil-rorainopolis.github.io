@@ -3237,7 +3237,7 @@ window.prestEditarSaidas = function(){
         <h3 class="text-base font-black">Saídas manuais e descontos</h3>
         <p class="text-[10px] opacity-50">${esc(PREST.semana)} • ${esc(PREST.mes)}/${esc(PREST.ano)}</p>
       </div>
-      <button onclick="el('prest-sheet').remove()" class="w-8 h-8 rounded-full opacity-50 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      <button onclick="document.getElementById('prest-sheet').remove()" class="w-8 h-8 rounded-full opacity-50 cursor-pointer flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="prest-saidas-lista" class="space-y-2 my-3">${saidasSem.length ? saidasSem.map(x => _prestSaidaLinhaHtml(x)).join('') : _prestSaidaLinhaHtml()}</div>
     <button type="button" onclick="prestAddLinhaSaida()" class="w-full py-2.5 rounded-xl border border-dashed text-[11px] font-bold text-red-400 cursor-pointer mb-3" style="border-color:rgba(239,68,68,.4)"><i class="fa-solid fa-plus mr-1"></i>Adicionar saída</button>
