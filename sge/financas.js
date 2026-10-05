@@ -2090,13 +2090,14 @@ async function rcmExisteSemana(rel){
   } catch(e){ return null; }
 }
 
-/* Semana financeira fechada? Fechar a semana N trava 1..N (trava compartilhada com a Prestação). */
+/* Semana financeira fechada? Trava individual: só a semana marcada conta —
+   fechar a 2ª não fecha a 1ª (paridade com a Prestação). */
 const _rcSemanaNum = x => { const m = /(\d+)/.exec(String(x || '')); return m ? +m[1] : 0; };
 function rcSemanaFechada(ano, mes, semana){
   const n = _rcSemanaNum(semana); if (!n) return false;
   return (RC.bloqueios || []).some(b => String(b.ano) === String(ano)
     && String(b.mes || '').toLowerCase() === String(mes || '').toLowerCase()
-    && (b.bloqueado === true || +b.bloqueado === 1) && _rcSemanaNum(b.semana) >= n);
+    && (b.bloqueado === true || +b.bloqueado === 1) && _rcSemanaNum(b.semana) === n);
 }
 /* Próxima semana aberta depois da informada (mesmo mês) — orienta o tesoureiro
    que tocou numa semana travada. null = todas as seguintes estão fechadas. */
@@ -2196,7 +2197,7 @@ window.rcmMesGrid = function(dir){
 };
 
 /* Grid semanal: verde = aberta, vermelho = fechada. Toque seleciona a semana do relatório;
-   no admin, o cadeado no canto do chip fecha (até ela) ou reabre (a partir dela). */
+   no admin, o cadeado no canto do chip fecha/reabre SÓ aquela semana (trava individual). */
 window.rcmGridSemanas = function(){
   const box = el('rcm-grid-semanas'); if (!box) return;
   if (!RC._bloqCarregou){ RC._bloqCarregou = 1; rcSincronizarBloqueios().then(() => rcmGridSemanas()); }
@@ -2215,7 +2216,7 @@ window.rcmGridSemanas = function(){
       (admin ? `<i onclick="event.stopPropagation();rcmToggleSemana(${w})" class="fa-solid ${fechada ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fechada ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fechada ? '#ef4444' : '#10b981'}"></i>` : '') +
       `</button>`;
   }).join('');
-  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar até aquela semana ou reabrir a partir dela</p>`;
+  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar/reabrir só aquela semana</p>`;
 };
 
 window.rcmTocarSemana = async function(w){
@@ -2245,7 +2246,7 @@ window.rcmTocarSemana = async function(w){
   rcmRenderDoc(); rcmAvisoSemana();
 };
 
-/* Admin: tocar no cadeado fecha até a semana / reabre a partir dela (trava exclusiva do RC). */
+/* Admin: tocar no cadeado fecha/reabre SÓ aquela semana (trava exclusiva do RC). */
 window.rcmToggleSemana = async function(w){
   const sem = w + 'ª Semana';
   const p = _rcPeriodoAtual();
@@ -2256,14 +2257,14 @@ window.rcmToggleSemana = async function(w){
     cor: fechada ? '#10b981' : '#ef4444',
     okTexto: fechada ? 'Reabrir' : 'Fechar',
     msg: fechada
-      ? `Reabrir a partir da <b>${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros voltam a poder lançar desta semana em diante.`
-      : `Fechar <b>até a ${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros não poderão lançar Relatório de Caixa nem Prestação desta semana e das anteriores.` });
+      ? `Reabrir a <b>${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros voltam a poder lançar nesta semana.`
+      : `Fechar a <b>${sem}</b> de ${p.mes}/${p.ano}?<br>Tesoureiros não poderão lançar Relatório de Caixa nesta semana — as demais continuam abertas.` });
   if (!ok) return;
   let r;
-  try { r = await api('definir_bloqueio_semana_rc', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
+  try { r = await api('definir_bloqueio_semana_rc', { ano: p.ano, mes: p.mes, semana: sem, bloqueado: !fechada, individual: true }, sessao()?.token); }
   catch(e){ toast(e.message || 'Falha ao alterar o bloqueio.'); return; }
   if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
-  toast(fechada ? `Reaberto a partir da ${sem}.` : `Fechado até a ${sem}.`);
+  toast(fechada ? `Reaberta a ${sem}.` : `Fechada a ${sem}.`);
   await rcSincronizarBloqueios();
   rcmGridSemanas(); rcmAvisoSemana();
 };
@@ -2703,7 +2704,7 @@ window.rcmCentralRender = function(){
         <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color);opacity:.85">
           <div class="flex-1 min-w-0">
             <p class="text-[11px] font-bold truncate" style="text-decoration:line-through;opacity:.75">${rcEsc(r.congregacao || '—')}</p>
-            <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}${dtEx ? ' • excluído ' + dtEx : ''}</p>
+            <p class="text-[9px] opacity-55">${rcEsc(r.semana || '')} • ${rcEsc(r.mes || '')}/${rcEsc(r.ano || '')} • ${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.autor_nome || '')}${dtEx ? ' • excluído ' + dtEx : ''}</p>
           </div>
           <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash-can mr-0.5"></i>excluído</span>
           ${podeL ? `<button onclick="rcmRestaurar('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#34d399" title="Restaurar"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
@@ -2726,7 +2727,7 @@ window.rcmCentralRender = function(){
       <div class="flex items-center gap-2 py-2 border-b cursor-pointer" style="border-color:var(--border-color);${aberto ? 'background:var(--color-primary-light);border-left:3px solid var(--color-primary);padding-left:7px;border-radius:0 10px 10px 0' : ''}" onclick="rcmAbrir('${r.id}')" title="Toque para ${enviado ? 'visualizar' : 'continuar a edição'}">
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate">${rcEsc(r.congregacao || '—')}</p>
-          <p class="text-[9px] opacity-55">${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.semana || '')} • ${rcEsc(r.autor_nome || '')}</p>
+          <p class="text-[9px] opacity-55">${rcEsc(r.semana || '')} • ${rcEsc(r.mes || '')}/${rcEsc(r.ano || '')} • ${rcEsc(r.data_relatorio || '')} • ${rcEsc(r.autor_nome || '')}</p>
         </div>
         ${aberto ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:var(--color-primary);color:var(--text-inverse)">aberto</span>' : ''}
         ${badgeItem}
@@ -3021,7 +3022,7 @@ window.prestSub = t => { PREST.sub = t; window.prestRender(); };
 window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
 window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
 
-/* Admin: cadeado no chip fecha até a semana / reabre a partir dela (trava da Prestação). */
+/* Admin: cadeado no chip fecha/reabre SÓ aquela semana (trava individual da Prestação). */
 window.prestToggleSemana = async function(n){
   const sem = PREST_SEMANAS[n - 1] || (n + 'º. SEMANA');
   const fechada = PREST.bloqueios.some(b => String(b.ano) === PREST.ano && String(b.mes) === PREST.mes && _prestNumSemana(b.semana) === n && (b.bloqueado === true || b.bloqueado === 1));
@@ -3031,14 +3032,14 @@ window.prestToggleSemana = async function(n){
     cor: fechada ? '#10b981' : '#ef4444',
     okTexto: fechada ? 'Reabrir' : 'Fechar',
     msg: fechada
-      ? `Reabrir a partir da <b>${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros voltam a poder lançar a Prestação desta semana em diante.`
-      : `Fechar <b>até a ${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros não poderão lançar a Prestação desta semana e das anteriores.` });
+      ? `Reabrir a <b>${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros voltam a poder lançar a Prestação nesta semana.`
+      : `Fechar a <b>${sem}</b> de ${PREST.mes}/${PREST.ano}?<br>Tesoureiros não poderão lançar a Prestação nesta semana — as demais continuam abertas.` });
   if (!ok) return;
   let r;
-  try { r = await api('definir_bloqueio_semana', { ano: PREST.ano, mes: PREST.mes, semana: sem, bloqueado: !fechada }, sessao()?.token); }
+  try { r = await api('definir_bloqueio_semana', { ano: PREST.ano, mes: PREST.mes, semana: sem, bloqueado: !fechada, individual: true }, sessao()?.token); }
   catch(e){ toast(e.message || 'Falha ao alterar o bloqueio.'); return; }
   if (!r?.ok){ toast(r?.erro || 'Falha ao alterar o bloqueio.'); return; }
-  toast(fechada ? `Reaberto a partir da ${sem}.` : `Fechado até a ${sem}.`);
+  toast(fechada ? `Reaberta a ${sem}.` : `Fechada a ${sem}.`);
   try { const prest = await api('listar_prestacoes_semanais', null, sessao()?.token); PREST.bloqueios = prest.bloqueios || []; } catch(e){}
   window.prestRender();
 };
@@ -3092,7 +3093,7 @@ function prestRenderSemanal(){
     </div>
     ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3 cursor-pointer" onclick="prestEditarSaidas()" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana <i class="fa-solid fa-pen-to-square ml-1"></i></p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
     <div id="prest-lista"></div>
-    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>Toque em <b>Saídas</b> para lançar descontos e saídas manuais da semana.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar até ela ou reabrir a partir dela.' : ''}</p>`;
+    <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>Toque em <b>Saídas</b> para lançar descontos e saídas manuais da semana.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar/reabrir só ela.' : ''}</p>`;
   prestRenderLista();
 }
 
