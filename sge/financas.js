@@ -7271,10 +7271,7 @@ window.dfGerarRelatorio = async function(){
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
       <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(mes).toUpperCase())}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em 5 (cinco) páginas.</p>
       <p style="margin-top:60px;font-size:12px">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
-      <div style="margin-top:70px;display:flex;justify-content:space-between;gap:24px">
-        <div style="flex:1;text-align:center"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesouraria Central<br>AD BRASIL — Rorainópolis</div></div>
-        <div style="flex:1;text-align:center"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Pastor do Campo</div></div>
-      </div>
+      <div style="margin-top:110px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
       ${rodape(1)}
     </div>`;
   const porPagina = 9, partes = [];
@@ -7290,8 +7287,8 @@ window.dfGerarRelatorio = async function(){
         <td style="padding:7px 6px;border:1px solid #d4d4d4;font-weight:700">${esc(c.nome)}</td>
         <td style="padding:7px 6px;border:1px solid #d4d4d4">${esc(c.conselho)}</td>
         <td style="padding:7px 6px;border:1px solid #d4d4d4;text-align:right;white-space:nowrap">${brl(v)}</td>
-        <td style="padding:7px 6px;border:1px solid #d4d4d4;width:52mm"></td>
-        <td style="padding:7px 6px;border:1px solid #d4d4d4;width:24mm"></td>
+        <td style="padding:16px 6px;border:1px solid #d4d4d4;width:64mm"></td>
+        <td style="padding:16px 6px;border:1px solid #d4d4d4;width:28mm;text-align:center;color:#666;letter-spacing:1px">____/____/____</td>
       </tr>`;
     }).join('');
     paginas.push(`<div class="df-pagina" style="${pgEstilo}${pi === 4 ? 'page-break-after:auto' : ''}">
