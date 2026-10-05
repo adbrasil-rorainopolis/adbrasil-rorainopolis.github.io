@@ -7378,7 +7378,7 @@ window.dfGerarRelatorio = async function(){
   const paginas = [pag1];
   partes.slice(0, 5).forEach((bloco, pi) => {
     const linhasHtml = bloco.map(c => {
-      const idx = DF.linhas.indexOf(c) + 1;
+      const idx = DF.linhas.filter(x => x.conselho === c.conselho).indexOf(c) + 1;
       const v = Number(DF.valores[c.nome]) || 0;
       return `<tr style="background:${idx % 2 ? '#fff' : '#f8fafc'}">
         <td style="padding:6px 4px;border:1px solid #cbd5e1;text-align:center;width:7mm;background:#f1f5f9;color:#475569;font-weight:700;font-size:10px">${idx}</td>
