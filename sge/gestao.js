@@ -1451,13 +1451,16 @@ function gestaoTabelaAnual(){
     }).join('');
     let delta = '';
     if (anos.length > 1){
-      const va = s.find(x => String(x.ano) === anos[0] && x.mes === m), vb = s.find(x => String(x.ano) === anos[anos.length - 1] && x.mes === m);
+      /* Δ anual = último ano × ano anterior (YoY) — mesmo critério do desktop. */
+      const va = s.find(x => String(x.ano) === anos[anos.length - 2] && x.mes === m), vb = s.find(x => String(x.ano) === anos[anos.length - 1] && x.mes === m);
       const d = (va && vb && !va.parcial && !vb.parcial && Math.abs(num(va[chave])) > EPS) ? (num(vb[chave]) - num(va[chave])) / Math.abs(num(va[chave])) * 100 : null;
       delta = `<td class="p-3 text-right font-bold ${d === null ? 'opacity-40' : d >= 0 ? 'text-emerald-500' : 'text-red-500'}">${d === null ? '—' : `${d >= 0 ? '+' : ''}${d.toFixed(1)}%`}</td>`;
     }
     return `<tr><td class="p-3 font-semibold">${m}</td>${cells}${delta}</tr>`;
   }).join('');
-  body.innerHTML = linhasHtml + `<tr class="font-bold" style="background:var(--bg-surface)"><td class="p-3">TOTAL</td>${anos.map(a => `<td class="p-3 text-right">${moeda(tot[a])}</td>`).join('')}${anos.length > 1 ? '<td class="p-3"></td>' : ''}</tr>`;
+  const td = (anos.length > 1 && Math.abs(tot[anos[anos.length - 2]]) > EPS)
+    ? ((tot[anos[anos.length - 1]] - tot[anos[anos.length - 2]]) / Math.abs(tot[anos[anos.length - 2]]) * 100) : null;
+  body.innerHTML = linhasHtml + `<tr class="font-bold" style="background:var(--bg-surface)"><td class="p-3">TOTAL</td>${anos.map(a => `<td class="p-3 text-right">${moeda(tot[a])}</td>`).join('')}${anos.length > 1 ? `<td class="p-3 text-right ${td === null ? 'opacity-40' : td >= 0 ? 'text-emerald-500' : 'text-red-500'}">${td === null ? '—' : (td >= 0 ? '+' : '') + td.toFixed(1) + '%'}</td>` : ''}</tr>`;
 }
 
 window.gestaoExportarPDF = async function(){
