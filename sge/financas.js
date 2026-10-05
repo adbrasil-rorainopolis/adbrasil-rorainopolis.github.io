@@ -7386,8 +7386,16 @@ window.dfGerarRelatorio = async function(){
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
       <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em ${totalPags - 1} (${extPag}) ${totalPags - 1 === 1 ? 'página' : 'páginas'}.</p>
-      <p style="margin-top:60px;font-size:12px;text-align:center">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
-      <div style="margin-top:110px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
+      <table style="width:118mm;margin:20px auto 0;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:#1e3a5f;color:#fff">
+          <th style="padding:6px 10px;border:1px solid #1e3a5f;text-align:left;font-size:9px;letter-spacing:1px">CONSELHO</th>
+          <th style="padding:6px 10px;border:1px solid #1e3a5f;text-align:right;font-size:9px;letter-spacing:1px">VALOR</th>
+        </tr></thead>
+        <tbody>${grupos.map((g, i) => { const t = g.itens.reduce((a, x) => a + (Number(DF.valores[x.nome]) || 0), 0); return `<tr style="background:${i % 2 ? '#f8fafc' : '#fff'}"><td style="padding:5px 10px;border:1px solid #cbd5e1;font-weight:700">${esc(g.cons)}</td><td style="padding:5px 10px;border:1px solid #cbd5e1;text-align:right;font-weight:700;white-space:nowrap">${t ? brl(t) : '<span style="color:#94a3b8">—</span>'}</td></tr>`; }).join('')}</tbody>
+        <tfoot><tr style="background:#fef3c7;font-weight:800"><td style="padding:6px 10px;border:1px solid #cbd5e1">TOTAL DO REPASSE</td><td style="padding:6px 10px;border:1px solid #cbd5e1;text-align:right;white-space:nowrap">${brl(total)}</td></tr></tfoot>
+      </table>
+      <p style="margin-top:34px;font-size:12px;text-align:center">Rorainópolis/RR, ______ de ______________________ de ${esc(ano)}.</p>
+      <div style="margin-top:60px;text-align:center;width:80mm;margin-left:auto;margin-right:auto"><div style="border-top:1px solid #111;padding-top:6px;font-size:10px">Tesoureiro do Campo<br>AD BRASIL — Rorainópolis</div></div>
       ${rodape(1)}
     </div>`;
   const paginas = [pag1];
