@@ -7038,7 +7038,7 @@ const PB_GRUPOS = [
 function pbGrupoDe(l){
   if (l.tipo === 'E') return 'entradas';
   if (l.grupo === 'migracao') return 'saldo_ant';
-  if (l.grupo === 'outros') return 'outros';
+  if (['saldo_ant','parceladas','avista','dizimos','outros'].includes(l.grupo)) return l.grupo;
   const d = l.descricao || '';
   if (l.grupo === 'dizimo' || l.grupo === 'dizimo_mes' || /d[íi]zimo/i.test(d)) return 'dizimos';
   if (l.grupo === 'compra_parcelada' || /\d{1,2}\s*\/\s*\d{1,2}/.test(d) || /parcela/i.test(d)) return 'parceladas';
@@ -7228,7 +7228,8 @@ window.pbFormLanc = function(pid){
     <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
       <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:#818cf8">Novo lançamento — ${esc(pt.nome || pid)}</p>
       <div class="grid grid-cols-2 gap-2">
-        <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="S">Saída</option><option value="E">Entrada</option></select>
+        <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" onchange="document.getElementById('pbf-grupo').classList.toggle('hidden', this.value === 'E')"><option value="S">Saída</option><option value="E">Entrada</option></select>
+        <select id="pbf-grupo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="auto">Grupo: automático</option><option value="pix_avista">Pagamento à vista</option><option value="compra_parcelada">Compra parcelada</option><option value="dizimo">Dízimo espontâneo</option><option value="outros">Outros</option></select>
         <input id="pbf-desc" placeholder="Descrição" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
         <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
       </div>
@@ -7244,7 +7245,9 @@ window.pbSalvarLanc = async function(pid){
   const descricao = (el('pbf-desc').value || '').trim() || (tipo === 'E' ? 'Entrada manual' : 'Pagamento / despesa');
   const valor = mvfParseMoeda(el('pbf-valor').value);
   if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
-  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo: tipo === 'E' ? 'manual' : pbGrupoDe({ tipo, descricao }),
+  const gSel = (el('pbf-grupo') || {}).value || 'auto';
+  const grupo = tipo === 'E' ? 'manual' : (gSel === 'auto' ? pbGrupoDe({ tipo, descricao }) : gSel);
+  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo,
     data: new Date().toLocaleDateString('pt-BR') });
   await pbGravarNuvem();
   el('pb-form').classList.add('hidden');
