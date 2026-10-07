@@ -7018,6 +7018,14 @@ async function pbCarregarPastores(){
 }
 const pbLancs = (ano, mes, pid) => (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && (!pid || l.pastorId === pid));
 
+/* Corte: prebenda conta só a partir de Julho/2026 — meses anteriores ficam
+   visíveis no grid, mas a sincronização não gera nada neles. */
+const PB_CORTE = { ano: 2026, mes: 6 };
+function pbAntesDeCorte(ano, mes){
+  const a = Number(ano) || 0, m = MESES_ORD.indexOf(mes);
+  return a < PB_CORTE.ano || (a === PB_CORTE.ano && m >= 0 && m < PB_CORTE.mes);
+}
+
 /* Blocos de organização — mesma regra do desktop (dízimo → parcelada N/N → à vista). */
 const PB_GRUPOS = [
   { id: 'entradas',   tit: 'Entradas — Prebendas', icone: 'fa-arrow-trend-up', cor: '#10b981' },
@@ -7048,6 +7056,7 @@ window.pbRenderTela = async function(){
    Movimento e refaz prebendas (15%/3%) e dízimos (10%) — idempotente,
    só grava na nuvem quando algo realmente muda. */
 async function pbSincronizarMes(){
+  if (pbAntesDeCorte(PB.ano, PB.mes)) return false;
   const mov = await SGEG.carregarMovimento(PB.ano, PB.mes);
   const hoje = new Date().toLocaleDateString('pt-BR');
   const novos = [];
