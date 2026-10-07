@@ -7032,11 +7032,13 @@ const PB_GRUPOS = [
   { id: 'parceladas', tit: 'Compras Parceladas',   icone: 'fa-credit-card',    cor: '#a78bfa' },
   { id: 'avista',     tit: 'Pagamentos à Vista',   icone: 'fa-bolt',           cor: '#38bdf8' },
   { id: 'dizimos',    tit: 'Dízimos',              icone: 'fa-hands-praying',  cor: '#f59e0b' },
+  { id: 'saldo_ant',  tit: 'Saldo do Mês Anterior', icone: 'fa-clock-rotate-left', cor: '#f97316' },
   { id: 'outros',     tit: 'Outros Lançamentos',   icone: 'fa-box-archive',    cor: '#94a3b8' },
 ];
 function pbGrupoDe(l){
   if (l.tipo === 'E') return 'entradas';
-  if (l.grupo === 'migracao' || l.grupo === 'outros') return 'outros';
+  if (l.grupo === 'migracao') return 'saldo_ant';
+  if (l.grupo === 'outros') return 'outros';
   const d = l.descricao || '';
   if (l.grupo === 'dizimo' || l.grupo === 'dizimo_mes' || /d[íi]zimo/i.test(d)) return 'dizimos';
   if (l.grupo === 'compra_parcelada' || /\d{1,2}\s*\/\s*\d{1,2}/.test(d) || /parcela/i.test(d)) return 'parceladas';
