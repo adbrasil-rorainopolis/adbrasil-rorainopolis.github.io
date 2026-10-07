@@ -7167,6 +7167,7 @@ function pbRender(){
         <div class="px-3 pb-1">${linhas}</div>
         <div class="px-3 py-2 flex gap-2">
           <button onclick="pbFormLanc('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-plus mr-1"></i>Lançar</button>
+          <button onclick="pbExtrato('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-table-list mr-1" style="color:${pt.cor}"></i>Listagem</button>
           <button onclick="pbContracheque('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-invoice-dollar mr-1" style="color:${pt.cor}"></i>Contracheque</button>
         </div>
       </div>`;
@@ -7262,15 +7263,13 @@ window.pbExcluir = async function(id){
 window.pbContracheque = function(pid){
   const pt = (PB.pastores || []).find(x => x.id === pid); if (!pt) return;
   const lancs = pbLancs(PB.ano, PB.mes, pid);
-  const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S');
-  const totE = ents.reduce((a, l) => a + l.valor, 0), totS = sais.reduce((a, l) => a + l.valor, 0);
-  const liq = totE - totS;
-  /* Doc com estilos 100% inline — obrigatório para a cópia como imagem
-     (foreignObject não enxerga classes do Tailwind). */
-  const linha = l => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e5e7eb"><span style="font-size:10px;flex:1">${esc(l.descricao)}<span style="opacity:.5"> · ${esc(l.data || '')}</span></span><b style="font-size:10px">${moeda(l.valor)}</b></div>`;
+  const totProv = lancs.filter(l => l.tipo === 'E').reduce((a, l) => a + num(l.valor), 0);
+  const totDiz = lancs.filter(l => l.tipo === 'S' && pbGrupoDe(l) === 'dizimos').reduce((a, l) => a + num(l.valor), 0);
+  const liq = totProv - totDiz;
+  const linhaRes = (rot, v) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e5e7eb;font-size:11px"><span>${rot}</span><span style="font-weight:700">${moeda(v)}</span></div>`;
   el('pb-contra').classList.remove('hidden');
   el('pb-contra').innerHTML = `
-    <style>@media print{ body *{visibility:hidden!important} #pb-contra-doc, #pb-contra-doc *{visibility:visible!important} #pb-contra-doc{position:absolute!important;left:0;top:0;width:100%;border:none!important;border-radius:0!important;background:#fff!important} }</style>
+    <style>@media print{ body *{visibility:hidden!important} #pb-contra-doc, #pb-contra-doc *{visibility:visible!important} #pb-contra-doc{position:absolute!important;left:0;top:0;width:100%}}</style>
     <div style="background:#fff;color:#111;border:1px solid #d1d5db;border-radius:16px;padding:16px;font-family:Arial,sans-serif" id="pb-contra-doc">
       <div style="text-align:center">
         <img src="icons/cabecalho_ad_brasil.png" style="max-width:100%" onerror="this.style.display='none'">
@@ -7279,20 +7278,63 @@ window.pbContracheque = function(pid){
         <p style="font-size:12px;font-weight:700;margin:2px 0">${esc(pt.nome)}</p>
       </div>
       <p style="font-size:10px;font-weight:800;color:#047857;margin:10px 0 2px">PROVENTOS</p>
-      ${ents.map(linha).join('') || '<p style="font-size:10px;color:#777;padding:4px 0">Nenhuma entrada no mês.</p>'}
+      ${linhaRes(`Prebenda pastoral (${pt.pct}%)`, totProv)}
       <p style="font-size:10px;font-weight:800;color:#b91c1c;margin:10px 0 2px">DESCONTOS</p>
-      ${sais.map(linha).join('') || '<p style="font-size:10px;color:#777;padding:4px 0">Nenhuma saída no mês.</p>'}
+      ${linhaRes('Dízimo (10% da prebenda)', totDiz)}
       <div style="padding-top:8px;font-size:11px;font-weight:700">
-        <div style="display:flex;justify-content:space-between"><span>Proventos</span><span>${moeda(totE)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Descontos</span><span>${moeda(totS)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Proventos</span><span>${moeda(totProv)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Descontos</span><span>${moeda(totDiz)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:14px;color:${liq >= 0 ? '#047857' : '#b91c1c'}"><span>LÍQUIDO DO MÊS</span><span>${moeda(liq)}</span></div>
+      </div>
+      <p style="font-size:9px;color:#777;padding-top:8px">Detalhamento por semana e por bloco: botão <b>Listagem</b>.</p>
+      <p style="text-align:center;font-size:10px;color:#555;padding-top:14px">______________________________<br/>${esc(pt.nome)}</p>
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar</button>
+      <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
+      <button onclick="document.getElementById('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Fechar</button>
+    </div>`;
+  el('pb-contra').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+/* Extrato/listagem detalhada: proventos por semana + saídas por bloco.
+   Reusa o mesmo #pb-contra-doc — copiar/imprimir funcionam igual. */
+window.pbExtrato = function(pid){
+  const pt = (PB.pastores || []).find(x => x.id === pid); if (!pt) return;
+  const lancs = pbLancs(PB.ano, PB.mes, pid);
+  const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S');
+  const totE = ents.reduce((a, l) => a + num(l.valor), 0), totS = sais.reduce((a, l) => a + num(l.valor), 0);
+  const saldo = totE - totS;
+  const linha = l => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e5e7eb"><span style="font-size:10px;flex:1">${esc(l.data || '—')} · ${esc(l.descricao || '—')}</span><span style="font-size:10px;font-weight:700;white-space:nowrap">${moeda(l.valor)}</span></div>`;
+  const subT = (v, bg) => `<div style="display:flex;justify-content:space-between;padding:4px 6px;font-size:10px;font-weight:800;background:${bg || '#ffe08a'}"><span>SUBTOTAL</span><span>${moeda(v)}</span></div>`;
+  const blocosS = PB_GRUPOS.filter(g => g.id !== 'entradas').map(g => ({ ...g, itens: sais.filter(l => pbGrupoDe(l) === g.id) })).filter(g => g.itens.length);
+  el('pb-contra').classList.remove('hidden');
+  el('pb-contra').innerHTML = `
+    <style>@media print{ body *{visibility:hidden!important} #pb-contra-doc, #pb-contra-doc *{visibility:visible!important} #pb-contra-doc{position:absolute!important;left:0;top:0;width:100%}}</style>
+    <div style="background:#fff;color:#111;border:1px solid #d1d5db;border-radius:16px;padding:16px;font-family:Arial,sans-serif" id="pb-contra-doc">
+      <div style="text-align:center">
+        <img src="icons/cabecalho_ad_brasil.png" style="max-width:100%" onerror="this.style.display='none'">
+        <p style="font-weight:800;font-size:14px;margin:4px 0 0">EXTRATO DETALHADO — PREBENDA PASTORAL</p>
+        <p style="font-size:10px;color:#555;margin:2px 0">${PB.mes}/${PB.ano} · ${esc(pt.papel)} — ${esc(pt.conselho)}</p>
+        <p style="font-size:12px;font-weight:700;margin:2px 0">${esc(pt.nome)} · ${pt.pct}% do Total Geral</p>
+      </div>
+      <p style="font-size:10px;font-weight:800;color:#065f46;background:#d1fae5;padding:3px 6px;margin:10px 0 2px">ENTRADAS — PREBENDAS POR SEMANA</p>
+      ${ents.map(linha).join('') || '<p style="font-size:10px;color:#777;padding:4px 0">Nenhuma entrada no mês.</p>'}
+      ${ents.length ? subT(totE) : ''}
+      ${blocosS.map(g => `
+      <p style="font-size:10px;font-weight:800;background:${g.cor}22;padding:3px 6px;margin:10px 0 2px">${g.tit.toUpperCase()}</p>
+      ${g.itens.map(linha).join('')}${subT(g.itens.reduce((a, l) => a + num(l.valor), 0), '#fecaca')}`).join('')}
+      <div style="padding-top:10px;font-size:11px;font-weight:700">
+        <div style="display:flex;justify-content:space-between"><span>Total de entradas</span><span>${moeda(totE)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Total de saídas</span><span>${moeda(totS)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:${saldo >= 0 ? '#047857' : '#b91c1c'}"><span>SALDO DO MÊS</span><span>${moeda(saldo)}</span></div>
       </div>
       <p style="text-align:center;font-size:10px;color:#555;padding-top:16px">______________________________<br/>${esc(pt.nome)}</p>
     </div>
     <div class="flex gap-2 pt-1">
-      <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar imagem</button>
+      <button onclick="pbCopiarContracheque()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#7c3aed"><i class="fa-solid fa-image mr-1"></i>Copiar</button>
       <button onclick="window.print()" class="flex-1 py-2 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#0284c7"><i class="fa-solid fa-print mr-1"></i>Imprimir</button>
-      <button onclick="document.getElementById('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:#d1d5db;color:#333">Fechar</button>
+      <button onclick="document.getElementById('pb-contra').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Fechar</button>
     </div>`;
   el('pb-contra').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
