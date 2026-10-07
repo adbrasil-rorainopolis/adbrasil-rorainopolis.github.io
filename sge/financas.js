@@ -6973,6 +6973,23 @@ async function pbCarregarPastores(){
   return lista;
 }
 const pbLancs = (ano, mes, pid) => (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && (!pid || l.pastorId === pid));
+
+/* Blocos de organização — mesma regra do desktop (dízimo → parcelada N/N → à vista). */
+const PB_GRUPOS = [
+  { id: 'entradas',   tit: 'Entradas — Prebendas', icone: 'fa-arrow-trend-up', cor: '#10b981' },
+  { id: 'parceladas', tit: 'Compras Parceladas',   icone: 'fa-credit-card',    cor: '#a78bfa' },
+  { id: 'avista',     tit: 'Pagamentos à Vista',   icone: 'fa-bolt',           cor: '#38bdf8' },
+  { id: 'dizimos',    tit: 'Dízimos',              icone: 'fa-hands-praying',  cor: '#f59e0b' },
+  { id: 'outros',     tit: 'Outros Lançamentos',   icone: 'fa-box-archive',    cor: '#94a3b8' },
+];
+function pbGrupoDe(l){
+  if (l.tipo === 'E') return 'entradas';
+  if (l.grupo === 'migracao' || l.grupo === 'outros') return 'outros';
+  const d = l.descricao || '';
+  if (l.grupo === 'dizimo' || l.grupo === 'dizimo_mes' || /d[íi]zimo/i.test(d)) return 'dizimos';
+  if (l.grupo === 'compra_parcelada' || /\d{1,2}\s*\/\s*\d{1,2}/.test(d) || /parcela/i.test(d)) return 'parceladas';
+  return 'avista';
+}
 const pbSaldo = (ano, mes, pid) => pbLancs(ano, mes, pid).reduce((s, l) => s + (l.tipo === 'E' ? l.valor : -l.valor), 0);
 
 window.pbRenderTela = async function(){
@@ -7036,13 +7053,23 @@ function pbRender(){
     const migrado = lancs.some(l => l.grupo === 'migracao');
     const podeMigrar = saldoAnt < -0.004 && !migrado;
     if (podeMigrar) pendMigracao++;
-    const linhas = lancs.map(l => `
+    const linhas = PB_GRUPOS.map(g => {
+      const itens = lancs.filter(l => pbGrupoDe(l) === g.id);
+      if (!itens.length) return '';
+      const sub = itens.reduce((acc, l) => acc + l.valor, 0);
+      return `<div class="flex items-center gap-1.5 pt-2 pb-0.5">
+          <i class="fa-solid ${g.icone} text-[8px]" style="color:${g.cor}"></i>
+          <span class="text-[8px] font-extrabold uppercase tracking-wider" style="color:${g.cor}">${g.tit}</span>
+          <span class="flex-1 border-t border-dotted opacity-40" style="border-color:${g.cor}"></span>
+          <span class="text-[9px] font-extrabold" style="color:${g.cor}">${moeda(sub)}</span>
+        </div>` + itens.map(l => `
       <div class="flex items-center gap-2 py-1.5 border-t text-[11px]" style="border-color:var(--border-color)">
         <span class="opacity-60 w-16 shrink-0">${esc(l.data || '—')}</span>
         <span class="flex-1 min-w-0 truncate">${esc(l.descricao)}${l.auto ? ' <b class="text-[8px] opacity-50">auto</b>' : ''}</span>
         <span class="font-bold tabular-nums ${l.tipo === 'E' ? 'text-emerald-500' : 'text-red-400'}">${l.tipo === 'E' ? '+' : '−'}${moeda(l.valor)}</span>
-        <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button>
-      </div>`).join('') || '<p class="text-[10px] opacity-50 py-3 text-center">Sem lançamentos neste mês.</p>';
+        <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button
+      </div>`).join('');
+    }).join('') || '<p class="text-[10px] opacity-50 py-3 text-center">Sem lançamentos neste mês.</p>';
     return `
       <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="px-3 py-2.5" style="background:${pt.cor}14;border-bottom:1px solid var(--border-color)">
@@ -7069,13 +7096,14 @@ function pbRender(){
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="grid grid-cols-2 gap-2">
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
-            <select id="pb-ano" onchange="pbMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === PB.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
-            <select id="pb-mes" onchange="pbMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              ${MESES_ORD.map(m => `<option ${m === PB.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+        <div class="flex items-center gap-1">
+          <button onclick="pbSelAnoM(-1)" class="px-2 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="text-[10px] font-extrabold w-9 text-center" style="color:var(--color-primary)">${PB.ano}</span>
+          <button onclick="pbSelAnoM(1)" class="px-2 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="grid grid-cols-6 gap-1">
+          ${MESES_ORD.map((m, i) => `<button onclick="pbSelMesM(${i})" class="py-1.5 rounded-lg border text-[9px] font-bold cursor-pointer ${m === PB.mes ? 'text-white' : ''}"
+            style="border-color:${m === PB.mes ? 'var(--color-primary)' : 'var(--border-color)'};background:${m === PB.mes ? 'var(--color-primary)' : 'transparent'}">${m.slice(0, 3)}</button>`).join('')}
         </div>
         <button onclick="pbAtualizarPrebenda()" class="w-full py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-rotate mr-1"></i>Atualizar com o Movimento</button>
         <p class="text-[9px] opacity-55">Campo 15% · Auxiliares 3% · Dízimo 10% automático. Base: Total Geral do movimento semanal.</p>
@@ -7086,7 +7114,8 @@ function pbRender(){
       <div id="pb-contra" class="hidden"></div>
     </div>`;
 }
-window.pbMudouFiltro = function(){ PB.ano = el('pb-ano').value; PB.mes = el('pb-mes').value; pbRender(); };
+window.pbSelMesM = async function(i){ PB.mes = MESES_ORD[i]; await pbSincronizarMes(); pbRender(); };
+window.pbSelAnoM = async function(d){ PB.ano = String((Number(PB.ano) || 0) + d); await pbSincronizarMes(); pbRender(); };
 
 /* Importação semanal — paridade com o desktop: lê o Total Geral da aba do
    movimento, lança 15%/3% e o dízimo (Campo: 10% por semana; auxiliares:
@@ -7131,7 +7160,7 @@ window.pbSalvarLanc = async function(pid){
   const descricao = (el('pbf-desc').value || '').trim() || (tipo === 'E' ? 'Entrada manual' : 'Pagamento / despesa');
   const valor = mvfParseMoeda(el('pbf-valor').value);
   if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
-  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo: 'manual',
+  PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo: tipo === 'E' ? 'manual' : pbGrupoDe({ tipo, descricao }),
     data: new Date().toLocaleDateString('pt-BR') });
   await pbGravarNuvem();
   el('pb-form').classList.add('hidden');
