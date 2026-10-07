@@ -3482,7 +3482,8 @@ function orcRenderDetalhe(){
   const o = ORC.dados; if (!o) return;
   const st = orcStatusInfo(o.status), fechado = o.status === 'finalizado';
   const acoes = (lanc, tipo) => fechado ? ''
-    : `<button onclick="orcEditarItem('${esc(lanc.id)}','${tipo}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(14,165,233,.14);color:#38bdf8"><i class="fa-solid fa-pen"></i></button>
+    : `<button onclick="orcMoverItem('${esc(lanc.id)}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(245,158,11,.14);color:#fbbf24" title="Mover para outra coluna"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+      <button onclick="orcEditarItem('${esc(lanc.id)}','${tipo}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(14,165,233,.14);color:#38bdf8"><i class="fa-solid fa-pen"></i></button>
       <button onclick="orcRemoverItem('${esc(lanc.id)}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash"></i></button>`;
   const check = i => {
     const icone = i.pago ? '<i class="fa-solid fa-check text-[10px]"></i>' : '';
@@ -3710,6 +3711,49 @@ function _orcModalItem(i, tipo, colId){
       <button onclick="orcSalvarItem('${i ? esc(i.id) : ''}','${colId || ''}','${tipo}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,${grad})"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar ${rot}</button>
     </div>`);
 }
+window.orcMoverItem = function(itemId){
+  const o = ORC.dados; if (!o) return;
+  if (o.status === 'finalizado'){ toast('Evento finalizado — reabra para alterar.'); return; }
+  let src = null, item = null;
+  for (const c of (o.colunas || [])){
+    const h = (c.itens || []).find(x => x.id === itemId);
+    if (h){ src = c; item = h; break; }
+  }
+  if (!item) return;
+  const dests = (o.colunas || []).filter(c => !c.lixeira && c.id !== src.id);
+  if (!dests.length){ toast('Não há outra coluna para receber o lançamento.'); return; }
+  const ops = dests.map(c => {
+    const t = _ORC_TIPOS[c.tipo];
+    return `<button onclick="orcConfirmarMover('${esc(itemId)}','${esc(c.id)}')" class="w-full flex items-center gap-3 px-3 py-3 rounded-2xl border cursor-pointer" style="border-color:var(--border-color);background:var(--bg-card)">
+      <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${t.cor}1c;color:${t.cor}"><i class="fa-solid ${t.ico}"></i></span>
+      <span class="flex-1 text-left"><span class="block text-xs font-extrabold">${esc(c.nome)}</span><span class="block text-[9.5px] opacity-60">${t.rot} · ${(c.itens || []).filter(i => !i.lixeira).length} lançamento(s)</span></span>
+      <i class="fa-solid fa-chevron-right opacity-30 text-xs"></i></button>`;
+  }).join('');
+  _orcModal(`<h3 class="text-sm font-extrabold mb-1">Mover lançamento</h3>
+    <p class="text-[10px] opacity-60 mb-3"><b>${esc(item.descricao)}</b> · ${moeda(item.valor)} — sai de "${esc(src.nome)}". Para onde vai?</p>
+    <div class="space-y-2">${ops}</div>`);
+};
+window.orcConfirmarMover = async function(itemId, destId){
+  try {
+    const lista = await orcCarregarDados();
+    const o = lista.find(x => x.id === ORC.id && !x.excluido_em);
+    if (!o){ toast('Evento não encontrado.'); return; }
+    if (o.status === 'finalizado'){ toast('Evento finalizado — reabra para alterar.'); return; }
+    _orcColunas(o);
+    let src = null, idx = -1;
+    for (const c of o.colunas){ idx = (c.itens || []).findIndex(x => x.id === itemId); if (idx >= 0){ src = c; break; } }
+    const dst = o.colunas.find(x => x.id === destId);
+    if (!src || !dst){ toast('Coluna não encontrada.'); return; }
+    const [item] = src.itens.splice(idx, 1);
+    dst.itens = dst.itens || [];
+    dst.itens.push(item);
+    o.atualizado_em = orcHora();
+    await orcGravarDados(lista);
+    orcFecharModal();
+    orcAbrir(ORC.id);
+    toast(`Movido para "${dst.nome}".`);
+  } catch(e){ toast(e.message || 'Falha ao mover.'); }
+};
 window.orcSalvarItem = async function(itemId, colId, tipo){
   const rem = tipo === 'reembolso';
   const rot = _ORC_ROT[tipo] || 'saída';
