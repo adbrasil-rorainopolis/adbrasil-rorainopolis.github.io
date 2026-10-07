@@ -6976,7 +6976,7 @@ window.mvfSalvarCong = async function(cong){
    PREBENDA PASTORAL (mobile) — paridade com a aba desktop. Dados na nuvem
    (app_config.sge_prebenda_v1): mesmos lançamentos vistos no desktop.
    ============================================================================ */
-const PB = { pastores: null, lanc: null, ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], contra: null };
+const PB = { pastores: null, lanc: null, ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], contra: null, pastorSel: null };
 const PB_CHAVE = 'sge_prebenda_v1';
 const pbId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const pbRd = v => Math.round(num(v) * 100) / 100;
@@ -7096,16 +7096,39 @@ window.pbAtualizarPrebenda = async function(){
 
 function pbRender(){
   const ant = pbMesAnterior(PB.ano, PB.mes);
+  const pastores = PB.pastores || [];
+  if (!pastores.some(pt => pt.id === PB.pastorSel)) PB.pastorSel = pastores[0]?.id || null;
   let pendMigracao = 0;
-  const cards = (PB.pastores || []).map(pt => {
+  for (const pt of pastores){
+    const antS = pbSaldo(ant.ano, ant.mes, pt.id);
     const lancs = pbLancs(PB.ano, PB.mes, pt.id);
-    const ent = lancs.filter(l => l.tipo === 'E').reduce((a, l) => a + l.valor, 0);
-    const sai = lancs.filter(l => l.tipo === 'S').reduce((a, l) => a + l.valor, 0);
+    if (antS < -0.004 && !lancs.some(l => l.grupo === 'migracao')) pendMigracao++;
+  }
+
+  /* Seletor de pastor — chips horizontais com mini-saldo do mês. */
+  const chips = pastores.map(pt => {
+    const saldo = pbSaldo(PB.ano, PB.mes, pt.id);
+    const ativo = pt.id === PB.pastorSel;
+    const primeiro = (pt.nome || '').split(' ')[0] || pt.id;
+    return `<button onclick="pbSelPastor('${esc(pt.id)}')" class="flex flex-col items-start px-3 py-2 rounded-xl border shrink-0 cursor-pointer transition"
+        style="border-color:${ativo ? pt.cor : 'var(--border-color)'};background:${ativo ? pt.cor + '22' : 'var(--bg-card)'};${ativo ? 'box-shadow:inset 0 -2px 0 ' + pt.cor : ''}">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full shrink-0" style="background:${pt.cor}"></span>
+        <span class="text-[10px] font-extrabold">${esc(primeiro)}</span></span>
+        <span class="text-[9px] font-bold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">${moeda(saldo)}</span>
+      </button>`;
+  }).join('');
+
+  /* Card exclusivo do pastor selecionado — a tela inteira é dele. */
+  const pt = pastores.find(x => x.id === PB.pastorSel);
+  let card = '';
+  if (pt){
+    const lancs = pbLancs(PB.ano, PB.mes, pt.id);
+    const ent = lancs.filter(l => l.tipo === 'E').reduce((acc, l) => acc + num(l.valor), 0);
+    const sai = lancs.filter(l => l.tipo === 'S').reduce((acc, l) => acc + num(l.valor), 0);
     const saldo = ent - sai;
     const saldoAnt = pbSaldo(ant.ano, ant.mes, pt.id);
     const migrado = lancs.some(l => l.grupo === 'migracao');
     const podeMigrar = saldoAnt < -0.004 && !migrado;
-    if (podeMigrar) pendMigracao++;
     const linhas = PB_GRUPOS.map(g => {
       const itens = lancs.filter(l => pbGrupoDe(l) === g.id);
       if (!itens.length) return '';
@@ -7120,10 +7143,10 @@ function pbRender(){
         <span class="opacity-60 w-16 shrink-0">${esc(l.data || '—')}</span>
         <span class="flex-1 min-w-0 truncate">${esc(l.descricao)}${l.auto ? ' <b class="text-[8px] opacity-50">auto</b>' : ''}</span>
         <span class="font-bold tabular-nums ${l.tipo === 'E' ? 'text-emerald-500' : 'text-red-400'}">${l.tipo === 'E' ? '+' : '−'}${moeda(l.valor)}</span>
-        <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button
+        <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button>
       </div>`).join('');
     }).join('') || '<p class="text-[10px] opacity-50 py-3 text-center">Sem lançamentos neste mês.</p>';
-    return `
+    card = `
       <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="px-3 py-2.5" style="background:${pt.cor}14;border-bottom:1px solid var(--border-color)">
           <p class="font-bold text-xs truncate">${esc(pt.nome)}</p>
@@ -7137,15 +7160,16 @@ function pbRender(){
         ${saldoAnt < -0.004 ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(239,68,68,.08)">
           <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
           <span>Devedor ${ant.mes.slice(0, 3)}/${ant.ano}: <b class="text-red-400">${moeda(saldoAnt)}</b></span>
-          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-red-600 text-white font-bold cursor-pointer">Migrar</button>` : '<span class="ml-auto opacity-60">migrado</span>'}
+          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-red-600 text-white font-bold cursor-pointer">Migrar</button>` : ''}
         </div>` : ''}
-        <div class="px-3 pb-1 max-h-52 overflow-y-auto">${linhas}</div>
+        <div class="px-3 pb-1">${linhas}</div>
         <div class="px-3 py-2 flex gap-2">
           <button onclick="pbFormLanc('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-plus mr-1"></i>Lançar</button>
           <button onclick="pbContracheque('${esc(pt.id)}')" class="flex-1 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-invoice-dollar mr-1" style="color:${pt.cor}"></i>Contracheque</button>
         </div>
       </div>`;
-  }).join('');
+  }
+
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -7161,12 +7185,16 @@ function pbRender(){
         <button onclick="pbAtualizarPrebenda()" class="w-full py-1.5 rounded-lg text-white text-[10px] font-bold cursor-pointer" style="background:#059669"><i class="fa-solid fa-rotate mr-1"></i>Atualizar com o Movimento</button>
         <p class="text-[9px] opacity-55">Campo 15% · Auxiliares 3% · Dízimo 10% automático. Base: Total Geral do movimento semanal.</p>
       </div>
-      ${pendMigracao ? `<div class="border rounded-xl px-3 py-2 text-[10px] flex items-center gap-2" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><i class="fa-solid fa-triangle-exclamation text-red-400"></i><b>${pendMigracao} pastor(es)</b> com saldo negativo em ${ant.mes}/${ant.ano}.</div>` : ''}
-      ${cards}
+      ${pendMigracao ? `<div class="border rounded-xl px-3 py-2 text-[10px] flex items-center gap-2" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><i class="fa-solid fa-triangle-exclamation text-red-400"></i>${pendMigracao} pastor(es) com saldo devedor no mês anterior.</div>` : ''}
+      <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">${chips}</div>
+      ${card}
       <div id="pb-form" class="hidden"></div>
       <div id="pb-contra" class="hidden"></div>
+      <div class="pb-4"></div>
     </div>`;
 }
+window.pbSelPastor = function(id){ PB.pastorSel = id; pbRender(); };
+
 window.pbSelMesM = async function(i){ PB.mes = MESES_ORD[i]; await pbSincronizarMes(); pbRender(); };
 window.pbSelAnoM = async function(d){ PB.ano = String((Number(PB.ano) || 0) + d); await pbSincronizarMes(); pbRender(); };
 
