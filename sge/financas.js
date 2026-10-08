@@ -6045,6 +6045,8 @@ function _dreLinhasN(periodos){
   const temInv = cs.some(c => c.iv);
   for (const k of DRE_INVEST){ if (periodos.some(d => d.despesas[k])) it(k, col(d => dreNeg(d.despesas[k]))); }
   sub('Total de investimentos e ampliação', col((d, c) => temInv ? (c.iv ? -c.iv : null) : null));
+  sub('Total de despesas do campo (sem repasses/deduções)', col((d, c) => (c.op + c.iv) ? -(c.op + c.iv) : null));
+  tot('Resultado operacional líquido do campo — déficit (−) / superávit (+)', col((d, c) => c.res));
   tot('Total geral de despesas', col((d, c) => (c.b2 + c.op + c.iv) ? -(c.b2 + c.op + c.iv) : null));
   tot('Resultado do período — ' + (cs[cs.length - 1].res >= 0 ? 'superávit' : 'déficit'), col((d, c) => c.res));
 
