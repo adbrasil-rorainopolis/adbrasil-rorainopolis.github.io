@@ -6335,6 +6335,11 @@ window.renderContabil = function(){
           <div class="relative h-52"><canvas id="ind-graf-miss-m"></canvas></div>
         </div>
         <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+          <h3 class="font-bold text-sm">Capex — investimento ÷ receita líquida</h3>
+          <p id="ind-graf-capex-leg-m" class="text-[10px] opacity-60 mt-0.5 mb-2"></p>
+          <div class="relative h-52"><canvas id="ind-graf-capex-m"></canvas></div>
+        </div>
+        <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
           <h3 class="font-bold text-sm">Evolução interanual mensal da arrecadação</h3>
           <p class="text-[10px] opacity-60 mt-0.5 mb-2">Variação da receita bruta de cada mês contra o mesmo mês do ano anterior.</p>
           <div class="relative h-52"><canvas id="ind-graf-yoy-m"></canvas></div>
@@ -6435,6 +6440,7 @@ window.contIndicadores = async function(){
     receita_liq: c.liq, rep_miss: c.rep_miss,
     liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
     rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null,
+    capex_pct: c.liq ? +(c.iv / c.liq * 100).toFixed(1) : null,
     receita_sm: c.b1 / sm, deducoes_sm: c.b2 / sm, despesas_sm: (c.op + c.iv) / sm,
     resultado_sm: c.res / sm, caixa_sm: c.consF == null ? null : c.consF / sm };
   // série mensal jan→mes (ano atual × ano anterior) p/ gráficos de evolução %
@@ -6445,7 +6451,8 @@ window.contIndicadores = async function(){
     const p = c => !c ? null : {
       receita: c.b1, liq: c.liq, rep_miss: c.rep_miss,
       liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
-      rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null };
+      rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null,
+      capex_pct: c.liq ? +(c.iv / c.liq * 100).toFixed(1) : null };
     const pa = p(ca), pb = p(cb);
     serie.push({ mes: m, abrev: DRE_ABREV(m), a: pa, b: pb,
       yoy_rec: (pa && pb && Math.abs(pb.receita) >= 0.005)
@@ -6532,7 +6539,8 @@ function _contRenderInd(ind, mes, ano){
   const rz = el('ind-razoes-tbody-m');
   if (rz) rz.innerHTML =
     linhaRazao('Líquida ÷ bruta', 'liq_pct') +
-    linhaRazao('Repasse missões ÷ bruta', 'rep_miss_pct');
+    linhaRazao('Repasse missões ÷ bruta', 'rep_miss_pct') +
+    linhaRazao('Investimento ÷ receita líquida (Capex)', 'capex_pct');
 
   // --- Gráficos de evolução percentual ---
   window._grafIndM = window._grafIndM || {};
@@ -6566,6 +6574,9 @@ function _contRenderInd(ind, mes, ano){
   el('ind-graf-miss-leg-m').textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada)`;
   desenhar('ind-graf-liq-m', [dsL(ano, pega('liq_pct'), '#38bdf8'), dsL(anoAnt, pegaB('liq_pct'), '#94a3b8', true)]);
   desenhar('ind-graf-miss-m', [dsL(ano, pega('rep_miss_pct'), '#f59e0b'), dsL(anoAnt, pegaB('rep_miss_pct'), '#94a3b8', true)]);
+  const legCapexM = el('ind-graf-capex-leg-m');
+  if (legCapexM) legCapexM.textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada) — quanto da receita líquida vai para investimento`;
+  desenhar('ind-graf-capex-m', [dsL(ano, pega('capex_pct'), '#a78bfa'), dsL(anoAnt, pegaB('capex_pct'), '#94a3b8', true)]);
   const cvY = el('ind-graf-yoy-m');
   if (cvY && typeof Chart !== 'undefined'){
     if (window._grafIndM['ind-graf-yoy-m']) window._grafIndM['ind-graf-yoy-m'].destroy();
