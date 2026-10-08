@@ -6326,6 +6326,10 @@ window.renderContabil = function(){
             <th class="p-3">Índice</th><th class="p-3 text-right">Mês</th><th class="p-3 text-right">Ano ant.</th><th class="p-3 text-right">Δ p.p.</th><th class="p-3 text-right">Acum.</th><th class="p-3 text-right">Acum. ant.</th><th class="p-3 text-right">Δ p.p.</th></tr></thead>
             <tbody id="ind-razoes-tbody-m" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
         </div>
+        <div class="flex items-center gap-2 px-1">
+          <span class="text-[9px] font-extrabold uppercase tracking-wider opacity-60">Anos</span>
+          <div id="ind-anos-sel-m" class="flex flex-wrap gap-1.5"></div>
+        </div>
         <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
           <h3 class="font-bold text-sm">Receita líquida ÷ bruta</h3>
           <p id="ind-graf-liq-leg-m" class="text-[10px] opacity-60 mt-0.5 mb-2"></p>
@@ -6445,18 +6449,21 @@ window.contIndicadores = async function(){
     capex_pct: c.liq ? +(c.iv / c.liq * 100).toFixed(1) : null,
     receita_sm: c.b1 / sm, deducoes_sm: c.b2 / sm, despesas_sm: (c.op + c.iv) / sm,
     resultado_sm: c.res / sm, caixa_sm: c.consF == null ? null : c.consF / sm };
-  // série mensal jan→mes (ano atual × ano anterior) p/ gráficos de evolução %
+  // série mensal jan→mes — últimos 4 exercícios p/ gráficos de evolução %
+  const anosRange = [+ano - 3, +ano - 2, +ano - 1, +ano].map(String);
+  const p = c => !c ? null : {
+    receita: c.b1, liq: c.liq, rep_miss: c.rep_miss,
+    liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
+    rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null,
+    capex_pct: c.liq ? +(c.iv / c.liq * 100).toFixed(1) : null };
   const serie = [];
   for (let i = 0; i < idx; i++){
     const m = MESES_ORD[i];
-    const [ca, cb] = await Promise.all([_contDados(ano, m), _contDados(anoB, m)]);
-    const p = c => !c ? null : {
-      receita: c.b1, liq: c.liq, rep_miss: c.rep_miss,
-      liq_pct: c.b1 ? +(c.liq / c.b1 * 100).toFixed(1) : null,
-      rep_miss_pct: c.b1 ? +(c.rep_miss / c.b1 * 100).toFixed(1) : null,
-      capex_pct: c.liq ? +(c.iv / c.liq * 100).toFixed(1) : null };
-    const pa = p(ca), pb = p(cb);
-    serie.push({ mes: m, abrev: DRE_ABREV(m), a: pa, b: pb,
+    const blocos = await Promise.all(anosRange.map(ay => _contDados(ay, m)));
+    const anosMap = {};
+    anosRange.forEach((ay, j) => anosMap[ay] = p(blocos[j]));
+    const pa = anosMap[ano], pb = anosMap[anoB];
+    serie.push({ mes: m, abrev: DRE_ABREV(m), a: pa, b: pb, anos: anosMap,
       yoy_rec: (pa && pb && Math.abs(pb.receita) >= 0.005)
         ? +(((pa.receita - pb.receita) / Math.abs(pb.receita)) * 100).toFixed(1) : null });
   }
@@ -6469,7 +6476,7 @@ window.contIndicadores = async function(){
     yoy_resultado: _contYoy(mA?.res, mB?.res),
     yoy_sm_mes: _contYoy(mA ? mA.b1 / smA : null, mB ? mB.b1 / smB : null),
     yoy_sm_acumulado: _contYoy(acA ? acA.b1 / smA : null, acB ? acB.b1 / smB : null),
-    serie_meses: serie,
+    serie_meses: serie, anos_serie: anosRange,
     sem_base: !mB && !acB,
   };
   _contRenderInd(ind, mes, ano);
@@ -6572,13 +6579,38 @@ function _contRenderInd(ind, mes, ano){
     window._grafIndM[id] = new Chart(cv, { type: 'line', data: { labels, datasets }, options: opcPct });
   };
   const anoAnt = `${+ano - 1}`;
-  el('ind-graf-liq-leg-m').textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada)`;
-  el('ind-graf-miss-leg-m').textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada)`;
-  desenhar('ind-graf-liq-m', [dsL(ano, pega('liq_pct'), '#38bdf8'), dsL(anoAnt, pegaB('liq_pct'), '#94a3b8', true)]);
-  desenhar('ind-graf-miss-m', [dsL(ano, pega('rep_miss_pct'), '#f59e0b'), dsL(anoAnt, pegaB('rep_miss_pct'), '#94a3b8', true)]);
-  const legCapexM = el('ind-graf-capex-leg-m');
-  if (legCapexM) legCapexM.textContent = `jan–${mes}: ${ano} (cheia) × ${anoAnt} (tracejada) — quanto da receita líquida vai para investimento`;
-  desenhar('ind-graf-capex-m', [dsL(ano, pega('capex_pct'), '#a78bfa'), dsL(anoAnt, pegaB('capex_pct'), '#94a3b8', true)]);
+  // --- seletor de anos (últimos 4 exercícios) ---
+  const anos4 = (ind.anos_serie || []).map(Number).filter(Boolean);
+  const anosLst = anos4.length ? anos4 : [+ano - 3, +ano - 2, +ano - 1, +ano];
+  window._indAnosSelM = window._indAnosSelM instanceof Set ? window._indAnosSelM : new Set();
+  const selA = window._indAnosSelM;
+  if (![...selA].some(a => anosLst.includes(a))) { selA.clear(); selA.add(+ano - 1); selA.add(+ano); }
+  const corA = ay => ['#94a3b8', '#a78bfa', '#f59e0b', '#38bdf8'][anosLst.indexOf(ay)] || '#38bdf8';
+  const box = el('ind-anos-sel-m');
+  if (box) box.innerHTML = anosLst.map(ay => `
+    <label class="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[10px] font-extrabold cursor-pointer" style="border-color:${corA(ay)}66;background:${corA(ay)}14">
+      <input type="checkbox" ${selA.has(ay) ? 'checked' : ''} onchange="indAlternarAnoM(${ay})" style="accent-color:${corA(ay)}">
+      <span style="color:${corA(ay)}">${ay}</span>
+    </label>`).join('');
+  ['ind-graf-liq-leg-m', 'ind-graf-miss-leg-m', 'ind-graf-capex-leg-m'].forEach(id => {
+    const e = el(id); if (e) e.textContent = `jan–${mes} · cada cor = um exercício`;
+  });
+  const pegaAno = (ay, k) => serie.map(s =>
+    ((s.anos && s.anos[String(ay)]) ?? (ay === +ano ? s.a : ay === +ano - 1 ? s.b : null))?.[k] ?? null);
+  window._indDesenharM = () => {
+    const montar = k => anosLst.filter(ay => selA.has(ay)).map(ay => {
+      const cor = corA(ay), atual = ay === +ano;
+      return { label: `${ay}`, data: pegaAno(ay, k),
+        borderColor: cor, backgroundColor: atual ? cor + '26' : cor,
+        borderWidth: atual ? 2.5 : 1.5, pointRadius: atual ? 3 : 2,
+        pointBackgroundColor: cor, tension: .32, spanGaps: true,
+        fill: atual, borderDash: atual ? undefined : [5, 4] };
+    });
+    desenhar('ind-graf-liq-m', montar('liq_pct'));
+    desenhar('ind-graf-miss-m', montar('rep_miss_pct'));
+    desenhar('ind-graf-capex-m', montar('capex_pct'));
+  };
+  window._indDesenharM();
   const cvY = el('ind-graf-yoy-m');
   if (cvY && typeof Chart !== 'undefined'){
     if (window._grafIndM['ind-graf-yoy-m']) window._grafIndM['ind-graf-yoy-m'].destroy();
@@ -6602,6 +6634,12 @@ function _dreEstiloModo(){
   });
   el('dre-faixa-m')?.classList.toggle('hidden', DR.modo !== 'acumanual');
 }
+window.indAlternarAnoM = ay => {
+  const sel = window._indAnosSelM; if (!sel) return;
+  sel.has(ay) ? sel.delete(ay) : sel.add(ay);
+  if (window._indDesenharM) window._indDesenharM();
+};
+
 window.dreModoM = m => { DR.modo = m; _dreEstiloModo(); dreCarregar(); };
 
 window.dreCarregar = async function(){
