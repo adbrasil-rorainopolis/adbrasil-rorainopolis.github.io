@@ -7111,12 +7111,40 @@ function pbGrupoDe(l){
   return 'avista';
 }
 const pbSaldo = (ano, mes, pid) => pbLancs(ano, mes, pid).reduce((s, l) => s + (l.tipo === 'E' ? l.valor : -l.valor), 0);
+/* Reconcilia as migrações de saldo em cadeia: o lançamento "migracao" de cada
+   mês deve sempre refletir o saldo atual do mês anterior — exclusões/edições
+   recalculam os valores migrados (ou os removem se o saldo não for mais devedor). */
+function pbReconciliarMigracoes(){
+  let mudou = false;
+  const anos = new Set((PB.lanc || []).map(l => String(l.ano)));
+  anos.add(String(PB.ano));
+  for (const pt of PB.pastores || []){
+    for (const ano of [...anos].sort()){
+      for (const mes of MESES_ORD){
+        const mig = (PB.lanc || []).find(l => l.ano === String(ano) && l.mes === mes && l.pastorId === pt.id && l.grupo === 'migracao');
+        if (!mig) continue;
+        const ant = pbMesAnterior(ano, mes);
+        const saldoAnt = pbAntesDeCorte(ant.ano, ant.mes) ? 0 : pbSaldo(ant.ano, ant.mes, pt.id);
+        if (saldoAnt >= -0.004){
+          PB.lanc = PB.lanc.filter(l => l.id !== mig.id);
+          mudou = true;
+        } else {
+          const v = pbRd(Math.abs(saldoAnt));
+          const desc = `Saldo devedor migrado de ${ant.mes}/${ant.ano}`;
+          if (Math.abs(num(mig.valor) - v) > 0.004 || mig.descricao !== desc){ mig.valor = v; mig.descricao = desc; mudou = true; }
+        }
+      }
+    }
+  }
+  return mudou;
+}
 
 window.pbRenderTela = async function(){
   if (!pbPodeVerM()){ el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 text-red-400">Acesso restrito à Prebenda Pastoral.</p>'; return; }
   el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando prebendas…</p>';
   await Promise.all([pbCarregarNuvem(), pbCarregarPastores()]);
   await pbSincronizarMes();
+  if (pbReconciliarMigracoes()) await pbGravarNuvem();
   pbRender();
 };
 
@@ -7280,6 +7308,7 @@ window.pbMigrar = async function(pid){
   PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo: 'S', semana: '',
     descricao: `Saldo devedor migrado de ${ant.mes}/${ant.ano}`, valor: pbRd(Math.abs(saldoAnt)), auto: true, grupo: 'migracao',
     data: new Date().toLocaleDateString('pt-BR') });
+  pbReconciliarMigracoes();
   await pbGravarNuvem();
   pbRender();
   toast('Saldo devedor migrado.');
@@ -7315,6 +7344,7 @@ window.pbSalvarLanc = async function(pid){
   const grupo = tipo === 'E' ? 'manual' : (gSel === 'auto' ? pbGrupoDe({ tipo, descricao }) : gSel);
   PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo,
     data: new Date().toLocaleDateString('pt-BR') });
+  pbReconciliarMigracoes();
   await pbGravarNuvem();
   el('pb-form').classList.add('hidden');
   pbRender();
@@ -7324,6 +7354,7 @@ window.pbExcluir = async function(id){
   const l = (PB.lanc || []).find(x => x.id === id); if (!l) return;
   if (!confirm(`Excluir "${l.descricao}" (${moeda(l.valor)})?`)) return;
   PB.lanc = PB.lanc.filter(x => x.id !== id);
+  pbReconciliarMigracoes();
   await pbGravarNuvem();
   pbRender();
 };
