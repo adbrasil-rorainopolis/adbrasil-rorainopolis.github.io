@@ -3553,10 +3553,10 @@ function orcRenderDetalhe(){
   if ((o.total_receitas_qtd || 0) > 0)
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Receitas</p><p class="text-[11px] font-extrabold" style="color:#34d399">${moeda(o.total_receitas)}</p></div>`;
   resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total de saídas</p><p class="text-[11px] font-extrabold" style="color:#f87171">${moeda(o.total_saidas)}</p></div>`;
-  if ((o.total_reembolsos || 0) > 0){
-    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Reembolsado</p><p class="text-[11px] font-extrabold" style="color:#34d399">- ${moeda(o.total_reembolsado)}</p></div>
-       <div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${saldo > 0 ? 'rgba(248,113,113,.4)' : 'rgba(52,211,153,.4)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rotSaldo}</p><p class="text-[11px] font-extrabold" style="color:${saldo > 0 ? '#f87171' : '#34d399'}">${moeda(Math.abs(saldo))}</p></div>`;
-  }
+  if ((o.total_reembolsos || 0) > 0)
+    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Reembolsado</p><p class="text-[11px] font-extrabold" style="color:#34d399">- ${moeda(o.total_reembolsado)}</p></div>`;
+  if ((o.total_saidas || 0) > 0 || (o.total_reembolsos || 0) > 0)
+    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${saldo > 0 ? 'rgba(248,113,113,.4)' : 'rgba(52,211,153,.4)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total atual — ${rotSaldo}</p><p class="text-[11px] font-extrabold" style="color:${saldo > 0 ? '#f87171' : '#34d399'}">${moeda(Math.abs(saldo))}</p></div>`;
   if ((o.total_receitas_qtd || 0) > 0)
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${res >= 0 ? 'rgba(52,211,153,.45)' : 'rgba(248,113,113,.45)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Resultado (${res >= 0 ? 'superávit' : 'déficit'})</p><p class="text-[11px] font-extrabold" style="color:${res >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(res))}</p></div>`;
   if (Math.abs(o.total_pendente || 0) > 0.004)
