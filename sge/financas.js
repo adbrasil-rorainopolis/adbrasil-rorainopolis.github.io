@@ -3373,8 +3373,11 @@ function _orcSinc(o){
   const itens = [], receitas = [], reembolsos = [];
   for (const c of o.colunas || []){
     if (c.lixeira) continue;
-    const dest = c.tipo === 'receita' ? receitas : (c.tipo === 'reembolso' ? reembolsos : itens);
-    for (const i of c.itens || []){ if (i.pago && !i.lixeira) dest.push(i); }
+    for (const i of c.itens || []){
+      if (!i.pago || i.lixeira) continue;
+      const t = i.tipo === 'reembolso' ? 'reembolso' : c.tipo;
+      (t === 'receita' ? receitas : (t === 'reembolso' ? reembolsos : itens)).push(i);
+    }
   }
   o.itens = itens; o.receitas = receitas; o.reembolsos = reembolsos;
 }
@@ -3385,9 +3388,10 @@ function orcTotais(o){
   let pendente = 0;
   for (const c of _orcColunas(o)){
     if (c.lixeira) continue;
-    const dest = c.tipo === 'receita' ? receitas : (c.tipo === 'reembolso' ? reembolsos : itens);
-    const sinal = c.tipo === 'reembolso' ? -1 : 1;
-    for (const i of c.itens){ if (i.lixeira) continue; if (i.pago) dest.push(i); else pendente += sinal * num(i.valor); }
+    for (const i of c.itens){ if (i.lixeira) continue;
+      const t = i.tipo === 'reembolso' ? 'reembolso' : c.tipo;
+      const dest = t === 'receita' ? receitas : (t === 'reembolso' ? reembolsos : itens);
+      if (i.pago) dest.push(i); else pendente += (t === 'reembolso' ? -1 : 1) * num(i.valor); }
   }
   itens.sort(ord); reembolsos.sort(ord); receitas.sort(ord);
   const total = _orcR2(itens.reduce((a, i) => a + num(i.valor), 0));
@@ -3495,18 +3499,20 @@ function orcRenderDetalhe(){
   const colCard = c => {
     const t = _ORC_TIPOS[c.tipo];
     const its = (c.itens || []).filter(i => !i.lixeira);
-    const pagoTot = _orcR2(its.filter(i => i.pago).reduce((a, i) => a + num(i.valor), 0));
+    const pagoTot = _orcR2(its.filter(i => i.pago).reduce((a, i) => a + (i.tipo === 'reembolso' && c.tipo !== 'reembolso' ? -1 : 1) * num(i.valor), 0));
     const pend = its.filter(i => !i.pago).length;
-    const linhas = its.map(i => `
-      <div class="flex items-center gap-2 py-2 border-b last:border-0 ${i.pago ? '' : 'opacity-70'}" style="border-color:var(--border-color)">
+    const linhas = its.map(i => {
+      const ti = _ORC_TIPOS[i.tipo === 'reembolso' && c.tipo !== 'reembolso' ? 'reembolso' : c.tipo];
+      return `<div class="flex items-center gap-2 py-2 border-b last:border-0 ${i.pago ? '' : 'opacity-70'}" style="border-color:var(--border-color)">
         ${check(i)}
         <div class="flex-1 min-w-0">
           <p class="text-[11px] font-bold truncate ${i.pago ? '' : 'opacity-70'}">${esc(i.descricao)}</p>
-          <p class="text-[9.5px] opacity-60">${esc(_orcDataBr(i.data))}${i.forma_pagamento ? ' · ' + _orcRotuloForma(_orcForma(i.forma_pagamento)) : ''}${i.pago ? '' : ' · <b>pendente</b>'}</p>
+          <p class="text-[9.5px] opacity-60">${esc(_orcDataBr(i.data))}${i.tipo === 'reembolso' && c.tipo !== 'reembolso' ? ' · <b style="color:#38bdf8">reemb.</b>' : ''}${i.forma_pagamento ? ' · ' + _orcRotuloForma(_orcForma(i.forma_pagamento)) : ''}${i.pago ? '' : ' · <b>pendente</b>'}</p>
         </div>
-        <span class="text-[11px] font-extrabold shrink-0" style="color:${t.cor}">${t.sinal}${moeda(i.valor)}</span>
+        <span class="text-[11px] font-extrabold shrink-0" style="color:${ti.cor}">${ti.sinal}${moeda(i.valor)}</span>
         ${acoes(i, c.tipo)}
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `<div class="border rounded-2xl p-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex items-center gap-1.5 pb-1.5 mb-1 border-b" style="border-color:var(--border-color)">
         <p class="flex-1 text-[10px] font-extrabold uppercase truncate" style="color:${t.cor}">${esc(c.nome)} <span class="opacity-50 normal-case font-bold">(${its.length})</span></p>
@@ -3522,7 +3528,7 @@ function orcRenderDetalhe(){
     </div>`;
   };
   const pagos = [];
-  for (const c of o.colunas || []){ if (c.lixeira) continue; for (const i of c.itens || []) if (i.pago && !i.lixeira) pagos.push({ ...i, _t: c.tipo, _col: c.nome }); }
+  for (const c of o.colunas || []){ if (c.lixeira) continue; for (const i of c.itens || []) if (i.pago && !i.lixeira) pagos.push({ ...i, _t: i.tipo === 'reembolso' && c.tipo !== 'reembolso' ? 'reembolso' : c.tipo, _col: c.nome }); }
   pagos.sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')) || String(a.criado_em || '').localeCompare(String(b.criado_em || '')));
   let acum = 0;
   const timeline = pagos.map(l => {
@@ -3694,11 +3700,14 @@ window.orcEditarItem = function(itemId){
   }
 };
 function _orcModalItem(i, tipo, colId){
-  const rem = tipo === 'reembolso';
-  const rot = _ORC_ROT[tipo] || 'saída';
+  const nat = i?.tipo === 'reembolso' ? 'reembolso' : '';
+  const efetivo = nat || tipo;
+  const rem = efetivo === 'reembolso';
+  const rot = _ORC_ROT[efetivo] || 'saída';
   const titulo = (i ? 'Editar ' : 'Nova ') + rot;
   const formaAtual = _orcForma(i?.forma_pagamento) || 'pix';
-  const selForma = rem ? '' : `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de ${tipo === 'receita' ? 'recebimento' : 'pagamento'}</span><select id="orci-forma" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${Object.keys(ORC_FORMAS).map(f => `<option value="${f}" ${f === formaAtual ? 'selected' : ''}>${ORC_FORMAS[f]}</option>`).join('')}</select></div>`;
+  const selForma = rem ? '' : `<div id="orci-forma-wrap"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Forma de ${tipo === 'receita' ? 'recebimento' : 'pagamento'}</span><select id="orci-forma" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${Object.keys(ORC_FORMAS).map(f => `<option value="${f}" ${f === formaAtual ? 'selected' : ''}>${ORC_FORMAS[f]}</option>`).join('')}</select></div>`;
+  const selNat = tipo === 'saida' ? `<div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Natureza</span><select id="orci-natureza" onchange="el('orci-forma-wrap')?.classList.toggle('hidden', this.value==='reembolso')" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="" ${nat ? '' : 'selected'}>Saída — gasto/pagamento</option><option value="reembolso" ${nat ? 'selected' : ''}>Reembolso — abate desta coluna</option></select></div>` : '';
   const ph = rem ? 'Ex.: Devolução de troco' : (tipo === 'receita' ? 'Ex.: Oferta do evento, venda de almoço' : 'Ex.: Compra de material');
   const grad = rem || tipo === 'receita' ? '#059669,#10b981' : '#0ea5e9,#0284c7';
   _orcModal(`<h3 class="text-sm font-extrabold mb-3">${titulo}</h3>
@@ -3706,6 +3715,7 @@ function _orcModalItem(i, tipo, colId){
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Data</span><input id="orci-data" type="date" value="${esc(i?.data || new Date().toISOString().slice(0,10))}" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Descrição *</span><input id="orci-desc" value="${esc(i?.descricao || '')}" placeholder="${ph}" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       ${selForma}
+      ${selNat}
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Valor (R$)</span><input id="orci-valor" value="${i ? String(num(i.valor).toFixed(2)).replace('.', ',') : ''}" placeholder="0,00" inputmode="decimal" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer" style="color:var(--text-main)"><input type="checkbox" id="orci-pago" ${i ? (i.pago ? 'checked' : '') : ''} class="accent-emerald-500 w-4 h-4">Já confirmado (vai pra linha do tempo)</label>
       <button onclick="orcSalvarItem('${i ? esc(i.id) : ''}','${colId || ''}','${tipo}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,${grad})"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar ${rot}</button>
@@ -3755,9 +3765,11 @@ window.orcConfirmarMover = async function(itemId, destId){
   } catch(e){ toast(e.message || 'Falha ao mover.'); }
 };
 window.orcSalvarItem = async function(itemId, colId, tipo){
-  const rem = tipo === 'reembolso';
-  const rot = _ORC_ROT[tipo] || 'saída';
+  const nat = tipo === 'saida' ? (el('orci-natureza')?.value || '') : '';
+  const rem = tipo === 'reembolso' || nat === 'reembolso';
+  const rot = _ORC_ROT[rem ? 'reembolso' : tipo] || 'saída';
   const dados = {
+    tipo: nat,
     data: el('orci-data').value,
     descricao: el('orci-desc').value.trim(),
     valor: parseValor(el('orci-valor').value),
@@ -3775,8 +3787,8 @@ window.orcSalvarItem = async function(itemId, colId, tipo){
       let i = null, cHit = null;
       for (const c of o.colunas){ i = (c.itens || []).find(x => x.id === itemId); if (i){ cHit = c; break; } }
       if (!i){ toast('Lançamento não encontrado.'); return; }
-      Object.assign(i, { data: dados.data, descricao: dados.descricao, valor: dados.valor, pago: dados.pago });
-      if (cHit.tipo !== 'reembolso') i.forma_pagamento = dados.forma_pagamento;
+      Object.assign(i, { data: dados.data, descricao: dados.descricao, valor: dados.valor, pago: dados.pago, tipo: dados.tipo });
+      i.forma_pagamento = (cHit.tipo === 'reembolso' || i.tipo === 'reembolso') ? '' : dados.forma_pagamento;
     } else {
       const c = o.colunas.find(x => x.id === colId);
       if (!c){ toast('Coluna não encontrada.'); return; }
@@ -3784,7 +3796,7 @@ window.orcSalvarItem = async function(itemId, colId, tipo){
       c.itens.push({ id: crypto.randomUUID().replace(/-/g, '').slice(0, 12),
         data: dados.data || new Date().toISOString().slice(0, 10),
         descricao: dados.descricao, valor: dados.valor, pago: dados.pago,
-        forma_pagamento: dados.forma_pagamento, criado_em: orcHora() });
+        forma_pagamento: dados.forma_pagamento, tipo: dados.tipo || '', criado_em: orcHora() });
     }
     o.atualizado_em = orcHora();
     await orcGravarDados(lista);
