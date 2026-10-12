@@ -7205,13 +7205,21 @@ function pbReconciliarMigracoes(){
   let mudou = false;
   const anos = new Set((PB.lanc || []).map(l => String(l.ano)));
   anos.add(String(PB.ano));
-  for (const pt of PB.pastores || []){
+  const pastorIds = new Set((PB.pastores || []).map(pt => pt.id));
+  (PB.lanc || []).filter(l => l.grupo === 'migracao').forEach(l => pastorIds.add(l.pastorId));
+  for (const ptId of pastorIds){
     for (const ano of [...anos].sort()){
       for (const mes of MESES_ORD){
-        const mig = (PB.lanc || []).find(l => l.ano === String(ano) && l.mes === mes && l.pastorId === pt.id && l.grupo === 'migracao');
+        const migs = (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && l.pastorId === ptId && l.grupo === 'migracao');
+        if (migs.length > 1){
+          const resto = new Set(migs.slice(1).map(l => l.id));
+          PB.lanc = PB.lanc.filter(l => !resto.has(l.id));
+          mudou = true;
+        }
+        const mig = migs[0];
         if (!mig) continue;
         const ant = pbMesAnterior(ano, mes);
-        const saldoAnt = pbAntesDeCorte(ant.ano, ant.mes) ? 0 : pbSaldo(ant.ano, ant.mes, pt.id);
+        const saldoAnt = pbAntesDeCorte(ant.ano, ant.mes) ? 0 : pbSaldo(ant.ano, ant.mes, ptId);
         if (saldoAnt >= -0.004){
           PB.lanc = PB.lanc.filter(l => l.id !== mig.id);
           mudou = true;
@@ -7273,8 +7281,10 @@ async function pbSincronizarMes(){
 }
 window.pbAtualizarPrebenda = async function(){
   const mudou = await pbSincronizarMes();
+  const rec = pbReconciliarMigracoes();
+  if (rec) await pbGravarNuvem();
   pbRender();
-  toast(mudou ? 'Prebendas e dízimos atualizados com o movimento do mês.' : 'Tudo já estava sincronizado.');
+  toast((mudou || rec) ? 'Prebendas, dízimos e saldos migrados atualizados.' : 'Tudo já estava sincronizado.');
 };
 
 function pbRender(){
@@ -7379,8 +7389,8 @@ function pbRender(){
 }
 window.pbSelPastor = function(id){ PB.pastorSel = id; pbRender(); };
 
-window.pbSelMesM = async function(i){ PB.mes = MESES_ORD[i]; await pbSincronizarMes(); pbRender(); };
-window.pbSelAnoM = async function(d){ PB.ano = String((Number(PB.ano) || 0) + d); await pbSincronizarMes(); pbRender(); };
+window.pbSelMesM = async function(i){ PB.mes = MESES_ORD[i]; await pbSincronizarMes(); if (pbReconciliarMigracoes()) await pbGravarNuvem(); pbRender(); };
+window.pbSelAnoM = async function(d){ PB.ano = String((Number(PB.ano) || 0) + d); await pbSincronizarMes(); if (pbReconciliarMigracoes()) await pbGravarNuvem(); pbRender(); };
 
 /* Importação semanal — paridade com o desktop: lê o Total Geral da aba do
    movimento, lança 15%/3% e o dízimo (Campo: 10% por semana; auxiliares:
