@@ -879,7 +879,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.236';
+const SGE_VERSAO = 'v1.237';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -1923,8 +1923,9 @@ window.addEventListener('beforeunload', (e) => {
    portão sgeSolicitarRecarga() — se houver edições não gravadas no Envio de
    Caixa, abre a confirmação do app com a lista de pendências em vez do
    diálogo nativo do navegador. */
-const PTR_LIMIAR = 78;
+const PTR_LIMIAR = 150;
 let _ptr = null;
+let _ptrPerguntando = false;
 
 function ptrIndicar(dy){
   let ind = document.getElementById('ptr-ind');
@@ -1948,12 +1949,14 @@ window.addEventListener('touchstart', (e) => {
   if (window.scrollY > 2 || e.touches.length !== 1) { _ptr = null; return; }
   /* Dentro de modal/lista rolável própria, o gesto pertence a ela — não é PTR */
   if (e.target.closest('.overflow-y-auto, .overflow-y-scroll, .max-h-44, .modal')) { _ptr = null; return; }
-  _ptr = { y: e.touches[0].clientY };
+  _ptr = { y: e.touches[0].clientY, x: e.touches[0].clientX };
 }, { passive: true });
 window.addEventListener('touchmove', (e) => {
   if (!_ptr) return;
   const dy = e.touches[0].clientY - _ptr.y;
-  ptrIndicar(dy > 0 && window.scrollY <= 2 ? dy : 0);
+  const dx = Math.abs(e.touches[0].clientX - _ptr.x);
+  const vertical = dy > 0 && dy > dx * 1.4;
+  ptrIndicar(vertical && window.scrollY <= 2 ? dy : 0);
 }, { passive: true });
 window.addEventListener('touchend', () => {
   if (!_ptr) return;
@@ -1961,8 +1964,25 @@ window.addEventListener('touchend', () => {
   const ind = document.getElementById('ptr-ind');
   const pronto = ind && ind.dataset.pronto === '1';
   ptrIndicar(0);
-  if (pronto) sgeSolicitarRecarga();
+  if (pronto) ptrConfirmar();
 }, { passive: true });
+
+/* Trava anti-disparo: mesmo com o gesto completo, confirma antes de recarregar.
+   Puxar 150px ainda abre só a pergunta — o reload exige tocar em "Atualizar agora". */
+function ptrConfirmar(){
+  if (_ptrPerguntando) return;
+  _ptrPerguntando = true;
+  const fim = () => { _ptrPerguntando = false; };
+  if (window.rcmConfirmar){
+    rcmConfirmar({ titulo: 'Atualizar a página?', icone: 'fa-rotate-right', cor: '#38bdf8',
+      okTexto: 'Atualizar agora', naoTexto: 'Cancelar',
+      msg: 'Os dados serão recarregados da nuvem.' })
+      .then(ok => { fim(); if (ok) sgeSolicitarRecarga(); });
+    return;
+  }
+  if (confirm('Atualizar a página? Os dados serão recarregados.')) { fim(); sgeSolicitarRecarga(); }
+  else fim();
+}
 
 /* Porta única de recarga: usada pelo pull-to-refresh, pelo toast de nova
    versão e pelo botão "Atualizar agora" das configurações. */
