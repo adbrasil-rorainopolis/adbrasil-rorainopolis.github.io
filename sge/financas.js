@@ -7133,6 +7133,11 @@ const PB = { pastores: null, lanc: null, ano: String(new Date().getFullYear()), 
 const PB_CHAVE = 'sge_prebenda_v1';
 const pbId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const pbRd = v => Math.round(num(v) * 100) / 100;
+function pbMesProximo(ano, mes){
+  let a = +ano, i = MESES_ORD.indexOf(mes);
+  if (i < 0 || i >= 11){ i = 0; a += 1; } else i += 1;
+  return { ano: String(a), mes: MESES_ORD[i] };
+}
 function pbMesAnterior(ano, mes){
   let a = +ano, i = MESES_ORD.indexOf(mes);
   if (i <= 0){ i = 11; a -= 1; } else i -= 1;
@@ -7208,25 +7213,39 @@ function pbReconciliarMigracoes(){
   const pastorIds = new Set((PB.pastores || []).map(pt => pt.id));
   (PB.lanc || []).filter(l => l.grupo === 'migracao').forEach(l => pastorIds.add(l.pastorId));
   for (const ptId of pastorIds){
-    for (const ano of [...anos].sort()){
-      for (const mes of MESES_ORD){
-        const migs = (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && l.pastorId === ptId && l.grupo === 'migracao');
-        if (migs.length > 1){
-          const resto = new Set(migs.slice(1).map(l => l.id));
-          PB.lanc = PB.lanc.filter(l => !resto.has(l.id));
+    const alvo = new Map();
+    (PB.lanc || []).filter(l => l.pastorId === ptId).forEach(l => {
+      const i = MESES_ORD.indexOf(l.mes);
+      if (i >= 0) alvo.set(`${l.ano}|${l.mes}`, { ano: String(l.ano), mes: l.mes, i });
+    });
+    alvo.set(`${PB.ano}|${PB.mes}`, { ano: String(PB.ano), mes: PB.mes, i: MESES_ORD.indexOf(PB.mes) });
+    for (const { ano, mes } of [...alvo.values()]){
+      const nx = pbMesProximo(ano, mes);
+      alvo.set(`${nx.ano}|${nx.mes}`, { ano: String(nx.ano), mes: nx.mes, i: MESES_ORD.indexOf(nx.mes) });
+    }
+    const ord = [...alvo.values()].sort((a, b) => (+a.ano - +b.ano) || (a.i - b.i));
+    for (const { ano, mes } of ord){
+      const migs = (PB.lanc || []).filter(l => l.ano === String(ano) && l.mes === mes && l.pastorId === ptId && l.grupo === 'migracao');
+      if (migs.length > 1){
+        const resto = new Set(migs.slice(1).map(l => l.id));
+        PB.lanc = PB.lanc.filter(l => !resto.has(l.id));
+        mudou = true;
+      }
+      const mig = migs[0];
+      const ant = pbMesAnterior(ano, mes);
+      const saldoAnt = pbAntesDeCorte(ant.ano, ant.mes) ? 0 : pbSaldo(ant.ano, ant.mes, ptId);
+      if (saldoAnt >= -0.004){
+        if (mig){ PB.lanc = PB.lanc.filter(l => l.id !== mig.id); mudou = true; }
+      } else {
+        const v = pbRd(Math.abs(saldoAnt));
+        const desc = `Saldo devedor migrado de ${ant.mes}/${ant.ano}`;
+        if (!mig){
+          PB.lanc.push({ id: pbId(), ano: String(ano), mes, pastorId: ptId, tipo: 'S', semana: '',
+            descricao: desc, valor: v, auto: true, grupo: 'migracao',
+            data: new Date().toLocaleDateString('pt-BR') });
           mudou = true;
-        }
-        const mig = migs[0];
-        if (!mig) continue;
-        const ant = pbMesAnterior(ano, mes);
-        const saldoAnt = pbAntesDeCorte(ant.ano, ant.mes) ? 0 : pbSaldo(ant.ano, ant.mes, ptId);
-        if (saldoAnt >= -0.004){
-          PB.lanc = PB.lanc.filter(l => l.id !== mig.id);
-          mudou = true;
-        } else {
-          const v = pbRd(Math.abs(saldoAnt));
-          const desc = `Saldo devedor migrado de ${ant.mes}/${ant.ano}`;
-          if (Math.abs(num(mig.valor) - v) > 0.004 || mig.descricao !== desc){ mig.valor = v; mig.descricao = desc; mudou = true; }
+        } else if (Math.abs(num(mig.valor) - v) > 0.004 || mig.descricao !== desc){
+          mig.valor = v; mig.descricao = desc; mudou = true;
         }
       }
     }
