@@ -2741,8 +2741,15 @@ window.rcmCentralRender = function(){
 
 window.rcmAbrir = async function(id){
   try {
-    const res = await api('listar_relatorios_caixa', null, sessao()?.token);
-    const r = (res?.relatorios || []).find(x => String(x.id) === String(id));
+    let r = null;
+    try {
+      const res0 = await api('obter_relatorio_caixa', { id }, sessao()?.token);
+      if (res0?.ok && res0.relatorio) r = res0.relatorio;
+    } catch(e2){}
+    if (!r){
+      const res = await api('listar_relatorios_caixa', { completo: true }, sessao()?.token);
+      r = (res?.relatorios || []).find(x => String(x.id) === String(id));
+    }
     if (!r){ toast('Relatório não encontrado.'); return; }
     RC.id = r.id;
     RC.lancamentos = Array.isArray(r.lancamentos) ? r.lancamentos : [];
