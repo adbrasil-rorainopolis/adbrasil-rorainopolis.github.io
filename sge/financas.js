@@ -2466,6 +2466,17 @@ function rcmImgData(src){
 }
 
 /* QR SGE — modulos arredondados, ECC H, bitmap em alta resolucao, quiet zone interna. */
+let _sgeQrLogo = null, _sgeQrLogoOk = false;
+try {
+  const _li = new Image();
+  _li.onload = () => { _sgeQrLogo = _li; _sgeQrLogoOk = true; };
+  _li.src = 'icons/logo_ad_brasil.png';
+} catch(e){}
+function sgeQrLogoPronto(ms){
+  if (_sgeQrLogoOk) return Promise.resolve(true);
+  const t0 = Date.now(), lim = ms || 1500;
+  return new Promise(res => (function chk(){ (_sgeQrLogoOk || Date.now() - t0 > lim) ? res(_sgeQrLogoOk) : setTimeout(chk, 60); })());
+}
 function _sgeQrRR(ctx, x, y, w, h, r){
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -2499,6 +2510,14 @@ function sgeQrRender(cv, url, tamBmp){
       ctx.fillStyle = '#fff'; _sgeQrRR(ctx, x0 + box, y0 + box, s - 2*box, s - 2*box, box * 1.2);
       ctx.fillStyle = '#111'; _sgeQrRR(ctx, x0 + 2*box, y0 + 2*box, s - 4*box, s - 4*box, box * .9);
     }
+    if (_sgeQrLogoOk && _sgeQrLogo){
+      const sS = tamBmp * .22, xS = (tamBmp - sS) / 2;
+      ctx.fillStyle = '#fff';
+      _sgeQrRR(ctx, xS, xS, sS, sS, sS * .22);
+      const iw = _sgeQrLogo.naturalWidth, ih = _sgeQrLogo.naturalHeight;
+      const li = tamBmp * .16, es = Math.min(li / iw, li / ih);
+      ctx.drawImage(_sgeQrLogo, (tamBmp - iw * es) / 2, (tamBmp - ih * es) / 2, iw * es, ih * es);
+    }
     return true;
   } catch(e){ return false; }
 }
@@ -2508,14 +2527,16 @@ function sgeQrNoEl(el, url, tamCss, tamBmp){
     if (!sgeQrRender(cv, url, tamBmp || (tamCss * 4))) return false;
     cv.style.cssText = 'width:' + tamCss + 'px;height:' + tamCss + 'px;image-rendering:pixelated;display:block';
     el.innerHTML = ''; el.appendChild(cv);
+    if (!_sgeQrLogoOk) sgeQrLogoPronto(4000).then(ok => { if (ok && cv.isConnected !== false) sgeQrRender(cv, url, tamBmp || (tamCss * 4)); });
     return true;
   } catch(e){ return false; }
 }
 
-function rcmQrDataUrl(texto, tam){
+async function rcmQrDataUrl(texto, tam){
   try {
     if (typeof QRCode === 'undefined') return null;
     const cv0 = document.createElement('canvas');
+    await sgeQrLogoPronto(1500);
     if (sgeQrRender(cv0, texto, (tam || 128) * 4)) return cv0.toDataURL('image/png');
     const div = document.createElement('div');
     new QRCode(div, { text: texto, width: (tam || 128) * 4, height: (tam || 128) * 4, correctLevel: QRCode.CorrectLevel.H });
@@ -2547,7 +2568,7 @@ window.rcmPdf = async function(){
       a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
       n: String(RC.lancamentos.length), v: saldoStr, h: hash
     });
-    qrSrc = rcmQrDataUrl(`${RC_VERIFICA_URL}?${params.toString()}`, 128);
+    qrSrc = await rcmQrDataUrl(`${RC_VERIFICA_URL}?${params.toString()}`, 128);
   } catch(e){}
 
   // timbrado à esquerda + QR no canto superior direito (mesmo layout do documento)
@@ -5145,7 +5166,7 @@ window.livroGerar = async function(){
     const hash = await rcmHashVerificacao(base).catch(() => '--------');
     const codigo = `SGE-DZ-${hash}`;
     const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ t: 'livro', livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
-    const qrSrc = rcmQrDataUrl(qrTxt, 128);
+    const qrSrc = await rcmQrDataUrl(qrTxt, 128);
     const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || null;
     const logoSrc = (await rcmImgData('icons/logo_ad_selo.png'))?.data || null;
     L.dados = d; L.codigo = codigo;
