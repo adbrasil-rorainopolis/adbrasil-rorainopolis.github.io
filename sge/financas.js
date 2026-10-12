@@ -6347,22 +6347,36 @@ const DRE_ASSINATURAS = [['Carlos Daniel Almeida de Alencar', 'Contador — CRC-
 
 function _dreQrNo(elId, dre){
   const qrEl = el(elId);
-  if (qrEl && dre.verificacao?.url){
+  if (!qrEl || !dre.verificacao?.url || typeof QRCode === 'undefined') return;
+  try {
+    qrEl.innerHTML = '';
+    qrEl.style.cssText += ';background:#fff;padding:3px';
+    let imgSrc = null;
     try {
-      if (typeof QRCode !== 'undefined'){
-        qrEl.innerHTML = '';
-        qrEl.style.cssText += ';background:#fff;padding:3px';
-        if (!sgeQrNoEl(qrEl, dre.verificacao.url, 68, 272)) {
-          try { new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H }); } catch(e2){}
-          qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.cssText += ';width:68px;height:68px;image-rendering:pixelated'; });
-        }
-        const k = document.createElement('div');
-        k.style.cssText = 'font-size:6.5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
-        k.textContent = dre.verificacao.codigo;
-        qrEl.appendChild(k);
-      }
-    } catch(e){}
-  }
+      const cv = document.createElement('canvas');
+      if (sgeQrRender(cv, dre.verificacao.url, 272)) imgSrc = cv.toDataURL('image/png');
+    } catch(e1){}
+    if (!imgSrc){
+      try {
+        const tmp = document.createElement('div');
+        new QRCode(tmp, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
+        const cv2 = tmp.querySelector('canvas');
+        if (cv2) imgSrc = cv2.toDataURL('image/png');
+        const im2 = tmp.querySelector('img');
+        if (!imgSrc && im2 && String(im2.src).startsWith('data:')) imgSrc = im2.src;
+      } catch(e2){}
+    }
+    if (imgSrc){
+      const img = new Image();
+      img.src = imgSrc; img.alt = 'QR de verificação';
+      img.style.cssText = 'width:68px;height:68px;image-rendering:pixelated;display:block;margin:0 auto';
+      qrEl.appendChild(img);
+    }
+    const k = document.createElement('div');
+    k.style.cssText = 'font-size:6.5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px;word-break:break-all';
+    k.textContent = dre.verificacao.codigo;
+    qrEl.appendChild(k);
+  } catch(e){}
 }
 
 window.renderContabil = function(){
