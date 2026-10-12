@@ -1348,6 +1348,7 @@ function rcDadosUsuario(){
 function rcPodeVer(){ return sgeAbaPermitida('financeiro','relatorio'); }
 function rcEhAdmin(){ return rcDadosUsuario().admin; }
 function rcCongFixa(){ const d = rcDadosUsuario(); return (d.tesoureiro && !d.admin) ? d.congFixa : ''; }
+function rcEhDaMinhaCong(r){ const cf = rcCongFixa(); return !!cf && String(r?.congregacao || '').trim().toLowerCase() === cf.toLowerCase(); }
 const rcMoeda = v => moeda(v);
 const rcEsc = esc;
 
@@ -2698,7 +2699,7 @@ window.rcmCentralRender = function(){
     const meuCpfL = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const adminL = rcEhAdmin();
     box.innerHTML = lix.map(r => {
-        const podeL = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpfL || adminL;
+        const podeL = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpfL || adminL || rcEhDaMinhaCong(r);
         const dtEx = r.excluido_em ? new Date(r.excluido_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
         return `
         <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border-color);opacity:.85">
@@ -2717,7 +2718,7 @@ window.rcmCentralRender = function(){
   const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
   const admin = rcEhAdmin();
   box.innerHTML = fil.map(r => {
-      const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin;
+      const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin || rcEhDaMinhaCong(r);
       const enviado = r.status === 'enviado';
       const badgeItem = enviado
         ? '<span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981"><i class="fa-solid fa-circle-check mr-0.5"></i>enviado</span>'
@@ -2755,7 +2756,7 @@ window.rcmAbrir = async function(id){
     // Autor ou admin pode corrigir; relatório de terceiro (não-admin) é sempre somente leitura
     const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const autorCpf = String(r.autor_cpf || '').replace(/\D/g,'');
-    RC.podeEditar = (autorCpf && autorCpf === meuCpf) || rcEhAdmin();
+    RC.podeEditar = (autorCpf && autorCpf === meuCpf) || rcEhAdmin() || rcEhDaMinhaCong(r);
     RC.somenteLeitura = !RC.podeEditar || RC.status === 'enviado';
     RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
     RC.sujo = false;
