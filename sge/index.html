@@ -264,7 +264,7 @@
 <header id="header-login" class="w-full backdrop-blur-md border-b px-4 py-3 flex items-center justify-between z-40 shadow-sm theme-transition" style="background: var(--bg-surface); border-color: var(--border-color);">
   <div class="flex items-center gap-3">
     <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600">
-      <div class="logo-sge-icone w-5 h-5"></div>
+      <img src="icons/logo_ad_brasil.png" alt="AD Brasil" class="w-5 h-5 object-contain">
     </div>
     <span class="font-cinzel font-bold tracking-wider text-sm" style="color: var(--text-accent, var(--color-primary));">SGE - AD Brasil</span>
   </div>
@@ -879,7 +879,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.232';
+const SGE_VERSAO = 'v1.233';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2045,17 +2045,18 @@ function renderPanorama(){
   const hora = new Date().getHours();
   const saudacao = hora < 6 ? 'Boa madrugada' : hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const [vTexto, vRef] = VERSICULOS_DASH[Math.floor(Date.now() / 1800000) % VERSICULOS_DASH.length];
+  const nomePan = String(u.apelido || u.nome || 'Usuário');
+  const iniPan = nomePan.split(' ').filter(Boolean).slice(0,2).map(x => x[0].toUpperCase()).join('') || '?';
   // Escopos granulares do Dashboard (matriz de permissões)
   const D = aba => sgeAbaPermitida('dashboard', aba);
   $('dash-conteudo').innerHTML = `
     <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color: var(--border-color);">
-      <div class="logo-sge-icone w-10 h-10 shrink-0" style="color: var(--color-primary);"></div>
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));">${iniPan}</div>
       <div class="flex-1 min-w-0">
         <b class="block text-base truncate">${u.apelido || u.nome || 'Usuário'}</b>
         <span class="text-[10px] block" style="color: var(--text-muted);">${u.cpf || ''}</span>
         <span class="inline-block mt-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full" style="background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary-light);">${u.perfil || 'Operador'}</span>
       </div>
-      <button onclick="ajudaAbrir('dashboard')" title="Como usar — ajuda" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0 text-[13px] font-extrabold" style="border-color: var(--border-color); color: var(--color-primary);">?</button>
       <button onclick="sgePedirConfirmacaoSair()" class="text-[11px] font-bold px-3 py-2 rounded-xl border cursor-pointer" style="border-color: var(--border-color); color: var(--text-muted);">Sair</button>
     </div>
     ${D('saudacao') ? `<div class="mb-3">
