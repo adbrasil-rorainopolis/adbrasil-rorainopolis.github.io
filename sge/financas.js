@@ -1290,7 +1290,8 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-timbrado-wrap{flex:1;min-width:0;display:flex;align-items:center;padding:4px 4px 3px 8px}
 .rcm-doc .rcm-timbrado{display:block;width:100%;max-width:440px;max-height:64px;object-fit:contain;object-position:left center}
 .rcm-doc .rcm-qr-box{display:flex;align-items:center;gap:4px;padding:4px 6px 3px 4px;border-left:1px solid #000;background:#fff}
-.rcm-doc .rcm-qr-box canvas,.rcm-doc .rcm-qr-box img{width:52px!important;height:52px!important}
+.rcm-doc .rcm-qr-box canvas,.rcm-doc .rcm-qr-box img{width:52px!important;height:52px!important;image-rendering:pixelated}
+.rcm-doc .rcm-qr-box #rcm-qr{background:#fff;padding:3px}
 .rcm-doc .rcm-qr-key{writing-mode:vertical-rl;transform:rotate(180deg);font-size:5.5px;letter-spacing:.8px;color:#777;font-family:'Courier New',monospace;white-space:nowrap}
 .rcm-doc .rcm-head-flex{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 6px;border-top:1px solid #000;border-bottom:1px solid #000}
 .rcm-doc .rcm-title{font-size:13px;font-weight:bold;letter-spacing:1.2px;border:1px solid #000;padding:3px 10px;background:#e6e6e6;color:#000;white-space:nowrap}
@@ -2437,7 +2438,8 @@ window.rcmRenderDoc = async function(){
         n: String(RC.lancamentos.length), v: saldoStr, h: hash
       });
       qrEl.innerHTML = '';
-      new QRCode(qrEl, { text: `${RC_VERIFICA_URL}?${params.toString()}`, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
+      new QRCode(qrEl, { text: `${RC_VERIFICA_URL}?${params.toString()}`, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.H });
+      qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.imageRendering = 'pixelated'; });
     } else {
       qrEl.innerHTML = '<div style="font-size:6px;color:#555;max-width:56px;text-align:center;line-height:1.3">QR indisponível offline</div>';
     }
@@ -2464,7 +2466,7 @@ function rcmQrDataUrl(texto, tam){
   try {
     if (typeof QRCode === 'undefined') return null;
     const div = document.createElement('div');
-    new QRCode(div, { text: texto, width: tam || 128, height: tam || 128, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(div, { text: texto, width: (tam || 128) * 4, height: (tam || 128) * 4, correctLevel: QRCode.CorrectLevel.H });
     const cv = div.querySelector('canvas');
     if (cv) return cv.toDataURL('image/png');
     const img = div.querySelector('img');
@@ -4753,7 +4755,7 @@ table.lv-tb tr:nth-child(even) td{background:#fdfcf9}
 .lv-stat b{color:#1c1917}
 .lv-mut{font-size:8.5px;color:#a8a29e}
 .lv-final{text-align:center;padding:22px 16px 12px;position:relative;z-index:1}
-.lv-final img{width:92px;height:92px;border:1px solid #d6d3d1;border-radius:10px;padding:5px;background:#fff}
+.lv-final img{width:92px;height:92px;border:1px solid #d6d3d1;border-radius:10px;padding:5px;background:#fff;image-rendering:pixelated}
 .lv-final code{display:block;font-size:8.5px;color:#78716c;margin-top:6px;letter-spacing:.08em}
 .lv-final p{font-size:8px;color:#a8a29e;letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin:2px 0 0}
 .lv-rod{font-size:8px;color:#a8a29e;text-align:center;padding:10px 14px 16px;letter-spacing:.05em;border-top:1px solid #e7e5e4}
@@ -5090,7 +5092,7 @@ window.livroGerar = async function(){
     const base = `SGE-DIZIMISTAS|${L.periodo}|${periodoTxt}|${d.qtd}|${d.total.toFixed(2)}`;
     const hash = await rcmHashVerificacao(base).catch(() => '--------');
     const codigo = `SGE-DZ-${hash}`;
-    const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
+    const qrTxt = `${RC_VERIFICA_URL}?${new URLSearchParams({ t: 'livro', livro: `${L.periodo}:${periodoTxt}`, n: String(d.qtd), v: d.total.toFixed(2), h: hash }).toString()}`;
     const qrSrc = rcmQrDataUrl(qrTxt, 128);
     const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || null;
     const logoSrc = (await rcmImgData('icons/logo_ad_selo.png'))?.data || null;
@@ -6275,7 +6277,9 @@ function _dreQrNo(elId, dre){
     try {
       if (typeof QRCode !== 'undefined'){
         qrEl.innerHTML = '';
-        new QRCode(qrEl, { text: dre.verificacao.url, width: 68, height: 68, correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
+        qrEl.style.cssText += ';background:#fff;padding:3px';
+        qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.cssText += ';width:68px;height:68px;image-rendering:pixelated'; });
         const k = document.createElement('div');
         k.style.cssText = 'font-size:6.5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
         k.textContent = dre.verificacao.codigo;

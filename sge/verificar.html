@@ -187,6 +187,33 @@ function blocoVerif(codigo, algoritmo, resultado) {
         return;
     }
 
+    if (tipo === 'livro' || p.has('livro')) {
+        /* Livro de Dizimistas — param "livro" = "periodo:periodoTxt" (ex.: "mensal:10/2026").
+           Base historica: SGE-DIZIMISTAS|periodo|periodoTxt|qtd|total  (mesma usada na geracao). */
+        const livroRaw = p.get('livro') || '';
+        const sep = livroRaw.indexOf(':');
+        const per = sep >= 0 ? livroRaw.slice(0, sep) : 'mensal';
+        const perTxt = sep >= 0 ? livroRaw.slice(sep + 1) : livroRaw;
+        const nL = p.get('n') || '0', vL = p.get('v') || '0';
+        document.getElementById('chip-tipo').textContent = 'Livro de Dizimistas';
+        const baseL = `SGE-DIZIMISTAS|${per}|${perTxt}|${nL}|${vL}`;
+        const hCalcL = await hashRc(baseL);
+        const integroL = hRecebido && hRecebido === hCalcL;
+        pintar(integroL ? 'ok' : 'erro', integroL ? '✓' : '✕',
+            integroL ? 'DOCUMENTO ÍNTEGRO' : 'ATENÇÃO: DADOS DIFEREM',
+            integroL ? 'Este livro foi gerado pelo SGE e não sofreu alterações.'
+                     : 'O conteúdo exibido não confere com a assinatura digital. O documento pode ter sido alterado.');
+        document.getElementById('dados').innerHTML =
+            linha('Livro', 'Livro de Dizimistas') +
+            linha('Periodicidade', per === 'anual' ? 'Anual' : 'Mensal') +
+            linha('Período', perTxt || '—') +
+            linha('Dizimistas', nL) +
+            linhaHtml('Total em dízimos', `<span class="pos" style="font-weight:600">${esc(fmtBrl(vL))}</span>`);
+        blocoVerif(`SGE-DZ-${hRecebido || '—'}`, 'SHA-256 (16 hex)',
+            `recebida ${hRecebido || '—'} • calculada ${hCalcL}`);
+        return;
+    }
+
     /* Relatório Movimento Caixa (formato padrão) */
     const c = p.get('c') || '', d = p.get('d') || '', s = p.get('s') || '';
     const a = p.get('a') || '', g = p.get('g') || '';
