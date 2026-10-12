@@ -1,6 +1,6 @@
 {
-  "name": "SGE — AD Brasil",
-  "short_name": "SGE",
+  "name": "SGE AD Brasil",
+  "short_name": "SGE AD BRASIL",
   "description": "Sistema de Gestão Eclesiástica — AD Brasil",
   "start_url": "/sge/",
   "scope": "/sge/",
@@ -23,7 +23,7 @@
       "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "icons/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
