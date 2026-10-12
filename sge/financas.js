@@ -6324,7 +6324,8 @@ const DRE_CSS = `
 .dre-doc td{padding:2px 5px}
 .dre-doc .dd-cab{display:flex;align-items:flex-start;justify-content:center;position:relative}
 .dre-doc .dd-timb{max-width:84%;max-height:70px;object-fit:contain;margin:0 auto}
-.dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center}
+.dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center;width:76px;overflow:hidden}
+.dre-doc .dd-qr canvas,.dre-doc .dd-qr img{width:68px!important;height:68px!important;image-rendering:pixelated;display:block}
 .dre-doc .dd-tit{font-size:9px;margin-top:8px;line-height:1.55;text-align:center}
 .dre-doc .dd-bloco-tit{font-size:9px;font-weight:bold;text-align:center;margin:16px 0 0;letter-spacing:.2px}
 .dre-doc .dd-sec td{background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px}
@@ -6352,7 +6353,7 @@ function _dreQrNo(elId, dre){
         qrEl.innerHTML = '';
         qrEl.style.cssText += ';background:#fff;padding:3px';
         if (!sgeQrNoEl(qrEl, dre.verificacao.url, 68, 272)) {
-          new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
+          try { new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H }); } catch(e2){}
           qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.cssText += ';width:68px;height:68px;image-rendering:pixelated'; });
         }
         const k = document.createElement('div');
