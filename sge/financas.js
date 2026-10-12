@@ -2438,8 +2438,11 @@ window.rcmRenderDoc = async function(){
         n: String(RC.lancamentos.length), v: saldoStr, h: hash
       });
       qrEl.innerHTML = '';
-      new QRCode(qrEl, { text: `${RC_VERIFICA_URL}?${params.toString()}`, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.H });
-      qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.imageRendering = 'pixelated'; });
+      const urlRc = `${RC_VERIFICA_URL}?${params.toString()}`;
+      if (!sgeQrNoEl(qrEl, urlRc, 52, 256)) {
+        new QRCode(qrEl, { text: urlRc, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.H });
+        qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.imageRendering = 'pixelated'; });
+      }
     } else {
       qrEl.innerHTML = '<div style="font-size:6px;color:#555;max-width:56px;text-align:center;line-height:1.3">QR indisponível offline</div>';
     }
@@ -2462,9 +2465,58 @@ function rcmImgData(src){
   });
 }
 
+/* QR SGE — modulos arredondados, ECC H, bitmap em alta resolucao, quiet zone interna. */
+function _sgeQrRR(ctx, x, y, w, h, r){
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath(); ctx.fill();
+}
+function sgeQrRender(cv, url, tamBmp){
+  try {
+    const tmp = document.createElement('div');
+    const q = new QRCode(tmp, { text: url, correctLevel: QRCode.CorrectLevel.H });
+    const mod = q._oQRCode && q._oQRCode.modules;
+    if (!mod || !mod.length) return false;
+    const n = mod.length, borda = 4, box = tamBmp / (n + borda * 2);
+    cv.width = cv.height = tamBmp;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, tamBmp, tamBmp);
+    const olho = (r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+    ctx.fillStyle = '#111';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++){
+      if (!mod[r][c] || olho(r, c)) continue;
+      const x = (c + borda) * box, y = (r + borda) * box;
+      _sgeQrRR(ctx, x + box * .07, y + box * .07, box * .86, box * .86, box * .38);
+    }
+    for (const [er, ec] of [[0,0],[0,n-7],[n-7,0]]){
+      const x0 = (ec + borda) * box, y0 = (er + borda) * box, s = 7 * box;
+      ctx.fillStyle = '#111'; _sgeQrRR(ctx, x0, y0, s, s, box * 1.8);
+      ctx.fillStyle = '#fff'; _sgeQrRR(ctx, x0 + box, y0 + box, s - 2*box, s - 2*box, box * 1.2);
+      ctx.fillStyle = '#111'; _sgeQrRR(ctx, x0 + 2*box, y0 + 2*box, s - 4*box, s - 4*box, box * .9);
+    }
+    return true;
+  } catch(e){ return false; }
+}
+function sgeQrNoEl(el, url, tamCss, tamBmp){
+  try {
+    const cv = document.createElement('canvas');
+    if (!sgeQrRender(cv, url, tamBmp || (tamCss * 4))) return false;
+    cv.style.cssText = 'width:' + tamCss + 'px;height:' + tamCss + 'px;image-rendering:pixelated;display:block';
+    el.innerHTML = ''; el.appendChild(cv);
+    return true;
+  } catch(e){ return false; }
+}
+
 function rcmQrDataUrl(texto, tam){
   try {
     if (typeof QRCode === 'undefined') return null;
+    const cv0 = document.createElement('canvas');
+    if (sgeQrRender(cv0, texto, (tam || 128) * 4)) return cv0.toDataURL('image/png');
     const div = document.createElement('div');
     new QRCode(div, { text: texto, width: (tam || 128) * 4, height: (tam || 128) * 4, correctLevel: QRCode.CorrectLevel.H });
     const cv = div.querySelector('canvas');
@@ -6277,9 +6329,11 @@ function _dreQrNo(elId, dre){
     try {
       if (typeof QRCode !== 'undefined'){
         qrEl.innerHTML = '';
-        new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
         qrEl.style.cssText += ';background:#fff;padding:3px';
-        qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.cssText += ';width:68px;height:68px;image-rendering:pixelated'; });
+        if (!sgeQrNoEl(qrEl, dre.verificacao.url, 68, 272)) {
+          new QRCode(qrEl, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
+          qrEl.querySelectorAll('canvas,img').forEach(n => { n.style.cssText += ';width:68px;height:68px;image-rendering:pixelated'; });
+        }
         const k = document.createElement('div');
         k.style.cssText = 'font-size:6.5px;color:#777;font-family:monospace;letter-spacing:.5px;margin-top:1px';
         k.textContent = dre.verificacao.codigo;
