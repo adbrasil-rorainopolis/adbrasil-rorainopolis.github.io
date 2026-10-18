@@ -1341,7 +1341,8 @@ function rcDadosUsuario(){
   const u = sessao()?.usuario || {};
   const ac = u.acessos || {};
   return {
-    admin: String(u.perfil || '').toLowerCase() === 'administrador',
+    admin: (typeof sgeEhAdmin === 'function' && sgeEhAdmin())
+        || String(u.perfil || '').trim().toLowerCase() === 'administrador',
     tesoureiro: !!(u.tesoureiro ?? ac.tesoureiro),
     congFixa: String(u.congregacao_tesoureiro ?? ac.congregacao_tesoureiro ?? '').trim(),
   };
