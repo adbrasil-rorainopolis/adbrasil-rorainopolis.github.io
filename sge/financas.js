@@ -453,6 +453,7 @@ window.dzCarregar = async function(){
             ${semPodeEditar() ? `<button onclick="semAbrirEditarMembro('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(59,130,246,.15)" title="Editar membro"><i class="fa-solid fa-user-pen text-[11px] text-blue-400"></i></button>` : ''}
             <button onclick="dzHistDizimos('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(139,92,246,.15)" title="Espelho de Contribuições"><i class="fa-solid fa-sack-dollar text-[11px] text-purple-400"></i></button>
             <button onclick="dzHistCongs('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(245,158,11,.15)" title="Histórico de Congregações"><i class="fa-solid fa-building-columns text-[11px] text-amber-500"></i></button>
+            ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzMudarCong('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(56,189,248,.15)" title="Mudar de congregação"><i class="fa-solid fa-right-left text-[11px] text-sky-400"></i></button>` : ''}
             ${String(sessao()?.usuario?.perfil || '').toLowerCase() === 'administrador' ? `<button onclick="dzVincular('${esc(m.id)}')" class="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer" style="background:rgba(16,185,129,.15);${vinc ? '' : 'opacity:.45'}" title="${vinc ? 'Vínculo ativo — alterar ou remover' : 'Vincular usuário do Portal'}"><i class="fa-solid ${vinc ? 'fa-link' : 'fa-link-slash'} text-[11px] text-emerald-500"></i></button>` : ''}
           </div>
         </div>
@@ -546,6 +547,115 @@ window.dzHistCongs = async function(id){
 };
 
 window.dzFecharModal = function(){ el('dz-modal').classList.add('hidden'); };
+
+/* ---------- migração de congregação (somente administrador) ----------
+   Replica salvar_historico_congregacao_membro do desktop: a linha do tempo é
+   regravada inteira por chave de mês — mesmo mês corrige, mês posterior
+   transfere, mês anterior encaixa retroativo — e o cadastro do membro reflete
+   o evento mais recente (o servidor atualiza `membros` a partir da 1ª linha). */
+const _chaveMesCong = txt => { const m = /(\d{1,2})\D+(\d{4})/.exec(String(txt || '')); return m ? (+m[2]) * 100 + (+m[1]) : 0; };
+const _mesAnteriorCong = chave => { let ano = Math.floor(chave / 100), mes = chave % 100 - 1; if (mes < 1) { mes = 12; ano--; } return String(mes).padStart(2, '0') + '/' + ano; };
+
+window.dzMudarCong = async function(id){
+  if (String(sessao()?.usuario?.perfil || '').toLowerCase() !== 'administrador'){
+    toast('Só o administrador pode migrar um membro de congregação.');
+    return;
+  }
+  _dzModal();
+  const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
+  el('dz-modal-titulo').textContent = `Mudar de Congregação — ${mem.nome}`;
+  el('dz-modal-sub').textContent = `ID do Membro: ${id} • atual: ${mem.conselho || ''} • ${mem.congregacao || ''}`;
+  el('dz-modal-filtros').innerHTML = '';
+  el('dz-modal').classList.remove('hidden');
+  const corpo = el('dz-modal-corpo');
+  corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-10 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando congregações…</div>';
+  try {
+    const congs = await rcCarregarCongregacoes();
+    if (!congs.length) throw new Error('Nenhuma congregação ativa localizada.');
+    if (SGEG.ordemCongregacaoIdxG) congs.sort((a, b) => SGEG.ordemCongregacaoIdxG(a.nome) - SGEG.ordemCongregacaoIdxG(b.nome));
+    const hoje = new Date(), anoAtual = hoje.getFullYear(), mesAtual = hoje.getMonth() + 1;
+    const anos = []; for (let a = 2026; a <= anoAtual + 1; a++) anos.push(a);
+    corpo.innerHTML = `
+      <p class="text-[10px] opacity-60 leading-relaxed">Informe a <b>nova congregação</b> e o mês em que a mudança passa a valer. O histórico do irmão é regravado automaticamente — igual ao desktop.</p>
+      <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nova congregação</span>
+        <select id="dzmc-cong" class="w-full px-2 py-2 rounded-lg border text-xs font-semibold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <option value="">— Selecione —</option>
+          ${congs.map(c => `<option value="${esc(c.nome)}" data-conselho="${esc(c.conselho || '')}" ${cf(c.nome) === cf(mem.congregacao) ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
+        </select></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês de início</span>
+          <select id="dzmc-mes" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            ${MESES_ORD.map((m, i) => `<option value="${i + 1}" ${i + 1 === mesAtual ? 'selected' : ''}>${m}</option>`).join('')}
+          </select></div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
+          <select id="dzmc-ano" class="w-full px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+            ${anos.map(a => `<option ${a === anoAtual ? 'selected' : ''}>${a}</option>`).join('')}
+          </select></div>
+      </div>
+      <p class="text-[9px] opacity-50"><i class="fa-solid fa-circle-info mr-1"></i>Mês já registrado corrige aquele período; mês novo fecha o período anterior.</p>
+      <button id="dzmc-btn" onclick="dzConfirmarMudanca('${esc(id)}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0284c7,#38bdf8)"><i class="fa-solid fa-right-left mr-1"></i>Confirmar mudança</button>`;
+  } catch(e){
+    corpo.innerHTML = `<p class="text-center text-xs text-red-500 py-8">${esc(e.message || 'Falha ao carregar congregações.')}</p>`;
+  }
+};
+
+window.dzConfirmarMudanca = async function(id){
+  const btn = el('dzmc-btn');
+  const selCong = el('dzmc-cong'), selMes = el('dzmc-mes'), selAno = el('dzmc-ano');
+  const congregacao = String(selCong?.value || '').trim();
+  const conselho = String(selCong?.options?.[selCong.selectedIndex]?.dataset?.conselho || 'Conselho 1').trim() || 'Conselho 1';
+  if (!congregacao){ toast('Selecione a nova congregação.'); return; }
+  const dataInicio = String(+selMes?.value || 1).padStart(2, '0') + '/' + (selAno?.value || '');
+  try {
+    if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Gravando…'; }
+    const mem = (F.membros || []).find(x => _idMatch(x.id, id)) || { id, nome: id };
+    const todos = await carregarHistoricoCongs();
+    const regs = (todos || []).filter(r => _idMatch(r.id_membro, id));
+    // id_membro gravado segue o formato já usado na linha do tempo (o servidor
+    // substitui por igualdade exata); sem histórico, usa o id do cadastro.
+    const idMembro = String(regs[0]?.id_membro || mem.id || id).trim();
+
+    const porMes = {};
+    for (const r of regs){
+      porMes[_chaveMesCong(r.data_inicio)] = {
+        conselho: r.conselho || 'Conselho 1', congregacao: r.congregacao || 'Sede',
+        data_inicio: r.data_inicio, data_fim: String(r.data_fim || '').trim() === 'Ativo' ? '' : String(r.data_fim || ''),
+        data_efetivacao: r.data_efetivacao || '', data_corte: r.data_corte || '' };
+    }
+    // 1ª transferência: materializa a linha de origem a partir do cadastro,
+    // senão o período anterior ficava invisível (mesma regra do desktop).
+    if (!Object.keys(porMes).length && (cf(mem.conselho) !== cf(conselho) || cf(mem.congregacao) !== cf(congregacao))){
+      porMes[_chaveMesCong('01/2026')] = { conselho: mem.conselho || 'Conselho 1', congregacao: mem.congregacao || 'Sede',
+        data_inicio: '01/2026', data_fim: '', data_efetivacao: '', data_corte: '' };
+    }
+    porMes[_chaveMesCong(dataInicio)] = { conselho, congregacao, data_inicio: dataInicio, data_fim: '', data_efetivacao: '', data_corte: '' };
+
+    const chaves = Object.keys(porMes).map(Number).sort((a, b) => a - b);
+    const linhas = chaves.map((k, i) => {
+      const ev = porMes[k], ultimo = i === chaves.length - 1;
+      return { conselho: ev.conselho, congregacao: ev.congregacao, data_inicio: ev.data_inicio,
+        data_fim: ultimo ? '' : (ev.data_fim || _mesAnteriorCong(chaves[i + 1])),
+        status: ultimo ? 'Ativo' : 'Transferido',
+        data_efetivacao: ev.data_efetivacao || '', data_corte: ev.data_corte || '' };
+    });
+
+    const res = await api('salvar_historico_congregacoes', { id_membro: idMembro, registros: linhas }, sessao()?.token);
+    if (!res?.ok) throw new Error(res?.erro || 'Falha ao gravar a mudança.');
+
+    // Cadastro local reflete o evento mais recente e invalida os caches.
+    const vigente = linhas[linhas.length - 1];
+    if (mem){ mem.conselho = vigente.conselho; mem.congregacao = vigente.congregacao; }
+    F.histCongs = null;
+    dzFecharModal();
+    toast(`${mem.nome || 'Membro'} migrado para ${vigente.congregacao} a partir de ${vigente.data_inicio}.`);
+    await carregarMembros(true);
+    dzCarregar();
+  } catch(e){
+    toast(e.message || 'Falha ao gravar a mudança.');
+  } finally {
+    if (btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-left mr-1"></i>Confirmar mudança'; }
+  }
+};
 
 /* ---------- modal: vínculo usuário ↔ membro (Portal do Membro) ----------
    A associação NÃO é automática — a tesouraria/admin valida manualmente,
