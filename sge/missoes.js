@@ -918,12 +918,14 @@ async function _realizadoAnoM(ano){
     if (String(p.ano) !== String(ano) || vistos.has(chave)) return false;
     vistos.add(chave); return true;
   }).sort((a, b) => idxMesM(a.mes) - idxMesM(b.mes));
+  /* Carrega todos os meses em paralelo (o carregarMovimento já tem cache) —
+     antes era sequencial e travava a aba Metas por vários segundos. */
+  const movs = await Promise.all(meses.map(p => SGEG.carregarMovimento(p.ano, p.mes)));
   const acc = _zeraM();
   const porMes = [];
   let saldoCampo = null;
-  for (const p of meses){
-    const mov = await SGEG.carregarMovimento(p.ano, p.mes);
-    const aba = abaDoMes(mov, 'FECHAMENTO DO MÊS');
+  for (let i = 0; i < meses.length; i++){
+    const aba = abaDoMes(movs[i], 'FECHAMENTO DO MÊS');
     const regs = aba?.registros || [];
     const t = _zeraM();
     for (const r of regs){
@@ -932,7 +934,7 @@ async function _realizadoAnoM(ano){
     }
     t.total_missoes = CONTAS_MIS.reduce((s, c) => s + t[c.chave], 0);
     for (const c of CATS_MIS) acc[c.chave] += t[c.chave];
-    porMes.push({ mes: p.mes, ...t });
+    porMes.push({ mes: meses[i].mes, ...t });
     const sc = numM(aba?.totais?.saldo_campo);
     if (aba?.totais && 'saldo_campo' in aba.totais) saldoCampo = sc;
   }
