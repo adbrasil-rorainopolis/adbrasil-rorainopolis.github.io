@@ -1691,7 +1691,6 @@ window.gestaoCopiarSituacao = async function(){
     projs.push(`📅 Fechamento de ${res.periodo?.mes}`);
     projs.push(`   ▸ Entradas estimadas: ~${moeda(proj.fechamento_entradas)}`);
     if (proj.semanas_restantes) projs.push(`   ▸ Restam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''} no ciclo`);
-    if (verDin) projs.push(`   ▸ Saldo projetado: ~${sinal(proj.fechamento_saldo)}`);
   }
   if (num(proj.proximo_mes_entradas) > 0){
     if (projs.length) projs.push('');
