@@ -1642,7 +1642,7 @@ window.gestaoCopiarSituacao = async function(){
   const verDin = (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) && !res.escopo_restrito;
   /* Saldo negativo em destaque: (R$ X)! — facilita a leitura rápida de
      déficit/caixa negativo quando colado no WhatsApp. */
-  const sinal = v => num(v) < 0 ? `(${moeda(Math.abs(num(v)))})!` : moeda(v);
+  const sinal = v => num(v) < 0 ? `(${moeda(Math.abs(num(v)))}) ❗ *NEGATIVO*` : moeda(v);
   const L = [];
   const per = `${res.periodo?.mes || ''}/${res.periodo?.ano || ''}`.toUpperCase();
   L.push(`📊 *SITUAÇÃO FINANCEIRA — ${per}*`);
