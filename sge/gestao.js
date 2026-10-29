@@ -1674,24 +1674,6 @@ window.gestaoCopiarSituacao = async function(){
     L.push('🏆 *TOP CONGREGAÇÕES DO MÊS*');
     rank.forEach(([n, d], i) => L.push(`${medalhas[i]} ${n} — ${moeda(d.entradas)}`));
   }
-  const mis = await gestaoMissoesResumo(res.periodo?.ano, res.periodo?.mes);
-  if (mis && (mis.parcial_ano > 0 || mis.mes_atual > 0 || mis.anos_fechados.length)){
-    L.push('');
-    L.push('🌍 *MISSÕES*');
-    L.push(`🟢 No mês: *${moeda(mis.mes_atual)}*`);
-    if (mis.total_anteriores > 0)
-      L.push(`📦 Meses anteriores: ${moeda(mis.total_anteriores)} · acumulado do ano ${moeda(mis.parcial_ano)}`);
-    if (mis.projecao_mes)
-      L.push(`🔮 Projeção p/ fim do mês: ~${moeda(mis.projecao_mes)}`);
-    if (mis.meta_ano)
-      L.push(`🎯 Meta do ano: ${moeda(mis.meta_ano)} · alcance ${Number(mis.alcance_pct || 0).toFixed(1)}%`);
-    if (mis.anos_fechados.length){
-      L.push(`📊 Anos fechados — ${mis.anos_fechados.map(x => `${x.ano}: ${moeda(x.total)}`).join(' · ')}`);
-      const varMis = mis.var_vs_ultimo_ano;
-      const varTxt = varMis !== null ? ` (${varMis >= 0 ? '↗️' : '↘️'} ${varMis >= 0 ? '+' : ''}${Number(varMis).toFixed(1)}% vs ${mis.anos_fechados[mis.anos_fechados.length - 1].ano})` : '';
-      L.push(`📌 Parcial ${res.periodo?.ano}: ${moeda(mis.parcial_ano)}${varTxt}`);
-    }
-  }
   const compar = [];
   const varEq = equiv.var_entradas_equiv ?? ant.var_entradas;
   const rotEq = proj.mes_em_andamento && equiv.semanas_equivalentes ? `${equiv.semanas_equivalentes} primeiras sem. de ${equiv.rotulo}` : ant.rotulo;
