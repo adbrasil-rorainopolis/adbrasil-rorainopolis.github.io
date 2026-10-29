@@ -3214,11 +3214,75 @@ function prestTopoHtml(){
           ${adm ? `<i onclick="event.stopPropagation();prestToggleSemana(${n})" class="fa-solid ${fech ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fech ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fech ? '#ef4444' : '#10b981'}"></i>` : ''}
         </div>`;
       }).join('')}
-    </div>` : ''}`;
+    </div>
+    ${(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar())
+      ? `<button onclick="prestConfigCiclo()" class="w-full mb-3 py-2 rounded-lg border text-[10px] font-bold cursor-pointer flex items-center justify-center gap-1.5" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-gear text-emerald-400"></i>Ciclo do mês: ${ciclo.total_semanas} semanas · fechamento das mensais na ${ciclo.semana_fechamento}ª — tocar p/ configurar</button>`
+      : ''}` : ''}`;
 }
 window.prestSub = t => { PREST.sub = t; window.prestRender(); };
 window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
 window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
+
+/* ---------- Configurar ciclo do mês (4/5 semanas) — paridade com o modal
+   "Configurar ciclo financeiro" do desktop. Grava na nuvem (app_config),
+   então a mudança reflete nos dois lados. Trava: mês com dados na 5ª não
+   volta p/ 4 (o salvarCiclo já valida e o desktop também). ---------- */
+window.prestConfigCiclo = function(){
+  if (!(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar())){ toast('Apenas administrador/operador configura o ciclo.'); return; }
+  const ciclo = SGEG.obterCiclo(PREST.ano, PREST.mes);
+  const old = el('prest-sheet'); if (old) old.remove();
+  const sh = document.createElement('div');
+  sh.id = 'prest-sheet';
+  sh.className = 'fixed inset-0 z-[97]';
+  sh.style.background = 'rgba(2,6,23,.8)';
+  const optFech = (n, sel) => Array.from({ length: n }, (_, i) => i + 1)
+    .map(x => `<option value="${x}" ${x === Math.min(sel, n) ? 'selected' : ''}>${x}ª Semana</option>`).join('');
+  const btnTotal = v => `<button data-v="${v}" onclick="prestCicloEscolher(${v})" class="flex-1 py-2.5 rounded-xl border text-[11px] font-bold cursor-pointer" style="border-color:${ciclo.total_semanas === v ? '#10b981' : 'var(--border-color)'};background:${ciclo.total_semanas === v ? 'rgba(16,185,129,.12)' : 'var(--bg-input)'};color:${ciclo.total_semanas === v ? '#10b981' : 'var(--text-muted)'}">${v} semanas</button>`;
+  sh.innerHTML = `
+    <div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-5 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color)">
+      <div class="flex items-center gap-2"><p class="font-bold text-sm flex-1"><i class="fa-solid fa-calendar-week text-emerald-400 mr-1.5"></i>Ciclo financeiro do mês</p>
+      <button onclick="document.getElementById('prest-sheet').remove()" class="opacity-60 cursor-pointer"><i class="fa-solid fa-xmark"></i></button></div>
+      <p class="text-[10px] opacity-60">${PREST.mes}/${PREST.ano} — vale no desktop e no mobile (sincronizado pela nuvem).</p>
+      <p class="text-[10px] font-bold uppercase opacity-60">Quantidade de semanas</p>
+      <div class="flex gap-2" id="prest-ciclo-totais">${btnTotal(4)}${btnTotal(5)}</div>
+      <p class="text-[10px] font-bold uppercase opacity-60">Semana de fechamento das congregações mensais</p>
+      <select id="prest-ciclo-fech" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${optFech(ciclo.total_semanas, ciclo.semana_fechamento)}</select>
+      <p class="text-[9px] opacity-50 leading-relaxed">Se o mês já tiver lançamentos na 5ª semana, não é possível voltar para 4 — remova ou realoque os lançamentos antes.</p>
+      <button id="prest-ciclo-salvar" onclick="prestSalvarCiclo()" class="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs cursor-pointer"><i class="fa-solid fa-check mr-1"></i>Salvar ciclo</button>
+    </div>`;
+  sh.addEventListener('click', e => { if (e.target === sh) sh.remove(); });
+  document.body.appendChild(sh);
+  window._prestCicloTotal = ciclo.total_semanas;
+  window._prestCicloFech = ciclo.semana_fechamento;
+};
+window.prestCicloEscolher = function(v){
+  window._prestCicloTotal = v;
+  const wrap = el('prest-ciclo-totais'); if (!wrap) return;
+  wrap.querySelectorAll('button').forEach(b => {
+    const ativo = Number(b.dataset.v) === v;
+    b.style.borderColor = ativo ? '#10b981' : 'var(--border-color)';
+    b.style.background = ativo ? 'rgba(16,185,129,.12)' : 'var(--bg-input)';
+    b.style.color = ativo ? '#10b981' : 'var(--text-muted)';
+  });
+  const sel = el('prest-ciclo-fech'); if (!sel) return;
+  const atual = Math.min(Number(sel.value || v), v);
+  sel.innerHTML = Array.from({ length: v }, (_, i) => i + 1)
+    .map(x => `<option value="${x}" ${x === atual ? 'selected' : ''}>${x}ª Semana</option>`).join('');
+};
+window.prestSalvarCiclo = async function(){
+  const total = window._prestCicloTotal || 4;
+  const fech = Number(el('prest-ciclo-fech')?.value || total);
+  const btn = el('prest-ciclo-salvar'); if (btn) btn.disabled = true;
+  try {
+    const c = await SGEG.salvarCiclo(PREST.ano, PREST.mes, total, fech);
+    toast(`${PREST.mes}/${PREST.ano}: ciclo de ${c.total_semanas} semanas salvo.`);
+    el('prest-sheet')?.remove();
+    window.prestRender();
+  } catch(e){
+    toast(e.message || 'Falha ao salvar o ciclo.');
+    if (btn) btn.disabled = false;
+  }
+};
 
 /* Admin: cadeado no chip fecha/reabre SÓ aquela semana (trava individual da Prestação). */
 window.prestToggleSemana = async function(n){

@@ -2514,7 +2514,7 @@ window.acessosAba = function(aba){
 
 /* API de depuração/testes */
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
-  listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, listarDespesas, adicionarDespesa,
+  listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, cicloPodeGravar, listarDespesas, adicionarDespesa,
   atualizarDespesa, removerDespesa, alternarQuitacao, mediaReferencia, ordenarConselhosG,
   ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, renderAbaFluxo, G };
 
