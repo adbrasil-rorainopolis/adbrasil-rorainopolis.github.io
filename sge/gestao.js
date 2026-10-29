@@ -330,12 +330,33 @@ function obterCiclo(ano, mes){
   const fech = Math.max(1, Math.min(total, parseInt(cfg.semana_fechamento ?? total, 10) || total));
   return { total_semanas: total, semana_fechamento: fech };
 }
-function salvarCiclo(ano, mes, totalSemanas, semanaFech){
-  if (SOMENTE_LEITURA) return _bloqueado();
+function cicloPodeGravar(){
+  const p = String(sessao()?.usuario?.perfil || '').trim().toLowerCase();
+  return p === 'administrador' || p === 'operador';
+}
+async function _cicloTemLancamentoSemana5(ano, mes){
+  const eSem5 = s => parseInt((String(s || '').match(/\d+/) || ['0'])[0], 10) === 5;
+  try {
+    const p = await api('listar_prestacoes_semanais', null, sessao()?.token);
+    if ((p?.dados || []).some(r => String(r.ano) === String(ano) && String(r.mes) === String(mes) && eSem5(r.semana))) return true;
+  } catch(e){}
+  try {
+    const r = await api('listar_relatorios_caixa', null, sessao()?.token);
+    if ((r?.dados || []).some(x => String(x.ano) === String(ano) && String(x.mes) === String(mes) && eSem5(x.semana))) return true;
+  } catch(e){}
+  return false;
+}
+/* Grava local + nuvem (app_config) — o desktop lê o mesmo mapa, então a
+   mudança reflete nos dois lados. Trava: não volta p/ 4 com dados na 5ª. */
+async function salvarCiclo(ano, mes, totalSemanas, semanaFech){
   const total = parseInt(totalSemanas, 10) === 5 ? 5 : 4;
   const fech = Math.max(1, Math.min(total, parseInt(semanaFech ?? total, 10) || total));
-  const dados = _cicloMapa(); dados[`${ano}_${mes}`] = { total_semanas: total, semana_fechamento: fech };
+  if (total === 4 && await _cicloTemLancamentoSemana5(ano, mes))
+    throw new Error(`Não é possível voltar para 4 semanas: ${mes}/${ano} já tem lançamentos na 5ª semana.`);
+  const dados = _cicloMapa();
+  dados[`${ano}_${mes}`] = { total_semanas: total, semana_fechamento: fech };
   localStorage.setItem(CHAVE_CICLO, JSON.stringify(dados));
+  await api('salvar_config_sge', { chave: CHAVE_CICLO, valor: JSON.stringify(dados) }, sessao()?.token);
   return dados[`${ano}_${mes}`];
 }
 
@@ -1526,7 +1547,10 @@ function renderAbaMensal(){
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
       ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
       ${_filtroEscopoUI('mm')}
-      ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span id="mm-ciclo-lbl" class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
+      ${(() => { const c = obterCiclo(m.ano, m.mes);
+        return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span>` + (cicloPodeGravar()
+          ? selHtml('mm-ciclo-sel', [['4', '4 semanas'], ['5', '5 semanas']], String(c.total_semanas), 'gestaoMudarCiclo()')
+          : `<span id="mm-ciclo-lbl" class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`); })()}
       <button onclick="gestaoMensalCarregar()" class="px-4 py-2 bg-violet-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-chart-line mr-1"></i>Analisar</button>
       <button onclick="gestaoCopiarSituacao()" class="px-4 py-2 text-white rounded-lg text-xs font-bold cursor-pointer" style="background:#059669" title="Copiar resumo da situação para colar no WhatsApp"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar</button>
     </div>
@@ -1547,6 +1571,21 @@ function renderAbaMensal(){
 }
 window.gestaoMensalSel = () => { G.mensalSel = { ano: el('mm-ano').value, mes: el('mm-mes').value }; gestaoMensalCarregar(); };
 window.gestaoCiclo = () => { toast('Ciclo de fechamentos é configurado no desktop — app somente leitura.'); };
+/* Troca o ciclo do mês selecionado (4/5 semanas) — grava na nuvem e o
+   desktop lê o mesmo mapa. Servidor também barra quem não pode gravar. */
+window.gestaoMudarCiclo = async function(){
+  const sel = el('mm-ciclo-sel'); if (!sel) return;
+  const total = parseInt(sel.value, 10) || 4;
+  const m = G.mensalSel;
+  const cAtual = obterCiclo(m.ano, m.mes);
+  sel.disabled = true;
+  try {
+    const c = await salvarCiclo(m.ano, m.mes, total, Math.min(total, cAtual.semana_fechamento || total));
+    toast(`${m.mes}/${m.ano} configurado com ${c.total_semanas} fechamentos.`);
+  } catch(e){ toast(e.message || 'Falha ao salvar o ciclo.'); }
+  sel.disabled = false;
+  gestaoMensalCarregar();
+};
 
 /* Resumo didático da situação do mês para colar no WhatsApp — mesma montagem
    do botão "Copiar Situação" da Análise Mensal no desktop. */
@@ -1627,7 +1666,7 @@ window.gestaoMensalCarregar = async function(){
   const selo = el('mm-escopo-selo');
   if (selo) selo.innerHTML = res.escopo_resumo ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fa-solid fa-lock"></i>Visão limitada ao seu escopo: ${esc(res.escopo_resumo)}</div>` : '';
   const a = res.atual, comp = res.comparativos, ant = comp.mes_anterior, anual = comp.media_anual, yoy = comp.mesmo_mes_ano_anterior, proj = res.projecao, equiv = comp.mes_anterior_equiv;
-  const selFech = el('mm-fech'); if (selFech) selFech.value = String(res.ciclo.total_semanas);
+  const selCiclo = el('mm-ciclo-sel'); if (selCiclo) selCiclo.value = String(res.ciclo.total_semanas);
   const lblCiclo = el('mm-ciclo-lbl'); if (lblCiclo) lblCiclo.textContent = `${res.ciclo.total_semanas} semanas`;
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
   const sub = temEquiv ? `vs ${equiv.semanas_equivalentes} primeiras sem. de ${esc(equiv.rotulo)}` : `vs ${esc(ant.rotulo || '-')}`;
