@@ -1685,13 +1685,28 @@ window.gestaoCopiarSituacao = async function(){
     compar.push(`📏 Média semanal do mês: ${moeda(a.media_semanal_entradas)}${anual.media_semanal_entradas ? ` · média do ano ${moeda(anual.media_semanal_entradas)}` : ''}`);
   if (compar.length){ L.push(''); L.push('📊 *COMPARATIVOS*'); L.push(...compar); }
   const projs = [];
-  if (proj.mes_em_andamento)
-    projs.push(`• Fechamento de ${res.periodo?.mes}: ~${moeda(proj.fechamento_entradas)} de entradas${proj.semanas_restantes ? ` (faltam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''})` : ''}${verDin ? ` · saldo ~${sinal(proj.fechamento_saldo)}` : ''}`);
-  if (num(proj.proximo_mes_entradas) > 0)
-    projs.push(`• ${proj.proximo_mes_rotulo || 'Próximo mês'}: ~${moeda(proj.proximo_mes_entradas)}${proj.confianca ? ` · confiança ${proj.confianca}` : ''}`);
-  if (projs.length){ L.push(''); L.push('🔮 *PROJEÇÕES*'); L.push(...projs); }
+  if (proj.mes_em_andamento){
+    projs.push(`📅 Fechamento de ${res.periodo?.mes}`);
+    projs.push(`   ▸ Entradas estimadas: ~${moeda(proj.fechamento_entradas)}`);
+    if (proj.semanas_restantes) projs.push(`   ▸ Restam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''} no ciclo`);
+    if (verDin) projs.push(`   ▸ Saldo projetado: ~${sinal(proj.fechamento_saldo)}`);
+  }
+  if (num(proj.proximo_mes_entradas) > 0){
+    if (projs.length) projs.push('');
+    projs.push(`📆 ${proj.proximo_mes_rotulo || 'Próximo mês'}`);
+    projs.push(`   ▸ Entradas estimadas: ~${moeda(proj.proximo_mes_entradas)}`);
+    if (proj.confianca) projs.push(`   ▸ Confiança: ${proj.confianca}`);
+  }
+  if (projs.length){ L.push(''); L.push('🔮 *PROJEÇÕES*'); L.push(''); L.push(...projs); }
   const ins = (res.insights || []).slice(0, 4);
-  if (ins.length){ L.push(''); L.push('⚠️ *PONTOS DE ATENÇÃO*'); ins.forEach(i => L.push(`• ${i.texto}`)); }
+  if (ins.length){
+    L.push(''); L.push('⚠️ *PONTOS DE ATENÇÃO*'); L.push('');
+    ins.forEach(i => {
+      const t = i.texto || '';
+      const ic = /déficit|negativo|superaram/i.test(t) ? '🔴' : /abaixo|queda|varia/i.test(t) ? '📉' : '⚠️';
+      L.push(`${ic} ${t}`);
+    });
+  }
   L.push('');
   const agora = new Date();
   L.push(`_Gerado pelo SGE em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}_`);
