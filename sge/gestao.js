@@ -1623,7 +1623,7 @@ async function gestaoMissoesResumo(ano, mes){
       if (t > 0.004) anosFech.push({ ano: aFech, total: t });
     }
     const ultimo = anosFech.length ? anosFech[anosFech.length - 1].total : 0;
-    return { mes_atual: mesAtual, total_anteriores: totalAnt, parcial_ano: parcial,
+    return { mes_atual: mesAtual, anteriores: ant, total_anteriores: totalAnt, parcial_ano: parcial,
       projecao_mes: proj, meta_ano: metaTotal || null,
       alcance_pct: metaTotal > 0 ? parcial * 100 / metaTotal : null,
       anos_fechados: anosFech,
@@ -2514,7 +2514,7 @@ window.acessosAba = function(aba){
 
 /* API de depuração/testes */
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
-  listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, cicloPodeGravar, listarDespesas, adicionarDespesa,
+  listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, cicloPodeGravar, gestaoMissoesResumo, listarDespesas, adicionarDespesa,
   atualizarDespesa, removerDespesa, alternarQuitacao, mediaReferencia, ordenarConselhosG,
   ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, renderAbaFluxo, G };
 

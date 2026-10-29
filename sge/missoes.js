@@ -953,6 +953,7 @@ async function renderMisMetas(){
         <div class="flex items-center gap-2">
           <div class="flex-1"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Exercício</span>${selM('metas-ano-sel', anos.map(a => [a, a]), M.metasAno, 'misMetasAno()')}</div>
           <button onclick="abrirModalMetasM()" class="mt-4 px-3 py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-gear text-emerald-400 mr-1"></i>Configurar</button>
+          <button onclick="misCopiarWhatsapp()" class="mt-4 px-3 py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-brands fa-whatsapp text-emerald-400 mr-1"></i>Copiar</button>
         </div>
       </div>
       <div id="mis-metas-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Calculando projeção…</div></div>
@@ -963,6 +964,10 @@ window.misMetasAno = function(){ M.metasAno = $m('metas-ano-sel')?.value || M.me
 
 async function _renderMisMetasCorpo(){
   const box = $m('mis-metas-corpo'); if (!box) return;
+  /* Metas carregam em paralelo com a tela (não são aguardadas na troca de
+     aba) — sem este await a primeira abertura renderizava tudo zerado e
+     só voltava a preencher depois de trocar o exercício. */
+  if (M.metas === undefined) await carregarMetasM();
   const ano = String(M.metasAno);
   const meta = _metaAnoM(ano, 'total_missoes');
   const { acc, porMes, saldoCampo, meses } = await _realizadoAnoM(ano);
@@ -1017,6 +1022,43 @@ async function _renderMisMetasCorpo(){
       }).join('') || '<p class="text-[10px] opacity-60">Nenhuma meta cadastrada.</p>'}
     </div>`;
 }
+
+/* Copia a situação de Missões do exercício selecionado — modelo didático
+   para colar no WhatsApp. Reusa gestaoMissoesResumo (gestao.js), que já
+   consolida mês, acumulado, projeção, meta e anos fechados. */
+window.misCopiarWhatsapp = async function(){
+  toast('Montando resumo de Missões…');
+  const anoAtual = String(new Date().getFullYear());
+  const ano = String(M.metasAno || anoAtual);
+  const mesRef = ano === anoAtual ? ORDEM_MESES_M[new Date().getMonth()] : 'Dezembro';
+  const r = await SGEG.gestaoMissoesResumo(ano, mesRef);
+  if (!r){ toast('Não foi possível montar o resumo de Missões.'); return; }
+  const L = [];
+  L.push(`🌍 *MISSÕES — ${ano === anoAtual ? String(mesRef).toUpperCase() + '/' + ano : 'ANO ' + ano}*`);
+  L.push('⛪ AD Brasil · Campo de Rorainópolis');
+  L.push('');
+  L.push('💰 *ARRECADAÇÃO*');
+  if (ano === anoAtual) L.push(`🟢 No mês (${mesRef}): *${moedaM(r.mes_atual)}*`);
+  if (r.total_anteriores > 0) L.push(`📦 Meses anteriores: ${moedaM(r.total_anteriores)}`);
+  L.push(`📥 Acumulado do ano: *${moedaM(r.parcial_ano)}*`);
+  if (r.projecao_mes) L.push(`🔮 Projeção p/ fim do mês: ~${moedaM(r.projecao_mes)}`);
+  if (r.meta_ano) L.push(`🎯 Meta ${ano}: ${moedaM(r.meta_ano)} — alcance *${Number(r.alcance_pct || 0).toFixed(1)}%*`);
+  if (r.anteriores?.length){
+    L.push('');
+    L.push(`📅 *REALIZADO POR MÊS — ${ano}*`);
+    r.anteriores.forEach(x => L.push(`• ${x.mes}: ${moedaM(x.total)}`));
+  }
+  if (r.anos_fechados?.length){
+    L.push('');
+    L.push('📊 *ANOS FECHADOS*');
+    r.anos_fechados.forEach(x => L.push(`• ${x.ano}: ${moedaM(x.total)}`));
+    const v = r.var_vs_ultimo_ano;
+    if (v !== null) L.push(`📌 Parcial ${ano}: ${moedaM(r.parcial_ano)} (${v >= 0 ? '↗️' : '↘️'} ${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}% vs ${r.anos_fechados[r.anos_fechados.length - 1].ano})`);
+  }
+  const txt = L.join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Resumo de Missões copiado — cole no WhatsApp.'); }
+  catch(e){ prompt('Copie o resumo:', txt); }
+};
 
 /* API de depuração/testes */
 window.SGEM = { extrairMissoesReg, abaDoMes, M };
