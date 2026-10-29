@@ -1526,7 +1526,7 @@ function renderAbaMensal(){
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
       ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
       ${_filtroEscopoUI('mm')}
-      ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
+      ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span id="mm-ciclo-lbl" class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
       <button onclick="gestaoMensalCarregar()" class="px-4 py-2 bg-violet-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-chart-line mr-1"></i>Analisar</button>
       <button onclick="gestaoCopiarSituacao()" class="px-4 py-2 text-white rounded-lg text-xs font-bold cursor-pointer" style="background:#059669" title="Copiar resumo da situação para colar no WhatsApp"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar</button>
     </div>
@@ -1628,6 +1628,7 @@ window.gestaoMensalCarregar = async function(){
   if (selo) selo.innerHTML = res.escopo_resumo ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fa-solid fa-lock"></i>Visão limitada ao seu escopo: ${esc(res.escopo_resumo)}</div>` : '';
   const a = res.atual, comp = res.comparativos, ant = comp.mes_anterior, anual = comp.media_anual, yoy = comp.mesmo_mes_ano_anterior, proj = res.projecao, equiv = comp.mes_anterior_equiv;
   const selFech = el('mm-fech'); if (selFech) selFech.value = String(res.ciclo.total_semanas);
+  const lblCiclo = el('mm-ciclo-lbl'); if (lblCiclo) lblCiclo.textContent = `${res.ciclo.total_semanas} semanas`;
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
   const sub = temEquiv ? `vs ${equiv.semanas_equivalentes} primeiras sem. de ${esc(equiv.rotulo)}` : `vs ${esc(ant.rotulo || '-')}`;
   const pick = (chave, fb) => temEquiv && equiv[chave] !== null && equiv[chave] !== undefined ? equiv[chave] : fb;
