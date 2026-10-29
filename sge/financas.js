@@ -3147,6 +3147,7 @@ async function prestCarregarDados(){
     api('listar_prestacoes_semanais', null, tok),
     api('listar_periodicidades_prestacao', null, tok),
     api('listar_congregacoes', null, tok),
+    SGEG.sincronizarCicloNuvem ? SGEG.sincronizarCicloNuvem() : Promise.resolve(),
   ]);
   PREST.bruto = prest.dados || [];
   PREST.saidas = prest.saidas || [];

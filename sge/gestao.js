@@ -304,6 +304,26 @@ const _filtroEscopoUIFluxo = () => `
 /* ---------- Ciclo financeiro (localStorage — paridade com JSON por estação) ---------- */
 const CHAVE_CICLO = 'sge_ciclo_config';
 function _cicloMapa(){ try { return JSON.parse(localStorage.getItem(CHAVE_CICLO) || '{}'); } catch { return {}; } }
+let _cicloNuvemPromise = null;
+/* O ciclo é configurado no desktop e publicado em app_config — sem este merge
+   o mobile ficava preso no padrão de 4 semanas (a 5ª nunca aparecia). */
+async function sincronizarCicloNuvem(force = false){
+  if (_cicloNuvemPromise && !force) return _cicloNuvemPromise;
+  _cicloNuvemPromise = (async () => {
+    try {
+      const res = await api('obter_config_sge', { chave: CHAVE_CICLO }, sessao()?.token);
+      const nuvem = res?.valor ? JSON.parse(res.valor) : null;
+      if (!nuvem || typeof nuvem !== 'object') return;
+      const local = _cicloMapa();
+      let mudou = false;
+      for (const [k, v] of Object.entries(nuvem)){
+        if (v && typeof v === 'object' && JSON.stringify(local[k]) !== JSON.stringify(v)){ local[k] = v; mudou = true; }
+      }
+      if (mudou) localStorage.setItem(CHAVE_CICLO, JSON.stringify(local));
+    } catch(e){}
+  })();
+  return _cicloNuvemPromise;
+}
 function obterCiclo(ano, mes){
   const cfg = _cicloMapa()[`${ano}_${mes}`] || {};
   const total = parseInt(cfg.total_semanas, 10) === 5 ? 5 : 4;
@@ -1508,6 +1528,7 @@ function renderAbaMensal(){
       ${_filtroEscopoUI('mm')}
       ${(() => { const c = obterCiclo(m.ano, m.mes); return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span><span class="px-2 py-1.5 rounded-lg border text-xs font-bold" style="border-color:var(--border-color)" title="Ciclo de fechamentos configurado no desktop">${c.total_semanas} semanas</span>`; })()}
       <button onclick="gestaoMensalCarregar()" class="px-4 py-2 bg-violet-600 text-white rounded-lg text-xs font-bold cursor-pointer"><i class="fa-solid fa-chart-line mr-1"></i>Analisar</button>
+      <button onclick="gestaoCopiarSituacao()" class="px-4 py-2 text-white rounded-lg text-xs font-bold cursor-pointer" style="background:#059669" title="Copiar resumo da situação para colar no WhatsApp"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar</button>
     </div>
     <div id="mm-escopo-selo"></div>
     <div id="mm-kpis" class="grid grid-cols-2 gap-2.5"></div>
@@ -1526,8 +1547,75 @@ function renderAbaMensal(){
 }
 window.gestaoMensalSel = () => { G.mensalSel = { ano: el('mm-ano').value, mes: el('mm-mes').value }; gestaoMensalCarregar(); };
 window.gestaoCiclo = () => { toast('Ciclo de fechamentos é configurado no desktop — app somente leitura.'); };
+
+/* Resumo didático da situação do mês para colar no WhatsApp — mesma montagem
+   do botão "Copiar Situação" da Análise Mensal no desktop. */
+window.gestaoCopiarSituacao = async function(){
+  const res = G.mensal;
+  if (!res?.sucesso){ toast('Carregue a análise do mês primeiro.'); return; }
+  const a = res.atual || {}, comp = res.comparativos || {}, ant = comp.mes_anterior || {};
+  const anual = comp.media_anual || {}, yoy = comp.mesmo_mes_ano_anterior || {};
+  const equiv = comp.mes_anterior_equiv || {}, proj = res.projecao || {}, ciclo = res.ciclo || {};
+  const verDin = (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) && !res.escopo_restrito;
+  const L = [];
+  const per = `${res.periodo?.mes || ''}/${res.periodo?.ano || ''}`.toUpperCase();
+  L.push(`📊 *SITUAÇÃO FINANCEIRA — ${per}*`);
+  L.push('⛪ AD Brasil · Campo de Rorainópolis');
+  if (res.escopo_resumo) L.push(`_Visão limitada ao seu escopo: ${res.escopo_resumo}_`);
+  L.push('');
+  L.push('💰 *RESUMO DO MÊS*');
+  L.push(`🟢 Entradas: *${moeda(a.entradas)}*`);
+  L.push(`   ▸ Dízimos ${moeda(a.dizimos)} · Ofertas ${moeda(a.ofertas)}`);
+  if (verDin){
+    const r = num(a.saldo_liquido);
+    L.push(`🔴 Despesas: *${moeda(a.despesas)}*`);
+    L.push(`${r >= 0 ? '📈' : '📉'} Resultado: *${moeda(r)}* ${r >= 0 ? '(superávit)' : '(déficit)'}`);
+    L.push(`🏦 Caixa acumulado: *${moeda(a.saldo_campo)}*`);
+  }
+  const sems = a.semanas || [];
+  if (sems.length){
+    L.push('');
+    L.push(`📅 *POR SEMANA* — ciclo de ${ciclo.total_semanas || sems.length} fechamentos (${a.semanas_com_dados || 0} com movimento)`);
+    for (const s of sems){
+      const tag = s.fora_ciclo ? ' _(fora do ciclo)_' : (s.tem_dados ? '' : ' _(sem movimento)_');
+      L.push(`▫️ ${s.semana} — ${moeda(s.entradas)}${tag}`);
+    }
+  }
+  const medalhas = ['🥇', '🥈', '🥉', '4º', '5º'];
+  const rank = Object.entries(a.por_congregacao || {}).sort((x, y) => (y[1].entradas || 0) - (x[1].entradas || 0)).slice(0, 5);
+  if (rank.length){
+    L.push('');
+    L.push('🏆 *TOP CONGREGAÇÕES DO MÊS*');
+    rank.forEach(([n, d], i) => L.push(`${medalhas[i]} ${n} — ${moeda(d.entradas)}`));
+  }
+  const compar = [];
+  const varEq = equiv.var_entradas_equiv ?? ant.var_entradas;
+  const rotEq = proj.mes_em_andamento && equiv.semanas_equivalentes ? `${equiv.semanas_equivalentes} primeiras sem. de ${equiv.rotulo}` : ant.rotulo;
+  if (varEq !== null && varEq !== undefined && rotEq)
+    compar.push(`${varEq >= 0 ? '↗️' : '↘️'} vs ${rotEq}: ${varEq >= 0 ? '+' : ''}${num(varEq).toFixed(1)}% nas entradas`);
+  if (yoy.dados)
+    compar.push(`${num(yoy.var_entradas) >= 0 ? '↗️' : '↘️'} vs ${yoy.rotulo}: ${num(yoy.var_entradas) >= 0 ? '+' : ''}${num(yoy.var_entradas).toFixed(1)}% (mesmo mês do ano anterior)`);
+  if (num(a.media_semanal_entradas) > 0)
+    compar.push(`📏 Média semanal do mês: ${moeda(a.media_semanal_entradas)}${anual.media_semanal_entradas ? ` · média do ano ${moeda(anual.media_semanal_entradas)}` : ''}`);
+  if (compar.length){ L.push(''); L.push('📊 *COMPARATIVOS*'); L.push(...compar); }
+  const projs = [];
+  if (proj.mes_em_andamento)
+    projs.push(`• Fechamento de ${res.periodo?.mes}: ~${moeda(proj.fechamento_entradas)} de entradas${proj.semanas_restantes ? ` (faltam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''})` : ''}${verDin ? ` · saldo ~${moeda(proj.fechamento_saldo)}` : ''}`);
+  if (num(proj.proximo_mes_entradas) > 0)
+    projs.push(`• ${proj.proximo_mes_rotulo || 'Próximo mês'}: ~${moeda(proj.proximo_mes_entradas)}${proj.confianca ? ` · confiança ${proj.confianca}` : ''}`);
+  if (projs.length){ L.push(''); L.push('🔮 *PROJEÇÕES*'); L.push(...projs); }
+  const ins = (res.insights || []).slice(0, 4);
+  if (ins.length){ L.push(''); L.push('⚠️ *PONTOS DE ATENÇÃO*'); ins.forEach(i => L.push(`• ${i.texto}`)); }
+  L.push('');
+  const agora = new Date();
+  L.push(`_Gerado pelo SGE em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}_`);
+  const txt = L.join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Situação copiada — cole no WhatsApp.'); }
+  catch(e){ toast('Não foi possível copiar para a área de transferência.'); }
+};
 window.gestaoMensalCarregar = async function(){
   const k = el('mm-kpis'); if (k) k.innerHTML = '<div class="col-span-2 border rounded-xl p-6 text-center opacity-60 text-xs" style="border-color:var(--border-color)"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Calculando…</div>';
+  await sincronizarCicloNuvem();
   const res = await analisarMes(G.mensalSel.ano, G.mensalSel.mes);
   if (G.aba !== 'mensal') return;
   if (!res.sucesso){
@@ -1656,6 +1744,7 @@ window.gestaoFluxoSel = () => {
 };
 window.gestaoFluxoCarregar = async function(){
   const sem = el('fx-semaforo'); if (sem) sem.innerHTML = '<div class="flex items-center gap-2 opacity-60 text-xs justify-center"><i class="fa-solid fa-circle-notch fa-spin"></i>Calculando fluxo de caixa…</div>';
+  await sincronizarCicloNuvem();
   const c = await calcularFluxo(G.fluxoSel.ano, G.fluxoSel.mes);
   if (!el('fx-semaforo')) return;
   if (!c.sucesso){ if (sem) sem.innerHTML = `<div class="text-red-500 text-xs text-center">${esc(c.mensagem)}</div>`; return; }
@@ -2323,7 +2412,7 @@ window.acessosAba = function(aba){
 
 /* API de depuração/testes */
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
-  listarPeriodos, mapaConselhos, obterCiclo, salvarCiclo, listarDespesas, adicionarDespesa,
+  listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, listarDespesas, adicionarDespesa,
   atualizarDespesa, removerDespesa, alternarQuitacao, mediaReferencia, ordenarConselhosG,
   ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, renderAbaFluxo, G };
 
