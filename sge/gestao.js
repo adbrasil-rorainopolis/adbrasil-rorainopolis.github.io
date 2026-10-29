@@ -1640,6 +1640,9 @@ window.gestaoCopiarSituacao = async function(){
   const anual = comp.media_anual || {}, yoy = comp.mesmo_mes_ano_anterior || {};
   const equiv = comp.mes_anterior_equiv || {}, proj = res.projecao || {}, ciclo = res.ciclo || {};
   const verDin = (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) && !res.escopo_restrito;
+  /* Saldo negativo em destaque: (R$ X)! — facilita a leitura rápida de
+     déficit/caixa negativo quando colado no WhatsApp. */
+  const sinal = v => num(v) < 0 ? `(${moeda(Math.abs(num(v)))})!` : moeda(v);
   const L = [];
   const per = `${res.periodo?.mes || ''}/${res.periodo?.ano || ''}`.toUpperCase();
   L.push(`📊 *SITUAÇÃO FINANCEIRA — ${per}*`);
@@ -1652,8 +1655,8 @@ window.gestaoCopiarSituacao = async function(){
   if (verDin){
     const r = num(a.saldo_liquido);
     L.push(`🔴 Despesas: *${moeda(a.despesas)}*`);
-    L.push(`${r >= 0 ? '📈' : '📉'} Resultado: *${moeda(r)}* ${r >= 0 ? '(superávit)' : '(déficit)'}`);
-    L.push(`🏦 Caixa acumulado: *${moeda(a.saldo_campo)}*`);
+    L.push(`${r >= 0 ? '📈' : '📉'} Resultado: *${sinal(r)}* ${r >= 0 ? '(superávit)' : '⚠️ (déficit)'}`);
+    L.push(`🏦 Caixa acumulado: *${sinal(a.saldo_campo)}*`);
   }
   const sems = a.semanas || [];
   if (sems.length){
@@ -1701,7 +1704,7 @@ window.gestaoCopiarSituacao = async function(){
   if (compar.length){ L.push(''); L.push('📊 *COMPARATIVOS*'); L.push(...compar); }
   const projs = [];
   if (proj.mes_em_andamento)
-    projs.push(`• Fechamento de ${res.periodo?.mes}: ~${moeda(proj.fechamento_entradas)} de entradas${proj.semanas_restantes ? ` (faltam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''})` : ''}${verDin ? ` · saldo ~${moeda(proj.fechamento_saldo)}` : ''}`);
+    projs.push(`• Fechamento de ${res.periodo?.mes}: ~${moeda(proj.fechamento_entradas)} de entradas${proj.semanas_restantes ? ` (faltam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''})` : ''}${verDin ? ` · saldo ~${sinal(proj.fechamento_saldo)}` : ''}`);
   if (num(proj.proximo_mes_entradas) > 0)
     projs.push(`• ${proj.proximo_mes_rotulo || 'Próximo mês'}: ~${moeda(proj.proximo_mes_entradas)}${proj.confianca ? ` · confiança ${proj.confianca}` : ''}`);
   if (projs.length){ L.push(''); L.push('🔮 *PROJEÇÕES*'); L.push(...projs); }
