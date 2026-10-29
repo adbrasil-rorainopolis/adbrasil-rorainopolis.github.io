@@ -1660,10 +1660,12 @@ window.gestaoCopiarSituacao = async function(){
   }
   const sems = a.semanas || [];
   if (sems.length){
+    const ultSemComDados = sems.reduce((m, s, i) => s.tem_dados ? i : m, -1);
     L.push('');
     L.push(`📅 *POR SEMANA* — ciclo de ${ciclo.total_semanas || sems.length} fechamentos (${a.semanas_com_dados || 0} com movimento)`);
-    for (const s of sems){
-      const tag = s.fora_ciclo ? ' _(fora do ciclo)_' : (s.tem_dados ? '' : ' _(sem movimento)_');
+    for (const [i, s] of sems.entries()){
+      const tag = s.fora_ciclo ? ' _(fora do ciclo)_'
+        : (s.tem_dados ? '' : (proj.mes_em_andamento && i > ultSemComDados ? ' _(próxima prestação)_' : ' _(sem movimento)_'));
       L.push(`▫️ ${s.semana} — ${moeda(s.entradas)}${tag}`);
     }
   }
