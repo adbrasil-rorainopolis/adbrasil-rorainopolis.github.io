@@ -1587,6 +1587,50 @@ window.gestaoMudarCiclo = async function(){
   gestaoMensalCarregar();
 };
 
+/* Consolida Missões p/ a mensagem WhatsApp — paridade com
+   sge_missoes.resumo_whatsapp_missoes (desktop). */
+async function gestaoMissoesResumo(ano, mes){
+  try {
+    const idx = ORDEM_MESES.indexOf(mes);
+    if (idx < 0) return null;
+    const periodos = await listarPeriodos();
+    const tem = (a, m) => periodos.some(p => String(p.ano) === String(a) && p.mes === m);
+    const mesesAno = ORDEM_MESES.slice(0, idx + 1).filter(m2 => tem(ano, m2));
+    const resumosAno = await Promise.all(mesesAno.map(m2 => resumoMes(ano, m2)));
+    const serie = mesesAno.map((m2, i) => ({ mes: m2, total: num(resumosAno[i]?.ofertas_missionarias) }));
+    const mesAtual = num(serie.find(s => s.mes === mes)?.total);
+    const ant = serie.filter(s => s.mes !== mes && s.total > 0.004);
+    const totalAnt = ant.reduce((a2, s) => a2 + s.total, 0);
+    const parcial = mesAtual + totalAnt;
+    let proj = null;
+    const resumoAtual = resumosAno[mesesAno.indexOf(mes)] || {};
+    const ciclo = obterCiclo(ano, mes);
+    const semDados = Math.max(1, num(resumoAtual.semanas_com_dados));
+    if (mesAtual > 0.004 && semDados < ciclo.total_semanas) proj = mesAtual * ciclo.total_semanas / semDados;
+    let metaTotal = 0;
+    try {
+      const cfg = await api('obter_config_sge', { chave: 'missoes_metas_anuais' }, sessao()?.token);
+      const mAno = (cfg?.valor ? JSON.parse(cfg.valor) : {})[String(ano)] || {};
+      metaTotal = num(mAno.total_missoes)
+        || ['ebd_missionaria', 'culto_missoes', 'oferta_missionaria', 'circulo_oracao_mis'].reduce((a2, k) => a2 + num(mAno[k]), 0);
+    } catch(e){}
+    const anosDisp = [...new Set(periodos.map(p => String(p.ano)))].filter(a2 => String(a2) < String(ano)).sort().slice(-3);
+    const anosFech = [];
+    for (const aFech of anosDisp){
+      const mesesF = periodos.filter(p => String(p.ano) === String(aFech)).map(p => p.mes);
+      const resumosF = await Promise.all(mesesF.map(m2 => resumoMes(aFech, m2)));
+      const t = resumosF.reduce((a2, r) => a2 + num(r?.ofertas_missionarias), 0);
+      if (t > 0.004) anosFech.push({ ano: aFech, total: t });
+    }
+    const ultimo = anosFech.length ? anosFech[anosFech.length - 1].total : 0;
+    return { mes_atual: mesAtual, total_anteriores: totalAnt, parcial_ano: parcial,
+      projecao_mes: proj, meta_ano: metaTotal || null,
+      alcance_pct: metaTotal > 0 ? parcial * 100 / metaTotal : null,
+      anos_fechados: anosFech,
+      var_vs_ultimo_ano: ultimo > 0 ? (parcial - ultimo) * 100 / ultimo : null };
+  } catch(e){ return null; }
+}
+
 /* Resumo didático da situação do mês para colar no WhatsApp — mesma montagem
    do botão "Copiar Situação" da Análise Mensal no desktop. */
 window.gestaoCopiarSituacao = async function(){
@@ -1626,6 +1670,24 @@ window.gestaoCopiarSituacao = async function(){
     L.push('');
     L.push('🏆 *TOP CONGREGAÇÕES DO MÊS*');
     rank.forEach(([n, d], i) => L.push(`${medalhas[i]} ${n} — ${moeda(d.entradas)}`));
+  }
+  const mis = await gestaoMissoesResumo(res.periodo?.ano, res.periodo?.mes);
+  if (mis && (mis.parcial_ano > 0 || mis.mes_atual > 0 || mis.anos_fechados.length)){
+    L.push('');
+    L.push('🌍 *MISSÕES*');
+    L.push(`🟢 No mês: *${moeda(mis.mes_atual)}*`);
+    if (mis.total_anteriores > 0)
+      L.push(`📦 Meses anteriores: ${moeda(mis.total_anteriores)} · acumulado do ano ${moeda(mis.parcial_ano)}`);
+    if (mis.projecao_mes)
+      L.push(`🔮 Projeção p/ fim do mês: ~${moeda(mis.projecao_mes)}`);
+    if (mis.meta_ano)
+      L.push(`🎯 Meta do ano: ${moeda(mis.meta_ano)} · alcance ${Number(mis.alcance_pct || 0).toFixed(1)}%`);
+    if (mis.anos_fechados.length){
+      L.push(`📊 Anos fechados — ${mis.anos_fechados.map(x => `${x.ano}: ${moeda(x.total)}`).join(' · ')}`);
+      const varMis = mis.var_vs_ultimo_ano;
+      const varTxt = varMis !== null ? ` (${varMis >= 0 ? '↗️' : '↘️'} ${varMis >= 0 ? '+' : ''}${Number(varMis).toFixed(1)}% vs ${mis.anos_fechados[mis.anos_fechados.length - 1].ano})` : '';
+      L.push(`📌 Parcial ${res.periodo?.ano}: ${moeda(mis.parcial_ano)}${varTxt}`);
+    }
   }
   const compar = [];
   const varEq = equiv.var_entradas_equiv ?? ant.var_entradas;
