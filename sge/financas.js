@@ -3190,7 +3190,10 @@ window.prestRender = async function(){
 function prestTopoHtml(){
   const ciclo = SGEG.obterCiclo(PREST.ano, PREST.mes);
   const anos = [+PREST.ano - 1, +PREST.ano, +PREST.ano + 1].map(String);
-  const semanas = PREST_SEMANAS.slice(0, ciclo.total_semanas);
+  /* 5º botão aparece quando o ciclo tem 5 semanas OU já existe lançamento na
+     5ª — no desktop a semana 5 sempre é selecionável; antes ficava escondida. */
+  const temSem5 = PREST.bruto.some(r => String(r.ano) === PREST.ano && String(r.mes) === PREST.mes && _prestNumSemana(r.semana) === 5);
+  const semanas = PREST_SEMANAS.slice(0, temSem5 ? 5 : ciclo.total_semanas);
   if (!semanas.includes(PREST.semana)) PREST.semana = semanas[0];
   return `
     <div class="flex gap-2 mb-3">
