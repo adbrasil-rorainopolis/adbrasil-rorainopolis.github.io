@@ -1621,7 +1621,7 @@ function rcRenderTela(){
           <div class="p-4 space-y-4 text-[11px] leading-relaxed overflow-y-auto" style="color:var(--text-main)">
             <div>
               <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-inbox mr-1.5"></i>O que é a Central de Relatórios?</p>
-              <p class="opacity-80">É a primeira tela do Envio de Caixa — a caixa de entrada. Mostra todos os relatórios do seu alcance separados por <b>mês → conselho → semana</b>: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). As setas <b>◀ ▶</b> no título trocam o mês, os chips filtram <b>Todos / Enviados / Rascunhos / Lixeira</b> e a busca localiza a congregação.</p>
+              <p class="opacity-80">É a primeira tela do Envio de Caixa — a caixa de entrada. Mostra todos os relatórios do seu alcance em ordem canônica — <b>mês e a semana mais recente no topo</b>: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). As setas <b>◀ ▶</b> no título trocam o mês, os chips filtram <b>Todos / Enviados / Rascunhos / Lixeira</b> e a busca localiza a congregação.</p>
             </div>
             <div>
               <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-grip mr-1.5"></i>Guia da Central</p>

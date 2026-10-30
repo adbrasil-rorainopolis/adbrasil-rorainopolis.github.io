@@ -185,7 +185,7 @@ const SGE_AJUDA = {
     grupos: [
       { titulo: 'Central — tela inicial', itens: [
         { q: 'Navegação de mês', a: 'As setas <b>◀ ▶</b> no título trocam o mês exibido — a lista e a lixeira acompanham.' },
-        { q: 'Agrupamentos', a: 'Os relatórios ficam separados por <b>mês → conselho → semana</b>, com divisores visuais — nada fica solto.' },
+        { q: 'Ordem da lista', a: 'Ordem canônica: dentro do mês, os relatórios ficam separados por <b>semana, a mais recente no topo</b> — a 4ª/5ª aparecem primeiro.' },
         { q: 'Menu ⋯', a: 'Ao lado da navegação: Atualizar a lista, <b>Configurar ciclo</b> (só administrador) e Ajuda.' },
         { q: 'Ícones do item', a: 'Cada relatório mostra: ✈ enviar rascunho direto, 👁/✏️ abrir e 🗑 excluir (excluir pede a sua <b>senha</b> e vai para a Lixeira, restaurável).' },
         { q: 'Botão +', a: 'O botão dourado flutuante inicia um novo relatório e já sugere a próxima semana sem prestação.' },
