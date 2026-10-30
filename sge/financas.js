@@ -1439,7 +1439,7 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
 </style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', sujo: false, meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', sujo: false, tela: 'central', centralMes: 0, centralAno: 0, meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
 
 /* "Sujo" = edições feitas após a última gravação (ou sem nunca gravar).
    O index.html consulta window.sgeTemEdicaoPendente() antes de recarregar a
@@ -1507,27 +1507,46 @@ function rcRenderTela(){
   const badge = RC.status === 'enviado'
     ? '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.35)"><i class="fa-solid fa-circle-check mr-0.5"></i>Enviado</span>'
     : '<span class="text-[8px] font-extrabold uppercase px-2 py-1 rounded-full shrink-0" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.35)"><i class="fa-solid fa-circle-exclamation mr-0.5"></i>Rascunho</span>';
+  const hoje0 = new Date();
+  if (!RC.centralMes){ RC.centralMes = hoje0.getMonth() + 1; RC.centralAno = hoje0.getFullYear(); }
+  const mesNavTxt = `${MESES_ORD[RC.centralMes - 1]}/${RC.centralAno}`;
+  const escopoTes = rcCongFixa();
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
-      ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório ${RC.status === 'enviado' ? 'enviado' : 'recebido'} — somente leitura${RC.podeEditar ? ' • toque em CORRIGIR para retificar' : ''}</div>` : ''}
-      ${!RC.somenteLeitura && RC.status === 'enviado' && RC.id ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.3)"><i class="fa-solid fa-screwdriver-wrench"></i>Retificação — o relatório segue enviado; GRAVAR salva a nova versão</div>` : ''}
-      <div class="flex items-center gap-2">
-        <div class="flex-1 grid grid-cols-5 gap-1.5">${rcmAcoesHtml()}</div>
-        ${badge}
-        <button onclick="rcmAjuda()" title="Ajuda — passo a passo" class="w-7 h-7 rounded-full text-[12px] font-extrabold cursor-pointer shrink-0" style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--color-primary)">?</button>
-      </div>
-      <div id="rcm-orientacao" class="hidden rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.10);color:#38bdf8;border:1px solid rgba(56,189,248,.25)"></div>
-      ${!RC.somenteLeitura && RC.id && RC.status === 'rascunho' ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.10);color:#f59e0b;border:1px solid rgba(245,158,11,.25)"><i class="fa-solid fa-circle-exclamation"></i>Gravado como rascunho — resta ENVIAR para a central receber</div>` : ''}
-      <div id="rcm-view-editar" class="space-y-3">
+      <!-- ===== TELA 1: CENTRAL DE RELATÓRIOS ===== -->
+      <div id="rcm-view-central" class="space-y-3">
+        ${escopoTes ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(16,185,129,.10);color:#047857;border:1px solid rgba(16,185,129,.25)"><i class="fa-solid fa-lock text-[9px]"></i>Escopo: ${esc(escopoTes)} (sua congregação)</div>` : ''}
         <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="flex items-center justify-between mb-2">
             <p class="text-[10px] font-bold uppercase opacity-60"><i class="fa-solid fa-inbox mr-1"></i>Central de relatórios</p>
-            <button onclick="rcmCentral()" class="text-[10px] font-bold cursor-pointer opacity-70"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
+            <div class="flex items-center gap-1.5">
+              <button onclick="rcmMesNav(-1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
+              <span id="rcm-mes-central" class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)">${mesNavTxt}</span>
+              <button onclick="rcmMesNav(1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
+              <button onclick="rcmMenuToggle()" title="Mais ações" class="w-6 h-6 rounded-lg text-[10px] cursor-pointer" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fa-solid fa-ellipsis"></i></button>
+            </div>
           </div>
-          <div class="flex gap-1.5 mb-2" id="rcm-central-chips"></div>
+          <div id="rcm-menu" class="hidden mb-2 rounded-xl border p-1.5" style="background:var(--bg-input);border-color:var(--border-color)">
+            <button onclick="rcmMenuToggle();rcmCentral()" class="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-rotate mr-2" style="color:#0284c7"></i>Atualizar</button>
+            ${(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar()) ? `<button onclick="rcmMenuToggle();rcmConfigCiclo()" class="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-calendar-week mr-2" style="color:#d97706"></i>Configurar ciclo do mês</button>` : ''}
+            <button onclick="rcmMenuToggle();rcmAjuda()" class="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-bold cursor-pointer" style="color:var(--text-muted)"><i class="fa-solid fa-circle-question mr-2" style="color:#d97706"></i>Ajuda</button>
+          </div>
+          <div class="flex gap-1.5 mb-2 flex-wrap" id="rcm-central-chips"></div>
           <input id="rcm-central-busca" placeholder="Buscar congregação..." value="${esc(RC.centralBusca || '')}" oninput="RC.centralBusca=this.value;rcmCentralRender()" class="w-full px-2 py-1.5 mb-1 rounded-lg border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-          <div id="rcm-central" style="max-height:230px;overflow-y:auto"><p class="text-[11px] opacity-50 py-3 text-center">Carregando…</p></div>
+          <div id="rcm-central" style="max-height:56vh;overflow-y:auto"><p class="text-[11px] opacity-50 py-3 text-center">Carregando…</p></div>
         </div>
+      </div>
+      <!-- ===== TELA 2: RELATÓRIO (identificação + lançamentos) ===== -->
+      <div id="rcm-view-editar" class="hidden space-y-3">
+      ${RC.somenteLeitura ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)"><i class="fa-solid fa-eye"></i>Visualizando relatório ${RC.status === 'enviado' ? 'enviado' : 'recebido'} — somente leitura${RC.podeEditar ? ' • toque em CORRIGIR para retificar' : ''}</div>` : ''}
+      ${!RC.somenteLeitura && RC.status === 'enviado' && RC.id ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.3)"><i class="fa-solid fa-screwdriver-wrench"></i>Retificação — o relatório segue enviado; GRAVAR salva a nova versão</div>` : ''}
+      <div class="flex items-center gap-2">
+        <button onclick="rcmVoltar()" title="Voltar à central" class="w-9 h-9 rounded-xl text-[12px] cursor-pointer shrink-0" style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="flex-1 grid grid-cols-3 gap-1.5">${rcmAcoesHtml()}</div>
+        ${badge}
+      </div>
+      <div id="rcm-orientacao" class="hidden rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.10);color:#38bdf8;border:1px solid rgba(56,189,248,.25)"></div>
+      ${!RC.somenteLeitura && RC.id && RC.status === 'rascunho' ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.10);color:#f59e0b;border:1px solid rgba(245,158,11,.25)"><i class="fa-solid fa-circle-exclamation"></i>Gravado como rascunho — resta ENVIAR para a central receber</div>` : ''}
         <div id="rcm-card-ident" class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="grid grid-cols-2 gap-2">
             <div class="col-span-2"><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span>
@@ -1646,7 +1665,8 @@ function rcRenderTela(){
           </div>
         </div>
       </div>
-    </div>${RCM_CSS}`;
+    </div>${RCM_CSS}
+    <button id="rcm-fab" onclick="rcmNovo()" title="Novo relatório" class="fixed z-[70] flex items-center justify-center" style="right:16px;bottom:96px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:#fff;font-size:20px;box-shadow:0 10px 24px rgba(217,119,6,.45)"><i class="fa-solid fa-plus"></i></button>`;
   rcPopularCongregacoes();
   rcmRenderLista();
   rcmAplicarModo();
@@ -1664,11 +1684,9 @@ function rcmAcoesHtml(){
     ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}
     ${B('rcmVoltar()', 'fa-arrow-rotate-left', 'VOLTAR', 'linear-gradient(135deg,#334155,#475569)')}`;
   return `
-    ${B('rcmNovo()', 'fa-file-circle-plus', 'NOVO', 'linear-gradient(135deg,#334155,#475569)')}
-    ${B('rcmSalvar(false)', 'fa-floppy-disk', 'GRAVAR', 'linear-gradient(135deg,#047857,#10b981)')}
-    ${B('rcmSalvar(true)', 'fa-paper-plane', 'ENVIAR', 'linear-gradient(135deg,#6d28d9,#8b5cf6)')}
+    ${B('rcmSalvar(false)', 'fa-floppy-disk', 'GRAVAR RASCUNHO', 'linear-gradient(135deg,#047857,#10b981)')}
     ${B("rcmModo('previa')", 'fa-eye', 'PRÉVIA', 'linear-gradient(135deg,#b45309,#f59e0b)')}
-    ${B('rcmPdf()', 'fa-file-pdf', 'PDF', 'linear-gradient(135deg,#0369a1,#38bdf8)')}`;
+    ${B('rcmSalvar(true)', 'fa-paper-plane', 'ENVIAR', 'linear-gradient(135deg,#6d28d9,#8b5cf6)')}`;
 }
 
 window.rcmModo = function(m){
@@ -1681,11 +1699,14 @@ window.rcmModo = function(m){
 };
 
 function rcmAplicarModo(){
-  const ed = el('rcm-view-editar'), pv = el('rcm-view-previa');
+  const cent = el('rcm-view-central'), ed = el('rcm-view-editar'), pv = el('rcm-view-previa'), fab = el('rcm-fab');
   if (!ed || !pv) return;
   const previa = RC.modo === 'previa' || RC.somenteLeitura;
-  ed.classList.toggle('hidden', previa);
+  const naCentral = !previa && (RC.tela || 'central') === 'central';
+  if (cent) cent.classList.toggle('hidden', !naCentral);
+  ed.classList.toggle('hidden', previa || naCentral);
   pv.classList.toggle('hidden', !previa);
+  if (fab) fab.classList.toggle('hidden', !naCentral);
   if (previa) rcmRenderDoc();
 }
 
@@ -2447,7 +2468,7 @@ window.rcmSalvar = async function(enviar){
     RC.gravadoEm = new Date().toISOString();
     RC.sujo = false;
     if (enviar){
-      if (await rcmEnviarAtual()) toast('Relatório enviado à central.');
+      if (await rcmEnviarAtual()){ toast('Relatório enviado à central.'); RC.tela = 'central'; }
     } else if (RC.status === 'enviado'){
       toast('Retificação gravada — relatório permanece enviado.');
     } else if (await rcmConfirmar({ titulo:'Rascunho gravado', icone:'fa-cloud-arrow-up', cor:'#8b5cf6', okTexto:'Enviar agora', naoTexto:'Enviar depois',
@@ -2868,19 +2889,146 @@ window.rcmCentral = async function(){
 
 window.rcmCentralFiltro = function(f){ RC.centralFiltro = f; rcmCentralRender(); };
 
+/* Navegação de mês no título da Central — ◀ ▶ */
+window.rcmMesNav = function(d){
+  const hoje = new Date();
+  if (!RC.centralMes){ RC.centralMes = hoje.getMonth() + 1; RC.centralAno = hoje.getFullYear(); }
+  let m = RC.centralMes + d, a = RC.centralAno;
+  if (m < 1){ m = 12; a--; } if (m > 12){ m = 1; a++; }
+  RC.centralMes = m; RC.centralAno = a;
+  const lbl = el('rcm-mes-central'); if (lbl) lbl.textContent = `${MESES_ORD[m - 1]}/${a}`;
+  rcmCentralRender();
+};
+
+/* Menu ⋯ da Central: Atualizar / Configurar ciclo (só admin) / Ajuda */
+window.rcmMenuToggle = function(){ const m = el('rcm-menu'); if (m) m.classList.toggle('hidden'); };
+
+/* Configurar ciclo a partir da Central — mesmo sheet da Prestação,
+   mas amarrado ao mês em exibição na Central. */
+window.rcmConfigCiclo = function(){
+  if (!(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar())){ toast('Apenas administrador configura o ciclo.'); return; }
+  const hoje = new Date();
+  const mesTxt = MESES_ORD[(RC.centralMes || hoje.getMonth() + 1) - 1];
+  const anoTxt = String(RC.centralAno || hoje.getFullYear());
+  const ciclo = SGEG.obterCiclo(anoTxt, mesTxt);
+  const old = el('rc-ciclo-sheet'); if (old) old.remove();
+  const sh = document.createElement('div');
+  sh.id = 'rc-ciclo-sheet';
+  sh.className = 'fixed inset-0 z-[97]';
+  sh.style.background = 'rgba(2,6,23,.8)';
+  const optFech = (n, sel) => Array.from({ length: n }, (_, i) => i + 1)
+    .map(x => `<option value="${x}" ${x === Math.min(sel, n) ? 'selected' : ''}>${x}ª Semana</option>`).join('');
+  const btnTotal = v => `<button data-v="${v}" onclick="rcmCicloEscolher(${v})" class="flex-1 py-2.5 rounded-xl border text-[11px] font-bold cursor-pointer" style="border-color:${ciclo.total_semanas === v ? '#10b981' : 'var(--border-color)'};background:${ciclo.total_semanas === v ? 'rgba(16,185,129,.12)' : 'var(--bg-input)'};color:${ciclo.total_semanas === v ? '#10b981' : 'var(--text-muted)'}">${v} semanas</button>`;
+  sh.innerHTML = `
+    <div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-5 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color)">
+      <div class="flex items-center gap-2"><p class="font-bold text-sm flex-1"><i class="fa-solid fa-calendar-week text-emerald-400 mr-1.5"></i>Ciclo financeiro do mês</p>
+      <button onclick="document.getElementById('rc-ciclo-sheet').remove()" class="opacity-60 cursor-pointer"><i class="fa-solid fa-xmark"></i></button></div>
+      <p class="text-[10px] opacity-60">${mesTxt}/${anoTxt} — vale no desktop e no mobile (sincronizado pela nuvem).</p>
+      <p class="text-[10px] font-bold uppercase opacity-60">Quantidade de semanas</p>
+      <div class="flex gap-2" id="rc-ciclo-totais">${btnTotal(4)}${btnTotal(5)}</div>
+      <p class="text-[10px] font-bold uppercase opacity-60">Semana de fechamento das congregações mensais</p>
+      <select id="rc-ciclo-fech" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${optFech(ciclo.total_semanas, ciclo.semana_fechamento)}</select>
+      <p class="text-[9px] opacity-50 leading-relaxed">Se o mês já tiver lançamentos na 5ª semana, não é possível voltar para 4 — remova ou realoque os lançamentos antes.</p>
+      <button id="rc-ciclo-salvar" onclick="rcmSalvarCiclo()" class="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs cursor-pointer"><i class="fa-solid fa-check mr-1"></i>Salvar ciclo</button>
+    </div>`;
+  sh.addEventListener('click', e => { if (e.target === sh) sh.remove(); });
+  document.body.appendChild(sh);
+  window._rcCicloTotal = ciclo.total_semanas;
+  window._rcCicloMes = mesTxt; window._rcCicloAno = anoTxt;
+};
+window.rcmCicloEscolher = function(v){
+  window._rcCicloTotal = v;
+  const wrap = el('rc-ciclo-totais'); if (!wrap) return;
+  wrap.querySelectorAll('button').forEach(b => {
+    const ativo = Number(b.dataset.v) === v;
+    b.style.borderColor = ativo ? '#10b981' : 'var(--border-color)';
+    b.style.background = ativo ? 'rgba(16,185,129,.12)' : 'var(--bg-input)';
+    b.style.color = ativo ? '#10b981' : 'var(--text-muted)';
+  });
+  const sel = el('rc-ciclo-fech'); if (!sel) return;
+  const atual = Math.min(Number(sel.value || v), v);
+  sel.innerHTML = Array.from({ length: v }, (_, i) => i + 1)
+    .map(x => `<option value="${x}" ${x === atual ? 'selected' : ''}>${x}ª Semana</option>`).join('');
+};
+window.rcmSalvarCiclo = async function(){
+  const total = window._rcCicloTotal || 4;
+  const fech = Number(el('rc-ciclo-fech')?.value || total);
+  const btn = el('rc-ciclo-salvar'); if (btn) btn.disabled = true;
+  try {
+    const c = await SGEG.salvarCiclo(window._rcCicloAno, window._rcCicloMes, total, fech);
+    toast(`${window._rcCicloMes}/${window._rcCicloAno}: ciclo de ${c.total_semanas} semanas salvo.`);
+    el('rc-ciclo-sheet')?.remove();
+  } catch(e){
+    toast(e.message || 'Falha ao salvar o ciclo.');
+    if (btn) btn.disabled = false;
+  }
+};
+
+/* Confirmação de ação sensível COM SENHA — reautentica o usuário logado
+   via api('login') (mesmo motor da reabertura de semanas). */
+window.rcmConfirmarSenha = function(o){
+  return new Promise(resolve => {
+    el('rcm-senha')?.remove();
+    const cor = o.cor || '#ef4444';
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="rcm-senha" class="fixed inset-0 z-[99] flex items-center justify-center p-5" style="background:rgba(0,0,0,.6);backdrop-filter:blur(3px)">
+        <div class="w-full max-w-sm rounded-2xl p-4 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 24px 60px rgba(0,0,0,.45)">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${cor}22;color:${cor}"><i class="fa-solid ${o.icone || 'fa-key'}"></i></span>
+            <p class="text-[12px] font-extrabold">${o.titulo || 'Confirmar'}</p>
+          </div>
+          <p class="text-[11px] leading-relaxed" style="color:var(--text-muted)">${o.msg || ''}</p>
+          <input id="rcm-sn-input" type="password" placeholder="Sua senha" autocomplete="off" class="w-full px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+          <p id="rcm-sn-erro" class="hidden text-[10px] font-bold" style="color:#f87171"></p>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button id="rcm-sn-nao" class="py-2.5 rounded-xl text-[11px] font-bold cursor-pointer border" style="border-color:var(--border-color);color:var(--text-muted)">Cancelar</button>
+            <button id="rcm-sn-sim" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:${cor}">${o.okTexto || 'Confirmar'}</button>
+          </div>
+        </div>
+      </div>`);
+    const inp = el('rcm-sn-input'), erro = el('rcm-sn-erro'), btn = el('rcm-sn-sim');
+    const fim = v => { el('rcm-senha')?.remove(); resolve(v); };
+    el('rcm-sn-nao').onclick = () => fim(false);
+    el('rcm-senha').addEventListener('click', e => { if (e.target.id === 'rcm-senha') fim(false); });
+    inp.onkeydown = e => { if (e.key === 'Enter') btn.click(); };
+    btn.onclick = async () => {
+      const senha = inp.value || '';
+      if (!senha){ erro.textContent = 'Informe sua senha.'; erro.classList.remove('hidden'); return; }
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+      try {
+        const rl = await api('login', {
+          cpf: sessao()?.usuario?.cpf, senha,
+          device_id: typeof sgeDeviceId === 'function' ? sgeDeviceId() : '',
+          plataforma: typeof sgePlataforma === 'function' ? sgePlataforma() : 'PWA',
+        }, sessao()?.token);
+        if (rl?.erro || rl?.ok === false) throw new Error(rl.erro || 'Senha inválida.');
+        fim(true);
+      } catch(e){
+        erro.textContent = e.message || 'Senha inválida.'; erro.classList.remove('hidden');
+        btn.disabled = false; btn.textContent = o.okTexto || 'Confirmar';
+      }
+    };
+    setTimeout(() => inp.focus(), 80);
+  });
+};
+
 window.rcmCentralRender = function(){
   const box = el('rcm-central'); if (!box) return;
-  const lista = RC.centralLista || [];
+  /* Filtro de mês — a navegação ◀ ▶ do título restringe a listagem
+     (client-side sobre os campos mes/ano já devolvidos pela API). */
+  const mNav = RC.centralMes ? { mes: MESES_ORD[RC.centralMes - 1], ano: String(RC.centralAno) } : null;
+  const _noMes = r => !mNav || (String(r.mes || '') === mNav.mes && String(r.ano || '') === mNav.ano);
+  const lista = (RC.centralLista || []).filter(_noMes);
   const f = RC.centralFiltro || 'todos';
   const nEnv = lista.filter(r => r.status === 'enviado').length;
   const chips = el('rcm-central-chips');
   if (chips){
     const mk = (id, rot) => `<button onclick="rcmCentralFiltro('${id}')" class="px-2.5 py-1 rounded-full text-[9px] font-extrabold cursor-pointer" style="${f === id ? 'background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:#fff;border:1px solid transparent' : 'background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border-color)'}">${rot}</button>`;
-    chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`) + mk('lixeira', `<i class="fa-solid fa-trash-can mr-0.5"></i>Lixeira ${(RC.lixeiraLista || []).length}`);
+    chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`) + mk('lixeira', `<i class="fa-solid fa-trash-can mr-0.5"></i>Lixeira ${(RC.lixeiraLista || []).filter(_noMes).length}`);
   }
   const busca = String(RC.centralBusca || '').trim().toLowerCase();
   if (f === 'lixeira'){
-    const lix = (RC.lixeiraLista || []).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
+    const lix = (RC.lixeiraLista || []).filter(_noMes).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
     if (!lix.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Lixeira vazia — nada excluído.</p>'; return; }
     const meuCpfL = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const adminL = rcEhAdmin();
@@ -2953,6 +3101,7 @@ window.rcmAbrir = async function(id){
     RC.somenteLeitura = !RC.podeEditar || RC.status === 'enviado';
     RC.modo = RC.somenteLeitura ? 'previa' : 'editar';
     RC.sujo = false;
+    RC.tela = 'form';
     rcRenderTela();
     const alvo = el(RC.somenteLeitura ? 'rcm-view-previa' : 'rcm-card-ident');
     if (alvo) setTimeout(() => alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
@@ -3045,13 +3194,14 @@ window.rcmConfirmarPerdaEdicao = function(acao){
 };
 
 window.rcmExcluir = async function(id){
-  if (!await rcmConfirmar({ titulo:'Excluir relatório', icone:'fa-trash', cor:'#ef4444', okTexto:'Excluir',
-      msg:'Excluir este relatório <b>definitivamente</b>?<br>Esta ação não pode ser desfeita.' })) return;
+  const _r = (RC.centralLista || []).find(x => String(x.id) === String(id)) || {};
+  if (!await rcmConfirmarSenha({ titulo:'Excluir relatório', icone:'fa-trash', cor:'#ef4444', okTexto:'Excluir',
+      msg:`<b>${rcEsc(_r.congregacao || 'Este relatório')}</b> · ${rcEsc(_r.semana || '')} — vai para a <b>Lixeira</b> (restaurável).<br>Confirme com sua <b>senha</b>:` })) return;
   try {
     const res = await api('excluir_relatorio_caixa', { id }, sessao()?.token);
     if (!res?.ok){ toast(res?.erro || 'Falha ao excluir.'); return; }
-    if (String(RC.id) === String(id)) rcmNovo(); else rcmCentral();
-    toast('Relatório excluído.');
+    if (String(RC.id) === String(id)) rcmVoltar(); else rcmCentral();
+    toast('Relatório movido para a Lixeira.');
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
@@ -3067,9 +3217,8 @@ window.rcmRestaurar = async function(id){
   } catch(e){ toast(e.message || 'Erro de conexão.'); }
 };
 
-window.rcmVoltar = function(){ rcmNovo(); };
-
-window.rcmNovo = async function(){
+/* Limpa o estado do formulário (usado por Novo e por Voltar à central). */
+function rcmResetEstado(){
   RC.lancamentos = []; RC.id = null; RC.status = 'rascunho';
   RC.somenteLeitura = false; RC.podeEditar = true; RC.modo = 'editar';
   RC.autor = ''; RC.gravadoEm = ''; RC.sujo = false;
@@ -3079,6 +3228,15 @@ window.rcmNovo = async function(){
   const hoje = new Date();
   F.rcData = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
   F.rcSemana = '1ª Semana';
+}
+
+window.rcmVoltar = function(){
+  rcmResetEstado(); RC.tela = 'central';
+  rcRenderTela(); rcmCentral();
+};
+
+window.rcmNovo = async function(){
+  rcmResetEstado(); RC.tela = 'form';
   rcRenderTela();
   const cong = String(el('rcm-congregacao')?.value || F.rcCongregacao || '').trim();
   const sug = await rcmSugerirSemana();
