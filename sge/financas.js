@@ -3890,7 +3890,7 @@ async function orcCarregarLista(){
           <div class="flex-1 min-w-0">
             <p class="text-xs font-bold truncate">${esc(o.titulo)}</p>
             ${o.cabecalho ? `<p class="text-[10px] opacity-60 truncate">${esc(o.cabecalho)}</p>` : ''}
-            <p class="text-[10px] mt-1" style="color:var(--text-muted)">Saídas: <b>${moeda(o.total_saidas)}</b>${o.total_reembolsos ? ` · Reemb.: <b style="color:#34d399">${moeda(o.total_reembolsado)}</b> · Saldo: <b style="color:${o.saldo_final > 0 ? '#f87171' : '#34d399'}">${moeda(o.saldo_final)}</b>` : ''} · ${o.total_itens} saída(s)${o.total_reembolsos ? ` + ${o.total_reembolsos} reemb.` : ''}</p>
+            <p class="text-[10px] mt-1" style="color:var(--text-muted)">${(o.total_receitas || 0) > 0 ? `Receitas: <b style="color:#34d399">${moeda(o.total_receitas)}</b> · ` : ''}Saídas: <b>${moeda(o.total_saidas)}</b>${o.total_reembolsos ? ` · Reemb.: <b style="color:#34d399">${moeda(o.total_reembolsado)}</b> · Saldo: <b style="color:${o.saldo_final > 0 ? '#f87171' : '#34d399'}">${moeda(o.saldo_final)}</b>` : ''}${(o.total_receitas || 0) > 0 ? ` · Saldo: <b style="color:${(o.resultado || 0) >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(o.resultado || 0))}${(o.resultado || 0) < 0 ? ' (déficit)' : ''}</b>` : ''} · ${o.total_itens} saída(s)${o.total_reembolsos ? ` + ${o.total_reembolsos} reemb.` : ''}</p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
             <span class="text-[8.5px] font-extrabold px-2 py-0.5 rounded-full" style="color:${st.cor};background:${st.cor}1c">${st.rot}</span>
@@ -3997,7 +3997,7 @@ function orcRenderDetalhe(){
   if ((o.total_saidas || 0) > 0 || (o.total_reembolsos || 0) > 0)
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${saldo > 0 ? 'rgba(248,113,113,.4)' : 'rgba(52,211,153,.4)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total atual — ${rotSaldo}</p><p class="text-[11px] font-extrabold" style="color:${saldo > 0 ? '#f87171' : '#34d399'}">${moeda(Math.abs(saldo))}</p></div>`;
   if ((o.total_receitas_qtd || 0) > 0)
-    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${res >= 0 ? 'rgba(52,211,153,.45)' : 'rgba(248,113,113,.45)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Resultado (${res >= 0 ? 'superávit' : 'déficit'})</p><p class="text-[11px] font-extrabold" style="color:${res >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(res))}</p></div>`;
+    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:${res >= 0 ? 'rgba(52,211,153,.45)' : 'rgba(248,113,113,.45)'};background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Saldo do evento${res < 0 ? ' (déficit)' : ''}</p><p class="text-[11px] font-extrabold" style="color:${res >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(res))}</p></div>`;
   if (Math.abs(o.total_pendente || 0) > 0.004)
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:rgba(251,191,36,.45);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">A confirmar</p><p class="text-[11px] font-extrabold" style="color:#fbbf24">${moeda(Math.abs(o.total_pendente))}</p></div>`;
   el('fin-sub').innerHTML = `
@@ -4510,7 +4510,7 @@ function _orcTextoWhats(o){
   }
   if ((o.receitas || []).length){
     const res = o.resultado || 0;
-    L.push('', `*Resultado do evento (${res >= 0 ? 'superávit' : 'déficit'}): ${moeda(Math.abs(res))}*`);
+    L.push('', `*Saldo do evento${res < 0 ? ' (déficit)' : ''}: ${moeda(Math.abs(res))}*`);
   }
   if (o.observacoes) L.push('', `Obs.: ${o.observacoes}`);
   L.push('', '_Gerado pelo SGE_');
