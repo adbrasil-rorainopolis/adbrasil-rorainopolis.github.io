@@ -2564,7 +2564,7 @@ window.rcmRenderDoc = async function(){
   const qrEl = el('rcm-qr');
   if (!qrEl) return;
   try {
-    if (typeof QRCode !== 'undefined'){
+    if (await sgeQrAguardarLib(15)){
       const params = new URLSearchParams({
         c: rel.congregacao || '', d: rel.data_relatorio || '', s: rel.semana || '',
         a: RC.autor || sessao()?.usuario?.nome || '', g: RC.gravadoEm || '',
@@ -2599,6 +2599,14 @@ function rcmImgData(src){
 }
 
 /* QR SGE — modulos arredondados, ECC H, bitmap em alta resolucao, quiet zone interna. */
+/* Aguarda a lib QRCode (evita corrida com o carregamento do script). */
+function sgeQrAguardarLib(tent){
+  return new Promise(res => {
+    if (typeof QRCode !== 'undefined') return res(true);
+    let n = 0;
+    (function chk(){ typeof QRCode !== 'undefined' ? res(true) : (++n > (tent || 25) ? res(false) : setTimeout(chk, 80)); })();
+  });
+}
 let _sgeQrLogo = null, _sgeQrLogoOk = false;
 try {
   const _li = new Image();
@@ -2667,7 +2675,7 @@ function sgeQrNoEl(el, url, tamCss, tamBmp){
 
 async function rcmQrDataUrl(texto, tam){
   try {
-    if (typeof QRCode === 'undefined') return null;
+    if (!await sgeQrAguardarLib(15)) return null;
     const cv0 = document.createElement('canvas');
     await sgeQrLogoPronto(1500);
     if (sgeQrRender(cv0, texto, (tam || 128) * 4)) return cv0.toDataURL('image/png');
