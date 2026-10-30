@@ -261,8 +261,8 @@ window.finMenu = function(){
   const menu = el('fin-menu'); if (!menu) return;
   const grupos = [
     { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
-    { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
     { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda', 'despesas'] },
+    { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
   ];
   const blocos = grupos.map(g => {
     const itens = g.abas.filter(finAbaPermitida);
