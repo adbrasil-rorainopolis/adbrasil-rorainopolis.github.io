@@ -3058,8 +3058,11 @@ window.rcmCentralRender = function(){
       const porSem = {};
       g.forEach(r => { const s = String(r.semana || ''); (porSem[s] = porSem[s] || []).push(r); });
       const sems = Object.keys(porSem).sort((a, b) => _numSem(b) - _numSem(a));
+      const idxCong = r => (window.SGEG && typeof SGEG.ordemCongregacaoIdxG === 'function'
+        ? SGEG.ordemCongregacaoIdxG(r.congregacao, r.conselho)
+        : 9999);
       const blocosSem = sems.map(s => {
-        const linhas = porSem[s].sort((a, b) => String(a.congregacao || '').localeCompare(String(b.congregacao || '')));
+        const linhas = porSem[s].sort((a, b) => idxCong(a) - idxCong(b) || String(a.congregacao || '').localeCompare(String(b.congregacao || ''), 'pt-BR'));
         return _sepNivel(rcEsc(s || '?'), 'var(--color-primary)') + linhas.map(mkItem).join('');
       }).join('');
       return _sepMes(`${rcEsc(g[0].mes || '?')} ${rcEsc(String(g[0].ano || ''))} · ${g.length} relatório${g.length > 1 ? 's' : ''}`) + blocosSem;
