@@ -3031,7 +3031,10 @@ window.rcmCentralRender = function(){
     const mk = (id, rot) => `<button onclick="rcmCentralFiltro('${id}')" class="px-2.5 py-1 rounded-full text-[9px] font-extrabold cursor-pointer" style="${f === id ? 'background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));color:#fff;border:1px solid transparent' : 'background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border-color)'}">${rot}</button>`;
     chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`) + mk('lixeira', `<i class="fa-solid fa-trash-can mr-0.5"></i>Lixeira ${(RC.lixeiraLista || []).filter(_noMes).length}`);
   }
-  const busca = String(RC.centralBusca || '').trim().toLowerCase();
+  /* Busca tolerante a acentos/caso: "filadelfia" acha "Filadélfia". */
+  const _normB = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const busca = _normB(RC.centralBusca).trim();
+  const _casaBusca = r => !busca || _normB(r.congregacao).includes(busca) || _normB(r.autor_nome).includes(busca);
   /* Separador de grupo por mês — deixa a lista organizada por período
      (funciona também quando o mês navegado muda). */
   const _ordMes = r => { const i = MESES_ORD.indexOf(String(r.mes || '')); return i < 0 ? '9999-99' : String(r.ano).padStart(4, '0') + '-' + String(i + 1).padStart(2, '0'); };
@@ -3073,7 +3076,7 @@ window.rcmCentralRender = function(){
   };
 
   if (f === 'lixeira'){
-    const lix = (RC.lixeiraLista || []).filter(_noMes).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
+    const lix = (RC.lixeiraLista || []).filter(_noMes).filter(_casaBusca);
     if (!lix.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Lixeira vazia — nada excluído.</p>'; return; }
     const meuCpfL = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const adminL = rcEhAdmin();
@@ -3092,7 +3095,7 @@ window.rcmCentralRender = function(){
       });
     return;
   }
-  const fil = lista.filter(r => (f === 'todos' || r.status === f) && (!busca || String(r.congregacao || '').toLowerCase().includes(busca)));
+  const fil = lista.filter(r => (f === 'todos' || r.status === f) && _casaBusca(r));
   if (!fil.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório neste filtro.</p>'; return; }
   const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
   const admin = rcEhAdmin();
