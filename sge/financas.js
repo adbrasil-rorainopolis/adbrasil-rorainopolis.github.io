@@ -3027,12 +3027,25 @@ window.rcmCentralRender = function(){
     chips.innerHTML = mk('todos', `Todos ${lista.length}`) + mk('enviado', `Enviados ${nEnv}`) + mk('rascunho', `Rascunhos ${lista.length - nEnv}`) + mk('lixeira', `<i class="fa-solid fa-trash-can mr-0.5"></i>Lixeira ${(RC.lixeiraLista || []).filter(_noMes).length}`);
   }
   const busca = String(RC.centralBusca || '').trim().toLowerCase();
+  /* Separador de grupo por mês — deixa a lista organizada por período
+     (funciona também quando o mês navegado muda). */
+  const _ordMes = r => { const i = MESES_ORD.indexOf(String(r.mes || '')); return i < 0 ? '9999-99' : String(r.ano).padStart(4, '0') + '-' + String(i + 1).padStart(2, '0'); };
+  const _sepMes = (rotulo) => `<div class="flex items-center gap-2 pt-2 pb-1"><div class="h-px flex-1" style="background:var(--border-color)"></div><span class="text-[8.5px] font-extrabold uppercase tracking-wide" style="color:var(--text-muted)">${rotulo}</span><div class="h-px flex-1" style="background:var(--border-color)"></div></div>`;
+  const _comSeparador = (itens, mkItem) => {
+    const grupos = {};
+    itens.forEach(r => { const k = _ordMes(r); (grupos[k] = grupos[k] || []).push(r); });
+    return Object.keys(grupos).sort((a, b) => b.localeCompare(a)).map(k => {
+      const g = grupos[k];
+      return _sepMes(`${rcEsc(g[0].mes || '?')} ${rcEsc(String(g[0].ano || ''))} · ${g.length} relatório${g.length > 1 ? 's' : ''}`) + g.map(mkItem).join('');
+    }).join('');
+  };
+
   if (f === 'lixeira'){
     const lix = (RC.lixeiraLista || []).filter(_noMes).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
     if (!lix.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Lixeira vazia — nada excluído.</p>'; return; }
     const meuCpfL = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
     const adminL = rcEhAdmin();
-    box.innerHTML = lix.map(r => {
+    box.innerHTML = _comSeparador(lix, r => {
         const podeL = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpfL || adminL || rcEhDaMinhaCong(r);
         const dtEx = r.excluido_em ? new Date(r.excluido_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
         return `
@@ -3044,14 +3057,14 @@ window.rcmCentralRender = function(){
           <span class="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full shrink-0" style="background:rgba(239,68,68,.14);color:#f87171"><i class="fa-solid fa-trash-can mr-0.5"></i>excluído</span>
           ${podeL ? `<button onclick="rcmRestaurar('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#34d399" title="Restaurar"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
         </div>`;
-      }).join('');
+      });
     return;
   }
   const fil = lista.filter(r => (f === 'todos' || r.status === f) && (!busca || String(r.congregacao || '').toLowerCase().includes(busca)));
   if (!fil.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório neste filtro.</p>'; return; }
   const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
   const admin = rcEhAdmin();
-  box.innerHTML = fil.map(r => {
+  box.innerHTML = _comSeparador(fil, r => {
       const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin || rcEhDaMinhaCong(r);
       const enviado = r.status === 'enviado';
       const badgeItem = enviado
@@ -3070,7 +3083,7 @@ window.rcmCentralRender = function(){
         <button onclick="event.stopPropagation();rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:${enviado ? '#38bdf8' : 'var(--color-primary)'}" title="${enviado ? 'Visualizar' : 'Continuar edição'}"><i class="fa-solid ${enviado ? 'fa-eye' : 'fa-pen-to-square'}"></i></button>
         ${pode ? `<button onclick="event.stopPropagation();rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
-    }).join('');
+    });
 };
 
 window.rcmAbrir = async function(id){
