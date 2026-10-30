@@ -198,7 +198,6 @@ window.renderFinanceiro = function(){
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(139,92,246,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Financeiro & Tesouraria</h2><p class="text-[10px] opacity-60">Caixa, movimento e prestação de contas</p></div>
-        <button onclick="ajudaAbrir('financeiro')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div id="fin-menu"></div>
       <div id="fin-ctx" class="hidden"></div>
@@ -217,7 +216,6 @@ window.renderDizimistas = function(){
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(168,85,247,.12)"><i class="fa-solid fa-hand-holding-dollar text-lg text-purple-400"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Dizimistas</h2><p class="text-[10px] opacity-60">Rol, frequência, lançamentos semanais e livro oficial</p></div>
-        <button onclick="ajudaAbrir('fin.dizimistas')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
       </div>
       <div id="fin-menu"></div>
       <div id="fin-ctx" class="hidden"></div>
