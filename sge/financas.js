@@ -1571,7 +1571,8 @@ function rcRenderTela(){
               <div id="rcm-grid-semanas" class="grid grid-cols-5 gap-1.5"></div></div>
           </div>
         </div>
-        <div id="rcm-baixa" class="relative space-y-3 transition-all duration-300">
+        <div id="rcm-baixa-outer" class="relative">
+        <div id="rcm-baixa" class="space-y-3 transition-all duration-300">
         <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
           <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
           <div class="grid grid-cols-2 gap-2">
@@ -1597,6 +1598,7 @@ function rcRenderTela(){
           </div>
           <div id="rcm-lista"></div>
           <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
+        </div>
         </div>
         <div id="rcm-baixa-bloq" class="absolute inset-0 z-20 flex items-start justify-center pt-16" style="pointer-events:none;margin-top:0;opacity:0;transition:opacity .35s ease">
           <div class="rounded-2xl px-4 py-3 text-[11px] font-extrabold flex items-center gap-2" style="background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(248,113,113,.5);box-shadow:0 12px 28px rgba(0,0,0,.4)"><i class="fa-solid fa-lock text-sm"></i><span>Semana fechada — selecione uma semana aberta</span></div>
