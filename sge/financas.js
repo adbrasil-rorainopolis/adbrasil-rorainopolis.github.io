@@ -1623,36 +1623,41 @@ function rcRenderTela(){
           <div class="p-4 space-y-4 text-[11px] leading-relaxed overflow-y-auto" style="color:var(--text-main)">
             <div>
               <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-inbox mr-1.5"></i>O que é a Central de Relatórios?</p>
-              <p class="opacity-80">É a caixa de entrada do caixa. Fica no topo da tela e mostra todos os relatórios do seu alcance: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). Use os filtros <b>Todos / Enviados / Rascunhos / Lixeira</b> e a busca por congregação para achar qualquer relatório.</p>
+              <p class="opacity-80">É a primeira tela do Envio de Caixa — a caixa de entrada. Mostra todos os relatórios do seu alcance separados por <b>mês → conselho → semana</b>: <b style="color:#10b981">enviados</b> (verde) e <b style="color:#f59e0b">rascunhos</b> (âmbar). As setas <b>◀ ▶</b> no título trocam o mês, os chips filtram <b>Todos / Enviados / Rascunhos / Lixeira</b> e a busca localiza a congregação.</p>
+            </div>
+            <div>
+              <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-grip mr-1.5"></i>Guia da Central</p>
+              <div class="space-y-1.5 opacity-80">
+                <p><i class="fa-solid fa-ellipsis mr-1.5" style="color:var(--color-primary)"></i><b>Menu ⋯</b> — Atualizar a lista, <b>Configurar ciclo</b> (4/5 semanas do mês — só administrador) e esta Ajuda.</p>
+                <p><i class="fa-solid fa-paper-plane mr-1.5" style="color:#8b5cf6"></i>No <b>rascunho</b>, o avião envia direto da lista — sem precisar abrir.</p>
+                <p><i class="fa-solid fa-pen-to-square mr-1.5" style="color:var(--color-primary)"></i><b>Toque no item</b> — rascunho continua a edição; enviado abre em leitura.</p>
+                <p><i class="fa-solid fa-trash mr-1.5" style="color:#f87171"></i><b>Excluir</b> — pede a sua <b>senha</b> e move para a Lixeira. Só aparece para autor, administrador ou o tesoureiro daquela congregação.</p>
+              </div>
             </div>
             <div>
               <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-trash-can mr-1.5"></i>Excluiu sem querer? Use a Lixeira</p>
-              <p class="opacity-80">Relatório excluído <b>não é apagado para sempre</b> — ele vai para a <b>Lixeira</b> (último filtro da Central). Lá ele aparece com o selo <b style="color:#f87171">EXCLUÍDO</b> e a data da exclusão. Toque em <i class="fa-solid fa-rotate-left" style="color:#34d399"></i> para <b>restaurar</b>: ele volta para a Central no mesmo status — enviado volta como enviado, rascunho volta como rascunho.</p>
+              <p class="opacity-80">Relatório excluído <b>não é apagado</b> — vai para a <b>Lixeira</b> (último filtro, também separada por mês). Lá ele aparece com o selo <b style="color:#f87171">EXCLUÍDO</b> e a data. Toque em <i class="fa-solid fa-rotate-left" style="color:#34d399"></i> para <b>restaurar</b> — volta no mesmo status.</p>
             </div>
             <div>
-              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-folder-open mr-1.5"></i>Como continuar um rascunho?</p>
-              <p class="opacity-80">Toque no rascunho na lista da Central. Os dados voltam automaticamente para os campos de edição lá embaixo e você continua exatamente de onde parou — lançamentos, data e congregação.</p>
+              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-plus mr-1.5"></i>Como iniciar um novo relatório?</p>
+              <p class="opacity-80">Toque no botão <b>+</b> dourado flutuante. Abre a tela do relatório e o sistema já sugere a <b>próxima semana sem prestação de contas</b> — se a 2ª Semana já foi enviada, ele posiciona na 3ª. O tesoureiro entra com a congregação dele travada.</p>
             </div>
             <div>
-              <p class="font-bold text-[11px] mb-1" style="color:var(--color-primary)"><i class="fa-solid fa-file-circle-plus mr-1.5"></i>Como iniciar um novo relatório?</p>
-              <p class="opacity-80">Toque em <b>NOVO</b>. A tela limpa e o sistema sugere automaticamente a <b>próxima semana sem prestação de contas</b> da congregação — se a 2ª Semana já foi enviada, ele já posiciona na 3ª. A faixa azul de orientação confirma o que foi sugerido.</p>
-            </div>
-            <div>
-              <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-grip mr-1.5"></i>Guia dos botões de ação</p>
+              <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-grip mr-1.5"></i>Guia dos botões do relatório</p>
               <div class="space-y-1.5 opacity-80">
-                <p><span class="inline-block w-20 font-bold" style="color:#94a3b8">NOVO</span> limpa a tela e inicia o próximo relatório (sugere a semana).</p>
-                <p><span class="inline-block w-20 font-bold" style="color:#10b981">GRAVAR</span> salva o rascunho na nuvem sem enviar — dá pra continuar depois.</p>
-                <p><span class="inline-block w-20 font-bold" style="color:#8b5cf6">ENVIAR</span> transmite o relatório finalizado para a administração.</p>
-                <p><span class="inline-block w-20 font-bold" style="color:#f59e0b">PRÉVIA</span> abre na hora o espelho oficial do documento para conferência — não precisa gravar antes.</p>
-                <p><span class="inline-block w-20 font-bold" style="color:#38bdf8">PDF</span> gera o documento oficial para salvar ou compartilhar/imprimir.</p>
-                <p><span class="inline-block w-20 font-bold" style="color:#10b981">+ ADICIONAR</span> joga o lançamento preenchido (dízimo/oferta em espécie ou Pix) para a tabela do movimento.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#94a3b8">←</span> volta para a Central.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#10b981">GRAVAR RASC.</span> salva o rascunho na nuvem sem enviar — dá pra continuar depois.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#f59e0b">PRÉVIA</span> abre o espelho oficial do documento — sem precisar gravar antes — e lá dentro tem o botão <b>Salvar PDF</b>.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#8b5cf6">ENVIAR</span> transmite o relatório finalizado para a administração e volta para a Central.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#ea580c">CORRIGIR</span> (só em enviado, para autor/admin) libera a edição — GRAVAR salva a retificação mantendo o histórico.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#10b981">+ ADICIONAR</span> joga o lançamento preenchido (dízimo/oferta em espécie ou Pix) para a tabela do movimento.</p>
               </div>
             </div>
             <div>
               <p class="font-bold text-[11px] mb-1.5" style="color:var(--color-primary)"><i class="fa-solid fa-list-ol mr-1.5"></i>Passo a passo dos campos</p>
               <div class="space-y-1.5 opacity-80">
                 <p><b>1.</b> <b>Congregação</b> — de quem é a prestação (o tesoureiro já vem com a dele travada).</p>
-                <p><b>2.</b> <b>Data da Prestação</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o NOVO já sugere).</p>
+                <p><b>2.</b> <b>Data da Prestação</b> — toque para abrir o calendário. <b>Fechamento</b> — a semana prestada (o + da Central já sugere a próxima livre).</p>
                 <p><b>3.</b> <b>Lançamentos</b> — agrupados em Entradas (dízimo, oferta ordinária, missionária, círculo de oração, domingo à noite), Saídas ou Cancelado (registra recibo anulado com valor zero).</p>
                 <p><b>4.</b> <b>Detalhe</b> — a oferta específica ou o nome do dizimista (com sugestão dos membros).</p>
                 <p><b>5.</b> <b>Forma de pagamento</b> — Espécie ou Pix.</p>

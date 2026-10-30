@@ -183,15 +183,18 @@ const SGE_AJUDA = {
     t: 'Envio de Caixa', ico: 'fa-file-invoice-dollar', cor: '#a78bfa',
     intro: 'Central de relatórios semanais: aqui a congregação monta o fechamento da semana e envia para a central. O passo a passo detalhado continua no botão "?" dentro da própria tela.',
     grupos: [
-      { titulo: 'Fluxo', itens: [
-        { q: 'Central de relatórios', a: 'Lista as congregações e o status do relatório da semana — use a busca ou os chips para localizar a sua.' },
-        { q: 'Ações do topo', a: 'Os cinco botões conduzem o fluxo: novo relatório, gravar rascunho, enviar, corrigir (retificar enviado) e fechamento.' },
-        { q: 'Rascunho', a: 'GRAVAR guarda o trabalho sem transmitir; ENVIAR entrega oficialmente à central — o selo "Rascunho" some só depois do envio.' },
-        { q: 'Retificação', a: 'Relatório enviado pode ser corrigido: entra em modo retificação e GRAVAR salva a nova versão mantendo o histórico.' },
-        { q: 'Somente leitura', a: 'Relatórios enviados/recebidos de semanas fechadas abrem para visualização; a edição só volta via retificação autorizada.' },
+      { titulo: 'Central — tela inicial', itens: [
+        { q: 'Navegação de mês', a: 'As setas <b>◀ ▶</b> no título trocam o mês exibido — a lista e a lixeira acompanham.' },
+        { q: 'Agrupamentos', a: 'Os relatórios ficam separados por <b>mês → conselho → semana</b>, com divisores visuais — nada fica solto.' },
+        { q: 'Menu ⋯', a: 'Ao lado da navegação: Atualizar a lista, <b>Configurar ciclo</b> (só administrador) e Ajuda.' },
+        { q: 'Ícones do item', a: 'Cada relatório mostra: ✈ enviar rascunho direto, 👁/✏️ abrir e 🗑 excluir (excluir pede a sua <b>senha</b> e vai para a Lixeira, restaurável).' },
+        { q: 'Botão +', a: 'O botão dourado flutuante inicia um novo relatório e já sugere a próxima semana sem prestação.' },
       ]},
-      { titulo: 'Ajuda detalhada', itens: [
-        { q: 'Passo a passo completo', a: 'Dentro da tela, o botão <b>?</b> ao lado das ações abre o tutorial completo da central — campos, envio e conferência.' },
+      { titulo: 'Relatório', itens: [
+        { q: 'Ações', a: '<b>GRAVAR RASCUNHO</b> guarda sem transmitir · <b>PRÉVIA</b> mostra o documento oficial (com o botão Salvar PDF) · <b>ENVIAR</b> entrega à central e volta para a lista.' },
+        { q: 'Retificação', a: 'Relatório enviado abre em leitura: <b>CORRIGIR</b> libera a edição e GRAVAR salva a nova versão mantendo o histórico.' },
+        { q: 'Somente leitura', a: 'Relatórios de terceiros ou de semanas fechadas abrem só para visualização — a edição volta via retificação autorizada.' },
+        { q: 'Voltar (←)', a: 'A seta no topo do formulário volta para a Central.' },
       ]},
     ],
   },
@@ -203,8 +206,9 @@ const SGE_AJUDA = {
     grupos: [
       { titulo: 'Uso', itens: [
         { q: 'Grade por congregação', a: 'Toque numa congregação para lançar ou corrigir o valor recebido naquela semana.' },
-        { q: 'Cadeado da semana', a: 'Toque no cadeado para fechar todas as semanas até a selecionada — ou reabrir a partir dela.', se: _adm },
+        { q: 'Cadeado da semana', a: 'Toque no cadeado para fechar/reabrir <b>só aquela semana</b> — as demais continuam abertas.', se: _adm },
         { q: 'Semana bloqueada', a: 'O selo âmbar indica semana travada para edição — o cadeado reabre quando necessário.' },
+        { q: 'Ciclo do mês', a: 'O botão "Ciclo do mês" abaixo das semanas define 4 ou 5 fechamentos — só administrador; vale no desktop também.', se: _adm },
         { q: 'Saídas manuais', a: 'Lançadas somente no desktop — aqui aparecem consolidadas na leitura.' },
       ]},
     ],
