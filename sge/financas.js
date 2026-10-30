@@ -3040,6 +3040,33 @@ window.rcmCentralRender = function(){
     }).join('');
   };
 
+  /* Subdivisões dentro do mês: ▸ CONSELHO e ── semana (itens ordenados
+     por semana e congregação dentro de cada grupo). */
+  const _sepNivel = (rot, cor) => `<div class="flex items-center gap-2 pt-2.5 pb-1"><span class="text-[9px] font-extrabold uppercase tracking-wide shrink-0" style="color:${cor}">${rot}</span><div class="h-px flex-1" style="background:var(--border-color)"></div></div>`;
+  const _numSem = s => { const m = /(\d+)/.exec(String(s || '')); return m ? +m[1] : 99; };
+  const _comSeparadorDuplo = (itens, mkItem) => {
+    const porMes = {};
+    itens.forEach(r => { const k = _ordMes(r); (porMes[k] = porMes[k] || []).push(r); });
+    return Object.keys(porMes).sort((a, b) => b.localeCompare(a)).map(k => {
+      const g = porMes[k];
+      const porCons = {};
+      g.forEach(r => { const c = String(r.conselho || '').trim() || 'SEM CONSELHO'; (porCons[c] = porCons[c] || []).push(r); });
+      const cons = Object.keys(porCons).sort((a, b) => (a === 'SEM CONSELHO') - (b === 'SEM CONSELHO') || a.localeCompare(b));
+      const blocosCons = cons.map(c => {
+        const it = porCons[c];
+        const porSem = {};
+        it.forEach(r => { const s = String(r.semana || ''); (porSem[s] = porSem[s] || []).push(r); });
+        const sems = Object.keys(porSem).sort((a, b) => _numSem(a) - _numSem(b));
+        return _sepNivel('⛪ ' + rcEsc(c), 'var(--color-primary)')
+          + sems.map(s => {
+              const linhas = porSem[s].sort((a, b) => String(a.congregacao || '').localeCompare(String(b.congregacao || '')));
+              return _sepNivel(rcEsc(s || '?'), 'var(--text-subtle)') + linhas.map(mkItem).join('');
+            }).join('');
+      }).join('');
+      return _sepMes(`${rcEsc(g[0].mes || '?')} ${rcEsc(String(g[0].ano || ''))} · ${g.length} relatório${g.length > 1 ? 's' : ''}`) + blocosCons;
+    }).join('');
+  };
+
   if (f === 'lixeira'){
     const lix = (RC.lixeiraLista || []).filter(_noMes).filter(r => !busca || String(r.congregacao || '').toLowerCase().includes(busca));
     if (!lix.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Lixeira vazia — nada excluído.</p>'; return; }
@@ -3064,7 +3091,7 @@ window.rcmCentralRender = function(){
   if (!fil.length){ box.innerHTML = '<p class="text-[11px] opacity-50 py-3 text-center">Nenhum relatório neste filtro.</p>'; return; }
   const meuCpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g,'');
   const admin = rcEhAdmin();
-  box.innerHTML = _comSeparador(fil, r => {
+  box.innerHTML = _comSeparadorDuplo(fil, r => {
       const pode = String(r.autor_cpf || '').replace(/\D/g,'') === meuCpf || admin || rcEhDaMinhaCong(r);
       const enviado = r.status === 'enviado';
       const badgeItem = enviado
