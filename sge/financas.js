@@ -4744,7 +4744,7 @@ window.orcPdf = function(){
   }
   if (o.total_receitas){
     const res = o.resultado || 0;
-    linhaTotal(`RESULTADO DO EVENTO — ${res >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}`, moeda(Math.abs(res)),
+    linhaTotal(`SALDO DO EVENTO${res < 0 ? ' (DÉFICIT)' : ''}`, moeda(Math.abs(res)),
                res >= 0 ? VERDE_C : VERM_C, res >= 0 ? VERDE : VERM);
   }
 
