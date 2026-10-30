@@ -2488,10 +2488,10 @@ window.renderAcessos = function(){
   el('dash-conteudo').innerHTML = `
     <div class="space-y-3">
       <div class="flex items-center gap-3 pb-3 border-b" style="border-color:var(--border-color)">
-        <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left text-sm" style="color:var(--text-muted)"></i></button>
         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(244,63,94,.12)"><i class="fa-solid fa-user-shield text-lg" style="color:#f43f5e"></i></div>
         <div class="flex-1 min-w-0"><h2 class="font-bold text-sm">Acessos e permissões</h2><p class="text-[10px] opacity-60">Ferramentas administrativas — usuários, papéis e aparelhos</p></div>
         <button onclick="ajudaAbrir('acessos')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)">?</button>
+        <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left text-sm" style="color:var(--text-muted)"></i></button>
       </div>
       <div class="flex gap-1.5">
         <button onclick="acessosAba('usuarios')" id="acessos-nav-usuarios" class="acessos-nav flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-users-gear mr-1.5"></i>Usuários</button>

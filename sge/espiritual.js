@@ -50,8 +50,8 @@ window.renderSecretaria = function(){
   if (!sgeAbaPermitida('secretaria', 'espiritual')){
     D.innerHTML = `
       <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color:var(--border-color)">
-        <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
         <div class="flex-1"><h2 class="font-cinzel font-bold text-base">Secretaria & Espiritual</h2></div>
+        <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
       </div>
       <div class="rounded-2xl border p-8 text-center" style="background:var(--bg-card);border-color:var(--border-color)">
         <i class="fa-solid fa-lock text-2xl opacity-30 mb-3 block"></i>
@@ -61,12 +61,12 @@ window.renderSecretaria = function(){
   }
   D.innerHTML = `
     <div class="flex items-center gap-3 pb-4 border-b mb-4" style="border-color:var(--border-color)">
-      <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
       <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style="background:rgba(244,114,182,.12)"><i class="fa-solid fa-dove text-lg text-pink-400"></i></div>
       <div class="flex-1 min-w-0"><h2 class="font-cinzel font-bold text-base leading-tight">Relatório Espiritual</h2>
         <p class="text-[10px]" style="color:var(--text-muted)">Movimento mensal do campo · Setor 14</p></div>
       <button onclick="ajudaAbrir('secretaria')" title="Como usar — ajuda do módulo" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0 text-[13px] font-extrabold" style="border-color:var(--border-color);color:var(--color-primary)" >?</button>
       <button onclick="espCarregar(true)" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)" title="Atualizar"><i class="fa-solid fa-rotate"></i></button>
+      <button onclick="mudarVisao('dashboard')" class="w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
       ${espPodeEditar() ? `<button onclick="espAbrirForm()" class="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer shrink-0 text-white" style="background:var(--color-primary)" title="Lançar mês"><i class="fa-solid fa-plus"></i></button>` : ''}
     </div>
     <div id="espm-meses" class="flex gap-1.5 overflow-x-auto pb-1 mb-3" style="scrollbar-width:none"></div>

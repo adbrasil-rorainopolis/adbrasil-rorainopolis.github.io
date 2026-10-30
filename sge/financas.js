@@ -323,12 +323,12 @@ window.finAba = function(aba){
     ctx.classList.remove('hidden');
     ctx.innerHTML = `
       <div class="flex items-center gap-2">
-        <button onclick="finVoltarMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
         <div class="flex-1 min-w-0">
-          <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}
-            <button onclick="ajudaAbrir('fin.${aba}')" title="Como usar — ajuda desta aba" class="w-5 h-5 rounded-full border text-[9px] font-bold cursor-pointer inline-flex items-center justify-center opacity-70 shrink-0" style="border-color:var(--border-color)"><i class="fa-solid fa-question"></i></button></p>
+          <p class="text-xs font-bold flex items-center gap-1.5"><i class="fa-solid ${meta.icone}" style="color:${meta.cor}"></i>${meta.nome}</p>
           <p class="text-[9px] opacity-55">${meta.desc}</p>
         </div>
+        <button onclick="ajudaAbrir('fin.${aba}')" title="Como usar — ajuda desta aba" class="w-8 h-8 rounded-xl border text-[10px] font-bold cursor-pointer inline-flex items-center justify-center shrink-0" style="border-color:var(--border-color);color:var(--color-primary)"><i class="fa-solid fa-question"></i></button>
+        <button onclick="finVoltarMenu()" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)" title="Voltar ao menu"><i class="fa-solid fa-arrow-left text-xs"></i></button>
       </div>`;
   }
   if (aba === 'semanal') return finRenderSemanal();
@@ -4029,7 +4029,6 @@ function orcRenderDetalhe(){
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:rgba(251,191,36,.45);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">A confirmar</p><p class="text-[11px] font-extrabold" style="color:#fbbf24">${moeda(Math.abs(o.total_pendente))}</p></div>`;
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
-      <button onclick="orcVoltar()" class="text-[10px] font-bold cursor-pointer" style="color:#38bdf8"><i class="fa-solid fa-arrow-left mr-1"></i>Voltar à lista</button>
       <div class="border rounded-2xl p-3 space-y-2 ${o.arquivado ? 'opacity-70' : ''}" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-start gap-2">
           <div class="flex-1 min-w-0">
@@ -4037,6 +4036,7 @@ function orcRenderDetalhe(){
             ${o.cabecalho ? `<p class="text-[10px] opacity-70">${esc(o.cabecalho)}</p>` : ''}
           </div>
           <span class="text-[8.5px] font-extrabold px-2 py-0.5 rounded-full shrink-0" style="color:${st.cor};background:${st.cor}1c">${st.rot}</span>
+          <button onclick="orcVoltar()" title="Voltar à lista" class="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left text-xs"></i></button>
         </div>
         ${o.observacoes ? `<p class="text-[10px] opacity-70 whitespace-pre-wrap">${esc(o.observacoes)}</p>` : ''}
         <p class="text-[9px] opacity-50">Criado por ${esc(o.criado_por || '')}${o.finalizado_em ? ` · Finalizado em ${new Date(o.finalizado_em).toLocaleDateString('pt-BR')}` : ''}</p>
@@ -5703,8 +5703,7 @@ function _semModalLanc(){
     host.innerHTML = `<div id="sem-lanc-modal" class="hidden fixed inset-0 z-[86] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
       <div class="w-full max-w-md max-h-[88vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
-          <button onclick="semFecharLanc()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
-          <div class="flex-1 min-w-0"><h3 id="seml-nome" class="font-bold text-sm truncate"></h3><p id="seml-sub" class="text-[10px] opacity-60"></p></div>
+                    <div class="flex-1 min-w-0"><h3 id="seml-nome" class="font-bold text-sm truncate"></h3><p id="seml-sub" class="text-[10px] opacity-60"></p></div>
           <button onclick="semFecharLanc()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-y-auto px-4 pb-5 space-y-3" style="-webkit-overflow-scrolling:touch">
@@ -5934,8 +5933,7 @@ function _semModalLotes(){
     host.innerHTML = `<div id="sem-lotes-modal" class="hidden fixed inset-0 z-[87] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
       <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
-          <button onclick="semFecharLotes()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
-          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-lock mr-1.5" style="color:#a855f7"></i>Gestão de Lotes</h3><p id="semlt-sub" class="text-[10px] opacity-60"></p></div>
+                    <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-lock mr-1.5" style="color:#a855f7"></i>Gestão de Lotes</h3><p id="semlt-sub" class="text-[10px] opacity-60"></p></div>
           <button onclick="semFecharLotes()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-y-auto px-4 pb-5 space-y-2.5" style="-webkit-overflow-scrolling:touch">
@@ -6081,8 +6079,7 @@ function _semModalDiverg(){
     host.innerHTML = `<div id="sem-diverg-modal" class="hidden fixed inset-0 z-[87] flex items-center justify-center px-3" style="background:rgba(0,0,0,.6)">
       <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
-          <button onclick="semFecharDiverg()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-arrow-left"></i></button>
-          <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-magnifying-glass-chart mr-1.5" style="color:#60a5fa"></i>Autoverificação de Dízimos</h3><p id="semd-sub" class="text-[10px] opacity-60"></p></div>
+                    <div class="flex-1 min-w-0"><h3 class="font-bold text-sm"><i class="fa-solid fa-magnifying-glass-chart mr-1.5" style="color:#60a5fa"></i>Autoverificação de Dízimos</h3><p id="semd-sub" class="text-[10px] opacity-60"></p></div>
           <button onclick="semFecharDiverg()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div id="semd-corpo" class="overflow-y-auto px-4 pb-5 space-y-2.5" style="-webkit-overflow-scrolling:touch"></div>
