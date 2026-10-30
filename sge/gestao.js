@@ -332,7 +332,7 @@ function obterCiclo(ano, mes){
 }
 function cicloPodeGravar(){
   const p = String(sessao()?.usuario?.perfil || '').trim().toLowerCase();
-  return p === 'administrador' || p === 'operador';
+  return p === 'administrador';
 }
 async function _cicloTemLancamentoSemana5(ano, mes){
   const eSem5 = s => parseInt((String(s || '').match(/\d+/) || ['0'])[0], 10) === 5;

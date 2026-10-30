@@ -3228,7 +3228,7 @@ window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
    então a mudança reflete nos dois lados. Trava: mês com dados na 5ª não
    volta p/ 4 (o salvarCiclo já valida e o desktop também). ---------- */
 window.prestConfigCiclo = function(){
-  if (!(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar())){ toast('Apenas administrador/operador configura o ciclo.'); return; }
+  if (!(typeof SGEG !== 'undefined' && SGEG.cicloPodeGravar && SGEG.cicloPodeGravar())){ toast('Apenas administrador configura o ciclo.'); return; }
   const ciclo = SGEG.obterCiclo(PREST.ano, PREST.mes);
   const old = el('prest-sheet'); if (old) old.remove();
   const sh = document.createElement('div');
