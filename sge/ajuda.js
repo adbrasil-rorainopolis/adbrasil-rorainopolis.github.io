@@ -191,7 +191,7 @@ const SGE_AJUDA = {
         { q: 'Botão +', a: 'O botão dourado flutuante inicia um novo relatório e já sugere a próxima semana sem prestação.' },
       ]},
       { titulo: 'Relatório', itens: [
-        { q: 'Ações', a: '<b>GRAVAR RASCUNHO</b> guarda sem transmitir · <b>PRÉVIA</b> mostra o documento oficial (com o botão Salvar PDF) · <b>ENVIAR</b> entrega à central e volta para a lista.' },
+        { q: 'Ações', a: '<b>GRAVAR RASCUNHO</b> guarda sem transmitir · <b>PRÉVIA</b> (ao lado de Adicionar lançamento) mostra o documento oficial, com o botão Salvar PDF · <b>ENVIAR</b> entrega à central e volta para a lista.' },
         { q: 'Retificação', a: 'Relatório enviado abre em leitura: <b>CORRIGIR</b> libera a edição e GRAVAR salva a nova versão mantendo o histórico.' },
         { q: 'Somente leitura', a: 'Relatórios de terceiros ou de semanas fechadas abrem só para visualização — a edição volta via retificação autorizada.' },
         { q: 'Voltar (←)', a: 'A seta no topo do formulário volta para a Central.' },

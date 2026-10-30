@@ -1540,7 +1540,7 @@ function rcRenderTela(){
       ${!RC.somenteLeitura && RC.status === 'enviado' && RC.id ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.3)"><i class="fa-solid fa-screwdriver-wrench"></i>Retificação — o relatório segue enviado; GRAVAR salva a nova versão</div>` : ''}
       <div class="flex items-center gap-2">
         <button onclick="rcmVoltar()" title="Voltar à central" class="w-9 h-9 rounded-xl text-[12px] cursor-pointer shrink-0" style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-arrow-left"></i></button>
-        <div class="flex-1 grid grid-cols-3 gap-1.5">${rcmAcoesHtml()}</div>
+        <div class="flex-1 grid grid-cols-${RC.somenteLeitura ? 3 : 2} gap-1.5">${rcmAcoesHtml()}</div>
         ${badge}
       </div>
       <div id="rcm-orientacao" class="hidden rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:rgba(56,189,248,.10);color:#38bdf8;border:1px solid rgba(56,189,248,.25)"></div>
@@ -1589,7 +1589,10 @@ function rcRenderTela(){
             <input id="rcm-recibo" placeholder="Nº Recibo" inputmode="numeric" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
             <input id="rcm-valor" type="text" inputmode="decimal" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="px-2 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
           </div>
-          <button onclick="rcmAdicionar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
+          <div class="flex gap-2">
+            <button onclick="rcmAdicionar()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#059669,#10b981)"><i class="fa-solid fa-plus mr-1.5"></i>Adicionar lançamento</button>
+            ${!RC.somenteLeitura ? `<button onclick="rcmModo('previa')" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shrink-0" style="background:linear-gradient(135deg,#b45309,#f59e0b)"><i class="fa-solid fa-eye mr-1"></i>Prévia</button>` : ''}
+          </div>
         </div>
         <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
           <div class="flex items-center justify-between mb-2">
@@ -1652,7 +1655,7 @@ function rcRenderTela(){
               <div class="space-y-1.5 opacity-80">
                 <p><span class="inline-block w-24 font-bold" style="color:#94a3b8">←</span> volta para a Central.</p>
                 <p><span class="inline-block w-24 font-bold" style="color:#10b981">GRAVAR RASC.</span> salva o rascunho na nuvem sem enviar — dá pra continuar depois.</p>
-                <p><span class="inline-block w-24 font-bold" style="color:#f59e0b">PRÉVIA</span> abre o espelho oficial do documento — sem precisar gravar antes — e lá dentro tem o botão <b>Salvar PDF</b>.</p>
+                <p><span class="inline-block w-24 font-bold" style="color:#f59e0b">PRÉVIA</span> fica ao lado de <b>+ Adicionar lançamento</b> e abre o espelho oficial do documento — sem precisar gravar antes — com o botão <b>Salvar PDF</b> lá dentro.</p>
                 <p><span class="inline-block w-24 font-bold" style="color:#8b5cf6">ENVIAR</span> transmite o relatório finalizado para a administração e volta para a Central.</p>
                 <p><span class="inline-block w-24 font-bold" style="color:#ea580c">CORRIGIR</span> (só em enviado, para autor/admin) libera a edição — GRAVAR salva a retificação mantendo o histórico.</p>
                 <p><span class="inline-block w-24 font-bold" style="color:#10b981">+ ADICIONAR</span> joga o lançamento preenchido (dízimo/oferta em espécie ou Pix) para a tabela do movimento.</p>
@@ -1695,7 +1698,6 @@ function rcmAcoesHtml(){
     ${B('rcmVoltar()', 'fa-arrow-rotate-left', 'VOLTAR', 'linear-gradient(135deg,#334155,#475569)')}`;
   return `
     ${B('rcmSalvar(false)', 'fa-floppy-disk', 'GRAVAR RASCUNHO', 'linear-gradient(135deg,#047857,#10b981)')}
-    ${B("rcmModo('previa')", 'fa-eye', 'PRÉVIA', 'linear-gradient(135deg,#b45309,#f59e0b)')}
     ${B('rcmSalvar(true)', 'fa-paper-plane', 'ENVIAR', 'linear-gradient(135deg,#6d28d9,#8b5cf6)')}`;
 }
 
