@@ -3816,7 +3816,7 @@ async function orcGravarDados(lista){
   await api('salvar_config_sge', { chave: ORC_CHAVE, valor: JSON.stringify({ orcamentos: lista, versao: 1 }) }, sessao()?.token);
 }
 const _ORC_TIPOS = { saida: { rot: 'Saída', cor: '#f87171', ico: 'fa-arrow-trend-down', sinal: '-' },
-  receita: { rot: 'Receita', cor: '#34d399', ico: 'fa-arrow-trend-up', sinal: '+' },
+  receita: { rot: 'Entrada', cor: '#34d399', ico: 'fa-arrow-trend-up', sinal: '+' },
   reembolso: { rot: 'Reembolso', cor: '#38bdf8', ico: 'fa-rotate-left', sinal: '-' } };
 function _orcColunas(o){
   const ord = (a, b) =>
@@ -3824,7 +3824,7 @@ function _orcColunas(o){
   if (!Array.isArray(o.colunas)){
     const cols = [];
     const mig = (nome, tipo, arr) => { if ((arr || []).length) cols.push({ id: crypto.randomUUID().replace(/-/g, '').slice(0, 12), nome, tipo, itens: (arr || []).map(i => ({ ...i, pago: 1 })) }); };
-    mig('Receitas', 'receita', o.receitas); mig('Saídas', 'saida', o.itens); mig('Reembolsos', 'reembolso', o.reembolsos);
+    mig('Entradas', 'receita', o.receitas); mig('Saídas', 'saida', o.itens); mig('Reembolsos', 'reembolso', o.reembolsos);
     o.colunas = cols;
   }
   for (const c of o.colunas){
@@ -3925,7 +3925,7 @@ async function orcCarregarLista(){
           <div class="flex-1 min-w-0">
             <p class="text-xs font-bold truncate">${esc(o.titulo)}</p>
             ${o.cabecalho ? `<p class="text-[10px] opacity-60 truncate">${esc(o.cabecalho)}</p>` : ''}
-            <p class="text-[10px] mt-1" style="color:var(--text-muted)">${(o.total_receitas || 0) > 0 ? `Receitas: <b style="color:#34d399">${moeda(o.total_receitas)}</b> · ` : ''}Saídas: <b>${moeda(o.total_saidas)}</b>${o.total_reembolsos ? ` · Reemb.: <b style="color:#34d399">${moeda(o.total_reembolsado)}</b> · Saldo: <b style="color:${o.saldo_final > 0 ? '#f87171' : '#34d399'}">${moeda(o.saldo_final)}</b>` : ''}${(o.total_receitas || 0) > 0 ? ` · Saldo: <b style="color:${(o.resultado || 0) >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(o.resultado || 0))}${(o.resultado || 0) < 0 ? ' (déficit)' : ''}</b>` : ''} · ${o.total_itens} saída(s)${o.total_reembolsos ? ` + ${o.total_reembolsos} reemb.` : ''}</p>
+            <p class="text-[10px] mt-1" style="color:var(--text-muted)">${(o.total_receitas || 0) > 0 ? `Entradas: <b style="color:#34d399">${moeda(o.total_receitas)}</b> · ` : ''}Saídas: <b>${moeda(o.total_saidas)}</b>${o.total_reembolsos ? ` · Reemb.: <b style="color:#34d399">${moeda(o.total_reembolsado)}</b> · Saldo: <b style="color:${o.saldo_final > 0 ? '#f87171' : '#34d399'}">${moeda(o.saldo_final)}</b>` : ''}${(o.total_receitas || 0) > 0 ? ` · Saldo: <b style="color:${(o.resultado || 0) >= 0 ? '#34d399' : '#f87171'}">${moeda(Math.abs(o.resultado || 0))}${(o.resultado || 0) < 0 ? ' (déficit)' : ''}</b>` : ''} · ${o.total_itens} saída(s)${o.total_reembolsos ? ` + ${o.total_reembolsos} reemb.` : ''}</p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
             <span class="text-[8.5px] font-extrabold px-2 py-0.5 rounded-full" style="color:${st.cor};background:${st.cor}1c">${st.rot}</span>
@@ -4025,7 +4025,7 @@ function orcRenderDetalhe(){
   const rotSaldo = saldo > 0 ? 'Saldo a reembolsar' : (saldo < 0 ? 'Reembolso excedente' : 'Quitado');
   let resumo = '';
   if ((o.total_receitas_qtd || 0) > 0)
-    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Receitas</p><p class="text-[11px] font-extrabold" style="color:#34d399">${moeda(o.total_receitas)}</p></div>`;
+    resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Entradas</p><p class="text-[11px] font-extrabold" style="color:#34d399">${moeda(o.total_receitas)}</p></div>`;
   resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Total de saídas</p><p class="text-[11px] font-extrabold" style="color:#f87171">${moeda(o.total_saidas)}</p></div>`;
   if ((o.total_reembolsos || 0) > 0)
     resumo += `<div class="flex-1 px-2 py-1.5 rounded-xl border text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">Reembolsado</p><p class="text-[11px] font-extrabold" style="color:#34d399">- ${moeda(o.total_reembolsado)}</p></div>`;
@@ -4296,7 +4296,7 @@ window.orcEditarColuna = function(colId){
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Nome da coluna *</span><input id="orcc-nome" value="${esc(c?.nome || '')}" placeholder="Ex.: Pagamento do som, Inscrições, Reembolsos" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Tipo</span><select id="orcc-tipo" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
         <option value="saida" ${c?.tipo === 'saida' ? 'selected' : ''}>Saída — gasto/pagamento</option>
-        <option value="receita" ${c?.tipo === 'receita' ? 'selected' : ''}>Receita — dinheiro que entrou</option>
+        <option value="receita" ${c?.tipo === 'receita' ? 'selected' : ''}>Entrada — dinheiro que entrou</option>
         <option value="reembolso" ${c?.tipo === 'reembolso' ? 'selected' : ''}>Reembolso — abate do total</option>
       </select></div>
       <button onclick="orcSalvarColuna('${colId || ''}')" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-floppy-disk mr-1"></i>Salvar coluna</button>
@@ -4527,9 +4527,9 @@ function _orcTextoWhats(o){
   if (o.arquivado) st.push('ARQUIVADO');
   L.push('', `Status: ${st.join(' · ')}`, '');
   if ((o.receitas || []).length){
-    L.push('*RECEITAS DO EVENTO*');
+    L.push('*ENTRADAS DO EVENTO*');
     for (const r of o.receitas) L.push(`• ${_orcDataBr(r.data)} — ${r.descricao} (${_orcRotuloForma(_orcForma(r.forma_pagamento))}) — *${moeda(r.valor)}*`);
-    L.push(`*Total de receitas: ${moeda(o.total_receitas)}*`, '');
+    L.push(`*Total de entradas: ${moeda(o.total_receitas)}*`, '');
   }
   L.push('*SAÍDAS*');
   for (const i of (o.itens || [])) L.push(`• ${_orcDataBr(i.data)} — ${i.descricao} (${_orcRotuloForma(_orcForma(i.forma_pagamento))}) — *${moeda(i.valor)}*`);
@@ -4616,7 +4616,7 @@ window.orcPdf = function(){
 
   // ---- Painel de resumo ---------------------------------------------------------
   const kpis = [];
-  if (o.total_receitas) kpis.push(['RECEITAS', moeda(o.total_receitas), VERDE]);
+  if (o.total_receitas) kpis.push(['ENTRADAS', moeda(o.total_receitas), VERDE]);
   kpis.push(['SAÍDAS', moeda(o.total_saidas), AZUL]);
   if (o.total_reembolsado) kpis.push(['REEMBOLSOS', '- ' + moeda(o.total_reembolsado), TEAL]);
   if (o.total_receitas){
@@ -4727,7 +4727,7 @@ window.orcPdf = function(){
     });
     y += 13;
   };
-  if (o.subtotais_forma_receitas) boxForma(o.subtotais_forma_receitas, 'RECEITAS POR FORMA DE PAGAMENTO', VERDE);
+  if (o.subtotais_forma_receitas) boxForma(o.subtotais_forma_receitas, 'ENTRADAS POR FORMA DE PAGAMENTO', VERDE);
   if (o.subtotais_forma) boxForma(o.subtotais_forma, 'SAÍDAS POR FORMA DE PAGAMENTO', AZUL);
 
   // ---- Totais ----------------------------------------------------------------------
@@ -4742,7 +4742,7 @@ window.orcPdf = function(){
     y += 9.5;
   };
   y += 3;
-  if (o.total_receitas) linhaTotal('TOTAL DE RECEITAS', moeda(o.total_receitas), VERDE_C, VERDE);
+  if (o.total_receitas) linhaTotal('TOTAL DE ENTRADAS', moeda(o.total_receitas), VERDE_C, VERDE);
   linhaTotal('TOTAL DE SAÍDAS', moeda(o.total_saidas), AZUL_C, AZUL);
   if (o.total_reembolsado){
     const saldo = o.saldo_final || 0;
