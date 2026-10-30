@@ -1571,6 +1571,7 @@ function rcRenderTela(){
               <div id="rcm-grid-semanas" class="grid grid-cols-5 gap-1.5"></div></div>
           </div>
         </div>
+        <div id="rcm-baixa" class="relative space-y-3 transition-all duration-200">
         <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
           <p class="text-[10px] font-bold uppercase opacity-60">Novo lançamento</p>
           <div class="grid grid-cols-2 gap-2">
@@ -1596,6 +1597,10 @@ function rcRenderTela(){
           </div>
           <div id="rcm-lista"></div>
           <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
+        </div>
+        <div id="rcm-baixa-bloq" class="hidden absolute inset-0 z-20 flex items-start justify-center pt-16" style="pointer-events:none;margin-top:0">
+          <div class="rounded-2xl px-4 py-3 text-[11px] font-extrabold flex items-center gap-2" style="background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(248,113,113,.5);box-shadow:0 12px 28px rgba(0,0,0,.4)"><i class="fa-solid fa-lock text-sm"></i><span>Semana fechada — selecione uma semana aberta</span></div>
+        </div>
         </div>
       </div>
       <div id="rcm-view-previa" class="hidden space-y-2">
@@ -2264,6 +2269,7 @@ window.rcmAvisoSemana = async function(){
     ..._rcPeriodoRelatorio(),
   };
   rcmGridSemanas();
+  _rcmAplicarBloqueioBaixa();
   const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
   const htmlTrava = fd => {
     if (!fd) return '';
@@ -2311,15 +2317,23 @@ function _rcmSemanaTravadaMsg(){
   return prox ? `Semana fechada — a próxima aberta é a ${prox}.`
               : 'Semana fechada — não há semana aberta neste mês.';
 }
-window.rcmMudarSemana = function(){
-  const sel = el('rcm-semana'); const sem = sel?.value || '';
+/* Semana fechada selecionada: a parte de baixo do formulário fica ofuscada
+   e bloqueada até escolher uma semana aberta (vale para todos os perfis). */
+function _rcmAplicarBloqueioBaixa(){
+  const wrap = el('rcm-baixa'), bloq = el('rcm-baixa-bloq');
+  if (!wrap || !bloq) return;
   const p = _rcPeriodoRelatorio();
-  if (sem && rcSemanaFechada(p.ano, p.mes, sem) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
-    const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
-    if (prox && sel) sel.value = prox;
-    toast(prox ? `Semana fechada — a próxima aberta é a ${prox}.` : 'Semana fechada — não há semana aberta neste mês.');
-  }
-  F.rcSemana = el('rcm-semana')?.value || sem;
+  const sem = String(el('rcm-semana')?.value || '').trim();
+  const fechada = !RC.somenteLeitura && !!sem && rcSemanaFechada(p.ano, p.mes, sem);
+  wrap.style.opacity = fechada ? '.35' : '';
+  wrap.style.filter = fechada ? 'blur(1.6px)' : '';
+  wrap.style.pointerEvents = fechada ? 'none' : '';
+  wrap.style.userSelect = fechada ? 'none' : '';
+  bloq.classList.toggle('hidden', !fechada);
+}
+
+window.rcmMudarSemana = function(){
+  F.rcSemana = el('rcm-semana')?.value || '';
   rcmMarcarSujo(); rcmRenderDoc(); rcmAvisoSemana();
 };
 window.rcmMesGrid = function(dir){
@@ -2354,29 +2368,13 @@ window.rcmGridSemanas = function(){
       `</button>`;
   }).join('');
   if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar/reabrir só aquela semana</p>`;
+  _rcmAplicarBloqueioBaixa();
 };
 
-window.rcmTocarSemana = async function(w){
+/* Tocar numa semana do grid seleciona mesmo fechada — o form de baixo fica
+   ofuscado (blur + "selecione uma semana aberta") até escolher uma aberta. */
+window.rcmTocarSemana = function(w){
   const sem = w + 'ª Semana';
-  const p = _rcPeriodoRelatorio();
-  const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
-  if (rcSemanaFechada(p.ano, p.mes, sem) && !admin){
-    /* Tesoureiro tocou numa semana travada: não seleciona — oferece a próxima aberta */
-    const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
-    const ir = await rcmConfirmar({
-      titulo: 'Semana fechada', icone: 'fa-lock', cor: '#ef4444',
-      okTexto: prox ? `Ir para a ${prox}` : 'Entendi', naoTexto: 'Voltar',
-      msg: prox
-        ? `A <b>${sem}</b> de ${p.mes}/${p.ano} está <b>FECHADA</b> para lançamentos.<br>A próxima semana aberta é a <b>${prox}</b> — deseja lançar nela?`
-        : `A <b>${sem}</b> de ${p.mes}/${p.ano} está <b>FECHADA</b> e não há semana aberta depois dela neste mês.<br>Procure a tesouraria da central.` });
-    if (ir && prox){
-      const sel = el('rcm-semana'); if (sel) sel.value = prox;
-      F.rcSemana = prox;
-      rcmMarcarSujo();
-    }
-    rcmRenderDoc(); rcmAvisoSemana();
-    return;
-  }
   const sel = el('rcm-semana'); if (sel) sel.value = sem;
   F.rcSemana = sem;
   rcmMarcarSujo();
