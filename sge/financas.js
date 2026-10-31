@@ -4086,7 +4086,7 @@ window.orcLancar = function(){
   const o = ORC.dados; if (!o) return;
   const ops = (o.colunas || []).map(c => {
     const t = _ORC_TIPOS[c.tipo];
-    return `<button onclick="orcFecharModal();_orcModalItem(null,'${c.tipo}','${c.id}')" class="w-full flex items-center gap-3 px-3 py-3 rounded-2xl border text-left cursor-pointer" style="border-color:var(--border-color);background:var(--bg-input)">
+    return `<button onclick="orcFecharModal();orcNovoItemColuna('${esc(c.id)}')" class="w-full flex items-center gap-3 px-3 py-3 rounded-2xl border text-left cursor-pointer" style="border-color:var(--border-color);background:var(--bg-input)">
       <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${t.cor}1c;color:${t.cor}"><i class="fa-solid ${t.ico}"></i></span>
       <span class="flex-1"><span class="block text-xs font-extrabold">${esc(c.nome)}</span><span class="block text-[9.5px] opacity-60">${t.rot} · ${c.itens.length} item(ns)</span></span>
       <i class="fa-solid fa-chevron-right opacity-30 text-xs"></i></button>`;
