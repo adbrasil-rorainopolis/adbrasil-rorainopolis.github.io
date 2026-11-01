@@ -3563,7 +3563,7 @@ function prestRenderSemanal(){
       <button onclick="prestEditarSaidas()" class="py-2.5 rounded-xl text-[11px] font-bold text-white cursor-pointer" style="background:#dc2626"><i class="fa-solid fa-money-bill-transfer mr-1"></i>Saídas</button>
       <button onclick="window.prestRender()" class="py-2.5 rounded-xl text-[11px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
     </div>
-    ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3 cursor-pointer" onclick="prestEditarSaidas()" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana <i class="fa-solid fa-pen-to-square ml-1"></i></p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
+    ${saidasSem.length ? `<div class="rounded-xl border p-3 mb-3 cursor-pointer" onclick="prestEditarSaidas()" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-extrabold uppercase opacity-60 mb-1.5">Saídas manuais da semana <i class="fa-solid fa-pen-to-square ml-1"></i></p>${saidasSem.map(x => `<div class="flex justify-between text-[11px] py-1" style="border-top:1px dashed var(--border-color)"><span>${x.data ? `<span class="opacity-50">${esc(_orcDataBr(x.data))} · </span>` : ''}${esc(x.descricao || '-')}</span><b class="text-red-400">${moeda(x.valor)}</b></div>`).join('')}</div>` : ''}
     <div id="prest-lista"></div>
     <p class="text-[9px] opacity-45 text-center leading-relaxed pt-1 pb-4">Toque numa congregação para lançar ou corrigir o valor recebido.<br>Toque em <b>Saídas</b> para lançar descontos e saídas manuais da semana.<br>${(typeof sgeEhAdmin === 'function' && sgeEhAdmin()) ? 'Toque no <b>cadeado</b> de uma semana p/ fechar/reabrir só ela.' : ''}</p>`;
   prestRenderLista();
@@ -3685,6 +3685,7 @@ window.prestCopiarPendencias = async function(){
 /* ---------- Saídas manuais da semana ---------- */
 function _prestSaidaLinhaHtml(x = {}){
   return `<div class="flex items-center gap-2" data-saida>
+    <input data-data type="date" value="${esc(x.data || new Date().toISOString().slice(0,10))}" class="w-[7.6rem] shrink-0 px-2 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
     <input data-descricao type="text" value="${esc(x.descricao || '')}" placeholder="Descrição da saída" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
     <input data-valor type="text" inputmode="decimal" value="${Number(x.valor) > 0 ? rcMoeda(x.valor) : ''}" placeholder="R$ 0,00" oninput="rcmMascaraValor(this)" class="w-24 px-2 py-2.5 rounded-xl border text-xs font-bold text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
     <button type="button" onclick="this.closest('[data-saida]').remove()" class="w-9 h-9 shrink-0 rounded-lg text-red-400 cursor-pointer flex items-center justify-center" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash-can"></i></button>
@@ -3724,13 +3725,14 @@ window.prestSalvarSaidas = async function(){
   const btn = el('prest-btn-saidas');
   const rows = [...document.querySelectorAll('#prest-saidas-lista [data-saida]')]
     .map(l => ({
+      data: l.querySelector('[data-data]')?.value || '',
       descricao: (l.querySelector('[data-descricao]')?.value || '').trim(),
       valor: parseValor(l.querySelector('[data-valor]')?.value) || 0
     }))
     .filter(x => x.descricao || x.valor > 0);
   const payload = {
     ano: PREST.ano, mes: PREST.mes, semana: PREST.semana,
-    saidas: rows.map((x, i) => ({ linha_index: i, descricao: x.descricao, valor: x.valor }))
+    saidas: rows.map((x, i) => ({ linha_index: i, data: x.data, descricao: x.descricao, valor: x.valor }))
   };
   const chave = `${PREST.ano}|${String(PREST.mes).toLowerCase()}|${String(PREST.semana).toLowerCase()}`;
   if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
