@@ -7843,7 +7843,8 @@ window.pbFormLanc = function(pid){
         <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" onchange="document.getElementById('pbf-grupo').classList.toggle('hidden', this.value === 'E')"><option value="S">Saída</option><option value="E">Entrada</option></select>
         <select id="pbf-grupo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="auto">Grupo: automático</option><option value="pix_avista">Pagamento à vista</option><option value="compra_parcelada">Compra parcelada</option><option value="dizimo">Dízimos</option><option value="outros">Outros</option></select>
         <input id="pbf-desc" placeholder="Descrição" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="pbf-data" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
       </div>
       <div class="flex gap-2">
         <button onclick="document.getElementById('pb-form').classList.add('hidden')" class="flex-1 py-2 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color)">Cancelar</button>
@@ -7859,8 +7860,9 @@ window.pbSalvarLanc = async function(pid){
   if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
   const gSel = (el('pbf-grupo') || {}).value || 'auto';
   const grupo = tipo === 'E' ? 'manual' : (gSel === 'auto' ? pbGrupoDe({ tipo, descricao }) : gSel);
+  const dataLanc = (el('pbf-data')?.value || '').slice(0, 10).split('-').reverse().join('/') || new Date().toLocaleDateString('pt-BR');
   PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo,
-    data: new Date().toLocaleDateString('pt-BR') });
+    data: dataLanc });
   pbReconciliarMigracoes();
   await pbGravarNuvem();
   el('pb-form').classList.add('hidden');
