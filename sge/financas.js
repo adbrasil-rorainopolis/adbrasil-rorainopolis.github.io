@@ -180,8 +180,9 @@ const FIN_ABAS_META = {
   movfin:     { nome: 'Movimento do Campo',       desc: 'Grade semanal por congregação — alimenta movimento e origem', icone: 'fa-table-list', cor: '#f43f5e' },
   prebenda:   { nome: 'Prebenda Pastoral',        desc: 'Prebendas dos pastores — acesso restrito', icone: 'fa-hand-holding-dollar', cor: '#f59e0b' },
   despesas:   { nome: 'Despesas Fixas',           desc: 'Combustível dos líderes e relatório p/ assinatura', icone: 'fa-file-signature', cor: '#14b8a6' },
+  prestconv:  { nome: 'Prestação Convencional',   desc: 'Convencional, Missões, S.O.S e Auxílio + recibo', icone: 'fa-file-invoice-dollar', cor: '#f59e0b' },
 };
-const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda', 'despesas'];
+const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda', 'despesas', 'prestconv'];
 /* Dizimistas virou módulo próprio (paridade desktop) — ids locais -> ids do catálogo */
 const DIZ_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro'];
 const DIZ2CAT = { rol: 'membros', frequencia: 'frequencia', semanal: 'lancamentos', livro: 'livro' };
@@ -259,7 +260,7 @@ window.finMenu = function(){
   const menu = el('fin-menu'); if (!menu) return;
   const grupos = [
     { titulo: 'Fechamento de caixa', icone: 'fa-cash-register', abas: ['relatorio', 'prestacao'] },
-    { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda', 'despesas'] },
+    { titulo: 'Campo',               icone: 'fa-church',       abas: ['movfin', 'prebenda', 'despesas', 'prestconv'] },
     { titulo: 'Eventos',             icone: 'fa-note-sticky',  abas: ['orcamentos'] },
   ];
   const blocos = grupos.map(g => {
@@ -293,6 +294,7 @@ function finAbaPermitida(t){
   if (t === 'movfin') return sgeEhAdmin();
   if (t === 'prebenda') return pbPodeVerM();
   if (t === 'despesas') return sgeAbaPermitida('financeiro','despesas');
+  if (t === 'prestconv') return sgeAbaPermitida('financeiro','prestconv');
   return false;
 }
 
@@ -338,6 +340,7 @@ window.finAba = function(aba){
   if (aba === 'movfin') return mvfRenderTela();
   if (aba === 'prebenda') return pbRenderTela();
   if (aba === 'despesas') return dfRenderTela();
+  if (aba === 'prestconv') return pcRenderTela();
   finRenderRol();
 };
 
@@ -8242,6 +8245,129 @@ window.dfImprimir = function(){
     + DF.docHtml + '</body></html>');
   d.close();
   setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch(e){ toast('Impressão indisponível neste aparelho.'); } }, 350);
+};
+
+/* ===================== PRESTAÇÃO CONVENCIONAL ===================== */
+const PC_CHAVE = 'sge_prestconv_saidas_v1';
+const PC_GRUPOS = [
+  { nome: 'Convencionais',          match: ['fundo convencional'],                          cor: '#f59e0b', icone: 'fa-landmark' },
+  { nome: 'Missões',                match: ['missõe', 'missoe', 'missão'],                  cor: '#fb923c', icone: 'fa-globe' },
+  { nome: 'S.O.S Baixo Rio Branco', match: ['rio branco', 's.o.s'],                          cor: '#38bdf8', icone: 'fa-hands-helping' },
+  { nome: 'Auxílio Presidencial 5%',match: ['auxílio presidencial', 'auxilio presidencial'], cor: '#a78bfa', icone: 'fa-user-tie' },
+];
+const PC = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], saidas: [], totais: {} };
+
+function _pcItensDetalhe(det){
+  if (!det) return [];
+  return Array.isArray(det) ? det : Object.entries(det).map(([descricao, valor]) => ({ descricao, valor }));
+}
+const _pcSaidasMes = () => PC.saidas.filter(s => String(s.ano) === PC.ano && String(s.mes) === PC.mes);
+const _pcId = () => 'pc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function _pcLinhaSaida(s = {}){
+  return `<div class="flex items-center gap-2" data-saida>
+    <input data-data type="date" value="${esc(s.data || new Date().toISOString().slice(0,10))}" class="w-[7.4rem] shrink-0 px-2 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <input data-descricao type="text" value="${esc(s.descricao || '')}" placeholder="Histórico da saída" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <input data-valor type="text" inputmode="decimal" value="${Number(s.valor) > 0 ? moeda(s.valor).replace('R$ ','') : ''}" placeholder="0,00" class="w-24 px-2 py-2.5 rounded-xl border text-xs font-bold text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <button type="button" onclick="this.closest('[data-saida]').remove()" class="w-9 h-9 shrink-0 rounded-lg text-red-400 cursor-pointer flex items-center justify-center" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash-can"></i></button>
+  </div>`;
+}
+
+window.pcRenderTela = async function(){
+  el('fin-sub').innerHTML = `<div class="py-10 text-center opacity-60 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Carregando prestação convencional…</div>`;
+  PC.totais = {}; PC_GRUPOS.forEach(g => PC.totais[g.nome] = 0);
+  try {
+    const res = await api('carregar_movimento_financeiro', { ano: PC.ano, mes: PC.mes }, sessao()?.token);
+    (res?.dados || res?.registros || []).forEach(r => _pcItensDetalhe(r.detalhes_saidas_repasses).forEach(d => {
+      const nome = String(d.descricao || d.nome || d.categoria || d.item || '').toLowerCase();
+      const g = PC_GRUPOS.find(x => x.match.some(a => nome.includes(a)));
+      if (g) PC.totais[g.nome] += Number(d.valor || d.valor_total || 0);
+    }));
+  } catch(e) {}
+  try {
+    const r = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
+    const j = JSON.parse(r?.valor || '{}'); PC.saidas = Array.isArray(j.saidas) ? j.saidas : [];
+  } catch(e) { PC.saidas = []; }
+  const lista = _pcSaidasMes();
+  const totS = lista.reduce((a, s) => a + Number(s.valor || 0), 0);
+  const totE = Object.values(PC.totais).reduce((a, v) => a + v, 0);
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3 pb-24">
+      <div class="flex items-center gap-2">
+        <select id="pc-ano" onchange="PC.ano=this.value;pcRenderTela()" class="px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['2024','2025','2026','2027'].map(a => `<option ${a===PC.ano?'selected':''}>${a}</option>`).join('')}</select>
+        <select id="pc-mes" onchange="PC.mes=this.value;pcRenderTela()" class="flex-1 px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${MESES_ORD.map(m => `<option ${m===PC.mes?'selected':''}>${m}</option>`).join('')}</select>
+        <button onclick="pcRenderTela()" class="w-9 h-9 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      ${PC_GRUPOS.map(g => `<div class="rounded-2xl border p-3 flex items-center justify-between" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center gap-2"><i class="fa-solid ${g.icone}" style="color:${g.cor}"></i><div><p class="text-[11px] font-extrabold">${g.nome}</p><p class="text-[9px] opacity-50">entrada automática do movimento</p></div></div>
+        <b style="color:${g.cor}">${moeda(PC.totais[g.nome])}</b></div>`).join('')}
+      <div class="rounded-2xl border p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[10px] font-extrabold uppercase tracking-widest opacity-60">Saídas / despesas</p>
+          <button onclick="pcAddSaida()" class="px-2.5 py-1.5 rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 text-[10px] font-bold cursor-pointer"><i class="fa-solid fa-plus mr-1"></i>Saída</button>
+        </div>
+        <div id="pc-saidas" class="space-y-2">${lista.length ? lista.map(_pcLinhaSaida).join('') : _pcLinhaSaida()}</div>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t" style="border-color:var(--border-color)">
+          <button onclick="pcSalvarSaidas()" class="px-4 py-2 rounded-xl text-white text-[11px] font-bold cursor-pointer" style="background:#dc2626"><i class="fa-solid fa-check mr-1"></i>Salvar</button>
+          <p class="text-[11px] font-black text-red-400">Saídas: ${moeda(totS)}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        ${[['Entradas', totE, '#34d399'], ['Saídas', totS, '#f87171'], ['Líquido', totE - totS, (totE - totS) >= 0 ? '#34d399' : '#f87171']].map(([rot, v, c]) =>
+          `<div class="rounded-xl border px-2 py-1.5 text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rot}</p><p class="text-[11px] font-extrabold" style="color:${c}">${moeda(v)}</p></div>`).join('')}
+      </div>
+      <div class="flex items-center gap-2">
+        <input id="pc-recibo-num" placeholder="Nº do recibo" class="w-32 px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <button onclick="pcGerarRecibo()" class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:#b45309"><i class="fa-solid fa-file-pdf mr-1"></i>Gerar Recibo</button>
+      </div>
+    </div>`;
+};
+
+window.pcAddSaida = function(){ el('pc-saidas').insertAdjacentHTML('beforeend', _pcLinhaSaida()); };
+
+window.pcSalvarSaidas = async function(){
+  const novas = [...document.querySelectorAll('#pc-saidas [data-saida]')].map(l => ({
+    id: _pcId(), ano: PC.ano, mes: PC.mes,
+    data: l.querySelector('[data-data]')?.value || '',
+    descricao: (l.querySelector('[data-descricao]')?.value || '').trim(),
+    valor: parseValor(l.querySelector('[data-valor]')?.value) || 0,
+  })).filter(s => s.descricao || s.valor > 0);
+  PC.saidas = [...PC.saidas.filter(s => !(String(s.ano) === PC.ano && String(s.mes) === PC.mes)), ...novas];
+  const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas }) }, sessao()?.token);
+  toast(r?.erro ? 'Erro: ' + r.erro : 'Saídas salvas.');
+  pcRenderTela();
+};
+
+window.pcGerarRecibo = function(){
+  const num = (el('pc-recibo-num')?.value || '').trim() || '___';
+  const lista = _pcSaidasMes();
+  const totE = Object.values(PC.totais).reduce((a, v) => a + v, 0);
+  const totS = lista.reduce((a, s) => a + Number(s.valor || 0), 0);
+  const linhaG = g => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e5e7eb;font-size:12px"><span>${g.nome}</span><b>${moeda(PC.totais[g.nome])}</b></div>`;
+  const linhaS = s => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dotted #e5e7eb;font-size:11px"><span>${s.data ? s.data.split('-').reverse().join('/') + ' · ' : ''}${esc(s.descricao)}</span><b>${moeda(s.valor)}</b></div>`;
+  let ov = el('pc-recibo-overlay');
+  if (!ov){ ov = document.createElement('div'); ov.id = 'pc-recibo-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `
+    <style>@media print{ body *{visibility:hidden!important} #pc-recibo-doc, #pc-recibo-doc *{visibility:visible!important} #pc-recibo-doc{position:absolute!important;left:0;top:0;width:100%}}</style>
+    <div style="background:#fff;color:#111;border-radius:16px;padding:16px;font-family:Arial,sans-serif;max-width:420px;margin:0 auto" id="pc-recibo-doc">
+      <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:8px">
+        <p style="font-weight:800;font-size:15px;margin:4px 0 0">RECIBO Nº ${esc(num)}</p>
+        <p style="font-size:10px;color:#555;margin:2px 0">Prestação Convencional — ${PC.mes}/${PC.ano} · Assembleia de Deus Brasil</p>
+      </div>
+      <p style="font-size:10px;font-weight:800;color:#047857;margin:12px 0 4px">CONSOLIDADO DE ENTRADAS</p>
+      ${PC_GRUPOS.map(linhaG).join('')}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;font-weight:800"><span>TOTAL DE ENTRADAS</span><span>${moeda(totE)}</span></div>
+      <p style="font-size:10px;font-weight:800;color:#b91c1c;margin:14px 0 4px">HISTÓRICO — SAÍDAS / DESPESAS</p>
+      ${lista.length ? lista.map(linhaS).join('') : '<p style="font-size:11px;color:#666;padding:4px 0">Nenhuma saída lançada.</p>'}
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;font-weight:800"><span>TOTAL DE SAÍDAS</span><span>${moeda(totS)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:10px;border-top:2px solid #111;font-size:13px;font-weight:900"><span>VALOR LÍQUIDO</span><span>${moeda(totE - totS)}</span></div>
+      <p style="font-size:9px;color:#666;margin-top:14px">Recebi(emos) da Tesouraria a quantia acima, referente à prestação convencional de ${PC.mes}/${PC.ano}, dando plena quitação.</p>
+      <div style="display:flex;justify-content:space-between;margin-top:36px;font-size:10px"><span>____/____/______</span><span>________________________________<br>Tesoureiro(a)</span></div>
+    </div>
+    <div style="display:flex;gap:8px;max-width:420px;margin:10px auto 0">
+      <button onclick="window.print()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #444;background:transparent;color:var(--text-main);font-weight:700;font-size:12px;cursor:pointer">Fechar</button>
+    </div>`;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(0,0,0,.6);padding:16px';
 };
 
 })();
