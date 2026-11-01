@@ -8350,7 +8350,7 @@ window.pcGerarRecibo = function(){
     <style>@media print{ body *{visibility:hidden!important} #pc-recibo-doc, #pc-recibo-doc *{visibility:visible!important} #pc-recibo-doc{position:absolute!important;left:0;top:0;width:100%}}</style>
     <div style="background:#fff;color:#111;border-radius:16px;padding:16px;font-family:Arial,sans-serif;max-width:420px;margin:0 auto" id="pc-recibo-doc">
       <div style="text-align:center;border-bottom:2px solid #111;padding-bottom:8px">
-        <p style="font-weight:800;font-size:15px;margin:4px 0 0">RECIBO Nº ${esc(num)}</p>
+        <p style="font-weight:800;font-size:15px;margin:4px 0 0">RECIBO Nº <span id="pc-recibo-num-doc">${esc(num)}</span></p>
         <p style="font-size:10px;color:#555;margin:2px 0">Prestação Convencional — ${PC.mes}/${PC.ano} · Assembleia de Deus Brasil</p>
       </div>
       <p style="font-size:10px;font-weight:800;color:#047857;margin:12px 0 4px">CONSOLIDADO DE ENTRADAS</p>
@@ -8363,11 +8363,13 @@ window.pcGerarRecibo = function(){
       <p style="font-size:9px;color:#666;margin-top:14px">Recebi(emos) da Tesouraria a quantia acima, referente à prestação convencional de ${PC.mes}/${PC.ano}, dando plena quitação.</p>
       <div style="display:flex;justify-content:space-between;margin-top:36px;font-size:10px"><span>____/____/______</span><span>________________________________<br>Tesoureiro(a)</span></div>
     </div>
-    <div style="display:flex;gap:8px;max-width:420px;margin:10px auto 0">
+    <div style="display:flex;gap:8px;max-width:420px;margin:10px auto 0;align-items:center">
+      <input id="pc-recibo-num-in" value="${esc(num === '___' ? '' : num)}" placeholder="Nº do recibo" style="width:120px;padding:8px 10px;border-radius:10px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:12px" oninput="document.getElementById('pc-recibo-num-doc').textContent = this.value.trim() || '___'">
       <button onclick="window.print()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
-      <button onclick="this.parentElement.parentElement.remove()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #444;background:transparent;color:var(--text-main);font-weight:700;font-size:12px;cursor:pointer">Fechar</button>
+      <button onclick="document.getElementById('pc-recibo-overlay').remove()" style="width:38px;padding:10px;border-radius:10px;border:none;background:rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
     </div>`;
   ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(0,0,0,.6);padding:16px';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
 };
 
 })();
