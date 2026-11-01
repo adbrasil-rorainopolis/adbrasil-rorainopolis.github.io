@@ -8269,6 +8269,7 @@ const PC = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().ge
 
 function _pcItensDetalhe(det){
   if (!det) return [];
+  if (typeof det === 'string'){ try { det = JSON.parse(det); } catch(e){ return []; } }
   return Array.isArray(det) ? det : Object.entries(det).map(([descricao, valor]) => ({ descricao, valor }));
 }
 const _pcSaidasMes = () => PC.saidas.filter(s => String(s.ano) === PC.ano && String(s.mes) === PC.mes);
@@ -8291,11 +8292,21 @@ window.pcRenderTela = async function(){
   PC.totais = {}; PC_GRUPOS.forEach(g => PC.totais[g.nome] = 0);
   try {
     const res = await api('carregar_movimento_financeiro', { ano: PC.ano, mes: PC.mes }, sessao()?.token);
-    (res?.dados || res?.registros || []).forEach(r => _pcItensDetalhe(r.detalhes_saidas_repasses).forEach(d => {
+    /* A API devolve as semanas do mês em `movimentos` (cada linha com `aba`).
+       Igual ao desktop: só as 5 SEMANAS somam — 'FECHAMENTO DO MÊS' não entra.
+       Fallback: totais por aba (`saidas_repasses_detalhadas`). */
+    const _ehSemana = r => !r.aba || !/fechamento/i.test(String(r.aba));
+    const linhas = (res?.movimentos || res?.registros || res?.dados || res?.linhas || []).filter(_ehSemana);
+    let det = linhas.flatMap(r => _pcItensDetalhe(r.detalhes_saidas_repasses));
+    if (!det.length){
+      const tots = Array.isArray(res?.totais) ? res.totais.filter(_ehSemana) : [res?.totais];
+      det = tots.flatMap(t => _pcItensDetalhe(t?.saidas_repasses_detalhadas).concat(_pcItensDetalhe(t?.detalhes_saidas_repasses)));
+    }
+    det.forEach(d => {
       const nome = String(d.descricao || d.nome || d.categoria || d.item || '').toLowerCase();
       const g = PC_GRUPOS.find(x => x.match.some(a => nome.includes(a)));
       if (g) PC.totais[g.nome] += Number(d.valor || d.valor_total || 0);
-    }));
+    });
   } catch(e) {}
   try {
     const r = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
