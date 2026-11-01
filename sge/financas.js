@@ -8290,6 +8290,7 @@ function _pcLinhaSaida(s = {}){
 window.pcRenderTela = async function(){
   el('fin-sub').innerHTML = `<div class="py-10 text-center opacity-60 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Carregando prestação convencional…</div>`;
   PC.totais = {}; PC_GRUPOS.forEach(g => PC.totais[g.nome] = 0);
+  let pcErro = '';
   try {
     const res = await api('carregar_movimento_financeiro', { ano: PC.ano, mes: PC.mes }, sessao()?.token);
     /* A API devolve as semanas do mês em `movimentos` (cada linha com `aba`).
@@ -8307,7 +8308,11 @@ window.pcRenderTela = async function(){
       const g = PC_GRUPOS.find(x => x.match.some(a => nome.includes(a)));
       if (g) PC.totais[g.nome] += Number(d.valor || d.valor_total || 0);
     });
-  } catch(e) {}
+    /* Sem linhas no servidor = mês não importado; não confundir com falha de carga. */
+    if (!linhas.length && !(res?.totais || []).length) pcErro = 'Mês sem movimento importado no servidor.';
+  } catch(e) {
+    pcErro = 'Falha ao carregar o movimento do mês — ' + (e?.message || 'verifique a conexão') + '. Toque em recarregar.';
+  }
   try {
     const r = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
     const j = JSON.parse(r?.valor || '{}'); PC.saidas = Array.isArray(j.saidas) ? j.saidas : [];
@@ -8322,6 +8327,7 @@ window.pcRenderTela = async function(){
         <select id="pc-mes" onchange="PC.mes=this.value;pcRenderTela()" class="flex-1 px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${MESES_ORD.map(m => `<option ${m===PC.mes?'selected':''}>${m}</option>`).join('')}</select>
         <button onclick="pcRenderTela()" class="w-9 h-9 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
       </div>
+      ${pcErro ? `<div class="rounded-xl border px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-triangle-exclamation"></i>${esc(pcErro)}</div>` : ''}
       ${PC_GRUPOS.map(g => `<div class="rounded-2xl border p-3 flex items-center justify-between" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-center gap-2"><i class="fa-solid ${g.icone}" style="color:${g.cor}"></i><div><p class="text-[11px] font-extrabold">${g.nome}</p><p class="text-[9px] opacity-50">entrada automática do movimento</p></div></div>
         <b style="color:${g.cor}">${moeda(PC.totais[g.nome])}</b></div>`).join('')}
