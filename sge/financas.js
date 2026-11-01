@@ -8287,6 +8287,12 @@ function _pcLinhaSaida(s = {}){
   </div>`;
 }
 
+/* PC mora dentro do IIFE — handlers inline de <select> não o enxergam;
+   estes setters globais trocam o período (antes o onchange morria em
+   ReferenceError e a tela nunca saía do mês atual). */
+window.pcSetAno = function(v){ PC.ano = v; pcRenderTela(); };
+window.pcSetMes = function(v){ PC.mes = v; pcRenderTela(); };
+
 window.pcRenderTela = async function(){
   el('fin-sub').innerHTML = `<div class="py-10 text-center opacity-60 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Carregando prestação convencional…</div>`;
   PC.totais = {}; PC_GRUPOS.forEach(g => PC.totais[g.nome] = 0);
@@ -8323,8 +8329,8 @@ window.pcRenderTela = async function(){
   el('fin-sub').innerHTML = `
     <div class="space-y-3 pb-24">
       <div class="flex items-center gap-2">
-        <select id="pc-ano" onchange="PC.ano=this.value;pcRenderTela()" class="px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['2024','2025','2026','2027'].map(a => `<option ${a===PC.ano?'selected':''}>${a}</option>`).join('')}</select>
-        <select id="pc-mes" onchange="PC.mes=this.value;pcRenderTela()" class="flex-1 px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${MESES_ORD.map(m => `<option ${m===PC.mes?'selected':''}>${m}</option>`).join('')}</select>
+        <select id="pc-ano" onchange="pcSetAno(this.value)" class="px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['2024','2025','2026','2027'].map(a => `<option ${a===PC.ano?'selected':''}>${a}</option>`).join('')}</select>
+        <select id="pc-mes" onchange="pcSetMes(this.value)" class="flex-1 px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${MESES_ORD.map(m => `<option ${m===PC.mes?'selected':''}>${m}</option>`).join('')}</select>
         <button onclick="pcRenderTela()" class="w-9 h-9 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
       </div>
       ${pcErro ? `<div class="rounded-xl border px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-triangle-exclamation"></i>${esc(pcErro)}</div>` : ''}
