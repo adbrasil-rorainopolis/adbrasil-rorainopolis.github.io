@@ -7678,17 +7678,17 @@ async function pbSincronizarMes(){
     (PB.pastores || []).forEach(pt => {
       const ent = pbRd(tg * pt.pct / 100);
       novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'E', semana: semLbl,
-        descricao: `Prebenda ${sem}ª Sem. — ${pt.pct}% do Total Geral (${moeda(tg)})`, valor: ent, auto: true, grupo: 'prebenda', data: hoje });
+        descricao: `Prebenda ${sem}ª Sem. — ${pt.pct}% do Total Geral (${moeda(tg)})`, valor: ent, auto: true, grupo: 'prebenda', data: '' });
       if (pt.dizimoSemanal)
         novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: semLbl,
-          descricao: `Dízimo — ${sem}ª Sem. (10% da prebenda)`, valor: pbRd(ent * 0.10), auto: true, grupo: 'prebenda', data: hoje });
+          descricao: `Dízimo — ${sem}ª Sem. (10% da prebenda)`, valor: pbRd(ent * 0.10), auto: true, grupo: 'prebenda', data: '' });
     });
   }
   (PB.pastores || []).filter(pt => !pt.dizimoSemanal).forEach(pt => {
     const base = novos.filter(l => l.pastorId === pt.id && l.tipo === 'E').reduce((a, l) => a + l.valor, 0);
     if (base > 0.004)
       novos.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pt.id, tipo: 'S', semana: '',
-        descricao: `Dízimo do mês — 10% sobre ${moeda(base)} de prebendas`, valor: pbRd(base * 0.10), auto: true, grupo: 'dizimo_mes', data: hoje });
+        descricao: `Dízimo do mês — 10% sobre ${moeda(base)} de prebendas`, valor: pbRd(base * 0.10), auto: true, grupo: 'dizimo_mes', data: '' });
   });
   const ehAutoMes = l => l.auto && l.ano === PB.ano && l.mes === PB.mes && (l.grupo === 'prebenda' || l.grupo === 'dizimo_mes');
   const chave = l => [l.pastorId, l.tipo, l.semana, l.grupo, l.valor, l.descricao].join('|');
@@ -7753,7 +7753,7 @@ function pbRender(){
           <span class="text-[9px] font-extrabold" style="color:${g.cor}">${moeda(sub)}</span>
         </div>` + itens.map(l => `
       <div class="flex items-center gap-2 py-1.5 border-t text-[11px]" style="border-color:var(--border-color)">
-        <span class="opacity-60 w-16 shrink-0">${esc(l.data || '—')}</span>
+        <span class="opacity-60 w-16 shrink-0 text-[9px]">${esc(l.auto ? (l.semana || 'Mês') : (l.data || '—'))}</span>
         <span class="flex-1 min-w-0 truncate">${esc(l.descricao)}${l.auto ? ' <b class="text-[8px] opacity-50">auto</b>' : ''}</span>
         <span class="font-bold tabular-nums ${l.tipo === 'E' ? 'text-emerald-500' : 'text-red-400'}">${l.tipo === 'E' ? '+' : '−'}${moeda(l.valor)}</span>
         <button onclick="pbExcluir('${l.id}')" class="opacity-50 cursor-pointer shrink-0"><i class="fa-solid fa-trash-can text-[10px] text-red-400"></i></button>
@@ -7840,10 +7840,10 @@ window.pbFormLanc = function(pid){
     <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
       <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:#818cf8">Novo lançamento — ${esc(pt.nome || pid)}</p>
       <div class="grid grid-cols-2 gap-2">
-        <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" onchange="document.getElementById('pbf-grupo').classList.toggle('hidden', this.value === 'E')"><option value="S">Saída</option><option value="E">Entrada</option></select>
+        <select id="pbf-tipo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" onchange="document.getElementById('pbf-grupo').classList.toggle('hidden', this.value === 'E');document.getElementById('pbf-data').classList.toggle('hidden', this.value === 'E')"><option value="S">Saída</option><option value="E">Entrada</option></select>
         <select id="pbf-grupo" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="auto">Grupo: automático</option><option value="pix_avista">Pagamento à vista</option><option value="compra_parcelada">Compra parcelada</option><option value="dizimo">Dízimos</option><option value="outros">Outros</option></select>
         <input id="pbf-desc" placeholder="Descrição" class="col-span-2 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        <input id="pbf-data" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        <input id="pbf-data" type="date" value="${new Date().toISOString().slice(0,10)}" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" data-box="1">
         <input id="pbf-valor" inputmode="decimal" placeholder="Valor (R$)" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
       </div>
       <div class="flex gap-2">
@@ -7860,7 +7860,7 @@ window.pbSalvarLanc = async function(pid){
   if (valor <= 0){ toast('Informe um valor maior que zero.'); return; }
   const gSel = (el('pbf-grupo') || {}).value || 'auto';
   const grupo = tipo === 'E' ? 'manual' : (gSel === 'auto' ? pbGrupoDe({ tipo, descricao }) : gSel);
-  const dataLanc = (el('pbf-data')?.value || '').slice(0, 10).split('-').reverse().join('/') || new Date().toLocaleDateString('pt-BR');
+  const dataLanc = tipo === 'E' ? '' : ((el('pbf-data')?.value || '').slice(0, 10).split('-').reverse().join('/') || new Date().toLocaleDateString('pt-BR'));
   PB.lanc.push({ id: pbId(), ano: PB.ano, mes: PB.mes, pastorId: pid, tipo, semana, descricao, valor: pbRd(valor), auto: false, grupo,
     data: dataLanc });
   pbReconciliarMigracoes();
