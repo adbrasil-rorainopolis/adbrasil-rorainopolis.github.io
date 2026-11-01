@@ -1440,7 +1440,7 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-marca.rcm-m-enviado span{color:rgba(16,110,60,.12)}
 </style>`;
 
-const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', sujo: false, tela: 'central', centralMes: 0, centralAno: 0, meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
+const RC = { lancamentos: [], id: null, status: 'rascunho', congs: null, bloqueios: [], somenteLeitura: false, podeEditar: true, modo: 'editar', formaSel: 'ESPECIE', edForma: 'ESPECIE', autor: '', gravadoEm: '', sujo: false, tela: 'central', centralMes: 0, centralAno: 0, periodoGrid: null, meta: { congregacao: '', conselho: '', data: '', semana: '2ª Semana' } };
 
 /* "Sujo" = edições feitas após a última gravação (ou sem nunca gravar).
    O index.html consulta window.sgeTemEdicaoPendente() antes de recarregar a
@@ -1565,11 +1565,11 @@ function rcRenderTela(){
             <div class="col-span-2">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[10px] font-bold uppercase opacity-60">Semana Financeira do RC</span>
-                ${sgeEhAdmin() ? `<div class="flex items-center gap-1.5">
-                  <button onclick="rcmMesGrid(-1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="rcmMesGrid(-1)" title="Mês anterior" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
                   <span id="rcm-grid-periodo" class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)"></span>
-                  <button onclick="rcmMesGrid(1)" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
-                </div>` : `<span id="rcm-grid-periodo" class="text-[10px] font-semibold opacity-60"></span>`}
+                  <button onclick="rcmMesGrid(1)" title="Próximo mês" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
               </div>
               <div id="rcm-grid-semanas" class="grid grid-cols-5 gap-1.5"></div></div>
           </div>
@@ -2198,15 +2198,15 @@ function rcmRenderLista(){
 function rcmColetar(){
   const sel = el('rcm-congregacao');
   const opt = sel?.options?.[sel.selectedIndex];
-  const hoje = new Date();
   const rel = {
     id: RC.id,
     congregacao: (sel && sel.value) || RC.meta.congregacao,
     conselho: (sel && sel.value) ? (opt?.dataset?.conselho || '') : RC.meta.conselho,
     data_relatorio: el('rcm-data')?.value || RC.meta.data,
     semana: el('rcm-semana')?.value || RC.meta.semana,
-    ano: (() => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(el('rcm-data')?.value || RC.meta.data || '')); return m ? m[3] : String(hoje.getFullYear()); })(),
-    mes: (() => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(el('rcm-data')?.value || RC.meta.data || '')); return m ? MESES_ORD[+m[2] - 1] : MESES_ORD[hoje.getMonth()]; })(),
+    /* Competência = mês financeiro selecionado no grid (não a data da prestação). */
+    ano: _rcPeriodoAtual().ano,
+    mes: _rcPeriodoAtual().mes,
     lancamentos: RC.lancamentos.map(({tipo, recibo, descricao, valor}) => ({tipo, recibo, descricao, valor})),
   };
   RC.meta = { congregacao: rel.congregacao, conselho: rel.conselho, data: rel.data_relatorio, semana: rel.semana };
@@ -2217,11 +2217,15 @@ function rcmColetar(){
 /* Período de fechamento: mês/ano da data do relatório (ou campos mes/ano gravados).
    Normaliza para MM/AAAA — mes pode vir como nome ("Setembro") ou número. */
 function rcmPeriodoChave(o){
+  /* Prefere os campos mes/ano gravados (mês financeiro da semana): a data da
+     prestação pode cair no mês seguinte (ex.: 5ª semana de Outubro prestada
+     em 02/11) e NÃO muda a competência do relatório. */
+  const mi = MESES_ORD.findIndex(x => String(x).toLowerCase() === String(o.mes || '').toLowerCase());
+  if ((mi >= 0 || /^\d{1,2}$/.test(String(o.mes || '').trim())) && o.ano)
+    return String(mi >= 0 ? mi + 1 : +o.mes).padStart(2, '0') + '/' + String(o.ano);
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(o.data_relatorio || '').trim());
   if (m) return m[2] + '/' + m[3];
-  const mi = MESES_ORD.findIndex(x => String(x).toLowerCase() === String(o.mes || '').toLowerCase());
-  const mm = mi >= 0 ? String(mi + 1).padStart(2, '0') : String(o.mes || '').padStart(2, '0');
-  return mm + '/' + String(o.ano || new Date().getFullYear());
+  return String(o.mes || '').padStart(2, '0') + '/' + String(o.ano || new Date().getFullYear());
 }
 
 /* Já existe relatório da mesma congregação + semana + período? (exceto o carregado) */
@@ -2273,7 +2277,7 @@ window.rcmAvisoSemana = async function(){
     congregacao: el('rcm-congregacao')?.value || '',
     semana: el('rcm-semana')?.value || '',
     data_relatorio: el('rcm-data')?.value || '',
-    ..._rcPeriodoRelatorio(),
+    ..._rcPeriodoAtual(),
   };
   rcmGridSemanas();
   _rcmAplicarBloqueioBaixa();
@@ -2309,14 +2313,16 @@ const _rcPeriodoRelatorio = () => {
   return m ? { ano: m[3], mes: MESES_ORD[+m[2] - 1] }
            : { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()] };
 };
-/* Filtro do grid: independe da data do relatório (admin navega entre meses). */
-const _rcPeriodoAtual = () => sgeEhAdmin() ? (RC.periodoGrid || _rcPeriodoRelatorio()) : _rcPeriodoRelatorio();
+/* Período financeiro do grid: navegável pelas setas para TODOS os perfis.
+   Não segue mais a data do relatório — a prestação pode ser feita no mês
+   seguinte à semana financeira (ex.: 5ª de Outubro datada em 02/11). */
+const _rcPeriodoAtual = () => RC.periodoGrid || _rcPeriodoRelatorio();
 /* Trava de lançamento: semana fechada não aceita rascunho para NINGUÉM —
    o tesoureiro é orientado à próxima aberta; o admin reabre pelo cadeado. */
 function _rcmSemanaTravadaMsg(){
   const sem = String(el('rcm-semana')?.value || RC.meta?.semana || '').trim();
   if (!sem) return null;
-  const p = _rcPeriodoRelatorio();
+  const p = _rcPeriodoAtual();
   if (!rcSemanaFechada(p.ano, p.mes, sem)) return null;
   if (typeof sgeEhAdmin === 'function' && sgeEhAdmin())
     return 'Semana fechada — toque no cadeado para reabrir antes de retificar.';
@@ -2329,7 +2335,7 @@ function _rcmSemanaTravadaMsg(){
 function _rcmAplicarBloqueioBaixa(){
   const wrap = el('rcm-baixa'), bloq = el('rcm-baixa-bloq');
   if (!wrap || !bloq) return;
-  const p = _rcPeriodoRelatorio();
+  const p = _rcPeriodoAtual();
   const sem = String(el('rcm-semana')?.value || '').trim();
   const fechada = !RC.somenteLeitura && !!sem && rcSemanaFechada(p.ano, p.mes, sem);
   wrap.style.opacity = fechada ? '.35' : '';
@@ -2344,7 +2350,6 @@ window.rcmMudarSemana = function(){
   rcmMarcarSujo(); rcmRenderDoc(); rcmAvisoSemana();
 };
 window.rcmMesGrid = function(dir){
-  if (!sgeEhAdmin()) return;
   const p = { ..._rcPeriodoAtual() };
   let i = MESES_ORD.indexOf(p.mes); if (i < 0) i = new Date().getMonth();
   let a = +p.ano; i += dir;
@@ -2374,7 +2379,7 @@ window.rcmGridSemanas = function(){
       (admin ? `<i onclick="event.stopPropagation();rcmToggleSemana(${w})" class="fa-solid ${fechada ? 'fa-lock' : 'fa-lock-open'} absolute -top-2 -right-1.5 w-5 h-5 rounded-full text-[10px] flex items-center justify-center cursor-pointer" style="background:var(--bg-card);border:1.5px solid ${fechada ? 'rgba(239,68,68,.6)' : 'rgba(16,185,129,.5)'};color:${fechada ? '#ef4444' : '#10b981'}"></i>` : '') +
       `</button>`;
   }).join('');
-  if (admin) box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês · toque no <b>cadeado</b> p/ fechar/reabrir só aquela semana</p>`;
+  box.innerHTML += `<p class="col-span-5 text-[8px] leading-tight pt-0.5" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Navegue pelas setas pra trocar o mês financeiro${admin ? ' · toque no <b>cadeado</b> p/ fechar/reabrir só aquela semana' : ''}</p>`;
   _rcmAplicarBloqueioBaixa();
 };
 
@@ -3146,6 +3151,7 @@ window.rcmAbrir = async function(id){
     RC.autor = r.autor_nome || '';
     RC.gravadoEm = r.enviado_em || r.atualizado_em || '';
     RC.meta = { congregacao: r.congregacao || '', conselho: r.conselho || '', data: r.data_relatorio || '', semana: r.semana || '2ª Semana' };
+    RC.periodoGrid = (r.ano && r.mes) ? { ano: String(r.ano), mes: r.mes } : null;
     F.rcCongregacao = r.congregacao || '';
     F.rcData = r.data_relatorio || '';
     F.rcSemana = r.semana || '2ª Semana';
@@ -3278,6 +3284,10 @@ function rcmResetEstado(){
   RC.somenteLeitura = false; RC.podeEditar = true; RC.modo = 'editar';
   RC.autor = ''; RC.gravadoEm = ''; RC.sujo = false;
   RC.meta = { congregacao: '', conselho: '', data: '', semana: '1ª Semana' };
+  /* O mês financeiro do grid fica fixo no mês corrente ao iniciar um novo
+     relatório — mudar a DATA da prestação depois não desloca o grid. */
+  const agora = new Date();
+  RC.periodoGrid = { ano: String(agora.getFullYear()), mes: MESES_ORD[agora.getMonth()] };
   const congFixa = rcCongFixa();
   F.rcCongregacao = congFixa || '';
   const hoje = new Date();
@@ -3323,12 +3333,12 @@ window.rcmSugerirSemana = async function(){
   const SEM = ['1ª Semana','2ª Semana','3ª Semana','4ª Semana','5ª Semana'];
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
-    const mm = String(el('rcm-data')?.value || F.rcData || '').substring(3);
+    const per = _rcPeriodoAtual();
+    const chave = rcmPeriodoChave(per);
     const usadas = new Set((res?.relatorios || [])
       .filter(r => String(r.congregacao || '').trim().toLowerCase() === cong.toLowerCase()
-               && (!mm || String(r.data_relatorio || '').substring(3) === mm))
+               && rcmPeriodoChave(r) === chave)
       .map(r => r.semana));
-    const per = _rcPeriodoRelatorio();
     const prox = SEM.find(s => !usadas.has(s) && !rcSemanaFechada(per.ano, per.mes, s));
     if (!prox) return null;
     if (F.rcSemana !== prox){
