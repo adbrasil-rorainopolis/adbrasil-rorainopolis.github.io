@@ -257,8 +257,8 @@ const filtrosEscopo = () => {
   return [cons, cong];
 };
 const _mmFiltroKey = () => 'sge_mm_filtro_' + String(sessao()?.usuario?.cpf || 'anon').replace(/\D/g, '');
-function _mmFiltroLer(){ try { const o = JSON.parse(localStorage.getItem(_mmFiltroKey()) || '{}'); return { conselho: o.conselho || 'Todos', congregacao: o.congregacao || 'Todas' }; } catch { return { conselho: 'Todos', congregacao: 'Todas' }; } }
-function _mmFiltroGravar(){ try { localStorage.setItem(_mmFiltroKey(), JSON.stringify({ conselho: G.filtroMensal?.conselho || 'Todos', congregacao: G.filtroMensal?.congregacao || 'Todas' })); } catch {} }
+function _mmFiltroLer(){ try { const o = JSON.parse(localStorage.getItem(_mmFiltroKey()) || '{}'); return { conselho: o.conselho || 'Todos', congregacao: o.congregacao || 'Todas', ano: o.ano || '', mes: o.mes || '' }; } catch { return { conselho: 'Todos', congregacao: 'Todas', ano: '', mes: '' }; } }
+function _mmFiltroGravar(){ try { localStorage.setItem(_mmFiltroKey(), JSON.stringify({ conselho: G.filtroMensal?.conselho || 'Todos', congregacao: G.filtroMensal?.congregacao || 'Todas', ano: G.mensalSel?.ano || '', mes: G.mensalSel?.mes || '' })); } catch {} }
 function _mmFiltroInit(){ if (!G.filtroMensal) G.filtroMensal = _mmFiltroLer(); }
 
 /* Popula os selects de escopo (prefixo: 'mm' na aba Análise, 'fx' na aba Fluxo).
@@ -1541,12 +1541,15 @@ function renderAbaMensal(){
   const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
   const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
   if (!anos.length) anos.push([String(ult.ano), String(ult.ano)]);
-  const m = G.mensalSel || { ano: ult.ano, mes: ult.mes };
+  const f0 = _mmFiltroLer();
+  const m = G.mensalSel || { ano: f0.ano || ult.ano, mes: ORDEM_MESES.includes(f0.mes) ? f0.mes : ult.mes };
   G.mensalSel = m;
   el('gestao-corpo').innerHTML = `
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
+      <button onclick="gestaoNavMes(-1)" title="Mês anterior" class="px-2.5 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left"></i></button>
       ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
+      <button onclick="gestaoNavMes(1)" title="Próximo mês" class="px-2.5 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right"></i></button>
       ${_filtroEscopoUI('mm')}
       ${(() => { const c = obterCiclo(m.ano, m.mes);
         return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span>` + (cicloPodeGravar()
@@ -1556,6 +1559,7 @@ function renderAbaMensal(){
       <button onclick="gestaoCopiarSituacao()" class="px-4 py-2 text-white rounded-lg text-xs font-bold cursor-pointer" style="background:#059669" title="Copiar resumo da situação para colar no WhatsApp"><i class="fa-brands fa-whatsapp mr-1"></i>Copiar</button>
     </div>
     <div id="mm-escopo-selo"></div>
+    <div id="mm-alertas"></div>
     <div id="mm-kpis" class="grid grid-cols-2 gap-2.5"></div>
     <div id="mm-medias" class="grid grid-cols-2 gap-2.5"></div>
     <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><h3 class="font-bold text-sm mb-2">Semanas do mês</h3><span id="mm-semanas-label" class="text-[10px] opacity-60"></span><div class="relative h-56 mt-2"><canvas id="mm-graf-semanas"></canvas></div></div>
@@ -1571,6 +1575,18 @@ function renderAbaMensal(){
   gestaoMensalCarregar();
 }
 window.gestaoMensalSel = () => { G.mensalSel = { ano: el('mm-ano').value, mes: el('mm-mes').value }; gestaoMensalCarregar(); };
+/* Setas ◀ ▶ de mês — mesmo padrão do prestconv/envio de caixa. */
+window.gestaoNavMes = dir => {
+  let i = ORDEM_MESES.indexOf(G.mensalSel?.mes); if (i < 0) i = new Date().getMonth();
+  let a = parseInt(G.mensalSel?.ano, 10) || new Date().getFullYear();
+  i += dir; if (i < 0){ i = 11; a--; } else if (i > 11){ i = 0; a++; }
+  G.mensalSel = { ano: String(a), mes: ORDEM_MESES[i] };
+  const sa = el('mm-ano'), sm = el('mm-mes');
+  if (sa && ![...sa.options].some(o => o.value === String(a))) sa.add(new Option(String(a), String(a)));
+  if (sa) sa.value = String(a);
+  if (sm) sm.value = ORDEM_MESES[i];
+  gestaoMensalCarregar();
+};
 window.gestaoCiclo = () => { toast('Ciclo de fechamentos é configurado no desktop — app somente leitura.'); };
 /* Troca o ciclo do mês selecionado (4/5 semanas) — grava na nuvem e o
    desktop lê o mesmo mapa. Servidor também barra quem não pode gravar. */
@@ -1727,9 +1743,26 @@ window.gestaoMensalCarregar = async function(){
     return;
   }
   G.mensal = res;
+  _mmFiltroGravar();
   const selo = el('mm-escopo-selo');
   if (selo) selo.innerHTML = res.escopo_resumo ? `<div class="rounded-xl px-3 py-2 text-[10px] font-bold flex items-center gap-2" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fa-solid fa-lock"></i>Visão limitada ao seu escopo: ${esc(res.escopo_resumo)}</div>` : '';
   const a = res.atual, comp = res.comparativos, ant = comp.mes_anterior, anual = comp.media_anual, yoy = comp.mesmo_mes_ano_anterior, proj = res.projecao, equiv = comp.mes_anterior_equiv;
+  /* Faixa de alertas do mês — aparece logo abaixo dos filtros, antes dos KPIs. */
+  const alBox = el('mm-alertas');
+  if (alBox){
+    const hoje = new Date();
+    const ehAtual = String(hoje.getFullYear()) === String(res.periodo?.ano) && ORDEM_MESES[hoje.getMonth()] === res.periodo?.mes;
+    const tot = res.ciclo?.total_semanas || 5;
+    const comDados = Math.min(a.semanas_com_dados || 0, tot);
+    const lista = [];
+    if (!a.tem_dados) lista.push(['fa-circle-info', '#38bdf8', `${res.periodo?.mes}/${res.periodo?.ano} ainda sem movimento.`]);
+    else {
+      if (ehAtual && comDados < tot) lista.push(['fa-hourglass-half', '#f59e0b', `${semanaCorrente(a, tot)}ª semana em andamento — ${comDados}/${tot} fechamentos com movimento.`]);
+      if (num(a.saldo_liquido) < 0) lista.push(['fa-triangle-exclamation', '#ef4444', `Mês fechando no negativo: ${moeda(a.saldo_liquido)}.`]);
+      if (num(ant.var_entradas) <= -15) lista.push(['fa-arrow-trend-down', '#f59e0b', `Entradas ${num(ant.var_entradas).toFixed(1)}% abaixo de ${esc(ant.rotulo || 'mês anterior')}.`]);
+    }
+    alBox.innerHTML = lista.length ? `<div class="border rounded-xl px-3 py-2 space-y-1" style="background:var(--bg-card);border-color:var(--border-color)">${lista.map(([ic, cor, txt]) => `<div class="text-[10px] font-bold flex items-center gap-1.5" style="color:${cor}"><i class="fa-solid ${ic}"></i>${txt}</div>`).join('')}</div>` : '';
+  }
   const selCiclo = el('mm-ciclo-sel'); if (selCiclo) selCiclo.value = String(res.ciclo.total_semanas);
   const lblCiclo = el('mm-ciclo-lbl'); if (lblCiclo) lblCiclo.textContent = `${res.ciclo.total_semanas} semanas`;
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
