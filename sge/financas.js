@@ -327,6 +327,10 @@ window.mapaRenderTela = function(){
           <select id="mapa-cons-anual" onchange="mapaAnualFiltro()" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">Campo todo</option></select>
           <select id="mapa-cong-anual" onchange="mapaAnualRender()" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">Todas</option></select>
         </div>
+        <div class="flex rounded-lg overflow-hidden border text-[10px] font-bold w-max" style="border-color:var(--border-color)">
+          <button id="mapa-modo-valor" onclick="mapaAnualModo('valor')" class="px-2.5 py-1 cursor-pointer bg-cyan-600 text-white">R$</button>
+          <button id="mapa-modo-pct" onclick="mapaAnualModo('pct')" class="px-2.5 py-1 cursor-pointer" style="background:var(--bg-input)">%</button>
+        </div>
         <div class="relative h-44"><canvas id="mapa-graf-anual"></canvas></div>
         <p id="mapa-anual-resumo" class="text-[9px] opacity-60"></p>
       </div>
@@ -338,7 +342,15 @@ window.mapaMudouFiltro = function(){ MAPA_ARQ.ano = el('mapa-ano').value; MAPA_A
 window.mapaSelSemana = function(w){ MAPA_ARQ.sem = w; mapaRenderTela(); };
 
 /* Visão anual: dízimos mês a mês por campo/conselho/congregação (12 chamadas, uma por mês). */
-const MAPA_ANUAL = { ano: String(new Date().getFullYear()), dados: [], graf: null };
+const MAPA_ANUAL = { ano: String(new Date().getFullYear()), dados: [], graf: null, modo: 'valor' };
+
+window.mapaAnualModo = function(modo){
+  MAPA_ANUAL.modo = modo === 'pct' ? 'pct' : 'valor';
+  const bV = el('mapa-modo-valor'), bP = el('mapa-modo-pct');
+  if (bV) { bV.className = 'px-2.5 py-1 cursor-pointer' + (MAPA_ANUAL.modo === 'valor' ? ' bg-cyan-600 text-white' : ''); bV.style.background = MAPA_ANUAL.modo === 'valor' ? '' : 'var(--bg-input)'; }
+  if (bP) { bP.className = 'px-2.5 py-1 cursor-pointer' + (MAPA_ANUAL.modo === 'pct' ? ' bg-cyan-600 text-white' : ''); bP.style.background = MAPA_ANUAL.modo === 'pct' ? '' : 'var(--bg-input)'; }
+  mapaAnualRender();
+};
 
 window.mapaAnualCarregar = async function(){
   const selAno = el('mapa-ano-anual');
@@ -381,16 +393,22 @@ window.mapaAnualRender = function(){
   const ls = (MAPA_ANUAL.dados || []).filter(r => (!cons || r.cons === cons) && (!cong || r.cong === cong));
   const tb = MESES_ORD.map(m => ls.filter(r => r.mes === m).reduce((s, r) => s + r.tb, 0));
   const esp = MESES_ORD.map(m => ls.filter(r => r.mes === m).reduce((s, r) => s + r.esp, 0));
+  const emPct = MAPA_ANUAL.modo === 'pct';
+  const totaisMes = tb.map((v, i) => v + esp[i]);
+  const dadoTb = emPct ? tb.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : tb;
+  const dadoEsp = emPct ? esp.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : esp;
   const cv = el('mapa-graf-anual'); if (!cv) return;
   if (MAPA_ANUAL.graf) MAPA_ANUAL.graf.destroy();
   MAPA_ANUAL.graf = new Chart(cv, { type: 'bar',
     data: { labels: MESES_ORD.map(m => m.slice(0, 3)), datasets: [
-      { label: 'TB/PIX', data: tb, backgroundColor: '#0ea5e9', stack: 'd', borderRadius: 3 },
-      { label: 'Espécie', data: esp, backgroundColor: '#f59e0b', stack: 'd', borderRadius: 3 },
+      { label: 'TB/PIX', data: dadoTb, backgroundColor: '#0ea5e9', stack: 'd', borderRadius: 3 },
+      { label: 'Espécie', data: dadoEsp, backgroundColor: '#f59e0b', stack: 'd', borderRadius: 3 },
     ]},
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${moeda(c.parsed.y)}` } } },
-      scales: { x: { stacked: true, ticks: { font: { size: 9 } } }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') } } } }
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }, tooltip: { callbacks: { label: c => emPct
+        ? ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}% (${moeda(c.datasetIndex === 0 ? tb[c.dataIndex] : esp[c.dataIndex])})`
+        : ` ${c.dataset.label}: ${moeda(c.parsed.y)}` } } },
+      scales: { x: { stacked: true, ticks: { font: { size: 9 } } }, y: { stacked: true, beginAtZero: true, max: emPct ? 100 : undefined, ticks: { font: { size: 9 }, callback: v => emPct ? v + '%' : 'R$ ' + Number(v).toLocaleString('pt-BR') } } } }
   });
   const resumo = el('mapa-anual-resumo');
   if (resumo) resumo.innerHTML = `${esc(cong || cons || 'Campo todo')} — <b class="text-emerald-500">${moeda(ls.reduce((s, r) => s + r.tb + r.esp, 0))}</b> em dízimos no ano.`;
