@@ -332,6 +332,7 @@ window.mapaRenderTela = function(){
           <button id="mapa-modo-pct" onclick="mapaAnualModo('pct')" class="px-2.5 py-1 cursor-pointer" style="background:var(--bg-input)">%</button>
         </div>
         <div class="relative h-44"><canvas id="mapa-graf-anual"></canvas></div>
+        <div id="mapa-anual-stats" class="grid grid-cols-2 gap-1.5"></div>
         <p id="mapa-anual-resumo" class="text-[9px] opacity-60"></p>
       </div>
     </div>`;
@@ -397,21 +398,38 @@ window.mapaAnualRender = function(){
   const totaisMes = tb.map((v, i) => v + esp[i]);
   const dadoTb = emPct ? tb.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : tb;
   const dadoEsp = emPct ? esp.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : esp;
+  const mesesCom = totaisMes.filter(v => v > 0).length;
+  const totTb = tb.reduce((s, v) => s + v, 0), totEsp = esp.reduce((s, v) => s + v, 0);
+  const totG = totTb + totEsp;
+  const mediaG = mesesCom ? totG / mesesCom : 0;
+  const datasets = [
+    { label: 'TB/PIX', data: dadoTb, backgroundColor: '#0ea5e9', stack: 'd', borderRadius: 3 },
+    { label: 'Espécie', data: dadoEsp, backgroundColor: '#f59e0b', stack: 'd', borderRadius: 3 },
+  ];
+  if (!emPct && mediaG > 0)
+    datasets.push({ label: 'Média mensal', type: 'line', data: new Array(12).fill(mediaG), borderColor: '#a78bfa', borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0 });
   const cv = el('mapa-graf-anual'); if (!cv) return;
   if (MAPA_ANUAL.graf) MAPA_ANUAL.graf.destroy();
   MAPA_ANUAL.graf = new Chart(cv, { type: 'bar',
-    data: { labels: MESES_ORD.map(m => m.slice(0, 3)), datasets: [
-      { label: 'TB/PIX', data: dadoTb, backgroundColor: '#0ea5e9', stack: 'd', borderRadius: 3 },
-      { label: 'Espécie', data: dadoEsp, backgroundColor: '#f59e0b', stack: 'd', borderRadius: 3 },
-    ]},
+    data: { labels: MESES_ORD.map(m => m.slice(0, 3)), datasets: datasets },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }, tooltip: { callbacks: { label: c => emPct
         ? ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}% (${moeda(c.datasetIndex === 0 ? tb[c.dataIndex] : esp[c.dataIndex])})`
         : ` ${c.dataset.label}: ${moeda(c.parsed.y)}` } } },
       scales: { x: { stacked: true, ticks: { font: { size: 9 } } }, y: { stacked: true, beginAtZero: true, max: emPct ? 100 : undefined, ticks: { font: { size: 9 }, callback: v => emPct ? v + '%' : 'R$ ' + Number(v).toLocaleString('pt-BR') } } } }
   });
+  const stats = el('mapa-anual-stats');
+  if (stats) {
+    const pctTb = totG ? totTb / totG * 100 : 0, pctEsp = totG ? totEsp / totG * 100 : 0;
+    const chip = (t, v, s) => `<div class="border rounded-lg px-2 py-1.5 text-[9px]" style="border-color:var(--border-color);background:var(--bg-input)"><p class="opacity-55 uppercase font-bold tracking-wide">${t}</p><p class="font-bold text-[11px]">${v}</p>${s ? `<p class="opacity-55">${s}</p>` : ''}</div>`;
+    stats.innerHTML =
+      chip('TB/PIX', `${moeda(mesesCom ? totTb / mesesCom : 0)}/mês`, `${pctTb.toFixed(1)}% do ano`) +
+      chip('Espécie', `${moeda(mesesCom ? totEsp / mesesCom : 0)}/mês`, `${pctEsp.toFixed(1)}% do ano`) +
+      chip('Média mensal', moeda(mediaG), `${mesesCom} mês(es) com dízimos`) +
+      chip('Total do ano', moeda(totG), `TB ${pctTb.toFixed(0)}% · Esp ${pctEsp.toFixed(0)}%`);
+  }
   const resumo = el('mapa-anual-resumo');
-  if (resumo) resumo.innerHTML = `${esc(cong || cons || 'Campo todo')} — <b class="text-emerald-500">${moeda(ls.reduce((s, r) => s + r.tb + r.esp, 0))}</b> em dízimos no ano.`;
+  if (resumo) resumo.innerHTML = `${esc(cong || cons || 'Campo todo')} — <b class="text-emerald-500">${moeda(totG)}</b> em dízimos no ano.`;
 };
 
 async function mapaCarregar(){
