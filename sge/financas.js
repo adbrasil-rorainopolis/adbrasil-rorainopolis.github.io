@@ -5460,14 +5460,16 @@ window.semExportarWhatsApp = async function(){
       qtdMes += arr.length;
       linhas.push('');
       linhas.push(`*▸ ${n}ª SEMANA* — ${arr.length ? `${arr.length} lanç. · ${moeda(soma)}` : 'sem lançamentos'}`);
-      /* agrupa por congregação com subtotal por canal */
+      /* agrupa por congregação com subtotal por canal — grupos na ordem
+         oficial do catálogo (numero do item), fora do catálogo vai ao fim */
+      const ordemCat = Object.fromEntries(MAPA_CATALOGO.map(([num, nome]) => [cf(nome), num]));
       const grupos = {};
       for (const item of arr){
         const cong = item.mem ? congEfetiva(item.mem) : (item.reg.destino_congregacao || '—');
         const k = cf(cong);
-        (grupos[k] = grupos[k] || { nome: _nomeCongExib(cong) || cong, itens: [] }).itens.push(item);
+        (grupos[k] = grupos[k] || { nome: _nomeCongExib(cong) || cong, num: ordemCat[k] ?? 99, itens: [] }).itens.push(item);
       }
-      for (const g of Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))){
+      for (const g of Object.values(grupos).sort((a, b) => a.num - b.num || a.nome.localeCompare(b.nome, 'pt-BR'))){
         linhas.push('');
         linhas.push(`⛪ *${g.nome}*`);
         let sEsp = 0, sPix = 0;
@@ -5483,13 +5485,17 @@ window.semExportarWhatsApp = async function(){
           const itin = itins.length ? `→ ${itins.map(c => _nomeCongExib(c) || c).join(' + ')}` : (dest && cf(dest) !== cf(g.nome) ? `→ ${_nomeCongExib(dest) || dest}` : '');
           linhas.push(`👤 ${nome}: *${moeda(v)}* - ${canal}${itin ? ' ' + itin : ''}`);
         }
-        linhas.push(`_Subtotal ${g.nome}: ${g.itens.length} lanç. · PIX ${moeda(sPix)} · Dinheiro ${moeda(sEsp)} · Total ${moeda(sPix + sEsp)}_`);
+        const partes = [];
+        if (sPix > 0) partes.push(`PIX ${moeda(sPix)}`);
+        if (sEsp > 0) partes.push(`Dinheiro ${moeda(sEsp)}`);
+        partes.push(`Total ${moeda(sPix + sEsp)}`);
+        linhas.push(`_Subtotal ${g.nome}: ${g.itens.length} lanç. · ${partes.join(' · ')}_`);
       }
     }
     linhas.push('');
     linhas.push(`*TOTAL DO MÊS — ${qtdMes} lançamentos*`);
-    linhas.push(`PIX/TB: ${moeda(totPixMes)}`);
-    linhas.push(`Dinheiro: ${moeda(totEspMes)}`);
+    if (totPixMes > 0) linhas.push(`PIX/TB: ${moeda(totPixMes)}`);
+    if (totEspMes > 0) linhas.push(`Dinheiro: ${moeda(totEspMes)}`);
     linhas.push(`*Geral: ${moeda(totPixMes + totEspMes)}*`);
 
     const txt = linhas.join('\n');
