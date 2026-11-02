@@ -471,17 +471,39 @@ async function mapaCarregar(){
 }
 
 /* Distribuição Cidades x Vicinais — mesmo formato do relatório "Entrada de Valores":
-   totais do mês por congregação separados por categoria_local, % por canal e
-   participação de cada grupo no consolidado do mês. */
+   totais do mês por congregação separados por categoria, % por canal e
+   participação de cada grupo no consolidado do mês. Lista todas as 43 (zeradas
+   aparecem com "-"), como no relatório. */
+const MAPA_CATALOGO = [
+  [1,"ASSEMBLEIA GERAL","Assembleia Geral",1],[2,"OBREIROS","Assembleia Geral",1],
+  [3,"SEDE PROVISÓRIA","Conselho 1",1],[4,"FILADÉLFIA","Conselho 1",1],[5,"P.P - CIDADE NOVA","Conselho 1",1],
+  [6,"VICINAL 06 - MONTE SINAI","Conselho 1",0],[7,"P.P. - VICINAL PESQUEIRO","Conselho 1",0],[8,"P.P. - BR 174 - EL SHADAY","Conselho 1",0],
+  [9,"VICINAL 11 - NOVA CANAÃ","Conselho 1",0],[10,"VICINAL 11 - MONTE MORIÁ","Conselho 1",0],
+  [11,"NOVA ALIANÇA","Conselho 2",1],[12,"JESUS É REI","Conselho 2",1],[13,"P.P. VICINAL 25 - VIDEIRA","Conselho 2",0],
+  [14,"VICINAL 13  - GALILEIA","Conselho 2",0],[15,"P.P. - VICINAL 41 - EBENEZER","Conselho 2",0],[16,"VICINAL 42 - MANANCIAL","Conselho 2",0],
+  [17,"VICINAL 43 - LEÃO DE JUDÁ","Conselho 2",0],[18,"VICINAL 44 - ATOS 2","Conselho 2",0],
+  [19,"MONTE CARMELO","Conselho 3",1],[20,"MARANATA","Conselho 3",1],[21,"BOA ESPERANÇA","Conselho 3",1],
+  [22,"P.P. - VICINAL 02 - ANAUÁ","Conselho 3",0],[23,"VICINAL 34 - MONTE GEREZIM","Conselho 3",0],[24,"VICINAL 04 - MONTE SIÃO","Conselho 3",0],
+  [25,"VICINAL 09 - MONTE HOREBE","Conselho 3",0],[26,"P.P. - BR 174 - NOVA JERUSALEM","Conselho 3",0],
+  [27,"NOVO HORIZONTE","Conselho 4",1],[28,"JARDIM FLORESTA","Conselho 4",1],[29,"PARK DAS ORQUÍDEAS","Conselho 4",1],
+  [30,"P.P. - BAIRRO DOS TRABALHADORES","Conselho 4",1],[31,"VICINAL 19 - LIRIOS DOS VALES","Conselho 4",0],[32,"VICINAL 10 - BETEL","Conselho 4",0],
+  [33,"VICINAL 10 - PENIEL","Conselho 4",0],[34,"VICINAL 12 - GETSÊMANI","Conselho 4",0],[35,"VICINAL 14 - DEUS É FIEL","Conselho 4",0],
+  [36,"ROSA DE SARON","Conselho 5",1],[37,"NOVO ÉDEN","Conselho 5",1],[38,"EL DOURADO","Conselho 5",1],
+  [39,"P.P. - CHACARAS UNIÃO","Conselho 5",0],[40,"P.P - VICINAL 01 - SÓ O SENHOR É DEUS","Conselho 5",0],
+  [41,"VICINAL 01 - MONTE DAS OLIVEIRAS","Conselho 5",0],[42,"VICINAL 03 - MONTE HERMOM","Conselho 5",0],[43,"P.P. - VICINAL 05 - DEUS FORTE","Conselho 5",0],
+];
 function mapaDistRender(lancamentos){
   const box = el('mapa-dist'); if (!box) return;
   const porCong = {};
+  MAPA_CATALOGO.forEach(([num, nome, cons, cidade]) => {
+    porCong[cf(nome)] = { num, nome, cons, cidade: !!cidade, tb: 0, esp: 0 };
+  });
   (lancamentos || []).forEach(l => {
     const k = cf(l.congregacao || '—');
-    if (!porCong[k]) porCong[k] = { nome: l.congregacao || '—', cons: l.conselho || '—', cidade: String(l.categoria_local || 'Cidade').toLowerCase() === 'cidade', tb: 0, esp: 0 };
+    if (!porCong[k]) porCong[k] = { num: 99, nome: l.congregacao || '—', cons: l.conselho || '—', cidade: String(l.categoria_local || '').toLowerCase() === 'cidade', tb: 0, esp: 0 };
     porCong[k].tb += num(l.valor_tb); porCong[k].esp += num(l.valor_especie);
   });
-  const itens = Object.values(porCong).map(i => ({ ...i, geral: i.tb + i.esp })).sort((a, b) => a.nome.localeCompare(b.nome));
+  const itens = Object.values(porCong).map(i => ({ ...i, geral: i.tb + i.esp })).sort((a, b) => a.num - b.num);
   const pct = (v, b) => b > 0 ? `${(v / b * 100).toFixed(1).replace('.', ',')}%` : '—';
   const bloco = (lista, titulo, cor) => {
     const tTb = lista.reduce((s, i) => s + i.tb, 0), tEsp = lista.reduce((s, i) => s + i.esp, 0), tG = tTb + tEsp;
