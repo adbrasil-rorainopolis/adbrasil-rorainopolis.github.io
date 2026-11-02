@@ -1045,8 +1045,8 @@ const G = {
   filtroMensal: null,
 };
 const ABAS = [
-  ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
   ['mensal', 'Análise do Mês', 'fa-calendar-week', '#8b5cf6'],
+  ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
   ['indicadores', 'Indicadores', 'fa-chart-line', '#38bdf8'],
   ['relatorios', 'Relatórios', 'fa-file-pdf', '#ef4444'],
 ];
