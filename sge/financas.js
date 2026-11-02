@@ -321,6 +321,10 @@ window.mapaRenderTela = function(){
       <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
       <div id="mapa-lista" class="space-y-2"></div>
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-city mr-1 text-sky-400"></i>Distribuição · Cidades x Vicinais <span class="normal-case font-semibold opacity-60">(mês)</span></p>
+        <div id="mapa-dist" class="space-y-2"></div>
+      </div>
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-chart-column mr-1 text-cyan-400"></i>Visão anual de dízimos</p>
         <div class="grid grid-cols-3 gap-1.5">
           <select id="mapa-ano-anual" onchange="mapaAnualCarregar()" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
@@ -443,6 +447,7 @@ async function mapaCarregar(){
     const consDe = {};
     for (const [cons, congs] of Object.entries(mapa.porConselho || {}))
       for (const n of (congs || [])) consDe[cf(n)] = cons;
+    mapaDistRender(org.lancamentos || org.registros || []);
     const semLbl = `${MAPA_ARQ.sem}ª SEMANA`;
     const itens = (org.lancamentos || org.registros || [])
       .filter(l => l.semana === semLbl)
@@ -463,6 +468,49 @@ async function mapaCarregar(){
   } catch(e){
     if (lista) lista.innerHTML = `<p class="text-center text-xs py-8 text-red-400">Falha ao carregar: ${esc(e.message || e)}</p>`;
   }
+}
+
+/* Distribuição Cidades x Vicinais — mesmo formato do relatório "Entrada de Valores":
+   totais do mês por congregação separados por categoria_local, % por canal e
+   participação de cada grupo no consolidado do mês. */
+function mapaDistRender(lancamentos){
+  const box = el('mapa-dist'); if (!box) return;
+  const porCong = {};
+  (lancamentos || []).forEach(l => {
+    const k = cf(l.congregacao || '—');
+    if (!porCong[k]) porCong[k] = { nome: l.congregacao || '—', cons: l.conselho || '—', cidade: String(l.categoria_local || 'Cidade').toLowerCase() === 'cidade', tb: 0, esp: 0 };
+    porCong[k].tb += num(l.valor_tb); porCong[k].esp += num(l.valor_especie);
+  });
+  const itens = Object.values(porCong).map(i => ({ ...i, geral: i.tb + i.esp })).sort((a, b) => a.nome.localeCompare(b.nome));
+  const pct = (v, b) => b > 0 ? `${(v / b * 100).toFixed(1).replace('.', ',')}%` : '—';
+  const bloco = (lista, titulo, cor) => {
+    const tTb = lista.reduce((s, i) => s + i.tb, 0), tEsp = lista.reduce((s, i) => s + i.esp, 0), tG = tTb + tEsp;
+    return `<div class="border rounded-xl overflow-hidden" style="border-color:var(--border-color)">
+      <p class="px-2.5 py-1.5 text-[9px] font-extrabold uppercase tracking-widest ${cor}" style="background:var(--bg-input)">${titulo} · ${lista.length}</p>
+      <div class="divide-y" style="border-color:var(--border-color)">${lista.map(i => `
+        <div class="px-2.5 py-2 flex items-center gap-2">
+          <div class="flex-1 min-w-0"><b class="text-[11px] block truncate">${esc(i.nome)}</b><span class="text-[8px] opacity-50 block truncate">${esc(i.cons)}</span></div>
+          <div class="text-right shrink-0"><span class="text-[7px] opacity-50 block">TB</span><b class="text-[10px]">${i.tb ? moeda(i.tb) : '-'}</b><span class="text-[8px] text-sky-400 block">${pct(i.tb, i.geral)}</span></div>
+          <div class="text-right shrink-0"><span class="text-[7px] opacity-50 block">Esp</span><b class="text-[10px] text-amber-500">${i.esp ? moeda(i.esp) : '-'}</b><span class="text-[8px] text-amber-500 block">${pct(i.esp, i.geral)}</span></div>
+          <div class="text-right shrink-0 w-14"><span class="text-[7px] opacity-50 block">Geral</span><b class="text-[10px] text-emerald-500">${i.geral ? moeda(i.geral) : '-'}</b></div>
+        </div>`).join('') || '<p class="px-2.5 py-3 text-center text-[10px] opacity-50">Sem dados.</p>'}</div>
+      <p class="px-2.5 py-1.5 text-[9px] font-bold flex justify-between" style="background:var(--bg-input)"><span>TOTAL</span><span><span class="text-sky-400">${tTb ? moeda(tTb) : '-'}</span> · <span class="text-amber-500">${tEsp ? moeda(tEsp) : '-'}</span> · <span class="text-emerald-500">${tG ? moeda(tG) : '-'}</span></span></p>
+    </div>`;
+  };
+  const cid = itens.filter(i => i.cidade), vic = itens.filter(i => !i.cidade);
+  const gCid = cid.reduce((s, i) => s + i.geral, 0), gVic = vic.reduce((s, i) => s + i.geral, 0), gTot = gCid + gVic;
+  const pCid = gTot > 0 ? gCid / gTot * 100 : 0;
+  box.innerHTML = bloco(cid, 'Congregações - Cidade', 'text-sky-400') + bloco(vic, 'Congregações - Vicinais e BR', 'text-amber-500') + `
+    <div class="space-y-1 pt-1">
+      <div class="flex rounded-lg overflow-hidden h-2.5 border" style="border-color:var(--border-color)">
+        <div style="width:${pCid}%;background:#0ea5e9"></div><div style="width:${100 - pCid}%;background:#f59e0b"></div>
+      </div>
+      <div class="flex justify-between text-[9px] font-bold">
+        <span class="text-sky-400">Cidade ${moeda(gCid)} · ${pct(gCid, gTot)}</span>
+        <span class="text-emerald-500">${moeda(gTot)}</span>
+        <span class="text-amber-500">${pct(gVic, gTot)} · ${moeda(gVic)} Vicinais</span>
+      </div>
+    </div>`;
 }
 
 window.finMenu = function(){
