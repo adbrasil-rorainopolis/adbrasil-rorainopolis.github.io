@@ -5038,7 +5038,7 @@ function semPodeEditar(){
   const p = String(sessao()?.usuario?.perfil || '').trim().toLowerCase();
   if (p !== 'operador') return false;
   const ac = sgeAcessos();
-  if (!ac.configurado) return true;
+  if (!ac.configurado) return false;
   return (ac.permissoes || []).some(x => x.modulo === 'financeiro'
     && (x.aba === '*' || x.aba === 'dizimistas' || String(x.aba || '').startsWith('dizimistas.'))
     && (x.acao === '*' || x.acao === 'operar'));
