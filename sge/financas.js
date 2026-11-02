@@ -5451,23 +5451,48 @@ window.semExportarWhatsApp = async function(){
 
     const linhas = [];
     linhas.push(`*SGE • DÍZIMOS — ${String(s.mes).toUpperCase()}/${s.ano}*`);
-    linhas.push(`Conselho: ${s.conselho} · Congregação: ${s.congregacao}`);
-    linhas.push(`Exportado em ${new Date().toLocaleString('pt-BR')}`);
-    let totalMes = 0, qtdMes = 0;
+    linhas.push(`📌 Conselho: ${s.conselho} · Congregação: ${s.congregacao}`);
+    linhas.push(`🕒 Exportado em ${new Date().toLocaleString('pt-BR')}`);
+    let qtdMes = 0, totPixMes = 0, totEspMes = 0;
     for (const n of [1, 2, 3, 4, 5]){
       const arr = porSemana[n].sort((a, b) => String(a.mem?.nome || a.reg.id).localeCompare(String(b.mem?.nome || b.reg.id), 'pt-BR'));
       const soma = arr.reduce((a, x) => a + x.v, 0);
-      totalMes += soma; qtdMes += arr.length;
+      qtdMes += arr.length;
       linhas.push('');
       linhas.push(`*▸ ${n}ª SEMANA* — ${arr.length ? `${arr.length} lanç. · ${moeda(soma)}` : 'sem lançamentos'}`);
-      for (const { reg, mem, v } of arr){
-        const nome = mem?.nome || 'Membro Sem Nome';
-        const cong = mem ? congEfetiva(mem) : (reg.destino_congregacao || '—');
-        linhas.push(`${String(reg.id ?? '').trim()} · ${nome} · ${cong} · *${moeda(v)}*${detalheParcelas(reg, cong)} · ${stTxt(reg)}`);
+      /* agrupa por congregação com subtotal por canal */
+      const grupos = {};
+      for (const item of arr){
+        const cong = item.mem ? congEfetiva(item.mem) : (item.reg.destino_congregacao || '—');
+        const k = cf(cong);
+        (grupos[k] = grupos[k] || { nome: _nomeCongExib(cong) || cong, itens: [] }).itens.push(item);
+      }
+      for (const g of Object.values(grupos).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))){
+        linhas.push('');
+        linhas.push(`⛪ *${g.nome}*`);
+        let sEsp = 0, sPix = 0;
+        for (const { reg, mem, v } of g.itens){
+          const nome = mem?.nome || 'Membro Sem Nome';
+          const ps = _semParseParcelas(reg).filter(p => (p.especie || 0) + (p.pix || 0) > 0);
+          const te = ps.reduce((a, p) => a + (p.especie || 0), 0);
+          const tp = ps.reduce((a, p) => a + (p.pix || 0), 0);
+          sEsp += te; sPix += tp; totEspMes += te; totPixMes += tp;
+          const canal = te > 0 && tp > 0 ? '💵+💳' : tp > 0 ? '💳' : '💵';
+          const itins = [...new Set(ps.map(p => cf(p.cong)).filter(c => c && c !== cf(g.nome)))];
+          const dest = String(reg.destino_congregacao || '').trim();
+          const itin = itins.length ? `→ ${itins.map(c => _nomeCongExib(c) || c).join(' + ')}` : (dest && cf(dest) !== cf(g.nome) ? `→ ${_nomeCongExib(dest) || dest}` : '');
+          const st = stTxt(reg);
+          const stIco = st === 'enviado' ? '✅' : st === 'retificado' ? '🔁' : '✏️';
+          linhas.push(`👤 ${nome} · ${canal}${itin ? ' ' + itin : ''} *${moeda(v)}* ${stIco} ${st}`);
+        }
+        linhas.push(`_Subtotal ${g.nome}: ${g.itens.length} lanç. · 💳 ${moeda(sPix)} · 💵 ${moeda(sEsp)} · 💰 ${moeda(sPix + sEsp)}_`);
       }
     }
     linhas.push('');
-    linhas.push(`*TOTAL DO MÊS: ${qtdMes} lançamentos · ${moeda(totalMes)}*`);
+    linhas.push(`*TOTAL DO MÊS — ${qtdMes} lançamentos*`);
+    linhas.push(`💳 PIX/TB: ${moeda(totPixMes)}`);
+    linhas.push(`💵 Espécie: ${moeda(totEspMes)}`);
+    linhas.push(`💰 *Geral: ${moeda(totPixMes + totEspMes)}*`);
 
     const txt = linhas.join('\n');
     if (qtdMes === 0){ toast(`Nenhum lançamento em ${s.mes}/${s.ano} para exportar.`); return; }
