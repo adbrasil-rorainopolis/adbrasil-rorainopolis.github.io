@@ -1936,6 +1936,7 @@ function rcRenderTela(){
                 <p><i class="fa-solid fa-ellipsis mr-1.5" style="color:var(--color-primary)"></i><b>Menu ⋯</b> — Atualizar a lista, <b>Configurar ciclo</b> (4/5 semanas do mês — só administrador) e esta Ajuda.</p>
                 <p><i class="fa-solid fa-paper-plane mr-1.5" style="color:#8b5cf6"></i>No <b>rascunho</b>, o avião envia direto da lista — sem precisar abrir.</p>
                 <p><i class="fa-solid fa-pen-to-square mr-1.5" style="color:var(--color-primary)"></i><b>Toque no item</b> — rascunho continua a edição; enviado abre em leitura.</p>
+                <p><i class="fa-solid fa-screwdriver-wrench mr-1.5" style="color:#ea580c"></i><b>Retificar</b> — no item <b>enviado</b>, o ícone de ferramenta reabre o relatório para correção (o relatório segue enviado; GRAVAR salva a nova versão). Se a semana estiver fechada pelo cadeado do administrador, a retificação fica bloqueada.</p>
                 <p><i class="fa-solid fa-trash mr-1.5" style="color:#f87171"></i><b>Excluir</b> — pede a sua <b>senha</b> e move para a Lixeira. Só aparece para autor, administrador ou o tesoureiro daquela congregação.</p>
               </div>
             </div>
@@ -2020,6 +2021,18 @@ function rcmAplicarModo(){
 }
 
 window.rcmVisualizar = function(){ rcmModo('previa'); };
+
+/* Retificação direta da Central: abre o relatório enviado já em modo edição.
+   Bloqueada apenas se a semana estiver fechada pelo cadeado do admin. */
+window.rcmRetificar = async function(id){
+  const r = (RC.centralLista || []).find(x => String(x.id) === String(id)) || {};
+  if (rcSemanaFechada(r.ano, r.mes, r.semana) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
+    toast('Semana fechada pelo administrador — retificação bloqueada.'); return;
+  }
+  await rcmAbrir(id);
+  if (RC.podeEditar){ rcmCorrigir(); return; }
+  toast('Somente o autor ou um administrador pode retificar este relatório.');
+};
 
 /* Relatório enviado: reabre edição — salvar_relatorio_caixa permite ao
    autor/admin gravar nova versão mantendo o status 'enviado' (retificação). */
@@ -3422,6 +3435,7 @@ window.rcmCentralRender = function(){
         ${badgeItem}
         ${pode && !enviado ? `<button onclick="event.stopPropagation();rcmEnviarItem('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#8b5cf6" title="Enviar à central"><i class="fa-solid fa-paper-plane"></i></button>` : ''}
         <button onclick="event.stopPropagation();rcmAbrir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:${enviado ? '#38bdf8' : 'var(--color-primary)'}" title="${enviado ? 'Visualizar' : 'Continuar edição'}"><i class="fa-solid ${enviado ? 'fa-eye' : 'fa-pen-to-square'}"></i></button>
+        ${pode && enviado ? `<button onclick="event.stopPropagation();rcmRetificar('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#ea580c" title="Retificar relatório enviado"><i class="fa-solid fa-screwdriver-wrench"></i></button>` : ''}
         ${pode ? `<button onclick="event.stopPropagation();rcmExcluir('${r.id}')" class="w-7 h-7 rounded-lg text-[10px] cursor-pointer shrink-0" style="background:var(--bg-input);color:#f87171" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
       </div>`;
     });
