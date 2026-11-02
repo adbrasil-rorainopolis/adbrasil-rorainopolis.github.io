@@ -167,6 +167,7 @@ const SGE_AJUDA = {
         { q: 'Filtros', a: 'Ano, mês e semana definem o recorte exibido — igual ao Movimento do Campo.' },
         { q: 'Leitura', a: 'Cada linha mostra a congregação, o conselho e os valores de TB/PIX, espécie e total.' },
         { q: 'Somente leitura', a: 'Os números vêm dos Lançamentos Semanais de dízimos — correções são feitas no próprio lançamento.' },
+        { q: 'Visão anual', a: 'No rodapé da aba, o gráfico mostra a distribuição de dízimos mês a mês do ano — filtrável por campo todo, conselho ou congregação.' },
       ]},
     ],
   },
