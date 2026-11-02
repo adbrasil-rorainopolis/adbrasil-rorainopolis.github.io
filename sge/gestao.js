@@ -1546,10 +1546,12 @@ function renderAbaMensal(){
   G.mensalSel = m;
   el('gestao-corpo').innerHTML = `
     <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise Mensal Executiva</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
-      <button onclick="gestaoNavMes(-1)" title="Mês anterior" class="px-2.5 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left"></i></button>
-      ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
-      <button onclick="gestaoNavMes(1)" title="Próximo mês" class="px-2.5 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right"></i></button>
+      <div class="flex-1 min-w-36"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-calendar-week text-violet-400"></i>Análise do Mês</h3><p class="text-[10px] opacity-60 mt-0.5">Comparativos, projeções e feedbacks automáticos.</p></div>
+      <div class="flex items-center gap-1 flex-nowrap shrink-0">
+        <button onclick="gestaoNavMes(-1)" title="Mês anterior" class="px-2 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left"></i></button>
+        ${selHtml('mm-ano', anos, m.ano, 'gestaoMensalSel()')}${selHtml('mm-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoMensalSel()')}
+        <button onclick="gestaoNavMes(1)" title="Próximo mês" class="px-2 py-1.5 rounded-lg border text-xs font-bold cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
       ${_filtroEscopoUI('mm')}
       ${(() => { const c = obterCiclo(m.ano, m.mes);
         return `<span class="text-[10px] font-bold uppercase opacity-60">Ciclo</span>` + (cicloPodeGravar()
