@@ -3983,24 +3983,57 @@ window.prestSalvar = async function(nomeCong, conselho){
 };
 
 /* ---------- Copiar pendências (texto WhatsApp — paridade desktop) ---------- */
-window.prestCopiarPendencias = async function(){
-  const linhas = prestLinhas().filter(l => l.situacao === 'Pendente');
-  let txt;
-  if (!linhas.length){
-    txt = 'Não há pendências para o período selecionado.';
-  } else {
-    const grupos = {};
-    linhas.forEach(l => (grupos[l.conselho] = grupos[l.conselho] || []).push(l));
-    const partes = ['*PENDÊNCIAS DE PRESTAÇÃO*', `${PREST.semana} - ${PREST.mes}/${PREST.ano}`, ''];
-    for (const [cons, itens] of Object.entries(grupos)){
-      partes.push(`*${cons}*`);
-      itens.forEach(i => partes.push(`- ${i.nome}`));
-      partes.push('');
-    }
-    txt = partes.join('\n').trim();
-  }
-  try { await navigator.clipboard.writeText(txt); toast('Pendências copiadas!'); }
+let _prestPendCache = [];
+function _prestTextoConselho(conselho){
+  const linhas = _prestPendCache.filter(l => l.conselho === conselho);
+  const nome = l => `- ${l.nome}${l.lider ? ' — ' + l.lider : ''}`;
+  const prest = l => `- ${l.nome}${l.lider ? ' — ' + l.lider : ''}: R$ ${Number(l.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const partes = [`*CONFERÊNCIA DE CAIXA — ${String(conselho).toUpperCase()}*`, `${PREST.semana} • ${PREST.mes}/${PREST.ano}`, ''];
+  const sec = (titulo, lista, fmt) => { if (!lista.length) return; partes.push(`*${titulo}*`, ...lista.map(fmt), ''); };
+  sec('❌ PENDENTES', linhas.filter(l => l.situacao === 'Pendente'), nome);
+  sec('🟡 JUSTIFICADAS', linhas.filter(l => l.situacao === 'Justificada'), nome);
+  sec('✅ PRESTADAS', linhas.filter(l => l.situacao === 'Prestada'), prest);
+  return partes.join('\n').trim();
+}
+window.prestCopiarPendenciasConselho = async function(conselho){
+  const txt = _prestTextoConselho(conselho);
+  try { await navigator.clipboard.writeText(txt); toast(`${conselho} copiado — cole no WhatsApp.`); }
   catch { toast(txt); }
+  const sh = document.getElementById('prest-pend-sheet'); if (sh) sh.remove();
+};
+window.prestCopiarPendencias = function(){
+  _prestPendCache = prestLinhas().filter(l => l.situacao !== 'Não exigida');
+  const ordem = ['Assembleia Geral', 'Conselho 1', 'Conselho 2', 'Conselho 3', 'Conselho 4', 'Conselho 5'];
+  const extras = [...new Set(_prestPendCache.map(l => l.conselho).filter(c => c && !ordem.includes(c)))].sort();
+  const conselhos = ordem.filter(c => _prestPendCache.some(l => l.conselho === c)).concat(extras);
+  const old = document.getElementById('prest-pend-sheet'); if (old) old.remove();
+  const sh = document.createElement('div');
+  sh.id = 'prest-pend-sheet'; sh.className = 'fixed inset-0 z-[97]'; sh.style.background = 'rgba(2,6,23,.8)';
+  const itens = conselhos.map(c => {
+    const doC = _prestPendCache.filter(l => l.conselho === c);
+    const nPend = doC.filter(l => l.situacao === 'Pendente').length;
+    const badge = nPend
+      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:rgba(239,68,68,.15);color:#f87171">${nPend} pendente${nPend > 1 ? 's' : ''}</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:rgba(16,185,129,.15);color:#34d399">em dia</span>`;
+    return `<div class="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border" style="border-color:var(--border-color);background:var(--bg-card)">
+      <div class="min-w-0"><p class="text-sm font-bold truncate">${esc(c)}</p><div class="mt-1">${badge}</div></div>
+      <button onclick="prestCopiarPendenciasConselho('${c.replace(/'/g, "\\'")}')" class="w-10 h-10 rounded-xl text-white flex items-center justify-center cursor-pointer shrink-0" style="background:#059669" title="Copiar ${esc(c)}"><i class="fa-brands fa-whatsapp text-lg"></i></button>
+    </div>`;
+  }).join('');
+  sh.innerHTML = `<div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-4 max-h-[92vh] overflow-y-auto shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-color)">
+    <div class="flex items-start justify-between mb-1">
+      <div>
+        <p class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Conferência de Caixa</p>
+        <h3 class="text-base font-black">Copiar para WhatsApp</h3>
+        <p class="text-[10px] opacity-50">${esc(PREST.semana)} • ${esc(PREST.mes)}/${esc(PREST.ano)} — separa pendentes, justificadas e prestadas</p>
+      </div>
+      <button onclick="document.getElementById('prest-pend-sheet').remove()" class="w-8 h-8 rounded-full opacity-50 cursor-pointer flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="space-y-2 my-3">${itens || '<p class="p-4 text-center opacity-60 text-xs">Nenhum conselho encontrado.</p>'}</div>
+    <div class="pb-2"></div>
+  </div>`;
+  sh.onclick = e => { if (e.target === sh) sh.remove(); };
+  document.body.appendChild(sh);
 };
 
 /* ---------- Saídas manuais da semana ---------- */
