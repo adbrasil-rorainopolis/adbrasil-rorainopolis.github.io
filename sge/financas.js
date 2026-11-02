@@ -1090,7 +1090,7 @@ function finRenderFrequencia(){
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="fq-conselho" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="fq-congregacao" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
         </div>
-        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Busca dizimista</span><input id="fq-busca" value="${esc(fq.busca || '')}" oninput="fqBuscaDigitar()" placeholder="Nome do irmão…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Dizimista</span><input id="fq-busca" list="fq-nomes" value="${esc(fq.busca || '')}" oninput="fqBuscaDigitar()" placeholder="Digite ou toque p/ ver todos…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><datalist id="fq-nomes"></datalist></div>
         <button onclick="fqCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-chart-line mr-1.5"></i>Analisar frequência</button>
       </div>
       <div id="fq-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando frequência…</div></div>
@@ -1113,6 +1113,12 @@ async function _fqPopularFiltros(){
     const sc = el('fq-conselho'), sg = el('fq-congregacao');
     if (sc) sc.innerHTML = '<option value="Todos">Todos</option>' + cons.map(c => `<option ${c === F.fq.conselho ? 'selected' : ''}>${esc(c)}</option>`).join('');
     if (sg) sg.innerHTML = '<option value="Todas">Todas</option>' + congs.map(c => `<option ${c === F.fq.congregacao ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    const dl = el('fq-nomes');
+    if (dl) dl.innerHTML = [...new Set((F.membros || [])
+      .filter(m => !String(m.excluido_em ?? '').trim() && !(String(m.data_inativacao ?? '').trim() && !String(m.data_reativacao ?? '').trim()))
+      .map(m => String(m.nome || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map(n => `<option value="${esc(n)}"></option>`).join('');
   } catch(e){ console.error('[frequencia] falha ao popular filtros:', e); }
 }
 
@@ -1210,7 +1216,7 @@ window.fqRenderTerritorios = function(){
   }).join('') || '<p class="text-xs opacity-60 text-center py-6">Sem dados para os filtros selecionados.</p>';
 };
 
-window.fqBuscaDigitar = function(){ F.fq.busca = el('fq-busca')?.value || ''; fqRenderLista(); };
+window.fqBuscaDigitar = function(){ F.fq.busca = el('fq-busca')?.value || ''; if (el('fq-lista')) fqRenderLista(); };
 
 window.fqRenderLista = function(){
   const d = F.fq.dados; if (!d) return;
