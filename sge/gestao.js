@@ -1037,7 +1037,9 @@ async function calcularFluxo(ano, mes){
    UI — shell + 5 abas
    ============================================================================ */
 const G = {
-  aba: 'cruzamento', dados: null, mensal: null, fluxo: null,
+  /* Abre direto na Análise do Mês (visão do dia a dia: KPIs, gráficos e
+     "Copiar situação" já carregados) em vez do Cruzamento, que pede filtros. */
+  aba: 'mensal', dados: null, mensal: null, fluxo: null,
   periodos: [], graf: null, grafMS: null, grafME: null,
   modelo: 'bar', dimensao: 'tempo', editando: null, filtrosAberto: true, contasAberto: false, contasEntradasAberto: false, contasSaidasAberto: false,
   filtroMensal: null,

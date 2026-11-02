@@ -8265,7 +8265,7 @@ const PC_GRUPOS = [
   { nome: 'S.O.S Baixo Rio Branco', match: ['rio branco', 's.o.s'],                          cor: '#38bdf8', icone: 'fa-hands-helping' },
   { nome: 'Auxílio Presidencial 5%',match: ['auxílio presidencial', 'auxilio presidencial'], cor: '#a78bfa', icone: 'fa-user-tie' },
 ];
-const PC = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], saidas: [], totais: {} };
+const PC = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], saidas: [], recibos: {}, totais: {} };
 
 function _pcItensDetalhe(det){
   if (!det) return [];
@@ -8280,18 +8280,49 @@ function _pcLinhaSaida(s = {}){
     <select data-grupo class="w-full px-2 py-2 rounded-xl border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts}</select>
     <div class="flex items-center gap-2">
     <input data-data type="date" value="${esc(s.data || new Date().toISOString().slice(0,10))}" class="w-[7.4rem] shrink-0 px-2 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-    <input data-descricao type="text" value="${esc(s.descricao || '')}" placeholder="Histórico da saída" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-    <input data-valor type="text" inputmode="decimal" value="${Number(s.valor) > 0 ? moeda(s.valor).replace('R$ ','') : ''}" placeholder="0,00" class="w-24 px-2 py-2.5 rounded-xl border text-xs font-bold text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <input data-descricao type="text" readonly value="${esc(s.descricao || '')}" placeholder="Histórico — toque p/ escrever" title="Toque para abrir o editor de histórico" onclick="pcAbrirDescricao(this)" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+    <input data-valor type="text" inputmode="decimal" value="${Number(s.valor) > 0 ? moeda(s.valor).replace('R$ ','') : ''}" placeholder="0,00" oninput="rcmMascaraValor(this)" class="w-24 px-2 py-2.5 rounded-xl border text-xs font-bold text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
     <button type="button" onclick="this.closest('[data-saida]').remove()" class="w-9 h-9 shrink-0 rounded-lg text-red-400 cursor-pointer flex items-center justify-center" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash-can"></i></button>
     </div>
   </div>`;
 }
 
-/* PC mora dentro do IIFE — handlers inline de <select> não o enxergam;
-   estes setters globais trocam o período (antes o onchange morria em
-   ReferenceError e a tela nunca saía do mês atual). */
-window.pcSetAno = function(v){ PC.ano = v; pcRenderTela(); };
-window.pcSetMes = function(v){ PC.mes = v; pcRenderTela(); };
+/* Setas ◀ ▶ estilo envio de caixa: trocam o mês e viram o ano.
+   (Antes eram <select> inline chamando a const privada PC — ReferenceError silencioso.) */
+window.pcNavMes = function(dir){
+  let i = MESES_ORD.indexOf(PC.mes); if (i < 0) i = new Date().getMonth();
+  let a = +PC.ano || new Date().getFullYear(); i += dir;
+  if (i < 0){ i = 11; a--; } if (i > 11){ i = 0; a++; }
+  PC.ano = String(a); PC.mes = MESES_ORD[i];
+  pcRenderTela();
+};
+
+/* Histórico da saída: campo da linha é estreito no celular — tocar abre editor em modal. */
+let _pcDescAlvo = null;
+window.pcAbrirDescricao = function(inp){
+  _pcDescAlvo = inp;
+  let ov = el('pc-desc-overlay');
+  if (!ov){ ov = document.createElement('div'); ov.id = 'pc-desc-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `<div style="background:var(--bg-surface);border:1px solid var(--border-color);color:var(--text-main);border-radius:16px;padding:16px;max-width:480px;margin:0 auto" class="space-y-3">
+    <div class="flex items-center justify-between">
+      <p class="font-bold text-sm">Histórico da saída</p>
+      <button type="button" onclick="pcFecharDescricao()" class="w-7 h-7 rounded-lg border text-xs cursor-pointer" style="border-color:var(--border-color);color:var(--text-muted)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <textarea id="pc-desc-txt" rows="4" class="w-full px-3 py-2 rounded-xl border text-sm" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)" placeholder="Descreva a saída — o texto inteiro entra no recibo.">${esc(inp.value || '')}</textarea>
+    <div class="flex gap-2">
+      <button type="button" onclick="pcFecharDescricao()" class="flex-1 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)">Cancelar</button>
+      <button type="button" onclick="pcConfirmarDescricao()" class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:var(--color-primary,#b45309)">Aplicar</button>
+    </div>
+  </div>`;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:90;overflow-y:auto;background:rgba(0,0,0,.6);padding:16px;display:flex;align-items:center';
+  ov.onclick = e => { if (e.target === ov) pcFecharDescricao(); };
+  setTimeout(() => el('pc-desc-txt')?.focus(), 60);
+};
+window.pcFecharDescricao = function(){ el('pc-desc-overlay')?.remove(); _pcDescAlvo = null; };
+window.pcConfirmarDescricao = function(){
+  if (_pcDescAlvo) _pcDescAlvo.value = (el('pc-desc-txt')?.value || '').trim();
+  pcFecharDescricao();
+};
 
 window.pcRenderTela = async function(){
   el('fin-sub').innerHTML = `<div class="py-10 text-center opacity-60 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Carregando prestação convencional…</div>`;
@@ -8321,7 +8352,7 @@ window.pcRenderTela = async function(){
   }
   try {
     const r = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
-    const j = JSON.parse(r?.valor || '{}'); PC.saidas = Array.isArray(j.saidas) ? j.saidas : [];
+    const j = JSON.parse(r?.valor || '{}'); PC.saidas = Array.isArray(j.saidas) ? j.saidas : []; PC.recibos = (j.recibos && typeof j.recibos === 'object') ? j.recibos : {};
   } catch(e) { PC.saidas = []; }
   const lista = _pcSaidasMes();
   const totS = lista.reduce((a, s) => a + Number(s.valor || 0), 0);
@@ -8329,9 +8360,10 @@ window.pcRenderTela = async function(){
   el('fin-sub').innerHTML = `
     <div class="space-y-3 pb-24">
       <div class="flex items-center gap-2">
-        <select id="pc-ano" onchange="pcSetAno(this.value)" class="px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['2024','2025','2026','2027'].map(a => `<option ${a===PC.ano?'selected':''}>${a}</option>`).join('')}</select>
-        <select id="pc-mes" onchange="pcSetMes(this.value)" class="flex-1 px-2 py-2 rounded-xl border text-xs font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${MESES_ORD.map(m => `<option ${m===PC.mes?'selected':''}>${m}</option>`).join('')}</select>
-        <button onclick="pcRenderTela()" class="w-9 h-9 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
+        <button onclick="pcNavMes(-1)" title="Mês anterior" class="w-9 h-9 shrink-0 rounded-xl border cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+        <span class="flex-1 text-center text-sm font-extrabold" style="color:var(--color-primary)">${PC.mes} · ${PC.ano}</span>
+        <button onclick="pcNavMes(1)" title="Próximo mês" class="w-9 h-9 shrink-0 rounded-xl border cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+        <button onclick="pcRenderTela()" title="Recarregar" class="w-9 h-9 shrink-0 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
       </div>
       ${pcErro ? `<div class="rounded-xl border px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-triangle-exclamation"></i>${esc(pcErro)}</div>` : ''}
       ${PC_GRUPOS.map(g => `<div class="rounded-2xl border p-3 flex items-center justify-between" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -8369,7 +8401,7 @@ window.pcSalvarSaidas = async function(){
     valor: parseValor(l.querySelector('[data-valor]')?.value) || 0,
   })).filter(s => s.descricao || s.valor > 0);
   PC.saidas = [...PC.saidas.filter(s => !(String(s.ano) === PC.ano && String(s.mes) === PC.mes)), ...novas];
-  const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas }) }, sessao()?.token);
+  const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
   toast(r?.erro ? 'Erro: ' + r.erro : 'Saídas salvas.');
   pcRenderTela();
 };
@@ -8381,32 +8413,83 @@ const _PC_CAB = `<div style="text-align:center;border-bottom:2px solid #111;padd
   <p style="font-size:9px;color:#444;margin:1px 0">Presidente – Pastor Isamar Pessoa Ramalho</p>
 </div>`;
 
+/* Meta do recibo por competência: Nº, data (dd/mm), bloco e Nº por fundo — fica salvo na nuvem.
+   Fluxo: preencher → Salvar → Imprimir/PDF só quando for prestar contas. */
+function _pcMetaMes(){
+  const k = PC.ano + '-' + PC.mes;
+  const m = PC.recibos[k] || (PC.recibos[k] = {});
+  if (!m.nums || typeof m.nums !== 'object') m.nums = {};
+  m.numero = m.numero || ''; m.data = m.data || ''; m.bloco = m.bloco || '';
+  return m;
+}
+const _pcBrParaIso = br => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(br || '').trim()); return (m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12) ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+const _pcDataExtenso = iso => {
+  if (!iso) return '____ de ____________ de ______';
+  const [a, m, d] = String(iso).split('-').map(Number);
+  const MESES_MIN = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return (a && m && d) ? `${String(d).padStart(2, '0')} de ${MESES_MIN[m - 1]} de ${a}` : '';
+};
+
+/* Máscara dd/mm/aaaa no campo de data do recibo + atualização ao vivo no documento. */
+window.pcMascaraDataRecibo = function(inp){
+  const d = inp.value.replace(/\D/g, '').slice(0, 8);
+  inp.value = d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+  const doc = el('pc-data-doc');
+  if (doc) doc.textContent = _pcDataExtenso(_pcBrParaIso(inp.value));
+};
+
+window.pcLerMetaRecibo = function(){
+  const m = _pcMetaMes();
+  m.numero = (el('pc-numero-in')?.value || '').trim();
+  m.data = _pcBrParaIso(el('pc-data-in')?.value);
+  m.bloco = (el('pc-bloco-in')?.value || '').trim();
+  PC_GRUPOS.forEach((g, i) => { m.nums[g.nome] = g.nome === 'Auxílio Presidencial 5%' ? '' : (el('pc-num-in-' + i)?.value || '').trim(); });
+  return m;
+};
+
+window.pcSalvarRecibo = async function(silencioso){
+  pcLerMetaRecibo();
+  const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
+  if (!silencioso) toast(r?.erro ? 'Erro: ' + r.erro : 'Dados do recibo salvos.');
+  return !r?.erro;
+};
+
+window.pcFecharRecibo = function(){ pcSalvarRecibo(true); el('pc-recibo-overlay')?.remove(); };
+
+window.pcImprimirRecibo = async function(){
+  const m = pcLerMetaRecibo();
+  if (!m.data){ toast('Preencha a data do recibo antes de imprimir.'); el('pc-data-in')?.focus(); return; }
+  await pcSalvarRecibo(true);
+  window.print();
+};
+
 window.pcGerarRecibo = function(){
   const lista = _pcSaidasMes();
   const saidasDo = g => lista.filter(s => (s.grupo || 'Convencionais') === g.nome);
   const totS = g => saidasDo(g).reduce((a, s) => a + Number(s.valor || 0), 0);
   const totGE = PC_GRUPOS.reduce((a, g) => a + PC.totais[g.nome], 0);
   const totGS = PC_GRUPOS.reduce((a, g) => a + totS(g), 0);
-  const hoje = new Date();
-  const mesExt = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][hoje.getMonth()];
+  const m = _pcMetaMes();
   const mm = String(MESES_ORD.indexOf(PC.mes) + 1).padStart(2, '0');
+  const rot = g => g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio Pastoral' : g.nome;
   const linhaF = (g, i) => `<tr>
-    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px">${g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio Pastoral' : g.nome}</td>
+    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px">${rot(g)}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right">${moeda(PC.totais[g.nome])}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right">${totS(g) > 0 ? '-' + moeda(totS(g)) : '-'}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right;font-weight:700">${moeda(PC.totais[g.nome] - totS(g))}</td>
-    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center"><span id="pc-bloco-doc-${i}"></span></td>
-    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center"><b><span id="pc-num-doc-${i}"></span></b></td></tr>`;
+    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center"><span id="pc-bloco-doc-${i}">${esc(m.bloco)}</span></td>
+    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center">${g.nome === 'Auxílio Presidencial 5%' ? '—' : `<b><span id="pc-num-doc-${i}">${esc(m.nums[g.nome] || '')}</span></b>`}</td></tr>`;
   const linhaH = s => `<p style="font-size:11px;margin:4px 0">R$ ${Number(s.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} – ${esc(s.descricao)};</p>`;
   let ov = el('pc-recibo-overlay');
   if (!ov){ ov = document.createElement('div'); ov.id = 'pc-recibo-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
-    <style>@media print{ body *{visibility:hidden!important} #pc-recibo-doc, #pc-recibo-doc *{visibility:visible!important} #pc-recibo-doc{position:absolute!important;left:0;top:0;width:100%} .pc-page2{page-break-before:always} }</style>
+    <style>@media print{ @page{size:A4;margin:12mm} body *{visibility:hidden!important} #pc-recibo-doc, #pc-recibo-doc *{visibility:visible!important} #pc-recibo-doc{position:absolute!important;left:0;top:0;width:100%} .pc-page2{page-break-before:always} }</style>
     <div style="background:#fff;color:#111;border-radius:16px;padding:16px;font-family:Arial,sans-serif;max-width:520px;margin:0 auto" id="pc-recibo-doc">
       ${_PC_CAB}
-      <p style="text-align:center;font-weight:800;font-size:13px;margin:12px 0">Relatório de entradas e saídas</p>
+      <p style="text-align:center;font-weight:800;font-size:13px;margin:12px 0 2px">Relatório de entradas e saídas</p>
+      <p style="text-align:center;font-size:11px;font-weight:700;margin:0 0 12px">Recibo Nº <span id="pc-numero-doc">${esc(m.numero) || '________'}</span></p>
       <p style="font-size:11px;text-align:justify;line-height:1.5">Declaro para fins de prestação de contas junto a Tesouraria da CONVENÇAO ESTADUAL DAS ASSEMBLÉIAS DE DEUS NO ESTADO DE RORAIMA – CEDADER, localizado a Rua Cecilia Brasil, 459 – Centro, Boa Vista – RR, CEP: 69.301-080, que foram realizados pagamentos com os saldos do auxílio pastoral, missões e convencional pelo campo de Rorainópolis em ${mm}/${PC.ano}, conforme segue:</p>
-      <p style="font-size:11px;margin:10px 0">Boa Vista – RR, ${hoje.getDate()} de ${mesExt} de ${hoje.getFullYear()}</p>
+      <p style="font-size:11px;margin:10px 0">Boa Vista – RR, <span id="pc-data-doc">${_pcDataExtenso(m.data)}</span></p>
       <p style="font-size:11px;font-weight:700;margin:10px 0 4px">Movimento ${PC.mes} - ${PC.ano}</p>
       <table style="width:100%;border-collapse:collapse">
         <tr style="background:#f3f4f6"><th style="border:1px solid #9ca3af;padding:4px;font-size:9px;text-align:left">Fundo</th><th style="border:1px solid #9ca3af;padding:4px;font-size:9px">Entradas</th><th style="border:1px solid #9ca3af;padding:4px;font-size:9px">Saídas</th><th style="border:1px solid #9ca3af;padding:4px;font-size:9px">Saldo Líq.</th><th style="border:1px solid #9ca3af;padding:4px;font-size:9px">Bloco</th><th style="border:1px solid #9ca3af;padding:4px;font-size:9px">Nº</th></tr>
@@ -8426,16 +8509,21 @@ window.pcGerarRecibo = function(){
     </div>
     <div style="max-width:520px;margin:10px auto 0">
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <input id="pc-bloco-in" placeholder="Bloco" style="width:70px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.querySelectorAll('[id^=pc-bloco-doc-]').forEach(x => x.textContent = this.value)">
-        ${PC_GRUPOS.map((g, i) => `<input placeholder="Nº ${g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio' : g.nome}" style="width:110px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.getElementById('pc-num-doc-${i}').textContent = this.value">`).join('')}
+        <input id="pc-numero-in" placeholder="Nº Recibo" inputmode="numeric" value="${esc(m.numero)}" style="width:92px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.getElementById('pc-numero-doc').textContent = this.value || '________'">
+        <input id="pc-data-in" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" value="${esc(m.data ? m.data.slice(8,10) + '/' + m.data.slice(5,7) + '/' + m.data.slice(0,4) : '')}" style="width:100px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="pcMascaraDataRecibo(this)">
+        <input id="pc-bloco-in" placeholder="Bloco" value="${esc(m.bloco)}" style="width:64px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.querySelectorAll('[id^=pc-bloco-doc-]').forEach(x => x.textContent = this.value)">
+        ${PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%'
+          ? `<input id="pc-num-in-${i}" placeholder="Nº Auxílio" disabled title="Auxílio Pastoral não possui recibo próprio" style="width:110px;padding:7px;border-radius:8px;border:1px solid #e5e7eb;background:#f3f4f6;color:#9ca3af;font-size:11px">`
+          : `<input id="pc-num-in-${i}" placeholder="Nº ${rot(g)}" value="${esc(m.nums[g.nome] || '')}" style="width:110px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.getElementById('pc-num-doc-${i}').textContent = this.value">`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="window.print()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
-        <button onclick="document.getElementById('pc-recibo-overlay').remove()" style="width:44px;padding:10px;border-radius:10px;border:none;background:rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
+        <button onclick="pcSalvarRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#15803d;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Salvar</button>
+        <button onclick="pcImprimirRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
+        <button onclick="pcFecharRecibo()" style="width:44px;padding:10px;border-radius:10px;border:none;background:rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
       </div>
     </div>`;
   ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(0,0,0,.6);padding:12px';
-  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.onclick = e => { if (e.target === ov) pcFecharRecibo(); };
 };
 
 })();
