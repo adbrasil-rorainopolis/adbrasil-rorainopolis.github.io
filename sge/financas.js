@@ -234,7 +234,7 @@ window.dizMenu = function(){
   const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
   const menu = el('fin-menu'); if (!menu) return;
   const itens = DIZ_ABAS_ORDEM.filter(dizAbaPermitida);
-  menu.innerHTML = `<div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+  menu.innerHTML = `<div id="diz-panorama"></div><div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
     ${itens.map(t => {
       const m = DIZ_TELA_META[t];
       return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
@@ -244,7 +244,50 @@ window.dizMenu = function(){
       </button>`;
     }).join('')}</div>` || '<p class="text-[10px] opacity-50 text-center py-4">Nenhuma área liberada.</p>';
   menu.classList.remove('hidden');
+  _dizPanorama();
 };
+
+/* Panorama do módulo — card na abertura: ativos, arrecadado do mês,
+   fidelidade (via engine da Frequência) e alerta de afastados 3+ semanas. */
+async function _dizPanorama(){
+  const box = el('diz-panorama'); if (!box) return;
+  box.innerHTML = `<div class="border rounded-2xl p-3 mb-3 text-xs flex items-center gap-2" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)"><div class="spin"></div>Carregando panorama…</div>`;
+  try {
+    await carregarMembros();
+    const lanc = await carregarTodosLancamentos();
+    const hoje = new Date();
+    const refP = hoje.getFullYear() * 12 + hoje.getMonth();
+    const semAtual = Math.min(5, Math.ceil(hoje.getDate() / 7));
+    let arrecadado = 0; const ultimos = {};
+    for (const r of lanc){
+      const v = parseValor(r.valor); if (v <= 0) continue;
+      const per = _periodoIdx(r.ano, r.mes); if (per === null) continue;
+      const ch = _normIdMembro(r.id); if (!ch) continue;
+      if (per === refP) arrecadado += v;
+      const sem = _numSemana(r.semana);
+      if (!ultimos[ch] || per > ultimos[ch][0] || (per === ultimos[ch][0] && sem > ultimos[ch][1])) ultimos[ch] = [per, sem];
+    }
+    let ativos = 0; const afast = [];
+    for (const m of (F.membros || [])){
+      if (String(m.excluido_em ?? '').trim()) continue;
+      if (String(m.data_inativacao ?? '').trim() && !String(m.data_reativacao ?? '').trim()) continue;
+      ativos++;
+      const u = ultimos[_normIdMembro(m.id)];
+      const semAgo = u ? Math.max(0, (refP - u[0]) * 5 + (semAtual - u[1])) : 999;
+      if (semAgo >= 3) afast.push({ nome: String(m.nome || ''), cong: _nomeCongExib(m.congregacao), semanas: semAgo, ult: u ? `${u[1]}ª sem. · ${_rotuloPeriodo(u[0])}` : 'Nunca contribuiu' });
+    }
+    afast.sort((a, b) => b.semanas - a.semanas);
+    const fqRes = await dadosFrequenciaBI({ ano: String(hoje.getFullYear()), mes: MESES_ORD[hoje.getMonth()], conselho: 'Todos', congregacao: 'Todas' }).catch(() => null);
+    const card = (t, v, cor) => `<div class="border rounded-xl p-2 text-center" style="background:var(--bg-input);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase" style="color:var(--text-muted)">${t}</p><p class="text-sm font-black ${cor || ''}">${v}</p></div>`;
+    const lista = afast.length
+      ? `<details class="border rounded-xl px-3 py-2" style="border-color:var(--border-color);background:var(--bg-input)"><summary class="text-[10px] font-bold text-red-400 cursor-pointer select-none"><i class="fa-solid fa-user-clock mr-1"></i>${afast.length} dizimista(s) há 3+ semanas sem contribuir — tocar p/ ver</summary><div class="mt-2 space-y-1.5 max-h-56 overflow-y-auto">${afast.map(p => `<div class="flex items-center justify-between gap-2 text-[10px]"><div class="min-w-0"><b class="block truncate">${esc(p.nome)}</b><span class="opacity-60 block truncate">${esc(p.cong)} · ${esc(p.ult)}</span></div><b class="text-red-400 shrink-0">${p.semanas > 900 ? '—' : p.semanas + ' sem'}</b></div>`).join('')}</div></details>`
+      : `<p class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-circle-check mr-1"></i>Nenhum dizimista afastado há 3+ semanas.</p>`;
+    box.innerHTML = `<div class="border rounded-2xl p-3 mb-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center justify-between"><p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-gauge-high mr-1 text-purple-400"></i>Panorama · ${MESES_ORD[hoje.getMonth()]}/${hoje.getFullYear()}</p><button onclick="finAba('frequencia')" class="text-[9px] font-bold cursor-pointer" style="color:#34d399">Ver frequência ›</button></div>
+      <div class="grid grid-cols-4 gap-1.5">${card('Ativos', ativos)}${card('Arrecadado', moeda(arrecadado), 'text-emerald-500')}${card('Fidelidade', fqRes?.taxa_fidelidade || '—', 'text-sky-400')}${card('Afastados', afast.length, afast.length ? 'text-red-400' : 'text-emerald-500')}</div>
+      ${lista}</div>`;
+  } catch(e){ box.innerHTML = `<p class="text-[10px] text-amber-500 px-1 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Panorama indisponível: ${esc(e.message || '')}</p>`; }
+}
 
 /* Permissão das abas do módulo Dizimistas (ids locais -> catálogo) */
 function dizAbaPermitida(t){
@@ -1047,6 +1090,7 @@ function finRenderFrequencia(){
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="fq-conselho" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="fq-congregacao" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
         </div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Busca dizimista</span><input id="fq-busca" value="${esc(fq.busca || '')}" oninput="fqBuscaDigitar()" placeholder="Nome do irmão…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
         <button onclick="fqCarregar()" class="w-full py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)"><i class="fa-solid fa-chart-line mr-1.5"></i>Analisar frequência</button>
       </div>
       <div id="fq-corpo"><div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando frequência…</div></div>
@@ -1166,11 +1210,15 @@ window.fqRenderTerritorios = function(){
   }).join('') || '<p class="text-xs opacity-60 text-center py-6">Sem dados para os filtros selecionados.</p>';
 };
 
+window.fqBuscaDigitar = function(){ F.fq.busca = el('fq-busca')?.value || ''; fqRenderLista(); };
+
 window.fqRenderLista = function(){
   const d = F.fq.dados; if (!d) return;
   F.fq.perfil = el('fq-perfil')?.value || 'Todos';
   const faixa = F.fq.faixa;
+  const bq = cfq(F.fq.busca || '');
   const linhas = (d.membros || []).filter(m => {
+    if (bq && !cfq(m.nome).includes(bq)) return false;
     if (F.fq.perfil !== 'Todos' && m.perfil !== F.fq.perfil) return false;
     if (faixa === 'nunca') return m.meses_ausente === null;
     if (faixa) return m.meses_ausente !== null && m.meses_ausente >= Number(faixa);
