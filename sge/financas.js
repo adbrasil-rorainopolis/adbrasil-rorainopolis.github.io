@@ -5200,7 +5200,7 @@ async function finRenderSemanal(){
         <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar por nome, ID ou valor…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
         <div>
           <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Situação</span>
-          <div class="flex flex-wrap gap-1.5" id="sem-situacao">${[['todos','Todos'],['lancados','Com valor'],['sem','Sem lançamento'],['enviados','Enviados'],['edicao','Em edição']].map(([v, t]) => `<button onclick="semSituacao('${v}')" data-sit="${v}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer sem-sit whitespace-nowrap">${t}</button>`).join('')}</div>
+          <div class="flex flex-wrap gap-1.5" id="sem-situacao">${[['todos','Todos'],['lancados','Com valor'],['sem','Sem lançamento'],['enviados','Enviados']].map(([v, t]) => `<button onclick="semSituacao('${v}')" data-sit="${v}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer sem-sit whitespace-nowrap">${t}</button>`).join('')}</div>
         </div>
       </div>
       <div id="sem-aviso"></div>
@@ -5360,8 +5360,8 @@ function _semRenderLista(){
     const badge = enviado && v > 0
       ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-emerald-500 border border-emerald-500/30 bg-emerald-500/10">Enviado</span>'
       : v > 0
-        ? '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10">Em edição</span>'
-        : '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border" style="color:var(--text-muted);border-color:var(--border-color)">Não enviado</span>';
+        ? ''
+        : '<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border" style="color:var(--text-muted);border-color:var(--border-color)">Sem lançamento</span>';
     return `<div onclick="semAbrirLanc('${esc(id)}')" class="border rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer active:scale-[.99] transition" style="background:var(--bg-card);border-color:var(--border-color)">
       <div class="flex-1 min-w-0">
         <p class="font-bold text-xs truncate">${esc(m.nome || 'Membro Sem Nome')}</p>
@@ -5435,7 +5435,7 @@ window.semExportarWhatsApp = async function(){
 
     const stTxt = reg => {
       const st = cf(reg.status);
-      return ['enviado','conferido'].includes(st) ? 'enviado' : st === 'retificado' ? 'retificado' : 'em edição';
+      return ['enviado','conferido'].includes(st) ? 'enviado' : st === 'retificado' ? 'retificado' : 'pendente';
     };
     const detalheParcelas = (reg, base) => {
       const ps = _semParseParcelas(reg).filter(p => (p.especie || 0) + (p.pix || 0) > 0);
@@ -5477,22 +5477,20 @@ window.semExportarWhatsApp = async function(){
           const te = ps.reduce((a, p) => a + (p.especie || 0), 0);
           const tp = ps.reduce((a, p) => a + (p.pix || 0), 0);
           sEsp += te; sPix += tp; totEspMes += te; totPixMes += tp;
-          const canal = te > 0 && tp > 0 ? '💵+💳' : tp > 0 ? '💳' : '💵';
+          const canal = te > 0 && tp > 0 ? 'PIX + Dinheiro' : tp > 0 ? 'PIX' : 'Dinheiro';
           const itins = [...new Set(ps.map(p => cf(p.cong)).filter(c => c && c !== cf(g.nome)))];
           const dest = String(reg.destino_congregacao || '').trim();
           const itin = itins.length ? `→ ${itins.map(c => _nomeCongExib(c) || c).join(' + ')}` : (dest && cf(dest) !== cf(g.nome) ? `→ ${_nomeCongExib(dest) || dest}` : '');
-          const st = stTxt(reg);
-          const stIco = st === 'enviado' ? '✅' : st === 'retificado' ? '🔁' : '✏️';
-          linhas.push(`👤 ${nome} · ${canal}${itin ? ' ' + itin : ''} *${moeda(v)}* ${stIco} ${st}`);
+          linhas.push(`👤 ${nome}: *${moeda(v)}* - ${canal}${itin ? ' ' + itin : ''}`);
         }
-        linhas.push(`_Subtotal ${g.nome}: ${g.itens.length} lanç. · 💳 ${moeda(sPix)} · 💵 ${moeda(sEsp)} · 💰 ${moeda(sPix + sEsp)}_`);
+        linhas.push(`_Subtotal ${g.nome}: ${g.itens.length} lanç. · PIX ${moeda(sPix)} · Dinheiro ${moeda(sEsp)} · Total ${moeda(sPix + sEsp)}_`);
       }
     }
     linhas.push('');
     linhas.push(`*TOTAL DO MÊS — ${qtdMes} lançamentos*`);
-    linhas.push(`💳 PIX/TB: ${moeda(totPixMes)}`);
-    linhas.push(`💵 Espécie: ${moeda(totEspMes)}`);
-    linhas.push(`💰 *Geral: ${moeda(totPixMes + totEspMes)}*`);
+    linhas.push(`PIX/TB: ${moeda(totPixMes)}`);
+    linhas.push(`Dinheiro: ${moeda(totEspMes)}`);
+    linhas.push(`*Geral: ${moeda(totPixMes + totEspMes)}*`);
 
     const txt = linhas.join('\n');
     if (qtdMes === 0){ toast(`Nenhum lançamento em ${s.mes}/${s.ano} para exportar.`); return; }
@@ -6177,7 +6175,7 @@ window.semAbrirLanc = async function(id){
   const st = cf(reg?.status), v = parseValor(reg?.valor);
   el('seml-status').innerHTML = st === 'enviado' || st === 'conferido'
     ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(16,185,129,.1);color:#10b981;border:1px solid rgba(16,185,129,.3)"><i class="fa-solid fa-circle-check"></i>Enviado${reg.data_envio ? ` em ${esc(reg.data_envio)}` : ''} — alterar aqui gera retificação.</div>`
-    : v > 0 ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3)"><i class="fa-solid fa-pen"></i>Em edição — ainda não enviado.</div>` : '';
+    : ''
   el('seml-aviso').innerHTML = s.fechada
     ? `<div class="rounded-xl px-3 py-2 text-[11px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i>Semana fechada${sgeEhAdmin() ? ' — como admin, salvar aqui retifica o lançamento.' : ' — somente leitura.'}</div>`
     : '';
