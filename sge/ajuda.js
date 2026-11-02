@@ -72,6 +72,7 @@ const SGE_AJUDA = {
         { q: 'Rol de Dizimistas', a: 'Cadastro dos irmãos dizimistas: conselho, congregação, telefone, espelho de contribuições e histórico de congregações.', se: () => _finAba('rol') },
         { q: 'Frequência', a: 'Classifica os dizimistas por assiduidade (Fiel, Irregular, Novo, Ausente, Nunca contribuiu) com base nas competências.', se: () => _finAba('frequencia') },
         { q: 'Lançamentos Semanais', a: 'A grade principal: dízimos e ofertas por irmão e por semana do mês, com PIX/espécie e status.', se: () => _finAba('semanal') },
+        { q: 'Mapa de Arrecadação', a: 'Dízimos arrecadados por congregação e semana (TB/PIX × espécie), alimentado automaticamente pelos Lançamentos Semanais.', se: () => _finAba('mapa') },
         { q: 'Livro de Dizimistas', a: 'Documento oficial dourado, mensal ou anual: capa com QR de autenticidade, sumário, detalhamento e estatísticas — exportável em PDF.', se: () => _finAba('livro') },
         { q: 'Envio de Caixa', a: 'Fechamento e envio do relatório semanal da congregação para a central, com rascunho, envio e retificação.', se: () => _finAba('relatorio') },
         { q: 'Conferência de Caixa', a: 'Recebimento central: confere o que cada congregação enviou, fecha semanas e acompanha pendências.', se: () => _finAba('prestacao') },
@@ -158,6 +159,17 @@ const SGE_AJUDA = {
   },
 
   /* ---------------- Financeiro — Livro de Dizimistas ---------------- */
+  'fin.mapa': {
+    t: 'Mapa de Arrecadação', ico: 'fa-map', cor: '#22d3ee',
+    intro: 'Mapa dos dízimos arrecadados por congregação e semana — a ex-Origem dos Valores, agora dentro de Dizimistas.',
+    grupos: [
+      { titulo: 'Uso', itens: [
+        { q: 'Filtros', a: 'Ano, mês e semana definem o recorte exibido — igual ao Movimento do Campo.' },
+        { q: 'Leitura', a: 'Cada linha mostra a congregação, o conselho e os valores de TB/PIX, espécie e total.' },
+        { q: 'Somente leitura', a: 'Os números vêm dos Lançamentos Semanais de dízimos — correções são feitas no próprio lançamento.' },
+      ]},
+    ],
+  },
   'fin.livro': {
     t: 'Livro de Dizimistas', ico: 'fa-book-open', cor: '#d4af37',
     intro: 'O documento oficial dos dizimistas, no formato de livro: capa dourada com timbrado e QR de autenticidade, sumário, detalhamento e estatísticas — digital e exportável em PDF.',

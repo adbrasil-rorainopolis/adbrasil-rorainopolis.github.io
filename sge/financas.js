@@ -174,6 +174,7 @@ const FIN_ABAS_META = {
   frequencia: { nome: 'Frequência',                desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check',      cor: '#34d399' },
   semanal:    { nome: 'Lançamentos Semanais',      desc: 'Dízimos e ofertas por irmão e semana',      icone: 'fa-receipt',             cor: '#f59e0b' },
   livro:      { nome: 'Livro de Dizimistas',       desc: 'Livro oficial mensal e anual — digital e exportável', icone: 'fa-book-open', cor: '#d4af37' },
+  mapa:       { nome: 'Mapa de Arrecadação',       desc: 'Dízimos por congregação e semana (TB/PIX × espécie)', icone: 'fa-map', cor: '#22d3ee' },
   relatorio:  { nome: 'Envio de Caixa',            desc: 'Fechamento e envio semanal',               icone: 'fa-file-invoice-dollar', cor: '#a78bfa' },
   prestacao:  { nome: 'Conferência de Caixa',      desc: 'Gestão e recebimento das congregações',    icone: 'fa-clipboard-check',     cor: '#f472b6' },
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
@@ -184,12 +185,13 @@ const FIN_ABAS_META = {
 };
 const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda', 'despesas', 'prestconv'];
 /* Dizimistas virou módulo próprio (paridade desktop) — ids locais -> ids do catálogo */
-const DIZ_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'livro'];
-const DIZ2CAT = { rol: 'membros', frequencia: 'frequencia', semanal: 'lancamentos', livro: 'livro' };
+const DIZ_ABAS_ORDEM = ['rol', 'frequencia', 'semanal', 'mapa', 'livro'];
+const DIZ2CAT = { rol: 'membros', frequencia: 'frequencia', semanal: 'lancamentos', mapa: 'arrecadacao', livro: 'livro' };
 const DIZ_TELA_META = {
   rol:        { nome: 'Rol de Dizimistas',       desc: 'Cadastro dos irmãos dizimistas',            icone: 'fa-users-line',     cor: '#a78bfa' },
   frequencia: { nome: 'Frequência',              desc: 'Assiduidade e evolução por competência',   icone: 'fa-calendar-check', cor: '#34d399' },
   semanal:    { nome: 'Lançamentos Semanais',    desc: 'Dízimos e ofertas por irmão e semana',     icone: 'fa-receipt',        cor: '#f59e0b' },
+  mapa:       { nome: 'Mapa de Arrecadação',       desc: 'Dízimos por congregação e semana (TB/PIX × espécie)', icone: 'fa-map', cor: '#22d3ee' },
   livro:      { nome: 'Livro de Dizimistas',     desc: 'Livro oficial mensal e anual — exportável', icone: 'fa-book-open',      cor: '#d4af37' },
 };
 
@@ -296,6 +298,67 @@ function dizAbaPermitida(t){
   return sgeSubAbaDizPermitida(cat);
 }
 
+/* ===================== MAPA DE ARRECADAÇÃO (somente leitura) ===================== */
+/* Espelho da ex-Origem dos Valores do desktop: dízimos por semana × congregação,
+   alimentado automaticamente pelos Lançamentos Semanais (trigger na nuvem). */
+const MAPA_ARQ = { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], sem: 1 };
+
+window.mapaRenderTela = function(){
+  el('fin-sub').innerHTML = `
+    <div class="space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
+            <select id="mapa-ano" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === MAPA_ARQ.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
+            <select id="mapa-mes" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${MESES_ORD.map(m => `<option ${m === MAPA_ARQ.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+        </div>
+        <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button onclick="mapaSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
+        <p class="text-[9px] opacity-55"><i class="fa-solid fa-circle-info mr-1"></i>Somente leitura — alimentado automaticamente pelos Lançamentos Semanais de dízimos.</p>
+      </div>
+      <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
+      <div id="mapa-lista" class="space-y-2"></div>
+    </div>`;
+  mapaCarregar();
+};
+window.mapaMudouFiltro = function(){ MAPA_ARQ.ano = el('mapa-ano').value; MAPA_ARQ.mes = el('mapa-mes').value; mapaCarregar(); };
+window.mapaSelSemana = function(w){ MAPA_ARQ.sem = w; mapaRenderTela(); };
+
+async function mapaCarregar(){
+  const lista = el('mapa-lista'), kpis = el('mapa-kpis');
+  if (lista) lista.innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando arrecadação…</p>';
+  try {
+    const [org, mapa] = await Promise.all([
+      api('carregar_origem_valores', { ano: MAPA_ARQ.ano, mes: MAPA_ARQ.mes }, sessao()?.token),
+      SGEG.mapaConselhos().catch(() => ({ porConselho: {} })),
+    ]);
+    const consDe = {};
+    for (const [cons, congs] of Object.entries(mapa.porConselho || {}))
+      for (const n of (congs || [])) consDe[cf(n)] = cons;
+    const semLbl = `${MAPA_ARQ.sem}ª SEMANA`;
+    const itens = (org.lancamentos || org.registros || [])
+      .filter(l => l.semana === semLbl)
+      .map(l => ({ cong: l.congregacao || '—', cons: l.conselho || consDe[cf(l.congregacao)] || '—', tb: num(l.valor_tb), esp: num(l.valor_especie) }))
+      .sort((a, b) => String(a.cons).localeCompare(String(b.cons)) || String(a.cong).localeCompare(String(b.cong)));
+    const totTb = itens.reduce((s, i) => s + i.tb, 0), totEsp = itens.reduce((s, i) => s + i.esp, 0);
+    const card = (t, v, cor) => `<div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase" style="color:var(--text-muted)">${t}</p><p class="text-xs font-black ${cor || ''}">${v}</p></div>`;
+    if (kpis) kpis.innerHTML = card('TB / PIX', moeda(totTb), 'text-sky-400') + card('Espécie', moeda(totEsp), 'text-amber-500') + card('Total', moeda(totTb + totEsp), 'text-emerald-500');
+    if (lista) lista.innerHTML = itens.length ? itens.map((it, i) => `
+      <div class="border rounded-xl px-3 py-2.5 flex items-center gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <span class="text-[10px] font-bold w-4 text-center opacity-40 shrink-0">${i + 1}</span>
+        <div class="flex-1 min-w-0"><b class="text-xs block truncate">${esc(it.cong)}</b><span class="text-[9px] opacity-55 block truncate">${esc(it.cons)}</span></div>
+        <div class="text-right shrink-0"><span class="block text-[8px] opacity-50">TB/PIX</span><b class="text-[11px]">${moeda(it.tb)}</b></div>
+        <div class="text-right shrink-0"><span class="block text-[8px] opacity-50">Espécie</span><b class="text-[11px] text-amber-500">${moeda(it.esp)}</b></div>
+        <div class="text-right shrink-0"><span class="block text-[8px] opacity-50">Total</span><b class="text-[11px] text-emerald-500">${moeda(it.tb + it.esp)}</b></div>
+      </div>`).join('')
+      : `<p class="text-center text-xs py-8 opacity-60">Nenhum dízimo lançado nesta semana.</p>`;
+  } catch(e){
+    if (lista) lista.innerHTML = `<p class="text-center text-xs py-8 text-red-400">Falha ao carregar: ${esc(e.message || e)}</p>`;
+  }
+}
+
 window.finMenu = function(){
   F.aba = null;
   el('fin-ctx')?.classList.add('hidden');
@@ -330,7 +393,7 @@ window.finMenu = function(){
 /* Mapeia as abas do financeiro mobile para a matriz de permissões (paridade desktop):
    rol/frequencia = sub-abas de dizimistas; relatorio/prestacao/orcamentos = abas diretas. */
 function finAbaPermitida(t){
-  if (t === 'rol' || t === 'frequencia' || t === 'semanal' || t === 'livro') return dizAbaPermitida(t);
+  if (t === 'rol' || t === 'frequencia' || t === 'semanal' || t === 'livro' || t === 'mapa') return dizAbaPermitida(t);
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
   if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
@@ -375,6 +438,7 @@ window.finAba = function(aba){
       </div>`;
   }
   if (aba === 'semanal') return finRenderSemanal();
+  if (aba === 'mapa') return mapaRenderTela();
   if (aba === 'livro') return livroRender();
   if (aba === 'relatorio') return rcRenderTela();
   if (aba === 'prestacao') return window.prestRender();
