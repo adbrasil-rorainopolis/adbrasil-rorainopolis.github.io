@@ -308,7 +308,7 @@ window.mapaRenderTela = function(){
     <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-map mr-1 text-cyan-400"></i>Mapa de Arrecadação</p>
-          <button onclick="mapaMesNav(-1)" title="Mês anterior" class="w-8 h-8 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+        <div class="flex items-end gap-2"><button onclick="mapaMesNav(-1)" title="Mês anterior" class="w-8 h-8 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-xs"></i></button>
           <div class="flex-1 grid grid-cols-2 gap-2">
           <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
             <select id="mapa-ano" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -319,7 +319,7 @@ window.mapaRenderTela = function(){
           </div>
           <button onclick="mapaMesNav(1)" title="Próximo mês" class="w-8 h-8 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-xs"></i></button>
         </div>
-        <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button data-mapa-sem="${w}" onclick="mapaSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
+        <div class="flex gap-1.5">${[1, 2, 3, 4, 5, 0].map(w => `<button data-mapa-sem="${w}" onclick="mapaSelSemana(${w})" class="${w ? 'flex-1' : 'flex-[1.8] px-1'} py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w ? w + 'ª' : 'Completo'}</button>`).join('')}</div>
         <p class="text-[9px] opacity-55"><i class="fa-solid fa-circle-info mr-1"></i>Somente leitura — alimentado automaticamente pelos Lançamentos Semanais de dízimos.</p>
       </div>
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -342,7 +342,7 @@ window.mapaRenderTela = function(){
         <div id="mapa-dist" class="space-y-2 px-3 pb-3"></div>
       </details>
       <details ${MAPA_ARQ.detAberto ? 'open' : ''} ontoggle="mapaDetToggle(this.open)" class="group border rounded-2xl" style="background:var(--bg-card);border-color:var(--border-color)">
-        <summary class="list-none cursor-pointer select-none flex items-center gap-1.5 p-3 text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-list-ol text-emerald-400"></i>Detalhamento por congregação <span id="mapa-det-sem" class="normal-case font-semibold opacity-60">(${MAPA_ARQ.sem}ª semana)</span><span class="flex-1"></span><i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i></summary>
+        <summary class="list-none cursor-pointer select-none flex items-center gap-1.5 p-3 text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-list-ol text-emerald-400"></i>Detalhamento por congregação <span id="mapa-det-sem" class="normal-case font-semibold opacity-60">(${MAPA_ARQ.sem ? MAPA_ARQ.sem + 'ª semana' : 'mês completo'})</span><span class="flex-1"></span><i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i></summary>
         <div class="space-y-2 px-3 pb-3">
         <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
         <div id="mapa-lista" class="space-y-2"></div>
@@ -362,7 +362,7 @@ function mapaAnoAnualSync(){
 window.mapaSelSemana = function(w){
   MAPA_ARQ.sem = w;
   document.querySelectorAll('[data-mapa-sem]').forEach(b => { const on = +b.dataset.mapaSem === w; b.style.background = on ? 'var(--color-primary)' : 'var(--bg-input)'; b.style.color = on ? '#fff' : ''; });
-  const t = el('mapa-det-sem'); if (t) t.textContent = `(${w}ª semana)`;
+  const t = el('mapa-det-sem'); if (t) t.textContent = `(${w ? w + 'ª semana' : 'mês completo'})`;
   mapaCarregar();
 };
 window.mapaDetToggle = function(aberto){ MAPA_ARQ.detAberto = !!aberto; };
@@ -482,10 +482,12 @@ async function mapaCarregar(){
       for (const n of (congs || [])) consDe[cf(n)] = cons;
     mapaDistRender(org.lancamentos || org.registros || []);
     const semLbl = `${MAPA_ARQ.sem}ª SEMANA`;
-    const itens = (org.lancamentos || org.registros || [])
-      .filter(l => l.semana === semLbl)
+    const brutos = (org.lancamentos || org.registros || [])
+      .filter(l => MAPA_ARQ.sem ? l.semana === semLbl : /ª SEMANA$/.test(l.semana || ''))
       .map(l => ({ cong: l.congregacao || '—', cons: l.conselho || consDe[cf(l.congregacao)] || '—', tb: num(l.valor_tb), esp: num(l.valor_especie) }))
       .sort((a, b) => String(a.cons).localeCompare(String(b.cons)) || String(a.cong).localeCompare(String(b.cong)));
+    /* Completo (sem=0): soma as semanas do mês por congregação */
+    const itens = MAPA_ARQ.sem ? brutos : Object.values(brutos.reduce((acc, it) => { const k = cf(it.cong); acc[k] = acc[k] || { ...it, tb: 0, esp: 0 }; acc[k].tb += it.tb; acc[k].esp += it.esp; return acc; }, {}));
     const totTb = itens.reduce((s, i) => s + i.tb, 0), totEsp = itens.reduce((s, i) => s + i.esp, 0);
     const card = (t, v, cor) => `<div class="border rounded-xl p-2 text-center" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase" style="color:var(--text-muted)">${t}</p><p class="text-xs font-black ${cor || ''}">${v}</p></div>`;
     if (kpis) kpis.innerHTML = card('TB / PIX', moeda(totTb), 'text-sky-400') + card('Espécie', moeda(totEsp), 'text-amber-500') + card('Total', moeda(totTb + totEsp), 'text-emerald-500');
