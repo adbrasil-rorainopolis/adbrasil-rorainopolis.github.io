@@ -318,8 +318,6 @@ window.mapaRenderTela = function(){
         <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button onclick="mapaSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
         <p class="text-[9px] opacity-55"><i class="fa-solid fa-circle-info mr-1"></i>Somente leitura — alimentado automaticamente pelos Lançamentos Semanais de dízimos.</p>
       </div>
-      <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
-      <div id="mapa-lista" class="space-y-2"></div>
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-city mr-1 text-sky-400"></i>Distribuição · Cidades x Vicinais <span class="normal-case font-semibold opacity-60">(mês)</span></p>
         <div id="mapa-dist" class="space-y-2"></div>
@@ -339,6 +337,8 @@ window.mapaRenderTela = function(){
         <div id="mapa-anual-stats" class="grid grid-cols-2 gap-1.5"></div>
         <p id="mapa-anual-resumo" class="text-[9px] opacity-60"></p>
       </div>
+      <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
+      <div id="mapa-lista" class="space-y-2"></div>
     </div>`;
   mapaCarregar();
   mapaAnualCarregar();
@@ -3731,9 +3731,13 @@ function prestTopoHtml(){
       ${['semanal', 'periodicidade'].map(t => `<button onclick="prestSub('${t}')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="${PREST.sub === t ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${t === 'semanal' ? 'Prestação Semanal' : 'Periodicidade'}</button>`).join('')}
     </div>
     ${PREST.sub === 'semanal' ? `
-    <div class="grid grid-cols-2 gap-2 mb-2">
-      ${selF('prest-mes', MESES_ORD.map(m => [m, m]), PREST.mes, 'prestMuda()')}
-      ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
+    <div class="flex items-center gap-2 mb-2">
+      <button onclick="prestMesNav(-1)" title="M\u00eas anterior" class="w-9 h-9 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+      <div class="flex-1 grid grid-cols-2 gap-2">
+        ${selF('prest-mes', MESES_ORD.map(m => [m, m]), PREST.mes, 'prestMuda()')}
+        ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
+      </div>
+      <button onclick="prestMesNav(1)" title="Pr\u00f3ximo m\u00eas" class="w-9 h-9 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-xs"></i></button>
     </div>
     <div class="flex gap-1.5 mb-3" id="prest-semanas">
       ${semanas.map(sem => {
@@ -3752,6 +3756,11 @@ function prestTopoHtml(){
 }
 window.prestSub = t => { PREST.sub = t; window.prestRender(); };
 window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
+window.prestMesNav = (delta) => {
+  let i = MESES_ORD.indexOf(PREST.mes) + delta, a = +PREST.ano;
+  if (i < 0) { i = 11; a--; } else if (i > 11) { i = 0; a++; }
+  PREST.mes = MESES_ORD[i]; PREST.ano = String(a); window.prestRender();
+};
 window.prestSemana = sem => { PREST.semana = sem; window.prestRender(); };
 
 /* ---------- Configurar ciclo do mês (4/5 semanas) — paridade com o modal
@@ -3987,7 +3996,7 @@ let _prestPendCache = [];
 function _prestTextoConselho(conselho){
   const linhas = _prestPendCache.filter(l => l.conselho === conselho);
   const nome = l => `- ${l.nome}${l.lider ? ' — ' + l.lider : ''}`;
-  const prest = l => `- ${l.nome}${l.lider ? ' — ' + l.lider : ''}: R$ ${Number(l.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  const prest = nome;
   const partes = [`*CONFERÊNCIA DE CAIXA — ${String(conselho).toUpperCase()}*`, `${PREST.semana} • ${PREST.mes}/${PREST.ano}`, ''];
   const sec = (titulo, lista, fmt) => { if (!lista.length) return; partes.push(`*${titulo}*`, ...lista.map(fmt), ''); };
   sec('❌ PENDENTES', linhas.filter(l => l.situacao === 'Pendente'), nome);
