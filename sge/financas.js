@@ -435,10 +435,15 @@ window.mapaAnualRender = function(){
   const totaisMes = tb.map((v, i) => v + esp[i]);
   const dadoTb = emPct ? tb.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : tb;
   const dadoEsp = emPct ? esp.map((v, i) => totaisMes[i] ? v / totaisMes[i] * 100 : 0) : esp;
-  const mesesCom = totaisMes.filter(v => v > 0).length;
+  /* média só dos meses com lançamento; o mês em andamento (incompleto) fica fora */
+  const hojeM = new Date(), mesAnd = +MAPA_ANUAL.ano === hojeM.getFullYear() ? hojeM.getMonth() : -1;
+  let base = totaisMes.map((v, i) => i).filter(i => totaisMes[i] > 0 && i !== mesAnd);
+  if (!base.length) base = totaisMes.map((v, i) => i).filter(i => totaisMes[i] > 0);
+  const mesesCom = base.length, bTb = base.reduce((s, i) => s + tb[i], 0), bEsp = base.reduce((s, i) => s + esp[i], 0), bG = bTb + bEsp;
+  const foraAnd = mesAnd >= 0 && totaisMes[mesAnd] > 0 && !base.includes(mesAnd);
   const totTb = tb.reduce((s, v) => s + v, 0), totEsp = esp.reduce((s, v) => s + v, 0);
   const totG = totTb + totEsp;
-  const mediaG = mesesCom ? totG / mesesCom : 0;
+  const mediaG = mesesCom ? bG / mesesCom : 0;
   const datasets = [
     { label: 'TB/PIX', data: dadoTb, backgroundColor: '#0ea5e9', stack: 'd', borderRadius: 3 },
     { label: 'Espécie', data: dadoEsp, backgroundColor: '#f59e0b', stack: 'd', borderRadius: 3 },
@@ -457,13 +462,13 @@ window.mapaAnualRender = function(){
   });
   const stats = el('mapa-anual-stats');
   if (stats) {
-    const pctTb = totG ? totTb / totG * 100 : 0, pctEsp = totG ? totEsp / totG * 100 : 0;
+    const pctTb = bG ? bTb / bG * 100 : 0, pctEsp = bG ? bEsp / bG * 100 : 0;
     const chip = (t, v, s) => `<div class="border rounded-lg px-2 py-1.5 text-[9px]" style="border-color:var(--border-color);background:var(--bg-input)"><p class="opacity-55 uppercase font-bold tracking-wide">${t}</p><p class="font-bold text-[11px]">${v}</p>${s ? `<p class="opacity-55">${s}</p>` : ''}</div>`;
     stats.innerHTML =
-      chip('TB/PIX', `${moeda(mesesCom ? totTb / mesesCom : 0)}/mês`, `${pctTb.toFixed(1)}% do ano`) +
-      chip('Espécie', `${moeda(mesesCom ? totEsp / mesesCom : 0)}/mês`, `${pctEsp.toFixed(1)}% do ano`) +
-      chip('Média mensal', moeda(mediaG), `${mesesCom} mês(es) com dízimos`) +
-      chip('Total do ano', moeda(totG), `TB ${pctTb.toFixed(0)}% · Esp ${pctEsp.toFixed(0)}%`);
+      chip('TB/PIX', `${moeda(mesesCom ? bTb / mesesCom : 0)}/mês`, `${pctTb.toFixed(1)}% da média`) +
+      chip('Espécie', `${moeda(mesesCom ? bEsp / mesesCom : 0)}/mês`, `${pctEsp.toFixed(1)}% da média`) +
+      chip('Média mensal', moeda(mediaG), `${mesesCom} mês(es) com lançamento${foraAnd ? ' · sem o mês atual' : ''}`) +
+      chip('Total do ano', moeda(totG), `TB ${(totG ? totTb / totG * 100 : 0).toFixed(0)}% · Esp ${(totG ? totEsp / totG * 100 : 0).toFixed(0)}%`);
   }
   const resumo = el('mapa-anual-resumo');
   if (resumo) resumo.innerHTML = `${esc(cong || cons || 'Campo todo')} — <b class="text-emerald-500">${moeda(totG)}</b> em dízimos no ano.`;
