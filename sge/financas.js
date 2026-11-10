@@ -307,22 +307,6 @@ window.mapaRenderTela = function(){
   el('fin-sub').innerHTML = `
     <div class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="grid grid-cols-2 gap-2">
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
-            <select id="mapa-ano" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === MAPA_ARQ.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
-          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
-            <select id="mapa-mes" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-              ${MESES_ORD.map(m => `<option ${m === MAPA_ARQ.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
-        </div>
-        <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button onclick="mapaSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
-        <p class="text-[9px] opacity-55"><i class="fa-solid fa-circle-info mr-1"></i>Somente leitura — alimentado automaticamente pelos Lançamentos Semanais de dízimos.</p>
-      </div>
-      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
-        <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-city mr-1 text-sky-400"></i>Distribuição · Cidades x Vicinais <span class="normal-case font-semibold opacity-60">(mês)</span></p>
-        <div id="mapa-dist" class="space-y-2"></div>
-      </div>
-      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-chart-column mr-1 text-cyan-400"></i>Visão anual de dízimos</p>
         <div class="grid grid-cols-3 gap-1.5">
           <select id="mapa-ano-anual" onchange="mapaAnualCarregar()" class="px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></select>
@@ -337,6 +321,26 @@ window.mapaRenderTela = function(){
         <div id="mapa-anual-stats" class="grid grid-cols-2 gap-1.5"></div>
         <p id="mapa-anual-resumo" class="text-[9px] opacity-60"></p>
       </div>
+      <div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-end gap-2">
+          <button onclick="mapaMesNav(-1)" title="Mês anterior" class="w-8 h-8 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+          <div class="flex-1 grid grid-cols-2 gap-2">
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano</span>
+            <select id="mapa-ano" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${[2024, 2025, 2026, 2027].map(a => `<option ${String(a) === MAPA_ARQ.ano ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
+          <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Mês</span>
+            <select id="mapa-mes" onchange="mapaMudouFiltro()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+              ${MESES_ORD.map(m => `<option ${m === MAPA_ARQ.mes ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+          </div>
+          <button onclick="mapaMesNav(1)" title="Próximo mês" class="w-8 h-8 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+        </div>
+        <div class="flex gap-1.5">${[1, 2, 3, 4, 5].map(w => `<button onclick="mapaSelSemana(${w})" class="flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer" style="border-color:var(--border-color);${w === MAPA_ARQ.sem ? 'background:var(--color-primary);color:#fff' : 'background:var(--bg-input)'}">${w}ª</button>`).join('')}</div>
+        <p class="text-[9px] opacity-55"><i class="fa-solid fa-circle-info mr-1"></i>Somente leitura — alimentado automaticamente pelos Lançamentos Semanais de dízimos.</p>
+      </div>
+      <details ${MAPA_ARQ.distAberto ? 'open' : ''} ontoggle="mapaDistToggle(this.open)" class="group border rounded-2xl" style="background:var(--bg-card);border-color:var(--border-color)">
+        <summary class="list-none cursor-pointer select-none flex items-center gap-1.5 p-3 text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-city text-sky-400"></i>Distribuição · Cidades x Vicinais <span class="normal-case font-semibold opacity-60">(mês)</span><span class="flex-1"></span><i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i></summary>
+        <div id="mapa-dist" class="space-y-2 px-3 pb-3"></div>
+      </details>
       <div id="mapa-kpis" class="grid grid-cols-3 gap-1.5"></div>
       <div id="mapa-lista" class="space-y-2"></div>
     </div>`;
@@ -345,6 +349,17 @@ window.mapaRenderTela = function(){
 };
 window.mapaMudouFiltro = function(){ MAPA_ARQ.ano = el('mapa-ano').value; MAPA_ARQ.mes = el('mapa-mes').value; mapaCarregar(); };
 window.mapaSelSemana = function(w){ MAPA_ARQ.sem = w; mapaRenderTela(); };
+window.mapaDistToggle = function(aberto){ MAPA_ARQ.distAberto = !!aberto; };
+window.mapaMesNav = function(delta){
+  let i = MESES_ORD.indexOf(MAPA_ARQ.mes) + delta, a = +MAPA_ARQ.ano;
+  if (i < 0) { i = 11; a--; } else if (i > 11) { i = 0; a++; }
+  MAPA_ARQ.mes = MESES_ORD[i]; MAPA_ARQ.ano = String(a);
+  const sA = el('mapa-ano'), sM = el('mapa-mes');
+  if (sA && ![...sA.options].some(o => o.value === MAPA_ARQ.ano)) sA.add(new Option(MAPA_ARQ.ano, MAPA_ARQ.ano));
+  if (sA) sA.value = MAPA_ARQ.ano;
+  if (sM) sM.value = MAPA_ARQ.mes;
+  mapaCarregar();
+};
 
 /* Visão anual: dízimos mês a mês por campo/conselho/congregação (12 chamadas, uma por mês). */
 const MAPA_ANUAL = { ano: String(new Date().getFullYear()), dados: [], graf: null, modo: 'valor' };
@@ -2950,8 +2965,13 @@ function _sgeQrRR(ctx, x, y, w, h, r){
 function sgeQrRender(cv, url, tamBmp){
   try {
     const tmp = document.createElement('div');
-    const q = new QRCode(tmp, { text: url, correctLevel: QRCode.CorrectLevel.H });
-    const mod = q._oQRCode && q._oQRCode.modules;
+    /* ECC H estoura em URLs longas no qrcodejs; cai para Q/M/L (logo só com H). */
+    let q = null, nivelQr = '';
+    for (const nivel of ['H', 'Q', 'M', 'L']) {
+      try { q = new QRCode(tmp, { text: url, correctLevel: QRCode.CorrectLevel[nivel] }); nivelQr = nivel; break; }
+      catch(e){ tmp.innerHTML = ''; }
+    }
+    const mod = q && q._oQRCode && q._oQRCode.modules;
     if (!mod || !mod.length) return false;
     const n = mod.length, borda = 4, box = tamBmp / (n + borda * 2);
     cv.width = cv.height = tamBmp;
@@ -2970,7 +2990,7 @@ function sgeQrRender(cv, url, tamBmp){
       ctx.fillStyle = '#fff'; _sgeQrRR(ctx, x0 + box, y0 + box, s - 2*box, s - 2*box, box * 1.2);
       ctx.fillStyle = '#111'; _sgeQrRR(ctx, x0 + 2*box, y0 + 2*box, s - 4*box, s - 4*box, box * .9);
     }
-    if (_sgeQrLogoOk && _sgeQrLogo){
+    if (nivelQr === 'H' && _sgeQrLogoOk && _sgeQrLogo){
       const sS = tamBmp * .22, xS = (tamBmp - sS) / 2;
       ctx.fillStyle = '#fff';
       _sgeQrRR(ctx, xS, xS, sS, sS, sS * .22);
