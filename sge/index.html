@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.318';
+const SGE_VERSAO = 'v1.319';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2182,9 +2182,13 @@ function sgeCarrosselPalco(alvo, slides, cicloMs){
   }, 80);
 }
 
-const _CF_MISSOES = new Set(['oferta da ebd missionaria','oferta do culto de missoes','oferta missionaria','oferta missionaria do circulo de oracao']);
-const _cfMis = t => Object.entries(t?.contas_detalhe_entradas || {})
-  .reduce((a, [k, v]) => a + (_CF_MISSOES.has(String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()) ? (+v || 0) : 0), 0);
+const _cfMisLinhas = det => Object.entries(det || {})
+  .reduce((a, [k, v]) => a + (/miss/i.test(String(k).split(/\s[-—–:]\s/)[0]) ? (+v || 0) : 0), 0);
+const _cfMis = (tot, mov) => {
+  let s = _cfMisLinhas(tot?.entradas_detalhadas);
+  if (!s && Array.isArray(mov?.movimentos)) s = mov.movimentos.reduce((a, m) => a + _cfMisLinhas(m.detalhes_entradas), 0);
+  return s;
+};
 const _cfTotais = mov => {
   const totais = (mov?.totais || []).filter(t => /fechamento/i.test(t.aba || ''));
   return totais[0] || (mov?.totais || [])[0] || null;
@@ -2215,8 +2219,8 @@ async function carregarFinanceiro(token){
     sgeCarrosselPalco('fin-corpo', [
       { rot: 'Arrecadação do mês',     val: brl(+t.total_entradas || 0), sub: `${ultimo.mes} / ${ultimo.ano}`, cor: 'var(--color-success)', i: 'fa-sack-dollar' },
       { rot: 'Arrecadação acumulada',  val: brl(doAnoFin.reduce((a, x) => a + (+x.total_entradas || 0), 0)), sub: lblAcum, cor: '#0ea5e9', i: 'fa-chart-line' },
-      { rot: 'Missões do mês',         val: brl(_cfMis(t)),              sub: `${ultimo.mes} / ${ultimo.ano}`, cor: '#8b5cf6', i: 'fa-globe' },
-      { rot: 'Missões acumuladas',     val: brl(doAnoFin.reduce((a, x) => a + _cfMis(x), 0)), sub: lblAcum, cor: 'var(--color-primary)', i: 'fa-hand-holding-heart' },
+      { rot: 'Missões do mês',         val: brl(_cfMis(t, mov)),              sub: `${ultimo.mes} / ${ultimo.ano}`, cor: '#8b5cf6', i: 'fa-globe' },
+      { rot: 'Missões acumuladas',     val: brl(_cfMis(t, mov) + movsAnt.reduce((a, mv) => a + (mv ? _cfMis(_cfTotais(mv), mv) : 0), 0)), sub: lblAcum, cor: 'var(--color-primary)', i: 'fa-hand-holding-heart' },
     ], 5000);
   } catch (e) {
     $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Financeiro indisponível.</div>';
