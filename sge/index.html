@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.317';
+const SGE_VERSAO = 'v1.318';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2251,7 +2251,7 @@ async function carregarEspiritualDash(token){
       { rot: 'Batismos acumulados',    val: acum(x => bag(x) + bes(x)), sub: lblAcum, cor: 'var(--color-primary)', i: 'fa-water' },
     ], 6000);
   } catch (e) {
-    corpo.innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Espiritual indisponível.</div>';
+    corpo.innerHTML = `<div class="text-xs py-2" style="color: var(--text-muted);">${e?.message || 'Espiritual indisponível.'}</div>`;
   }
 }
 
