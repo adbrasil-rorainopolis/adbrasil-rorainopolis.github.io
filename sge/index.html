@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.316';
+const SGE_VERSAO = 'v1.317';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2196,16 +2196,18 @@ async function carregarFinanceiro(token){
     const lista = per.periodos || per.dados || [];
     if (!lista.length){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhum período importado ainda.</div>'; return; }
     const mesIdx = p => (+p.ano) * 100 + MESES.findIndex(m => m.toLowerCase() === String(p.mes).toLowerCase());
-    const ultimo = lista.reduce((a, b) => mesIdx(b) > mesIdx(a) ? b : a);
+    const ord = lista.slice().sort((a, b) => mesIdx(b) - mesIdx(a));
+    let ultimo = null, mov = null, t = null;
+    for (const p of ord.slice(0, 4)) {
+      const tent = await api('carregar_movimento_financeiro', { ano: p.ano, mes: p.mes }, token).catch(() => null);
+      const tot = _cfTotais(tent);
+      if (tot) { ultimo = p; mov = tent; t = tot; break; }
+    }
+    if (!t){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Sem totais nos períodos recentes.</div>'; return; }
     $('fin-periodo').textContent = `${ultimo.mes} / ${ultimo.ano}`;
-    const anteriores = lista.filter(p => p.ano === ultimo.ano && mesIdx(p) < mesIdx(ultimo));
-    const [mov, ...movsAnt] = await Promise.all([
-      api('carregar_movimento_financeiro', { ano: ultimo.ano, mes: ultimo.mes }, token),
-      ...anteriores.map(p => api('carregar_movimento_financeiro', { ano: p.ano, mes: p.mes }, token).catch(() => null)),
-    ]);
     if (mov.escopo_resumo) $('fin-periodo').textContent += ' - ' + mov.escopo_resumo;
-    const t = _cfTotais(mov);
-    if (!t){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Sem totais neste período.</div>'; return; }
+    const anteriores = lista.filter(p => p.ano === ultimo.ano && mesIdx(p) < mesIdx(ultimo));
+    const movsAnt = await Promise.all(anteriores.map(p => api('carregar_movimento_financeiro', { ano: p.ano, mes: p.mes }, token).catch(() => null)));
     const doAnoFin = [t, ...movsAnt.map(_cfTotais).filter(Boolean)];
     const lblAcum = doAnoFin.length > 1
       ? `Jan – ${ultimo.mes} de ${ultimo.ano}`
@@ -2364,7 +2366,7 @@ function iniciarSequencia(){
 iniciarSequencia();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => { try { reg.update(); } catch (e) {} }).catch(() => {});
   // Marca quando o usuário digitou em qualquer campo — impede reload automático
 // no meio de um relatório/cadastro (o SW novo assume controle via skipWaiting).
 let __sgeDigitouAlgo = false;
