@@ -484,14 +484,14 @@ window.renderMembroFinanceiro = async function(anoSel) {
     .sort((a, b) => (b._p - a._p) || (b._s - a._s));
   const anos = [...new Set(lancs.map(l => String(l.ano)))].sort((a, b) => +b - +a);
   const ano = String(anoSel || anos[0] || new Date().getFullYear());
-  const doAno = lancs.filter(l => String(l.ano) === ano);
+  const doAno = lancs.filter(l => String(l.ano) === ano).sort((a, b) => (a._p - b._p) || (a._s - b._s));
   doAno.forEach((l, i) => { l._i = i; });
   _memFinDoAno = doAno; _memFinAno = ano; _memFinMembro = m;
   const totalAno = doAno.reduce((t, l) => t + l._v, 0);
   const totalGeral = lancs.reduce((t, l) => t + l._v, 0);
   const mesesGrp = {};
   doAno.forEach(l => { (mesesGrp[l.mes] = mesesGrp[l.mes] || []).push(l); });
-  const mesesOrd = Object.keys(mesesGrp).sort((a, b) => (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(b) - MESES_ORD.indexOf(a) : 0));
+  const mesesOrd = Object.keys(mesesGrp).sort((a, b) => (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(a) - MESES_ORD.indexOf(b) : 0));
   c.innerHTML = `
     ${memHeader('fa-hand-holding-heart', _OURO, 'Meu Financeiro', 'Seus dízimos e ofertas — só você vê')}
     ${_memFinHero(m)}
