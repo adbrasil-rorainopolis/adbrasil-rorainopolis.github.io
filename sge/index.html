@@ -2206,15 +2206,15 @@ async function carregarFinanceiro(token){
     if (mov.escopo_resumo) $('fin-periodo').textContent += ' - ' + mov.escopo_resumo;
     const t = _cfTotais(mov);
     if (!t){ $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Sem totais neste período.</div>'; return; }
-    const totAnt = movsAnt.map(_cfTotais).filter(Boolean);
-    const lblAcum = totAnt.length
-      ? `Jan – ${MESES[MESES.findIndex(m => m.toLowerCase() === String(ultimo.mes).toLowerCase()) - 1] || ''} de ${ultimo.ano}`
-      : `Sem meses anteriores em ${ultimo.ano}`;
+    const doAnoFin = [t, ...movsAnt.map(_cfTotais).filter(Boolean)];
+    const lblAcum = doAnoFin.length > 1
+      ? `Jan – ${ultimo.mes} de ${ultimo.ano}`
+      : `${ultimo.mes} / ${ultimo.ano}`;
     sgeCarrosselPalco('fin-corpo', [
       { rot: 'Arrecadação do mês',     val: brl(+t.total_entradas || 0), sub: `${ultimo.mes} / ${ultimo.ano}`, cor: 'var(--color-success)', i: 'fa-sack-dollar' },
-      { rot: 'Arrecadação acumulada',  val: brl(totAnt.reduce((a, x) => a + (+x.total_entradas || 0), 0)), sub: lblAcum, cor: '#0ea5e9', i: 'fa-chart-line' },
+      { rot: 'Arrecadação acumulada',  val: brl(doAnoFin.reduce((a, x) => a + (+x.total_entradas || 0), 0)), sub: lblAcum, cor: '#0ea5e9', i: 'fa-chart-line' },
       { rot: 'Missões do mês',         val: brl(_cfMis(t)),              sub: `${ultimo.mes} / ${ultimo.ano}`, cor: '#8b5cf6', i: 'fa-globe' },
-      { rot: 'Missões acumuladas',     val: brl(totAnt.reduce((a, x) => a + _cfMis(x), 0)), sub: lblAcum, cor: 'var(--color-primary)', i: 'fa-hand-holding-heart' },
+      { rot: 'Missões acumuladas',     val: brl(doAnoFin.reduce((a, x) => a + _cfMis(x), 0)), sub: lblAcum, cor: 'var(--color-primary)', i: 'fa-hand-holding-heart' },
     ], 5000);
   } catch (e) {
     $('fin-corpo').innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Financeiro indisponível.</div>';
@@ -2226,6 +2226,7 @@ async function carregarEspiritualDash(token){
   const corpo = $('esp-corpo');
   try {
     const r = await api('listar_relatorio_espiritual', {}, token);
+    if (!r?.ok) { corpo.innerHTML = `<div class="text-xs py-2" style="color: var(--text-muted);">${r?.erro || 'Espiritual indisponível.'}</div>`; return; }
     const meses = (r?.meses || []).slice().sort((a, b) => (a.ano + String(a.mes_num).padStart(2,'0')).localeCompare(b.ano + String(b.mes_num).padStart(2,'0')));
     if (!meses.length) { corpo.innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhum relatório espiritual ainda.</div>'; return; }
     const m = meses[meses.length - 1];
@@ -2236,9 +2237,9 @@ async function carregarEspiritualDash(token){
     const bes = x => som(x, ['bes_senhores','bes_senhoras','bes_adolescentes','bes_jovens','bes_criancas']);
     const bag = x => som(x, ['bag_senhores','bag_senhoras','bag_adolescentes','bag_jovens']);
     const cul = x => som(x, ['cultos_doutrina','cultos_publico','cultos_ar_livre','cultos_em_lares','cultos_ebd']);
-    const ant = meses.filter(x => x.ano === m.ano && (+x.mes_num) < (+m.mes_num));
-    const acum = fn => ant.reduce((t2, x) => t2 + fn(x), 0);
-    const lblAcum = ant.length ? `Jan – ${ESP_MESES[(+m.mes_num) - 2]} de ${m.ano}` : `Sem meses anteriores em ${m.ano}`;
+    const doAnoEsp = meses.filter(x => x.ano === m.ano);
+    const acum = fn => doAnoEsp.reduce((t2, x) => t2 + fn(x), 0);
+    const lblAcum = doAnoEsp.length > 1 ? `Jan – ${mesNome} de ${m.ano}` : `${mesNome} / ${m.ano}`;
     sgeCarrosselPalco('esp-corpo', [
       { rot: 'Decisões do mês',        val: dec(m),   sub: `${mesNome} / ${m.ano}`, cor: '#f472b6', i: 'fa-heart' },
       { rot: 'Batismo nas Águas',      val: bag(m),   sub: `${mesNome} / ${m.ano}`, cor: '#818cf8', i: 'fa-water' },
