@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.321';
+const SGE_VERSAO = 'v1.322';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2144,7 +2144,7 @@ const _dashCarTimers = {};
 function sgeCarrosselPalco(alvo, slides, cicloMs){
   if (!document.getElementById('sgcar-css')) {
     const st = document.createElement('style'); st.id = 'sgcar-css';
-    st.textContent = `.sgc-palco{position:relative;height:96px;overflow:hidden}.sgc-sl{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:2px;transition:transform .6s cubic-bezier(.4,0,.2,1),opacity .6s ease}.sgc-sl.off-r{transform:translateX(60px);opacity:0;pointer-events:none}.sgc-sl.off-l{transform:translateX(-60px);opacity:0;pointer-events:none}.sgc-sl.on{transform:translateX(0);opacity:1}.sgc-dot{width:8px;height:8px;border-radius:99px;background:#d6d3d1;transition:all .3s;cursor:pointer}.sgc-dot.atv{width:20px;background:var(--color-primary)}.sgc-barra{height:3px;border-radius:99px;background:#efece8;overflow:hidden}.sgc-barra i{display:block;height:100%;background:var(--color-primary);width:0;transition:width .1s linear}`;
+    st.textContent = `.sgc-palco{position:relative;height:96px;overflow:hidden}.sgc-sl{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:2px;transition:transform .6s cubic-bezier(.4,0,.2,1),opacity .6s ease}.sgc-sl.off-r{transform:translateX(60px);opacity:0;pointer-events:none}.sgc-sl.off-l{transform:translateX(-60px);opacity:0;pointer-events:none}.sgc-sl.on{transform:translateX(0);opacity:1}.sgc-seg{flex:1;height:4px;border-radius:99px;background:#e7e5e4;overflow:hidden;cursor:pointer;transition:height .2s}.sgc-seg.atv{height:5px}.sgc-seg i{display:block;height:100%;width:0;background:var(--color-primary);transition:width .1s linear}`;
     document.head.appendChild(st);
   }
   const pid = 'sgc-' + alvo;
@@ -2155,19 +2155,19 @@ function sgeCarrosselPalco(alvo, slides, cicloMs){
         <span class="text-[26px] font-extrabold" style="color:${s.cor};font-variant-numeric:tabular-nums">${s.val}</span>
         <span class="text-[11px]" style="color:var(--text-muted)">${s.sub || ''}</span>
       </div>`).join('')}</div>
-    <div class="sgc-barra mt-2"><i id="${pid}-prog"></i></div>
-    <div class="flex items-center justify-between mt-2.5 pt-2.5" style="border-top:1px dashed var(--border-color)">
-      <span class="text-[9px] font-bold flex items-center gap-1.5" style="color:var(--text-muted)"><span style="width:6px;height:6px;border-radius:99px;background:var(--color-primary);display:inline-block"></span>Rotativo (${Math.round(cicloMs / 1000)}s)</span>
-      <div class="flex items-center gap-1.5" id="${pid}-d">${slides.map((s, i) => `<span class="sgc-dot ${i === 0 ? 'atv' : ''}" data-i="${i}"></span>`).join('')}</div>
-    </div>`;
-  const palco = $(pid + '-p'), dd = $(pid + '-d'), prog = $(pid + '-prog');
+    <div class="flex items-center gap-1 mt-3 pt-2.5" id="${pid}-d" style="border-top:1px dashed var(--border-color)">${slides.map((s, i) => `<span class="sgc-seg ${i === 0 ? 'atv' : ''}" data-i="${i}"><i></i></span>`).join('')}</div>`;
+  const palco = $(pid + '-p'), dd = $(pid + '-d');
   let idx = 0, t0 = performance.now(), pausa = false, pausaDesde = 0;
   const ir = n => {
     const ss = palco.children;
     ss[idx].className = 'sgc-sl ' + (n > idx ? 'off-l' : 'off-r');
     idx = (n + slides.length) % slides.length;
     ss[idx].className = 'sgc-sl on';
-    [...dd.children].forEach((el, i) => el.className = 'sgc-dot' + (i === idx ? ' atv' : ''));
+    [...dd.children].forEach((el, i) => {
+      el.className = 'sgc-seg' + (i === idx ? ' atv' : '');
+      const fill = el.firstElementChild;
+      if (fill) fill.style.width = i < idx ? '100%' : '0%';
+    });
     t0 = performance.now();
   };
   [...dd.children].forEach(el => el.onclick = () => ir(+el.dataset.i));
@@ -2182,7 +2182,8 @@ function sgeCarrosselPalco(alvo, slides, cicloMs){
       else return;
     }
     const dt = performance.now() - t0;
-    if (prog) prog.style.width = Math.min(100, dt / cicloMs * 100) + '%';
+    const fill = dd.children[idx]?.firstElementChild;
+    if (fill) fill.style.width = Math.min(100, dt / cicloMs * 100) + '%';
     if (dt >= cicloMs) ir(idx + 1);
   }, 80);
 }
