@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.320';
+const SGE_VERSAO = 'v1.321';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2161,7 +2161,7 @@ function sgeCarrosselPalco(alvo, slides, cicloMs){
       <div class="flex items-center gap-1.5" id="${pid}-d">${slides.map((s, i) => `<span class="sgc-dot ${i === 0 ? 'atv' : ''}" data-i="${i}"></span>`).join('')}</div>
     </div>`;
   const palco = $(pid + '-p'), dd = $(pid + '-d'), prog = $(pid + '-prog');
-  let idx = 0, t0 = performance.now(), pausa = false;
+  let idx = 0, t0 = performance.now(), pausa = false, pausaDesde = 0;
   const ir = n => {
     const ss = palco.children;
     ss[idx].className = 'sgc-sl ' + (n > idx ? 'off-l' : 'off-r');
@@ -2171,11 +2171,16 @@ function sgeCarrosselPalco(alvo, slides, cicloMs){
     t0 = performance.now();
   };
   [...dd.children].forEach(el => el.onclick = () => ir(+el.dataset.i));
-  palco.addEventListener('pointerdown', () => pausa = true);
-  palco.addEventListener('pointerup', () => { pausa = false; t0 = performance.now(); });
+  palco.addEventListener('pointerdown', () => { pausa = true; pausaDesde = performance.now(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+    palco.addEventListener(ev, () => { if (pausa) { pausa = false; t0 = performance.now(); } }));
   if (_dashCarTimers[alvo]) clearInterval(_dashCarTimers[alvo]);
   _dashCarTimers[alvo] = setInterval(() => {
-    if (pausa || !document.getElementById(pid + '-p')) return;
+    if (!document.getElementById(pid + '-p')) return;
+    if (pausa) {
+      if (performance.now() - pausaDesde > 15000) { pausa = false; t0 = performance.now(); }
+      else return;
+    }
     const dt = performance.now() - t0;
     if (prog) prog.style.width = Math.min(100, dt / cicloMs * 100) + '%';
     if (dt >= cicloMs) ir(idx + 1);
