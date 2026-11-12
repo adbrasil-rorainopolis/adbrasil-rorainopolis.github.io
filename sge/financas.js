@@ -7308,8 +7308,11 @@ window.renderContabil = function(){
 
 function contSubPermitida(sub){
   if (typeof sgeEhAdmin === 'function' && sgeEhAdmin()) return true;
-  const ac = (typeof sgeAcessos === 'function' ? sgeAcessos() : {}) || {};
-  return (ac.permissoes || []).some(p => p.modulo === 'contabil' && (!p.aba || p.aba === sub));
+  const perms = (typeof sgeAcessos === 'function' ? sgeAcessos().permissoes : []) || [];
+  if (perms.some(p => p.modulo === 'contabil' && p.aba === sub)) return true;
+  // Com regras granulares de outras áreas, o marcador '*' vale só como "módulo habilitado".
+  if (perms.some(p => p.modulo === 'contabil' && p.aba && p.aba !== '*')) return false;
+  return perms.some(p => p.modulo === 'contabil' && (!p.aba || p.aba === '*'));
 }
 window.contSub = function(sub){
   ['dre','contas','indicadores'].forEach(n => {

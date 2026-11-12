@@ -160,9 +160,13 @@
     min-height: 100vh; min-height: 100dvh;
   }
   /* header e nav fixos no viewport; conteudo rola no documento (scroll nativo = PTR nativo) */
-  #header-login { position: fixed; top: 0; left: 0; right: 0; }
+  /* iPhone (notch/Dynamic Island): status bar translucida fica por cima do header —
+     o padding-top com safe-area-inset-top empurra o conteudo para baixo dela.
+     Altura do header = max(12px, sat) + 36px conteudo + 12px = 48px + max(12px, sat). */
+  #header-login { position: fixed; top: 0; left: 0; right: 0; padding-top: max(12px, env(safe-area-inset-top)); }
   #login-screen {
-    position: fixed; left: 0; right: 0; top: 57px; bottom: 0;
+    position: fixed; left: 0; right: 0; top: 57px;
+    top: calc(48px + max(12px, env(safe-area-inset-top))); bottom: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
   html { overflow-x: hidden; overflow-x: clip; overscroll-behavior-y: none; }
@@ -171,7 +175,7 @@
     display: none; width: 100%; max-width: 100vw;
   }
   body.app-aberto .app-nav { display: block; }
-  #tela-app { padding-top: 57px; padding-bottom: 96px; min-height: 100vh; min-height: 100dvh; }
+  #tela-app { padding-top: 57px; padding-top: calc(48px + max(12px, env(safe-area-inset-top))); padding-bottom: 96px; min-height: 100vh; min-height: 100dvh; }
   #dash-conteudo { overflow-x: clip; }
   #dash-conteudo select { max-width: 100%; }
   .font-cinzel { font-family: 'Cinzel', serif; }
@@ -812,7 +816,7 @@
   </nav>
 
 <!-- ============ UNLOCK — biometria (WebAuthn platform) ============ -->
-<div id="unlock-screen" class="fixed z-20 items-center justify-center p-4" style="display:none; left:0; right:0; top:57px; bottom:0; background: var(--bg-main);">
+<div id="unlock-screen" class="fixed z-20 items-center justify-center p-4" style="display:none; left:0; right:0; top:calc(48px + max(12px, env(safe-area-inset-top))); bottom:0; background: var(--bg-main);">
   <div class="w-full max-w-md mx-auto">
     <div class="rounded-[2.5rem] p-8 relative theme-transition flex flex-col items-center text-center" style="background: linear-gradient(165deg, var(--card-g1) 0%, var(--card-g2) 60%, var(--card-g3) 100%); box-shadow: 0 40px 90px -30px var(--card-glow); border: 1px solid var(--border-color); backdrop-filter: blur(14px);">
       <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style="background: var(--color-primary-light); border: 1px solid var(--border-color);">
@@ -880,7 +884,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.323';
+const SGE_VERSAO = 'v1.324';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -1638,11 +1642,11 @@ function sgeModuloPermitido(mod){
   if (mod === 'financeiro' && sgeTesoureiro()) return true;
   if (mod === 'dizimistas') {
     if (sgeTesoureiro()) return true;
-    if (!ac.configurado) return true;
+    if (!ac.configurado) return sgeEhAdmin();
     return (ac.permissoes || []).some(p => p.modulo === 'dizimistas'
       || (p.modulo === 'financeiro' && (p.aba === '*' || String(p.aba || '').startsWith('dizimistas'))));
   }
-  if (!ac.configurado) return true;
+  if (!ac.configurado) return sgeEhAdmin();
   return (ac.permissoes || []).some(p => p.modulo === mod);
 }
 function sgeAbaPermitida(mod, aba){
@@ -1653,19 +1657,19 @@ function sgeAbaPermitida(mod, aba){
     return aba === '*' ? sgeModuloPermitido('dizimistas') : sgeSubAbaDizPermitida(aba);
   if (mod === 'financeiro' && aba === 'relatorio')
     return sgeEhAdmin() || sgeTesoureiro() || perms.some(p => p.modulo === 'financeiro' && (p.aba === 'relatorio' || String(p.aba || '').startsWith('relatorio.')));
-  if (!ac.configurado) return true;
+  if (!ac.configurado) return sgeEhAdmin();
   if (mod === 'financeiro' && sgeTesoureiro() && !perms.some(p => p.modulo === 'financeiro')) return false;
   const regras = perms.filter(p => p.modulo === mod && p.aba !== '*');
-  if (!regras.length) return true;
+  if (!regras.length) return sgeEhAdmin() || perms.some(p => p.modulo === mod && p.aba === '*');
   return regras.some(p => p.aba === aba || String(p.aba || '').startsWith(aba + '.'));
 }
 /* Sub-abas de Dizimistas — módulo próprio ('dizimistas/<aba>') + legado ('financeiro/dizimistas.<sub>') */
 function sgeSubAbaDizPermitida(sub){
   const ac = sgeAcessos(), perms = ac.permissoes || [];
-  if (!ac.configurado) return true;
+  if (!ac.configurado) return sgeEhAdmin();
   const temRegra = perms.some(p => p.modulo === 'dizimistas'
     || (p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas')));
-  if (!temRegra) return true;
+  if (!temRegra) return sgeEhAdmin();
   // Regra granular da própria sub-aba (formato novo e legado).
   if (perms.some(p => (p.modulo === 'dizimistas' && p.aba === sub)
     || (p.modulo === 'financeiro' && p.aba === 'dizimistas.' + sub))) return true;
@@ -1942,7 +1946,7 @@ function ptrIndicar(dy){
   if (!ind){
     ind = document.createElement('div');
     ind.id = 'ptr-ind';
-    ind.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.4px;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-muted);box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .18s';
+    ind.style.cssText = 'position:fixed;top:calc(56px + max(12px, env(safe-area-inset-top)));left:50%;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.4px;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-muted);box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .18s';
     ind.innerHTML = '<i class="fa-solid fa-rotate-right" style="color:var(--color-primary)"></i><span>Puxe para atualizar</span>';
     document.body.appendChild(ind);
   }
