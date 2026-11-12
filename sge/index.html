@@ -880,7 +880,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.322';
+const SGE_VERSAO = 'v1.323';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -1666,9 +1666,17 @@ function sgeSubAbaDizPermitida(sub){
   const temRegra = perms.some(p => p.modulo === 'dizimistas'
     || (p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas')));
   if (!temRegra) return true;
-  return perms.some(p =>
-    (p.modulo === 'dizimistas' && (p.aba === sub || p.aba === '*')) ||
-    (p.modulo === 'financeiro' && (p.aba === 'dizimistas.' + sub || p.aba === 'dizimistas' || p.aba === '*')));
+  // Regra granular da própria sub-aba (formato novo e legado).
+  if (perms.some(p => (p.modulo === 'dizimistas' && p.aba === sub)
+    || (p.modulo === 'financeiro' && p.aba === 'dizimistas.' + sub))) return true;
+  // Há regras granulares de outras sub-abas: os marcadores de módulo/aba-pai
+  // ('*' e 'dizimistas') só habilitam o módulo — não liberam todas as sub-abas.
+  const temGranular = perms.some(p => (p.modulo === 'dizimistas' && p.aba && p.aba !== '*')
+    || (p.modulo === 'financeiro' && String(p.aba || '').startsWith('dizimistas.')));
+  if (temGranular) return false;
+  // Sem granularidade: a marcação da área vale para todas as sub-abas.
+  return perms.some(p => (p.modulo === 'dizimistas' && p.aba === '*')
+    || (p.modulo === 'financeiro' && (p.aba === 'dizimistas' || p.aba === '*')));
 }
 function aplicarPermissoesNav(){
   document.querySelectorAll('.sidebar-nav-btn[data-mod]').forEach(b => {
