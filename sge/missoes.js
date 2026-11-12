@@ -1041,8 +1041,11 @@ window.misCopiarWhatsapp = async function(){
   if (ano === anoAtual) L.push(`🟢 No mês (${mesRef}): *${moedaM(r.mes_atual)}*`);
   if (r.total_anteriores > 0) L.push(`📦 Meses anteriores: ${moedaM(r.total_anteriores)}`);
   L.push(`📥 Acumulado do ano: *${moedaM(r.parcial_ano)}*`);
-  if (r.projecao_mes) L.push(`🔮 Projeção p/ fim do mês: ~${moedaM(r.projecao_mes)}`);
-  if (r.meta_ano) L.push(`🎯 Meta ${ano}: ${moedaM(r.meta_ano)} — alcance *${Number(r.alcance_pct || 0).toFixed(1)}%*`);
+  if (r.meta_ano){
+    const alc = Number(r.alcance_pct || 0);
+    L.push(`🎯 Meta ${ano}: ${moedaM(r.meta_ano)} — alcance *${alc.toFixed(1)}%*`);
+    if (alc >= 100) L.push('🎉🙌 *META BATIDA!* 🙌🎉 — glória a Deus pela fidelidade do campo! 🎊🥳');
+  }
   if (r.anteriores?.length){
     L.push('');
     L.push(`📅 *REALIZADO POR MÊS — ${ano}*`);

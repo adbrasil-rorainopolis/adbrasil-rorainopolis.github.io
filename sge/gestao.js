@@ -1697,9 +1697,19 @@ window.gestaoCopiarSituacao = async function(){
   L.push(`   ▸ Dízimos ${moeda(a.dizimos)} · Ofertas ${moeda(a.ofertas)}`);
   if (verDin){
     const r = num(a.saldo_liquido);
+    const cx = num(a.saldo_campo);
     L.push(`🔴 Despesas: *${moeda(a.despesas)}*`);
     L.push(`${r >= 0 ? '📈' : '📉'} Resultado: *${sinal(r)}* ${r >= 0 ? '(superávit)' : '⚠️ (déficit)'}`);
-    L.push(`🏦 Caixa acumulado: *${sinal(a.saldo_campo)}*`);
+    L.push(`🏦 Caixa acumulado: *${sinal(cx)}*`);
+    if (r < 0 || cx < 0){
+      const partes = [];
+      if (r < 0) partes.push(`as despesas superaram as entradas em *${moeda(Math.abs(r))}*`);
+      if (cx < 0) partes.push(`o caixa acumulado está negativo em *${moeda(Math.abs(cx))}*`);
+      L.push('');
+      L.push('🚨 *ALERTA — AUSTERIDADE MÁXIMA*');
+      L.push(`No período, ${partes.join(' e ')}.`);
+      L.push('Recomenda-se *austeridade máxima*: suspender gastos não essenciais, adiar despesas programadas e priorizar apenas obrigações inadiáveis até o caixa voltar ao positivo.');
+    }
   }
   const sems = a.semanas || [];
   if (sems.length){
@@ -1734,24 +1744,17 @@ window.gestaoCopiarSituacao = async function(){
   if (compar.length){ L.push(''); L.push('📊 *COMPARATIVOS*'); L.push(...compar); }
   const projs = [];
   if (proj.mes_em_andamento){
-    projs.push(`📅 Fechamento de ${res.periodo?.mes}`);
+    projs.push(`📅 Fechamento de ${res.periodo?.mes} — ciclo de ${ciclo.total_semanas || '?'} fechamentos`);
     projs.push(`   ▸ Entradas estimadas: ~${moeda(proj.fechamento_entradas)}`);
     if (proj.semanas_restantes) projs.push(`   ▸ Restam ${proj.semanas_restantes} semana${proj.semanas_restantes > 1 ? 's' : ''} no ciclo`);
-  }
-  if (num(proj.proximo_mes_entradas) > 0){
-    if (projs.length) projs.push('');
-    projs.push(`📆 ${proj.proximo_mes_rotulo || 'Próximo mês'}`);
-    projs.push(`   ▸ Entradas estimadas: ~${moeda(proj.proximo_mes_entradas)}`);
-    if (proj.confianca) projs.push(`   ▸ Confiança: ${proj.confianca}`);
   }
   if (projs.length){ L.push(''); L.push('🔮 *PROJEÇÕES*'); L.push(''); L.push(...projs); }
   const ins = (res.insights || []).slice(0, 4);
   if (ins.length){
-    L.push(''); L.push('⚠️ *PONTOS DE ATENÇÃO*'); L.push('');
+    L.push(''); L.push('📌 *PONTOS DO MÊS*'); L.push('');
     ins.forEach(i => {
-      const t = i.texto || '';
-      const ic = /déficit|negativo|superaram/i.test(t) ? '🔴' : /abaixo|queda|varia/i.test(t) ? '📉' : '⚠️';
-      L.push(`${ic} ${t}`);
+      const ic = i.tipo === 'positivo' ? '✅' : i.tipo === 'negativo' ? '🔴' : i.tipo === 'atencao' ? '⚠️' : 'ℹ️';
+      L.push(`${ic} ${i.texto || ''}`);
     });
   }
   L.push('');
