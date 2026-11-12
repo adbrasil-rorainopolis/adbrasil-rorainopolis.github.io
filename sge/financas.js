@@ -4108,6 +4108,9 @@ window.prestEditarSaidas = function(){
   if (_prestBloqueada()){ toast('Semana bloqueada — saídas só na semana aberta.'); return; }
   const old = el('prest-sheet'); if (old) old.remove();
   const saidasSem = PREST.saidas.filter(x => String(x.ano) === PREST.ano && String(x.mes) === PREST.mes && String(x.semana) === PREST.semana);
+  /* Base que o editor exibe — na hora de salvar, o que a nuvem tiver a mais
+     (lançado por outro aparelho) é mesclado em vez de apagado. */
+  PREST._saidasBase = saidasSem.map(x => ({ descricao: x.descricao, valor: Number(x.valor || 0) }));
   const sh = document.createElement('div');
   sh.id = 'prest-sheet'; sh.className = 'fixed inset-0 z-[97]'; sh.style.background = 'rgba(2,6,23,.8)';
   sh.innerHTML = `<div class="absolute inset-x-0 bottom-0 rounded-t-3xl p-4 max-h-[92vh] overflow-y-auto shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-color)">
@@ -4136,15 +4139,32 @@ window.prestSalvarSaidas = async function(){
       valor: parseValor(l.querySelector('[data-valor]')?.value) || 0
     }))
     .filter(x => x.descricao || x.valor > 0);
-  const payload = {
-    ano: PREST.ano, mes: PREST.mes, semana: PREST.semana,
-    saidas: rows.map((x, i) => ({ linha_index: i, descricao: x.descricao, valor: x.valor }))
-  };
   const chave = `${PREST.ano}|${String(PREST.mes).toLowerCase()}|${String(PREST.semana).toLowerCase()}`;
+  const _chaveLinha = x => `${String(x.descricao || '').trim().toLowerCase()}|${Number(x.valor || 0).toFixed(2)}`;
   if (btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
   try {
-    let versao = 0;
+    let versao = 0, preservadas = 0;
     for (let tent = 0; tent < 3; tent++){
+      /* A gravação substitui a semana inteira — recarrega a nuvem a cada
+         tentativa e mescla as saídas lançadas por outro aparelho depois que
+         este editor foi aberto, em vez de sobrescrevê-las. */
+      let linhas = rows;
+      try {
+        const atual = await api('listar_prestacoes_semanais', null, sessao()?.token);
+        const nuvem = (atual.saidas || []).filter(x => String(x.ano) === PREST.ano && String(x.mes) === PREST.mes && String(x.semana) === PREST.semana);
+        const conta = {};
+        (PREST._saidasBase || []).forEach(x => { const k = _chaveLinha(x); conta[k] = (conta[k] || 0) + 1; });
+        const extras = nuvem.filter(x => {
+          const k = _chaveLinha(x);
+          if ((conta[k] || 0) > 0){ conta[k]--; return false; }
+          return true;
+        }).map(x => ({ descricao: String(x.descricao || '').trim(), valor: Number(x.valor || 0) }));
+        if (extras.length){ linhas = rows.concat(extras); preservadas = extras.length; }
+      } catch(e){}
+      const payload = {
+        ano: PREST.ano, mes: PREST.mes, semana: PREST.semana,
+        saidas: linhas.map((x, i) => ({ linha_index: i, descricao: x.descricao, valor: x.valor }))
+      };
       try {
         const res = await api('salvar_agregado_financeiro', {
           entidade: 'prestacao_saidas', chave, payload,
@@ -4152,7 +4172,7 @@ window.prestSalvarSaidas = async function(){
           idempotency_key: crypto.randomUUID(),
           machine_id: (typeof sgeDeviceId === 'function' ? sgeDeviceId() : 'pwa')
         }, sessao()?.token);
-        if (res?.ok){ toast('Saídas salvas.'); el('prest-sheet')?.remove(); window.prestRender(); return; }
+        if (res?.ok){ toast(preservadas ? `Saídas salvas — ${preservadas} lançamento(s) de outro aparelho preservado(s).` : 'Saídas salvas.'); el('prest-sheet')?.remove(); window.prestRender(); return; }
         toast(res?.erro || 'Falha ao salvar saídas.'); return;
       } catch(e){
         if (e?.data?.conflito && Number(e.data.versao_atual) > 0){ versao = Number(e.data.versao_atual); continue; }
