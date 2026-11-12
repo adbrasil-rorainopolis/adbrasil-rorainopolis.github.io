@@ -6532,7 +6532,7 @@ window.semLoteSalvar = async function(){
 
 /* Porta de helpers.congregacao_igual: ignora acentos, caixa, "p.p." e dígitos à esquerda. */
 function _congChave(v){
-  let t = String(v ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  let t = String(v ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   t = t.replace(/\b(p\.?p\.?|ponto\s*de\s*pregacao)\b/g, '');
   t = t.replace(/[^a-z0-9]/g, '');
   return t.replace(/\d+/g, m => String(parseInt(m, 10)));
@@ -8473,7 +8473,7 @@ window.SGEDZ = { carregarMembros, listarMembrosDizimistas, obterHistoricoDizimos
    relatório oficial em 6 páginas para assinatura — mesma chave do desktop. */
 const DF_CHAVE = 'sge_despesas_fixas_v1';
 const DF_EXC = ['assembleia geral', 'obreiros'];
-const DF = { valores: {}, linhas: [], timb: null };
+const DF = { valores: {}, linhas: [], timb: null, sub: 'combustivel' };
 
 function dfExtenso(valor){
   const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
@@ -8517,8 +8517,13 @@ window.dfRenderTela = async function(){
   const meses = SGEG.MESES_G || ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const selOpts = (arr, cur, fmt) => arr.map(v => `<option value="${esc(v)}" ${v===cur?'selected':''}>${fmt?fmt(v):esc(v)}</option>`).join('');
   let total = 0;
+  const semOpts = `<option value="todas">Mês inteiro</option>` + [1,2,3,4,5].map(w => `<option value="${w}">${w}ª semana</option>`).join('');
   el('fin-sub').innerHTML = `
-    <div class="space-y-3">
+    <div class="flex gap-2 mb-3">
+      <button id="df-sub-combustivel" onclick="dfMudarSub('combustivel')" class="df-sub flex-1 py-2 rounded-xl text-[11px] font-bold cursor-pointer transition"><i class="fa-solid fa-gas-pump mr-1"></i> Combustível</button>
+      <button id="df-sub-listagem" onclick="dfMudarSub('listagem')" class="df-sub flex-1 py-2 rounded-xl text-[11px] font-bold cursor-pointer transition"><i class="fa-solid fa-list-ul mr-1"></i> Despesas do campo</button>
+    </div>
+    <div id="df-pane-combustivel" class="space-y-3">
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-gas-pump text-amber-500 mr-1"></i>Combustível — líderes de congregação</p>
         <div class="grid grid-cols-3 gap-2">
@@ -8546,7 +8551,152 @@ window.dfRenderTela = async function(){
         }).join('') || '<p class="text-[10px] opacity-50 text-center py-5">Nenhuma congregação no escopo.</p>'}
       </div>
       <p id="df-total" class="text-right text-[11px] font-bold" style="color:#34d399">Total do repasse: ${brl(total)}</p>
+    </div>
+    <div id="df-pane-listagem" class="hidden space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-list-ul text-teal-400 mr-1"></i>Despesas do campo — totais por tipo (agrupamento da DRE)</p>
+        <div class="grid grid-cols-3 gap-2">
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="dfl-ano" onchange="dflCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="dfl-mes" onchange="dflCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Período</span><select id="dfl-semana" onchange="dflCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${semOpts}</select></div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="dflCarregar()" class="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-rotate mr-1"></i> Gerar</button>
+          <button onclick="dflCopiarWhatsApp()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-brands fa-whatsapp mr-1"></i> WhatsApp</button>
+        </div>
+      </div>
+      <div id="dfl-corpo"></div>
     </div>`;
+  dfMudarSub(DF.sub || 'combustivel');
+};
+
+/* ================= LISTAGEM DE DESPESAS DO CAMPO (sub-aba) =================
+   Totais por tipo, agrupados como a DRE (core/sge_dre.py): convencionais =
+   deduções carimbadas + círculo; restante segue os grupos oficiais. */
+const DFL_CAMPOS = ['detalhes_saidas_repasses', 'detalhes_despesas_operacionais'];
+const dflNorm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const DFL_GRUPOS = [
+  ['Despesas convencionais', [...DRE_DEDUCOES, DRE_REP_CIRC].map(dflNorm)],
+  ...DRE_GRUPOS.map(([g, cats]) => [g, cats.map(dflNorm)]),
+  ['Investimentos', DRE_INVEST.map(dflNorm)],
+  ['Outras despesas', []],
+];
+const DFL_MAPA = {};
+DFL_GRUPOS.forEach(([g, cats]) => cats.forEach(c => { DFL_MAPA[c] = g; }));
+let dflCache = null;
+
+window.dfMudarSub = function(sub){
+  DF.sub = sub;
+  ['combustivel', 'listagem'].forEach(s => {
+    const pane = el('df-pane-' + s), btn = el('df-sub-' + s);
+    if (pane) pane.classList.toggle('hidden', s !== sub);
+    if (btn){
+      const ativo = s === sub;
+      btn.style.background = ativo ? '#0d9488' : 'var(--bg-card)';
+      btn.style.color = ativo ? '#fff' : 'var(--text-main)';
+      btn.style.border = ativo ? 'none' : '1px solid var(--border-color)';
+    }
+  });
+  if (sub === 'listagem' && !dflCache) dflCarregar();
+};
+
+window.dflCarregar = async function(){
+  const corpo = el('dfl-corpo');
+  if (!corpo) return;
+  const ano = el('dfl-ano')?.value || String(new Date().getFullYear());
+  const mes = el('dfl-mes')?.value || (SGEG.MESES_G || [])[new Date().getMonth()];
+  const sem = el('dfl-semana')?.value || 'todas';
+  corpo.innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando despesas…</p>';
+  let linhas = [];
+  try {
+    const res = await api('carregar_movimento_financeiro', { ano: String(ano), mes }, sessao()?.token);
+    linhas = res?.movimentos || res?.registros || res?.dados || res?.linhas || [];
+  } catch(e){
+    dflCache = null;
+    corpo.innerHTML = `<p class="text-center text-xs py-8 text-red-500">${esc(e.message || 'Falha ao carregar o movimento.')}</p>`;
+    return;
+  }
+  /* Cada linha traz `aba` (1º.–5º. SEMANA) — 'FECHAMENTO DO MÊS' nunca entra. */
+  const semRot = ['1º. SEMANA', '2º. SEMANA', '3º. SEMANA', '4º. SEMANA', '5º. SEMANA'];
+  const porSem = {};
+  linhas.forEach(r => {
+    const m = String(r.aba || '').match(/[1-5]/);
+    if (!m || /fechamento/i.test(String(r.aba || ''))) return;
+    const w = m[0];
+    const g = (porSem[w] = porSem[w] || {});
+    DFL_CAMPOS.forEach(campo => {
+      Object.entries(r[campo] || {}).forEach(([cat, v]) => {
+        const valor = Number(v) || 0;
+        if (valor <= 0.004) return;
+        const grp = DFL_MAPA[dflNorm(cat)] || 'Outras despesas';
+        const gg = (g[grp] = g[grp] || {});
+        gg[cat] = (gg[cat] || 0) + valor;
+      });
+    });
+  });
+  const mesInteiro = sem === 'todas';
+  const alvo = mesInteiro ? [1, 2, 3, 4, 5] : [Number(sem)];
+  const semanas = alvo.map(w => ({ rotulo: semRot[w - 1], grupos: porSem[w] || {} }))
+    .filter(sw => Object.values(sw.grupos).some(g => Object.values(g).some(v => v > 0)));
+  dflCache = { ano, mes, sem, mesInteiro, semanas };
+  dflRender();
+};
+
+function dflTotGrupo(g){ return Object.values(g || {}).reduce((s, v) => s + v, 0); }
+
+window.dflRender = function(){
+  const corpo = el('dfl-corpo');
+  if (!corpo || !dflCache) return;
+  let totalGeral = 0, html = '';
+  dflCache.semanas.forEach(sw => {
+    const totSem = DFL_GRUPOS.reduce((s, [g]) => s + dflTotGrupo(sw.grupos[g]), 0);
+    if (!totSem) return;
+    totalGeral += totSem;
+    html += `<div class="border rounded-2xl overflow-hidden mb-2.5" style="background:var(--bg-card);border-color:var(--border-color)">`;
+    if (dflCache.mesInteiro)
+      html += `<p class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-teal-400 border-b" style="border-color:var(--border-color)">${sw.rotulo} · <span class="text-red-400">${brl(totSem)}</span></p>`;
+    DFL_GRUPOS.forEach(([grupo]) => {
+      const cats = Object.entries(sw.grupos[grupo] || {}).sort((a, b) => b[1] - a[1]);
+      if (!cats.length) return;
+      html += `<p class="px-3 pt-2.5 text-[9px] font-black uppercase tracking-widest opacity-50">${grupo}</p>`;
+      html += cats.map(([cat, v]) => `<div class="flex justify-between gap-3 px-3 py-1.5 text-[11px] border-t" style="border-color:var(--border-color)"><span>${esc(cat)}</span><b class="tabular-nums">${brl(v)}</b></div>`).join('');
+    });
+    html += '</div>';
+  });
+  corpo.innerHTML = html || '<p class="text-center text-xs py-8 opacity-60">Nenhuma despesa lançada neste período.</p>';
+  if (totalGeral) corpo.innerHTML += `<p class="text-right text-[11px] font-bold" style="color:#f87171">Total do período: ${brl(totalGeral)}</p>`;
+};
+
+window.dflCopiarWhatsApp = async function(){
+  if (!dflCache) { toast('Gere a listagem primeiro.'); return; }
+  const { ano, mes, sem, mesInteiro, semanas } = dflCache;
+  const L = [];
+  L.push(`📋 *DESPESAS DO CAMPO — ${String(mes).toUpperCase()}/${ano}*`);
+  L.push('⛪ AD Brasil · Campo de Rorainópolis');
+  L.push(`_Período: ${mesInteiro ? 'mês inteiro' : sem + 'ª semana'}_`);
+  L.push('');
+  let totalGeral = 0;
+  semanas.forEach(sw => {
+    const totSem = DFL_GRUPOS.reduce((s, [g]) => s + dflTotGrupo(sw.grupos[g]), 0);
+    if (!totSem) return;
+    totalGeral += totSem;
+    if (mesInteiro) L.push(`📅 *${sw.rotulo}* — ${brl(totSem)}`);
+    DFL_GRUPOS.forEach(([grupo]) => {
+      const cats = Object.entries(sw.grupos[grupo] || {}).sort((a, b) => b[1] - a[1]);
+      if (!cats.length) return;
+      L.push(`*${grupo.toUpperCase()}*`);
+      cats.forEach(([cat, v]) => L.push(`▪️ ${cat}: *${brl(v)}*`));
+    });
+    L.push('');
+  });
+  if (!totalGeral) { toast('Nenhuma despesa no período para copiar.'); return; }
+  L.push(`🔴 *TOTAL DE DESPESAS: ${brl(totalGeral)}*`);
+  L.push('');
+  const agora = new Date();
+  L.push(`_Gerado pelo SGE em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}_`);
+  const txt = L.join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Listagem de despesas copiada — cole no WhatsApp.'); }
+  catch(e){ prompt('Copie a listagem:', txt); }
 };
 
 window.dfSet = function(i, n){
