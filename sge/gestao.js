@@ -756,6 +756,20 @@ async function analisarMes(ano, mes){
     vEquivRes = variacaoPct(entAtualP - despAtualP, entAntP - despAntP);
   }
 
+  /* Mesma base parcial para média anual e mesmo mês do ano anterior:
+     compara as N primeiras semanas de cada período, nunca parcial × cheio. */
+  let vMediaEquiv = null, vYoyEquiv = null;
+  if (semanasCicloDados > 0){
+    if (mesesHist.length){
+      const baseM = mediaArr(mesesHist.map(r => r.semanas.slice(0, semanasCicloDados).reduce((a, s) => a + num(s.entradas), 0)));
+      vMediaEquiv = variacaoPct(entAtualP, baseM);
+    }
+    if (mesmoMesLY){
+      const baseY = mesmoMesLY.semanas.slice(0, semanasCicloDados).reduce((a, s) => a + num(s.entradas), 0);
+      vYoyEquiv = variacaoPct(entAtualP, baseY);
+    }
+  }
+
   /* ---- Histórico multi-ano (2023+ importado) para as projeções ---- */
   const histResumos = await historicoMesesFechados(anoI, mesIdx, consF, congF, resumos);
   const idxObsSem = atual.semanas.slice(0, semanasTotal).map((s, i) => s.tem_dados ? i : -1).filter(i => i >= 0);
@@ -869,35 +883,45 @@ async function analisarMes(ano, mes){
       var_entradas: variacaoPct(atual.entradas, mediaMensalAno.entradas),
       var_despesas: variacaoPct(atual.despesas, mediaMensalAno.despesas),
       var_entradas_anteriores: variacaoPct(atual.entradas, mediaMensalAnt.entradas),
-      var_semanal_entradas: variacaoPct(atual.media_semanal_entradas, mediaSemAnoEnt) },
+      var_semanal_entradas: variacaoPct(atual.media_semanal_entradas, mediaSemAnoEnt),
+      var_entradas_equiv: vMediaEquiv },
     mesmo_mes_ano_anterior: { rotulo: `${mesNome}/${anoI - 1}`, dados: mesmoMesLY,
       var_entradas: mesmoMesLY ? variacaoPct(atual.entradas, mesmoMesLY.entradas) : null,
-      var_despesas: mesmoMesLY ? variacaoPct(atual.despesas, mesmoMesLY.despesas) : null },
+      var_despesas: mesmoMesLY ? variacaoPct(atual.despesas, mesmoMesLY.despesas) : null,
+      var_entradas_equiv: vYoyEquiv },
     mes_anterior_equiv: equiv,
   };
 
   const insights = []; const ins = (tipo, texto) => insights.push({ tipo, texto });
+  const nEq = equiv.semanas_equivalentes;
+  const rotEq = rot => `${nEq === 1 ? '1ª' : `${nEq} primeiras`} semana${nEq === 1 ? '' : 's'} de ${rot}`;
   let vEnt, rotCmpEnt, vDesp, rotCmpDesp;
-  if (projecao.mes_em_andamento && equiv.var_entradas_equiv !== null){ vEnt = equiv.var_entradas_equiv; rotCmpEnt = `${equiv.semanas_equivalentes} primeiras semanas de ${rotuloAnt}`; }
-  else { vEnt = comparativos.mes_anterior.var_entradas; rotCmpEnt = rotuloAnt; }
+  /* Mês em andamento: parcial × parcial (semanas equivalentes); sem base
+     equivalente, omite a comparação em vez de cair no parcial × mês cheio. */
+  if (projecao.mes_em_andamento){
+    vEnt = equiv.var_entradas_equiv; rotCmpEnt = rotEq(rotuloAnt);
+    if (vEnt === null && anterior) ins('info', `Comparativo de entradas com ${rotuloAnt} ainda indisponível — semanas iniciais do mês anterior sem dados.`);
+  } else { vEnt = comparativos.mes_anterior.var_entradas; rotCmpEnt = rotuloAnt; }
   if (vEnt !== null){
     if (vEnt > 3) ins('positivo', `Entradas ${vEnt >= 0 ? '+' : ''}${vEnt.toFixed(1)}% acima de ${rotCmpEnt}.`);
     else if (vEnt < -3) ins('atencao', `Entradas ${vEnt.toFixed(1)}% abaixo de ${rotCmpEnt}.`);
     else ins('neutro', `Entradas estáveis em relação a ${rotCmpEnt} (${vEnt >= 0 ? '+' : ''}${vEnt.toFixed(1)}%).`);
   }
-  if (projecao.mes_em_andamento && equiv.var_despesas_equiv !== null){ vDesp = equiv.var_despesas_equiv; rotCmpDesp = `${equiv.semanas_equivalentes} primeiras semanas de ${rotuloAnt}`; }
+  if (projecao.mes_em_andamento){ vDesp = equiv.var_despesas_equiv; rotCmpDesp = rotEq(rotuloAnt); }
   else { vDesp = comparativos.mes_anterior.var_despesas; rotCmpDesp = rotuloAnt; }
   if (vDesp !== null){
     if (vDesp > 8) ins('atencao', `Despesas +${vDesp.toFixed(1)}% acima de ${rotCmpDesp} — verifique saídas extraordinárias.`);
     else if (vDesp < -8) ins('positivo', `Despesas ${vDesp.toFixed(1)}% abaixo de ${rotCmpDesp}.`);
   }
-  const vAno = comparativos.media_anual.var_entradas;
+  const vAno = projecao.mes_em_andamento ? vMediaEquiv : comparativos.media_anual.var_entradas;
+  const rotAno = projecao.mes_em_andamento ? `média do mesmo período dos meses de ${anoI}` : `média mensal de ${anoI}`;
   if (vAno !== null){
-    if (vAno >= 5) ins('positivo', `Mês +${vAno.toFixed(1)}% acima da média mensal de ${anoI}.`);
-    else if (vAno <= -5) ins('atencao', `Mês ${vAno.toFixed(1)}% abaixo da média mensal de ${anoI}.`);
+    if (vAno >= 5) ins('positivo', `Mês +${vAno.toFixed(1)}% acima da ${rotAno}.`);
+    else if (vAno <= -5) ins('atencao', `Mês ${vAno.toFixed(1)}% abaixo da ${rotAno}.`);
   }
-  const vYoy = comparativos.mesmo_mes_ano_anterior.var_entradas;
-  if (vYoy !== null) ins(vYoy >= 0 ? 'positivo' : 'atencao', `Comparado a ${mesNome}/${anoI - 1}, as entradas variaram ${vYoy >= 0 ? '+' : ''}${vYoy.toFixed(1)}%.`);
+  const vYoy = projecao.mes_em_andamento ? vYoyEquiv : comparativos.mesmo_mes_ano_anterior.var_entradas;
+  const rotYoy = projecao.mes_em_andamento ? rotEq(`${mesNome}/${anoI - 1}`) : `${mesNome}/${anoI - 1}`;
+  if (vYoy !== null) ins(vYoy >= 0 ? 'positivo' : 'atencao', `Comparado a ${rotYoy}, as entradas variaram ${vYoy >= 0 ? '+' : ''}${vYoy.toFixed(1)}%.`);
   if (atual.saldo_liquido < 0) ins('negativo', `Resultado do mês negativo: ${moeda(atual.saldo_liquido)} — despesas superaram entradas.`);
   else if (atual.despesas > 0 && atual.entradas > 0 && atual.saldo_liquido / atual.entradas < 0.05) ins('atencao', 'Margem de saldo líquido abaixo de 5% das entradas — folga financeira apertada.');
   const semanasOk = atual.semanas.filter(s => s.tem_dados);
@@ -1696,12 +1720,15 @@ window.gestaoCopiarSituacao = async function(){
     rank.forEach(([n, d], i) => L.push(`${medalhas[i]} ${n} — ${moeda(d.entradas)}`));
   }
   const compar = [];
-  const varEq = equiv.var_entradas_equiv ?? ant.var_entradas;
-  const rotEq = proj.mes_em_andamento && equiv.semanas_equivalentes ? `${equiv.semanas_equivalentes} primeiras sem. de ${equiv.rotulo}` : ant.rotulo;
+  const varEq = proj.mes_em_andamento ? (equiv.var_entradas_equiv ?? null) : ant.var_entradas;
+  const rotEq = proj.mes_em_andamento
+    ? (equiv.semanas_equivalentes ? `${equiv.semanas_equivalentes === 1 ? '1ª' : `${equiv.semanas_equivalentes} primeiras`} sem. de ${equiv.rotulo}` : null)
+    : ant.rotulo;
   if (varEq !== null && varEq !== undefined && rotEq)
     compar.push(`${varEq >= 0 ? '↗️' : '↘️'} vs ${rotEq}: ${varEq >= 0 ? '+' : ''}${num(varEq).toFixed(1)}% nas entradas`);
-  if (yoy.dados)
-    compar.push(`${num(yoy.var_entradas) >= 0 ? '↗️' : '↘️'} vs ${yoy.rotulo}: ${num(yoy.var_entradas) >= 0 ? '+' : ''}${num(yoy.var_entradas).toFixed(1)}% (mesmo mês do ano anterior)`);
+  const vYoyW = proj.mes_em_andamento ? (yoy.var_entradas_equiv ?? null) : yoy.var_entradas;
+  if (yoy.dados && vYoyW !== null && vYoyW !== undefined)
+    compar.push(`${num(vYoyW) >= 0 ? '↗️' : '↘️'} vs ${yoy.rotulo}: ${num(vYoyW) >= 0 ? '+' : ''}${num(vYoyW).toFixed(1)}%${proj.mes_em_andamento ? ' (mesmo período do ano anterior)' : ' (mesmo mês do ano anterior)'}`);
   if (num(a.media_semanal_entradas) > 0)
     compar.push(`📏 Média semanal do mês: ${moeda(a.media_semanal_entradas)}${anual.media_semanal_entradas ? ` · média do ano ${moeda(anual.media_semanal_entradas)}` : ''}`);
   if (compar.length){ L.push(''); L.push('📊 *COMPARATIVOS*'); L.push(...compar); }
@@ -1761,15 +1788,19 @@ window.gestaoMensalCarregar = async function(){
     else {
       if (ehAtual && comDados < tot) lista.push(['fa-hourglass-half', '#f59e0b', `${semanaCorrente(a, tot)}ª semana em andamento — ${comDados}/${tot} fechamentos com movimento.`]);
       if (num(a.saldo_liquido) < 0) lista.push(['fa-triangle-exclamation', '#ef4444', `Mês fechando no negativo: ${moeda(a.saldo_liquido)}.`]);
-      if (num(ant.var_entradas) <= -15) lista.push(['fa-arrow-trend-down', '#f59e0b', `Entradas ${num(ant.var_entradas).toFixed(1)}% abaixo de ${esc(ant.rotulo || 'mês anterior')}.`]);
+      const vAlEnt = proj.mes_em_andamento ? (equiv.var_entradas_equiv ?? null) : ant.var_entradas;
+      const rotAlEnt = proj.mes_em_andamento ? `${equiv.semanas_equivalentes === 1 ? '1ª' : `${equiv.semanas_equivalentes} primeiras`} sem. de ${esc(equiv.rotulo || ant.rotulo || 'mês anterior')}` : esc(ant.rotulo || 'mês anterior');
+      if (vAlEnt !== null && num(vAlEnt) <= -15) lista.push(['fa-arrow-trend-down', '#f59e0b', `Entradas ${num(vAlEnt).toFixed(1)}% abaixo de ${rotAlEnt}.`]);
     }
     alBox.innerHTML = lista.length ? `<div class="border rounded-xl px-3 py-2 space-y-1" style="background:var(--bg-card);border-color:var(--border-color)">${lista.map(([ic, cor, txt]) => `<div class="text-[10px] font-bold flex items-center gap-1.5" style="color:${cor}"><i class="fa-solid ${ic}"></i>${txt}</div>`).join('')}</div>` : '';
   }
   const selCiclo = el('mm-ciclo-sel'); if (selCiclo) selCiclo.value = String(res.ciclo.total_semanas);
   const lblCiclo = el('mm-ciclo-lbl'); if (lblCiclo) lblCiclo.textContent = `${res.ciclo.total_semanas} semanas`;
   const temEquiv = proj.mes_em_andamento && num(equiv.semanas_equivalentes) > 0;
-  const sub = temEquiv ? `vs ${equiv.semanas_equivalentes} primeiras sem. de ${esc(equiv.rotulo)}` : `vs ${esc(ant.rotulo || '-')}`;
-  const pick = (chave, fb) => temEquiv && equiv[chave] !== null && equiv[chave] !== undefined ? equiv[chave] : fb;
+  const sub = temEquiv ? `vs ${equiv.semanas_equivalentes === 1 ? '1ª' : `${equiv.semanas_equivalentes} primeiras`} sem. de ${esc(equiv.rotulo)}` : `vs ${esc(ant.rotulo || '-')}`;
+  /* Mês em andamento: só compara parcial × parcial — sem equivalente, oculta
+     a variação em vez de cair no enganoso parcial × mês cheio. */
+  const pick = (chave, fb) => proj.mes_em_andamento ? (equiv[chave] ?? false) : fb;
   const saldoIni = num(a.saldo_inicial_mes ?? a.saldo_mes_anterior), caixa = num(a.saldo_campo);
   const temCaixa = Math.abs(caixa) > EPS || Math.abs(saldoIni) > EPS;
   const restrito = !!res.escopo_restrito;
@@ -1788,9 +1819,9 @@ window.gestaoMensalCarregar = async function(){
   const mcard = (t2, v, det, cor = 'text-sky-400') => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-bold tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
   el('mm-medias').innerHTML =
     mcard('Média semanal do mês', moeda(a.media_semanal_entradas), `${seloVar(anual.var_semanal_entradas)} vs média do ano (${moeda(anual.media_semanal_entradas)})`)
-    + mcard('Média mensal do ano', moeda(mmAnt.entradas), `${seloVar(anual.var_entradas_anteriores ?? anual.var_entradas)} mês atual vs média (fechados)`)
+    + mcard('Média mensal do ano', moeda(mmAnt.entradas), `${seloVar(proj.mes_em_andamento ? (anual.var_entradas_equiv ?? null) : (anual.var_entradas_anteriores ?? anual.var_entradas))} ${proj.mes_em_andamento ? 'mesmo período vs média (fechados)' : 'mês atual vs média (fechados)'}`)
     + (verDespM ? mcard('Média semanal desp. (ano)', moeda(anual.media_semanal_despesas), `${anual.semanas_contabilizadas || 0} semanas contabilizadas`, 'text-red-400') : '')
-    + mcard(yoy.dados ? `Mesmo mês em ${+res.periodo.ano - 1}` : 'Comparativo anual', yoy.dados ? moeda(yoy.dados.entradas) : 'Sem dados', yoy.dados ? `${seloVar(yoy.var_entradas)} entradas vs ${res.periodo.mes}/${res.periodo.ano}` : `Nenhum registro em ${esc(yoy.rotulo || '-')}`);
+    + mcard(yoy.dados ? `Mesmo mês em ${+res.periodo.ano - 1}` : 'Comparativo anual', yoy.dados ? moeda(yoy.dados.entradas) : 'Sem dados', yoy.dados ? `${seloVar(proj.mes_em_andamento ? (yoy.var_entradas_equiv ?? null) : yoy.var_entradas)} entradas vs ${res.periodo.mes}/${res.periodo.ano}` : `Nenhum registro em ${esc(yoy.rotulo || '-')}`);
 
   const cardsProj = [];
   if (proj.mes_em_andamento) cardsProj.push(`<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid fa-hourglass-half text-violet-400"></i>Fechamento projetado do mês</div><p class="text-lg font-bold mt-2 text-emerald-500 tabular-nums">${moeda(proj.fechamento_entradas)}</p><p class="text-[10px] opacity-60 mt-1">${proj.semanas_restantes} sem. restantes × ${esc(proj.base_semanal_usada)} • despesas prev. ${moeda(proj.fechamento_despesas)}${perfilConsultor() ? '' : ` • saldo ${moeda(proj.fechamento_saldo)}`}</p></div>`);
