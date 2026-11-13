@@ -8873,13 +8873,15 @@ const _pcSaidasMes = () => PC.saidas.filter(s => String(s.ano) === PC.ano && Str
 const _pcId = () => 'pc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 function _pcLinhaSaida(s = {}){
   const opts = PC_GRUPOS.map(g => `<option value="${g.nome}" ${s.grupo === g.nome || (!s.grupo && g.nome === 'Convencionais') ? 'selected' : ''}>${g.nome}</option>`).join('');
-  return `<div class="space-y-1.5" data-saida data-id="${esc(s.id || '')}">
-    <select data-grupo class="w-full px-2 py-2 rounded-xl border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts}</select>
-    <div class="flex items-center gap-2">
-    <input data-data type="date" value="${esc(s.data || new Date().toISOString().slice(0,10))}" class="w-[7.4rem] shrink-0 px-2 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-    <input data-descricao type="text" readonly value="${esc(s.descricao || '')}" placeholder="Histórico — toque p/ escrever" title="Toque para abrir o editor de histórico" onclick="pcAbrirDescricao(this)" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border text-xs cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-    <input data-valor type="text" inputmode="decimal" value="${Number(s.valor) > 0 ? moeda(s.valor).replace('R$ ','') : ''}" placeholder="0,00" oninput="rcmMascaraValor(this)" class="w-24 px-2 py-2.5 rounded-xl border text-xs font-bold text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-    <button type="button" onclick="this.closest('[data-saida]').remove()" class="w-9 h-9 shrink-0 rounded-lg text-red-400 cursor-pointer flex items-center justify-center" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash-can"></i></button>
+  return `<div class="rounded-xl border p-2 space-y-1.5" data-saida data-id="${esc(s.id || '')}" style="border-color:var(--border-color);background:var(--bg-input)">
+    <div class="flex items-center gap-1.5">
+    <select data-grupo class="flex-1 min-w-0 px-2 py-2 rounded-lg border text-[11px]" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">${opts}</select>
+    <input data-data type="date" value="${esc(s.data || new Date().toISOString().slice(0,10))}" class="w-[7.6rem] shrink-0 px-2 py-2 rounded-lg border text-[11px]" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
+    </div>
+    <div class="flex items-center gap-1.5">
+    <input data-descricao type="text" readonly value="${esc(s.descricao || '')}" placeholder="Histórico — toque p/ escrever" title="Toque para abrir o editor de histórico" onclick="pcAbrirDescricao(this)" class="flex-1 min-w-0 px-2.5 py-2 rounded-lg border text-[11px] cursor-pointer" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
+    <input data-valor type="text" inputmode="decimal" value="${Number(s.valor) > 0 ? moeda(s.valor).replace('R$ ','') : ''}" placeholder="0,00" oninput="rcmMascaraValor(this)" class="w-[5.6rem] shrink-0 px-2 py-2 rounded-lg border text-[11px] font-bold text-right" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
+    <button type="button" onclick="this.closest('[data-saida]').remove()" class="w-8 h-8 shrink-0 rounded-lg text-red-400 cursor-pointer flex items-center justify-center" style="background:rgba(239,68,68,.12)"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
     </div>
   </div>`;
 }
@@ -8963,9 +8965,13 @@ window.pcRenderTela = async function(){
         <button onclick="pcRenderTela()" title="Recarregar" class="w-9 h-9 shrink-0 rounded-xl border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate"></i></button>
       </div>
       ${pcErro ? `<div class="rounded-xl border px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);color:#fbbf24"><i class="fa-solid fa-triangle-exclamation"></i>${esc(pcErro)}</div>` : ''}
-      ${PC_GRUPOS.map(g => `<div class="rounded-2xl border p-3 flex items-center justify-between" style="background:var(--bg-card);border-color:var(--border-color)">
-        <div class="flex items-center gap-2"><i class="fa-solid ${g.icone}" style="color:${g.cor}"></i><div><p class="text-[11px] font-extrabold">${g.nome}</p><p class="text-[9px] opacity-50">entrada automática do movimento</p></div></div>
-        <b style="color:${g.cor}">${moeda(PC.totais[g.nome])}</b></div>`).join('')}
+      <div class="grid grid-cols-2 gap-2">
+        ${PC_GRUPOS.map(g => `<div class="rounded-xl border p-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+          <p class="text-[9px] font-extrabold flex items-center gap-1" style="color:${g.cor}"><i class="fa-solid ${g.icone}"></i> ${g.nome}</p>
+          <p class="text-[8px] opacity-40 mb-0.5">entrada automática</p>
+          <p class="text-sm font-black" style="color:${g.cor}">${moeda(PC.totais[g.nome])}</p>
+        </div>`).join('')}
+      </div>
       <div class="rounded-2xl border p-3" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-center justify-between mb-2">
           <p class="text-[10px] font-extrabold uppercase tracking-widest opacity-60">Saídas / despesas</p>
@@ -8981,12 +8987,14 @@ window.pcRenderTela = async function(){
         ${[['Entradas', totE, '#34d399'], ['Saídas', totS, '#f87171'], ['Líquido', totE - totS, (totE - totS) >= 0 ? '#34d399' : '#f87171']].map(([rot, v, c]) =>
           `<div class="rounded-xl border px-2 py-1.5 text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rot}</p><p class="text-[11px] font-extrabold" style="color:${c}">${moeda(v)}</p></div>`).join('')}
       </div>
-      <div class="rounded-2xl border p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
-        <p class="text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5" style="color:#f59e0b"><i class="fa-solid fa-receipt"></i> Dados do recibo</p>
-        <div class="flex flex-wrap items-center gap-1.5" id="pc-recibo-campos">${_pcReciboCampos()}
-          <button type="button" onclick="pcSalvarReciboTela()" class="px-3 py-1.5 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#15803d"><i class="fa-solid fa-check mr-1"></i>Salvar</button>
+      <div class="rounded-2xl border p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center justify-between">
+          <p class="text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5" style="color:#f59e0b"><i class="fa-solid fa-receipt"></i> Dados do recibo</p>
+          <p class="text-[8px] opacity-40">fixos do mês</p>
         </div>
+        <div class="grid grid-cols-3 gap-2" id="pc-recibo-campos">${_pcReciboCampos()}</div>
         <p id="pc-dup-aviso" class="hidden text-[10px] font-bold px-2 py-1 rounded-lg" style="background:rgba(220,38,38,.12);color:#f87171"></p>
+        <button type="button" onclick="pcSalvarReciboTela()" class="w-full py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:#15803d"><i class="fa-solid fa-check mr-1"></i>Salvar dados do recibo</button>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="pcGerarRecibo()" class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:#b45309"><i class="fa-solid fa-file-pdf mr-1"></i>Gerar Recibo</button>
@@ -9000,19 +9008,19 @@ const _PC_CAMPOS_RECIBO = () => [
   { tipo: 'numero', rotulo: 'Nº recibo' },
   { tipo: 'data', rotulo: 'Data' },
   { tipo: 'bloco', rotulo: 'Bloco' },
-  ...PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%' ? null : { tipo: 'num', idx: i, rotulo: 'Nº ' + (g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio Pastoral' : g.nome) }).filter(Boolean),
+  ...PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%' ? null : { tipo: 'num', idx: i, rotulo: 'Nº ' + (g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'S.O.S Baixo Rio Branco' ? 'S.O.S' : g.nome) }).filter(Boolean),
 ];
 function _pcReciboCampos(){
   const m = _pcMetaMes();
   return _PC_CAMPOS_RECIBO().map(c => {
     const ehData = c.tipo === 'data';
     const v = c.tipo === 'num' ? (m.nums[PC_GRUPOS[c.idx].nome] || '') : c.tipo === 'bloco' ? m.bloco : ehData ? (m.data ? m.data.slice(8,10) + '/' + m.data.slice(5,7) + '/' + m.data.slice(0,4) : '') : m.numero;
-    return `<label class="flex items-center gap-1 px-1.5 py-1 rounded-lg border" style="border-color:var(--border-color);background:var(--bg-input)">
-      <span class="text-[7px] font-black uppercase tracking-widest opacity-50">${c.rotulo}</span>
-      <input type="text" inputmode="numeric" maxlength="${ehData ? 10 : 8}" value="${esc(v)}" placeholder="${ehData ? 'DD/MM/AAAA' : '—'}"
+    return `<label class="flex flex-col gap-0.5 min-w-0">
+      <span class="text-[7px] font-black uppercase tracking-widest opacity-50 truncate">${c.rotulo}</span>
+      <input type="text" inputmode="numeric" maxlength="${ehData ? 10 : 8}" value="${esc(v)}" placeholder="${ehData ? 'dd/mm/aaaa' : '—'}"
         data-tipo="${c.tipo}" data-idx="${c.idx ?? -1}" oninput="${ehData ? 'pcMascaraDataRecibo(this);' : ''}pcCampoRecibo(this)"
-        class="${ehData ? 'w-20' : 'w-12'} px-1 py-0.5 rounded-md border text-[11px] text-center font-bold"
-        style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
+        class="w-full px-1 py-2 rounded-lg border text-[12px] text-center font-bold"
+        style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
     </label>`;
   }).join('');
 }
