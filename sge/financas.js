@@ -8757,7 +8757,7 @@ function _dcpCard(d, comCartao){
     <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpMarcarPaga('${d.id}', this.checked)" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
     <span class="flex-1 min-w-0">
       <b class="text-[11px] block truncate">${d.recorrente ? '<i class="fa-solid fa-rotate text-teal-400 mr-0.5" title="Recorrente"></i>' : ''}${esc(d.descricao)}</b>
-      <span class="text-[9px] opacity-55 block">${_dcpDataBr(d.vencimento)}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}${d.grupo_dre ? ` · <b class="text-sky-400">${esc(d.grupo_dre)}</b>` : ''}</span>
+      <span class="text-[9px] opacity-55 block">venc ${_dcpDataBr(d.vencimento)}${d.data_compra ? ` · compra ${_dcpDataBr(d.data_compra)}` : ''}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}${d.grupo_dre ? ` · <b class="text-sky-400">${esc(d.grupo_dre)}</b>` : ''}</span>
       ${st}
     </span>
     <b class="text-[11px] tabular-nums shrink-0 ${vencida ? 'text-red-400' : ''}">${brl(Number(d.valor_previsto) || 0)}</b>
@@ -9049,7 +9049,7 @@ window.dctImpConfirmar = async function(){
     const r = await api('salvar_despesa_fixa', {
       ano: String(ano), mes, descricao: it.descricao, categoria: 'Cartão de Crédito',
       valor_previsto: it.valor, vencimento: _impVenc(ano, mes), forma: 'cartao', cartao,
-      import_ref: it.ref, grupo_dre: it.grupo || '',
+      import_ref: it.ref, grupo_dre: it.grupo || '', data_compra: it.data,
     }, sessao()?.token);
     if (!r?.ok){ falhou++; continue; }
     ok++;
@@ -9062,7 +9062,7 @@ window.dctImpConfirmar = async function(){
           ano: alvo.ano, mes: alvo.mes, descricao: descFut, categoria: 'Cartão de Crédito',
           valor_previsto: it.valor, vencimento: _impVenc(alvo.ano, alvo.mes),
           forma: 'cartao', cartao, import_ref: _impRef(cartao, it, [k, it.parc[1]]),
-          grupo_dre: it.grupo || '',
+          grupo_dre: it.grupo || '', data_compra: it.data,
         }, sessao()?.token);
         if (rf?.ok) fut++;
       }
