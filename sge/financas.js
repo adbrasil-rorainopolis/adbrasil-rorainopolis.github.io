@@ -8983,7 +8983,9 @@ window.pcRenderTela = async function(){
       </div>
       <div class="rounded-2xl border p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5" style="color:#f59e0b"><i class="fa-solid fa-receipt"></i> Dados do recibo</p>
-        <div class="flex flex-wrap gap-1.5" id="pc-recibo-campos">${_pcReciboCampos()}</div>
+        <div class="flex flex-wrap items-center gap-1.5" id="pc-recibo-campos">${_pcReciboCampos()}
+          <button type="button" onclick="pcSalvarReciboTela()" class="px-3 py-1.5 rounded-lg text-white text-[11px] font-bold cursor-pointer" style="background:#15803d"><i class="fa-solid fa-check mr-1"></i>Salvar</button>
+        </div>
         <p id="pc-dup-aviso" class="hidden text-[10px] font-bold px-2 py-1 rounded-lg" style="background:rgba(220,38,38,.12);color:#f87171"></p>
       </div>
       <div class="flex items-center gap-2">
@@ -9006,7 +9008,7 @@ function _pcReciboCampos(){
     return `<label class="flex items-center gap-1 px-1.5 py-1 rounded-lg border" style="border-color:var(--border-color);background:var(--bg-input)">
       <span class="text-[7px] font-black uppercase tracking-widest opacity-50">${c.rotulo}</span>
       <input type="text" inputmode="numeric" maxlength="8" value="${esc(v)}" placeholder="—"
-        oninput="pcCampoRecibo(this, '${c.tipo}', ${c.idx ?? -1})"
+        data-tipo="${c.tipo}" data-idx="${c.idx ?? -1}" oninput="pcCampoRecibo(this)"
         class="w-12 px-1 py-0.5 rounded-md border text-[11px] text-center font-bold"
         style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
     </label>`;
@@ -9021,27 +9023,42 @@ function _pcReciboDuplicado(tipo, idx, valor){
   }
   return null;
 }
-let _pcReciboTimer = null;
-window.pcCampoRecibo = function(inp, tipo, idx){
-  const v = (inp.value || '').trim();
+window.pcCampoRecibo = function(inp){
+  /* Só limpa o estado de erro visual — a gravação é explícita, no botão Salvar. */
+  inp.style.borderColor = 'var(--border-color)';
+  const av = el('pc-dup-aviso');
+  if (av){ av.textContent = ''; av.classList.add('hidden'); }
+};
+
+/* Botão Salvar: trava de duplicado — número já usado em outro mês marca o
+   campo em vermelho, avisa e nada é gravado. */
+window.pcSalvarReciboTela = async function(){
   const m = _pcMetaMes();
   const av = el('pc-dup-aviso');
-  const dup = v ? _pcReciboDuplicado(tipo, idx, v) : null;
-  inp.style.borderColor = dup ? '#dc2626' : 'var(--border-color)';
-  if (dup){
-    if (av){ av.textContent = `⚠ Nº ${v} já usado em ${dup} — escolha outro`; av.classList.remove('hidden'); }
-    return; /* trava: número duplicado não é gravado */
+  let dupMsg = '';
+  document.querySelectorAll('#pc-recibo-campos input[data-tipo]').forEach(inp => {
+    const tipo = inp.dataset.tipo, idx = Number(inp.dataset.idx || -1);
+    const v = inp.value.trim();
+    const dup = v ? _pcReciboDuplicado(tipo, idx, v) : null;
+    inp.style.borderColor = dup ? '#dc2626' : 'var(--border-color)';
+    if (dup && !dupMsg) dupMsg = `Nº ${v} já usado em ${dup}`;
+    else if (!dup){
+      if (tipo === 'numero') m.numero = v;
+      else if (tipo === 'bloco') m.bloco = v;
+      else m.nums[PC_GRUPOS[idx].nome] = v;
+    }
+  });
+  if (dupMsg){
+    if (av){ av.textContent = `⚠ ${dupMsg} — escolha outro`; av.classList.remove('hidden'); }
+    SGEG.toast?.(`Recibo duplicado: ${dupMsg}. Corrija e salve de novo.`, 'aviso');
+    return; /* trava: nada é gravado */
   }
-  if (av && ![...document.querySelectorAll('#pc-recibo-campos input')].some(x => x.style.borderColor === 'rgb(220, 38, 38)')){
-    av.textContent = ''; av.classList.add('hidden');
-  }
-  if (tipo === 'numero') m.numero = v;
-  else if (tipo === 'bloco') m.bloco = v;
-  else m.nums[PC_GRUPOS[idx].nome] = v;
-  clearTimeout(_pcReciboTimer);
-  _pcReciboTimer = setTimeout(async () => {
-    try { await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token); } catch(e){}
-  }, 700);
+  if (av){ av.textContent = ''; av.classList.add('hidden'); }
+  try {
+    const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
+    if (r && r.sucesso === false){ SGEG.toast?.(r.mensagem || 'Falha ao salvar.', 'erro'); return; }
+    SGEG.toast?.('Dados do recibo salvos.', 'sucesso');
+  } catch(e){ SGEG.toast?.('Falha ao salvar os dados do recibo.', 'erro'); }
 };
 
 window.pcAddSaida = function(){ el('pc-saidas').insertAdjacentHTML('beforeend', _pcLinhaSaida()); };
