@@ -8543,6 +8543,7 @@ window.dfRenderTela = async function(){
         </div>
         <div class="flex gap-2">
           <button onclick="dcpAbrirForm('cartao')" class="flex-1 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-plus mr-1"></i> Novo débito</button>
+          <button onclick="dctImportar()" class="flex-1 py-2.5 rounded-xl bg-sky-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-file-import mr-1"></i> Importar</button>
           <button onclick="dcpWhats('cartao')" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-brands fa-whatsapp mr-1"></i> Resumo</button>
         </div>
       </div>
@@ -8868,6 +8869,170 @@ window.dcpWhats = async function(forma){
   const txt = L.join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Resumo copiado — cole no WhatsApp.'); }
   catch(e){ prompt('Copie o resumo:', txt); }
+};
+
+/* ============ IMPORTAÇÃO DE FATURA — Banco do Brasil / Ourocard (.txt) ============ */
+let impItens = [];
+
+function _impValor(t){ return parseFloat(String(t).replace(/\./g, '').replace(',', '.')) || 0; }
+
+function _impParseFatura(texto, nomeArq){
+  const fat = { fatura: nomeArq, cartaoMask: '', modalidade: '', vencimento: '', total: 0, itens: [] };
+  const mNum = texto.match(/Nr\.Cart[aã]o\s*:\s*([\d.*]+)/);
+  if (mNum) fat.cartaoMask = mNum[1].replace(/\D/g, '').slice(-4);
+  const mMod = texto.match(/Modalidade\s*:\s*(.+)/);
+  if (mMod) fat.modalidade = mMod[1].trim().replace(/\s+/g, ' ').replace(/\s*-\s*$/, '');
+  const mVenc = texto.match(/Vencimento\s*:\s*(\d{2})\.(\d{2})\.(\d{4})/);
+  if (mVenc) fat.vencimento = `${mVenc[3]}-${mVenc[2]}-${mVenc[1]}`;
+  const mTot = texto.match(/Total da fatura\s*:\s*R\$\s*([\d.]+,\d{2})/);
+  if (mTot) fat.total = _impValor(mTot[1]);
+  const ini = texto.indexOf('DEMONSTRATIVO');
+  const fim = texto.indexOf('RESUMO EM REAL');
+  const corpo = texto.slice(ini >= 0 ? ini : 0, fim > ini ? fim : texto.length);
+  let secao = '';
+  corpo.split(/\r?\n/).forEach(ln => {
+    const l = ln.replace(/\s+$/, '');
+    if (!l.trim()) return;
+    const m = l.match(/^\s*(\d{2})\.(\d{2})\.(\d{4})(.*)$/);
+    if (m){
+      const resto = m[4];
+      const vals = resto.match(/(-?[\d.]+,\d{2})\s+(-?[\d.]+,\d{2})\s*$/);
+      if (!vals) return;
+      const valor = _impValor(vals[1]);
+      if (valor <= 0) return;
+      let desc = resto.slice(0, resto.lastIndexOf(vals[1])).replace(/\s+[A-Z]{2}$/, '').replace(/(.{6,})BR$/, '$1').replace(/\s+/g, ' ').trim();
+      if (!desc) return;
+      const mp = desc.match(/PARC\s*(\d{2})\s*\/\s*(\d{2})/i) || desc.match(/\b(\d{2})\/(\d{2})\s*$/);
+      const parc = mp ? [parseInt(mp[1], 10), parseInt(mp[2], 10)] : null;
+      fat.itens.push({ data: `${m[3]}-${m[2]}-${m[1]}`, descricao: desc, valor, secao, parc });
+      return;
+    }
+    const t = l.trim();
+    if (/^[-=\s]+$/.test(t) || /^\d+\s*-/.test(t) || /^SubTotal/i.test(t) || /^Total\b/i.test(t)
+      || /^\*\*\*/.test(t) || /Cota[cç][aã]o do D[oó]lar/i.test(t) || /^Data\s/i.test(t)
+      || /^SALDO FATURA/i.test(t)) return;
+    secao = t;
+  });
+  return fat;
+}
+
+function _impRef(cartaoNome, it, parcOverride){
+  const p = parcOverride || it.parc;
+  const desc = it.descricao.replace(/PARC\s*\d{2}\s*\/\s*\d{2}/i, '')
+    .replace(/\b\d{2}\/\d{2}\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return `fat|${cartaoNome}|${it.data}|${desc}|${it.valor.toFixed(2)}|${p ? p.join('/') : '-'}`;
+}
+function _impMesAlvo(ano, mesNome, offset){
+  const MESES = SGEG.MESES_G || [];
+  const i = MESES.indexOf(mesNome) + offset;
+  return { ano: String(Number(ano) + Math.floor(i / 12)), mes: MESES[((i % 12) + 12) % 12] };
+}
+function _impDiaNoMes(dataIso, ano, mesNome){
+  if (!dataIso) return '';
+  const dia = Number(String(dataIso).slice(8, 10));
+  const mi = (SGEG.MESES_G || []).indexOf(mesNome) + 1;
+  const ultimo = new Date(Number(ano), mi, 0).getDate();
+  return `${ano}-${String(mi).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
+}
+
+window.dctImportar = function(){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.txt,.csv,.ofx'; inp.multiple = true;
+  inp.onchange = () => dctLerArquivos(inp.files);
+  inp.click();
+};
+
+window.dctLerArquivos = async function(files){
+  if (!files?.length) return;
+  const faturas = [];
+  for (const f of files){
+    const buf = await f.arrayBuffer();
+    let texto;
+    try { texto = new TextDecoder('iso-8859-1').decode(buf); }
+    catch(e){ texto = new TextDecoder('utf-8').decode(buf); }
+    const fat = _impParseFatura(texto, f.name);
+    if (fat.itens.length) faturas.push(fat);
+  }
+  if (!faturas.length){ toast('Nenhum lançamento reconhecido nos arquivos.'); return; }
+  const refs = new Set((await api('listar_import_refs', {}, sessao()?.token))?.refs || []);
+  impItens = [];
+  faturas.forEach(fat => {
+    const cartaoNome = fat.modalidade || `Cartão final ${fat.cartaoMask || '????'}`;
+    fat.itens.forEach(it => {
+      it.cartaoNome = cartaoNome; it.faturaNome = fat.fatura;
+      it.ref = _impRef(cartaoNome, it);
+      it.duplicado = refs.has(it.ref);
+      it.marcado = !it.duplicado && it.secao !== 'Pagamentos/Créditos';
+      impItens.push(it);
+    });
+  });
+  dcpImpRender(faturas);
+};
+
+function dcpImpRender(faturas){
+  const box = el('dct-form');
+  let secaoAtual = '';
+  box.innerHTML = `<div class="border rounded-2xl p-3 space-y-2" style="background:var(--bg-card);border-color:#0284c7">
+    <p class="text-[10px] font-bold uppercase tracking-widest" style="color:#38bdf8"><i class="fa-solid fa-file-import mr-1"></i>Importar fatura — marque o que é do campo</p>
+    <p class="text-[9px] opacity-60">${faturas.length} fatura(s) · ${impItens.length} lançamento(s) · parcelas futuras caem nos próximos meses</p>
+    <label class="flex items-center gap-2 text-[10px]"><span class="font-bold opacity-70">Cartão:</span><input id="imp-cartao-nome" value="${esc(faturas[0].modalidade || '')}" class="flex-1 px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></label>
+    <div class="space-y-1.5 max-h-72 overflow-y-auto">
+      ${impItens.map((it, i) => {
+        let cab = '';
+        const rot = `${it.faturaNome} — ${it.secao || 'Lançamentos'}`;
+        if (rot !== secaoAtual){ secaoAtual = rot; cab = `<p class="text-[8px] font-black uppercase tracking-widest opacity-50 pt-1.5">${esc(rot)}</p>`; }
+        const parc = it.parc ? `<span class="px-1 rounded text-[8px] font-bold bg-amber-600/20 text-amber-300">P${it.parc[0]}/${it.parc[1]}</span> ` : '';
+        const dup = it.duplicado ? '<span class="text-[8px] font-black text-emerald-500">IMPORTADO</span>' : '';
+        return cab + `<label class="flex items-center gap-2 px-2 py-2 rounded-xl border ${it.duplicado ? 'opacity-45' : ''}" style="border-color:var(--border-color);background:var(--bg-surface)">
+          <input type="checkbox" ${it.marcado ? 'checked' : ''} ${it.duplicado ? 'disabled' : ''} onchange="impItens[${i}].marcado=this.checked" class="w-4 h-4 accent-violet-500 shrink-0">
+          <span class="w-11 text-[9px] tabular-nums opacity-70 shrink-0">${_dcpDataBr(it.data)}</span>
+          <span class="flex-1 min-w-0 text-[10px] truncate">${parc}${esc(it.descricao)}</span>
+          ${dup}
+          <b class="text-[10px] tabular-nums shrink-0">${brl(it.valor)}</b>
+        </label>`;
+      }).join('')}
+    </div>
+    <div class="flex gap-2">
+      <button onclick="dctImpConfirmar()" class="flex-1 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-check mr-1"></i> Importar selecionados</button>
+      <button onclick="dcpFecharForm('cartao')" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
+    </div>
+  </div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+window.dctImpConfirmar = async function(){
+  const sel = impItens.filter(i => i.marcado && !i.duplicado);
+  if (!sel.length){ toast('Nada selecionado.'); return; }
+  const ano = el('dct-ano')?.value, mes = el('dct-mes')?.value;
+  const cartaoPadrao = el('imp-cartao-nome')?.value.trim();
+  const cartaoUnico = new Set(impItens.map(i => i.cartaoNome)).size === 1;
+  let ok = 0, fut = 0, falhou = 0;
+  for (const it of sel){
+    const cartao = (cartaoUnico && cartaoPadrao) ? cartaoPadrao : it.cartaoNome;
+    const r = await api('salvar_despesa_fixa', {
+      ano: String(ano), mes, descricao: it.descricao, categoria: 'Cartão de Crédito',
+      valor_previsto: it.valor, vencimento: it.data, forma: 'cartao', cartao,
+      import_ref: it.ref,
+    }, sessao()?.token);
+    if (!r?.ok){ falhou++; continue; }
+    ok++;
+    if (it.parc){
+      for (let k = it.parc[0] + 1; k <= it.parc[1]; k++){
+        const alvo = _impMesAlvo(Number(ano), mes, k - it.parc[0]);
+        const descFut = it.descricao.replace(/PARC\s*\d{2}\s*\/\s*\d{2}/i, `PARC ${String(k).padStart(2, '0')}/${String(it.parc[1]).padStart(2, '0')}`)
+          .replace(/\b\d{2}\/\d{2}\s*$/, `${String(k).padStart(2, '0')}/${String(it.parc[1]).padStart(2, '0')}`);
+        const rf = await api('salvar_despesa_fixa', {
+          ano: alvo.ano, mes: alvo.mes, descricao: descFut, categoria: 'Cartão de Crédito',
+          valor_previsto: it.valor, vencimento: _impDiaNoMes(it.data, alvo.ano, alvo.mes),
+          forma: 'cartao', cartao, import_ref: _impRef(cartao, it, [k, it.parc[1]]),
+        }, sessao()?.token);
+        if (rf?.ok) fut++;
+      }
+    }
+  }
+  el('dct-form').innerHTML = '';
+  toast(`${ok} débito(s) importado(s)${fut ? ` + ${fut} parcela(s) futura(s)` : ''}${falhou ? ` — ${falhou} falhou` : ''}.`);
+  dctCarregar();
 };
 
 window.dfSet = function(i, n){
