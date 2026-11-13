@@ -8952,6 +8952,11 @@ function _impDiaNoMes(dataIso, ano, mesNome){
   const ultimo = new Date(Number(ano), mi, 0).getDate();
   return `${ano}-${String(mi).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
 }
+/* Débito de cartão vence na fatura — sempre dia 18 da competência. */
+function _impVenc(ano, mesNome){
+  const mi = (SGEG.MESES_G || []).indexOf(mesNome) + 1;
+  return `${ano}-${String(mi).padStart(2, '0')}-18`;
+}
 
 window.dctImportar = function(){
   const inp = document.createElement('input');
@@ -9043,7 +9048,7 @@ window.dctImpConfirmar = async function(){
     const cartao = (cartaoUnico && cartaoPadrao) ? cartaoPadrao : it.cartaoNome;
     const r = await api('salvar_despesa_fixa', {
       ano: String(ano), mes, descricao: it.descricao, categoria: 'Cartão de Crédito',
-      valor_previsto: it.valor, vencimento: it.data, forma: 'cartao', cartao,
+      valor_previsto: it.valor, vencimento: _impVenc(ano, mes), forma: 'cartao', cartao,
       import_ref: it.ref, grupo_dre: it.grupo || '',
     }, sessao()?.token);
     if (!r?.ok){ falhou++; continue; }
@@ -9055,7 +9060,7 @@ window.dctImpConfirmar = async function(){
           .replace(/\b\d{2}\/\d{2}\s*$/, `${String(k).padStart(2, '0')}/${String(it.parc[1]).padStart(2, '0')}`);
         const rf = await api('salvar_despesa_fixa', {
           ano: alvo.ano, mes: alvo.mes, descricao: descFut, categoria: 'Cartão de Crédito',
-          valor_previsto: it.valor, vencimento: _impDiaNoMes(it.data, alvo.ano, alvo.mes),
+          valor_previsto: it.valor, vencimento: _impVenc(alvo.ano, alvo.mes),
           forma: 'cartao', cartao, import_ref: _impRef(cartao, it, [k, it.parc[1]]),
           grupo_dre: it.grupo || '',
         }, sessao()?.token);
