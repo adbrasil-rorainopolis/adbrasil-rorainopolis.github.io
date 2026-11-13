@@ -8932,25 +8932,75 @@ function _dcPaginaGrupo(g, mesExt, ano){
   </div>`;
 }
 
+/* Agrupa pela conta de despesa (estabelecimento normalizado) — uma página
+   por conta pra arquivar fisicamente em pastas diferentes. */
+const _dcChave = d => {
+  const c = _impChaveEstab(d.descricao || '');
+  return c || String(d.descricao || 'DESPESA').toUpperCase();
+};
+const _dcContasDe = itens => {
+  const mapa = {};
+  itens.forEach(d => { const k = _dcChave(d); (mapa[k] = mapa[k] || { nome: k, itens: [] }).itens.push(d); });
+  return Object.values(mapa).sort((a, b) => a.nome.localeCompare(b.nome));
+};
+
+let _dcSelItens = [], _dcSelMes = '', _dcSelAno = '';
 window.dctRelatorio = async function(grupoFiltro){
   const ano = el('dct-ano')?.value, mes = el('dct-mes')?.value;
-  const lista = ((dcpCache.length ? dcpCache : await _dcpListar(ano, mes)) || []).filter(d => d.forma === 'cartao');
-  let grupos = _dcGruposDe(lista);
-  if (grupoFiltro) grupos = grupos.filter(g => g.nome === grupoFiltro);
-  if (!grupos.length){ toast(grupoFiltro ? `Nenhum débito em "${grupoFiltro}" neste mês.` : 'Nenhum débito de cartão neste mês.'); return; }
-  const mesExt = String(mes || '').toLowerCase();
+  const lista = ((dcpCache.length ? dcpCache : await _dcpListar(ano, mes)) || [])
+    .filter(d => d.forma === 'cartao' && (!grupoFiltro || d.grupo_dre === grupoFiltro));
+  if (!lista.length){ toast(grupoFiltro ? `Nenhum débito em "${grupoFiltro}" neste mês.` : 'Nenhum débito de cartão neste mês.'); return; }
+  _dcSelItens = lista; _dcSelMes = String(mes || ''); _dcSelAno = String(ano || '');
+  let ov = el('dc-sel-overlay');
+  if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'dc-sel-overlay';
+  const linha = (d, i) => `<label class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color)">
+    <input type="checkbox" data-dcsel="${i}" checked class="w-5 h-5 accent-amber-500 cursor-pointer shrink-0">
+    <span class="flex-1 min-w-0"><b class="text-[11px] block truncate" style="color:var(--text-main)">${esc(d.descricao)}</b>
+    <span class="text-[9px] opacity-55">${_dcpDataBr(d.data_compra || d.vencimento)} · ${esc(d.cartao || '—')}${d.grupo_dre ? ` · ${esc(d.grupo_dre)}` : ''}${d.semana_lancada ? ` · ${esc(d.semana_lancada)}` : ''}</span></span>
+    <b class="text-[11px] tabular-nums shrink-0" style="color:var(--text-main)">${brl(Number(d.valor_previsto) || 0)}</b>
+  </label>`;
+  ov.innerHTML = `<div style="min-height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto">
+    <div style="position:sticky;top:8px;z-index:5;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="flex:1;min-width:0">
+        <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de despesas ${grupoFiltro ? '— ' + esc(grupoFiltro) : ''}</p>
+        <p style="font-size:10px;color:#9ca3af">Marque o que vai pro documento — cada conta sai numa página própria</p>
+      </div>
+      <button onclick="document.getElementById('dc-sel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;padding:4px 6px 10px;font-size:11px;color:#d1d5db;cursor:pointer">
+      <input type="checkbox" checked onchange="document.querySelectorAll('[data-dcsel]').forEach(c => c.checked = this.checked)" style="width:18px;height:18px;accent-color:#f59e0b"> <b>Todas (${lista.length})</b>
+    </label>
+    <div style="display:flex;flex-direction:column;gap:6px">${lista.map(linha).join('')}</div>
+    <div style="position:sticky;bottom:0;z-index:5;margin-top:12px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
+      <div style="display:flex;gap:8px">
+        <button onclick="dctGerarSelecionadas()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Gerar relatório</button>
+        <button onclick="document.getElementById('dc-sel-overlay').remove()" style="width:44px;padding:11px;border-radius:10px;border:none;background:#374151;color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
+      </div>
+    </div>
+  </div>`;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(15,23,42,.96);padding:10px 10px calc(10px + env(safe-area-inset-bottom))';
+  document.body.appendChild(ov);
+};
+
+window.dctGerarSelecionadas = function(){
+  const marcadas = [...document.querySelectorAll('[data-dcsel]:checked')].map(c => _dcSelItens[Number(c.dataset.dcsel)]);
+  if (!marcadas.length){ toast('Marque ao menos uma despesa.'); return; }
+  el('dc-sel-overlay')?.remove();
+  const mesExt = _dcSelMes.toLowerCase();
+  const contas = _dcContasDe(marcadas);
   let ov = el('dc-rel-overlay');
   if (!ov){ ov = document.createElement('div'); ov.id = 'dc-rel-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
     <style>@media print{ @page{size:A4;margin:12mm} body *{visibility:hidden!important} #dc-rel-doc, #dc-rel-doc *{visibility:visible!important} #dc-rel-doc{position:absolute!important;left:0;top:0;width:100%} .dc-page{page-break-after:always;break-after:page} .dc-page:last-child{page-break-after:auto} }</style>
     <div style="position:sticky;top:8px;z-index:5;max-width:640px;margin:0 auto 10px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px">
       <div style="flex:1;min-width:0">
-        <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de Despesas — ${esc(String(mes))}/${esc(String(ano))}</p>
-        <p style="font-size:10px;color:#9ca3af">${grupos.length} página(s), uma por classificação</p>
+        <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de Despesas — ${esc(_dcSelMes)}/${esc(_dcSelAno)}</p>
+        <p style="font-size:10px;color:#9ca3af">${contas.length} página(s), uma por conta de despesa</p>
       </div>
       <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
     </div>
-    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${grupos.map(g => _dcPaginaGrupo(g, mesExt, ano)).join('')}</div>
+    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${contas.map(g => _dcPaginaGrupo(g, mesExt, _dcSelAno)).join('')}</div>
     <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
       <div style="display:flex;gap:8px">
         <button onclick="window.print()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir / PDF</button>
