@@ -7191,12 +7191,12 @@ function _dreQrNo(elId, dre){
     let imgSrc = null;
     try {
       const cv = document.createElement('canvas');
-      if (sgeQrRender(cv, dre.verificacao.url, 272)) imgSrc = cv.toDataURL('image/png');
+      if (sgeQrRender(cv, dre.verificacao.url, 680)) imgSrc = cv.toDataURL('image/png');
     } catch(e1){}
     if (!imgSrc){
       try {
         const tmp = document.createElement('div');
-        new QRCode(tmp, { text: dre.verificacao.url, width: 272, height: 272, correctLevel: QRCode.CorrectLevel.H });
+        new QRCode(tmp, { text: dre.verificacao.url, width: 680, height: 680, correctLevel: QRCode.CorrectLevel.H });
         const cv2 = tmp.querySelector('canvas');
         if (cv2) imgSrc = cv2.toDataURL('image/png');
         const im2 = tmp.querySelector('img');
