@@ -9194,7 +9194,15 @@ window.pcGerarRecibo = function(){
   if (!ov){ ov = document.createElement('div'); ov.id = 'pc-recibo-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
     <style>@media print{ @page{size:A4;margin:12mm} body *{visibility:hidden!important} #pc-recibo-doc, #pc-recibo-doc *{visibility:visible!important} #pc-recibo-doc{position:absolute!important;left:0;top:0;width:100%} .pc-page2{page-break-before:always} }</style>
-    <div style="background:#fff;color:#111;border-radius:16px;padding:16px;font-family:Arial,sans-serif;max-width:520px;margin:0 auto" id="pc-recibo-doc">
+    <div style="position:sticky;top:8px;z-index:5;max-width:640px;margin:0 auto 10px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <p style="font-weight:700;font-size:13px;color:#f9fafb">Prévia do Recibo — A4</p>
+        <p style="font-size:10px;color:#9ca3af">Movimento ${PC.mes} – ${PC.ano} · Nº/bloco editados na tela</p>
+      </div>
+      <button onclick="pcFecharRecibo()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
+    </div>
+    <div id="pc-recibo-doc" style="font-family:Arial,sans-serif">
+    <div style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
       ${_PC_CAB}
       <p style="text-align:center;font-weight:800;font-size:13px;margin:12px 0 2px">Relatório de entradas e saídas</p>
       <p style="text-align:center;font-size:11px;font-weight:700;margin:0 0 12px">Recibo Nº <span id="pc-numero-doc">${esc(m.numero) || '________'}</span></p>
@@ -9206,7 +9214,8 @@ window.pcGerarRecibo = function(){
         ${PC_GRUPOS.map(linhaF).join('')}
         <tr style="background:#f9fafb"><td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;font-weight:800">Total</td><td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right;font-weight:800">${moeda(totGE)}</td><td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right;font-weight:800">${totGS > 0 ? '-' + moeda(totGS) : '-'}</td><td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right;font-weight:800">${moeda(totGE - totGS)}</td><td colspan="2" style="border:1px solid #9ca3af"></td></tr>
       </table>
-      <div class="pc-page2" style="margin-top:22px">
+    </div>
+      <div class="pc-page2" style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
         ${_PC_CAB}
         <p style="font-size:12px;font-weight:800;margin:12px 0 6px">Histórico de Saídas:</p>
         ${lista.length ? lista.map(linhaH).join('') : '<p style="font-size:11px;color:#666">Nenhuma saída lançada.</p>'}
@@ -9217,15 +9226,14 @@ window.pcGerarRecibo = function(){
         </div>
       </div>
     </div>
-    <div style="max-width:520px;margin:10px auto 0">
-      <p style="font-size:10px;color:#9ca3af;margin:0 0 6px;text-align:center">Nº, data, bloco e números por fundo são editados na tela (botão Salvar).</p>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="pcSalvarRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#15803d;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Salvar</button>
-        <button onclick="pcImprimirRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
-        <button onclick="pcFecharRecibo()" style="width:44px;padding:10px;border-radius:10px;border:none;background:rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
+    <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
+      <p style="font-size:9px;color:#9ca3af;margin:0 0 8px;text-align:center">Nº, data, bloco e números por fundo são editados na tela (botão Salvar).</p>
+      <div style="display:flex;gap:8px">
+        <button onclick="pcImprimirRecibo()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir / PDF</button>
+        <button onclick="pcFecharRecibo()" style="width:44px;padding:11px;border-radius:10px;border:none;background:#374151;color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
       </div>
     </div>`;
-  ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(0,0,0,.6);padding:12px';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(15,23,42,.92);padding:10px 10px calc(10px + env(safe-area-inset-bottom))';
   ov.onclick = e => { if (e.target === ov) pcFecharRecibo(); };
 };
 
