@@ -180,7 +180,7 @@ const FIN_ABAS_META = {
   orcamentos: { nome: 'Eventos Diversos',         desc: 'Orçamentos e eventos do campo',            icone: 'fa-note-sticky',         cor: '#22d3ee' },
   movfin:     { nome: 'Movimento do Campo',       desc: 'Grade semanal por congregação — alimenta movimento e origem', icone: 'fa-table-list', cor: '#f43f5e' },
   prebenda:   { nome: 'Prebenda Pastoral',        desc: 'Prebendas dos pastores — acesso restrito', icone: 'fa-hand-holding-dollar', cor: '#f59e0b' },
-  despesas:   { nome: 'Despesas Fixas',           desc: 'Combustível dos líderes e relatório p/ assinatura', icone: 'fa-file-signature', cor: '#14b8a6' },
+  despesas:   { nome: 'Contas do Campo',          desc: 'Contas a pagar, cartão, combustível e extrato de despesas', icone: 'fa-file-invoice-dollar', cor: '#14b8a6' },
   prestconv:  { nome: 'Prestação Convencional',   desc: 'Convencional, Missões, S.O.S e Auxílio + recibo', icone: 'fa-file-invoice-dollar', cor: '#f59e0b' },
 };
 const FIN_ABAS_ORDEM = ['relatorio', 'prestacao', 'orcamentos', 'movfin', 'prebenda', 'despesas', 'prestconv'];
@@ -8513,11 +8513,43 @@ window.dfRenderTela = async function(){
   let total = 0;
   const semOpts = `<option value="todas">Mês inteiro</option>` + [1,2,3,4,5].map(w => `<option value="${w}">${w}ª semana</option>`).join('');
   el('fin-sub').innerHTML = `
-    <div class="flex gap-2 mb-3">
-      <button id="df-sub-combustivel" onclick="dfMudarSub('combustivel')" class="df-sub flex-1 py-2 rounded-xl text-[11px] font-bold cursor-pointer transition"><i class="fa-solid fa-gas-pump mr-1"></i> Combustível</button>
-      <button id="df-sub-listagem" onclick="dfMudarSub('listagem')" class="df-sub flex-1 py-2 rounded-xl text-[11px] font-bold cursor-pointer transition"><i class="fa-solid fa-list-ul mr-1"></i> Despesas do campo</button>
+    <div class="flex gap-1.5 mb-3">
+      <button id="df-sub-contas" onclick="dfMudarSub('contas')" class="df-sub flex-1 py-2 rounded-xl text-[10px] font-bold cursor-pointer transition"><i class="fa-solid fa-calendar-day mr-0.5"></i> Contas</button>
+      <button id="df-sub-cartao" onclick="dfMudarSub('cartao')" class="df-sub flex-1 py-2 rounded-xl text-[10px] font-bold cursor-pointer transition"><i class="fa-solid fa-credit-card mr-0.5"></i> Cartão</button>
+      <button id="df-sub-combustivel" onclick="dfMudarSub('combustivel')" class="df-sub flex-1 py-2 rounded-xl text-[10px] font-bold cursor-pointer transition"><i class="fa-solid fa-gas-pump mr-0.5"></i> Comb.</button>
+      <button id="df-sub-listagem" onclick="dfMudarSub('listagem')" class="df-sub flex-1 py-2 rounded-xl text-[10px] font-bold cursor-pointer transition"><i class="fa-solid fa-list-ul mr-0.5"></i> Extrato</button>
     </div>
-    <div id="df-pane-combustivel" class="space-y-3">
+    <div id="df-pane-contas" class="hidden space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-calendar-day text-teal-400 mr-1"></i>Contas a pagar do campo</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="dcp-ano" onchange="dcpCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="dcp-mes" onchange="dcpCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="dcpAbrirForm('conta')" class="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-plus mr-1"></i> Nova conta</button>
+          <button onclick="dcpWhats('conta')" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-brands fa-whatsapp mr-1"></i> Resumo</button>
+        </div>
+      </div>
+      <div id="dcp-form"></div>
+      <div id="dcp-corpo"></div>
+    </div>
+    <div id="df-pane-cartao" class="hidden space-y-3">
+      <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-credit-card text-violet-400 mr-1"></i>Cartão de crédito — débitos por competência</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="dct-ano" onchange="dctCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
+          <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="dct-mes" onchange="dctCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="dcpAbrirForm('cartao')" class="flex-1 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-plus mr-1"></i> Novo débito</button>
+          <button onclick="dcpWhats('cartao')" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-brands fa-whatsapp mr-1"></i> Resumo</button>
+        </div>
+      </div>
+      <div id="dct-form"></div>
+      <div id="dct-corpo"></div>
+    </div>
+    <div id="df-pane-combustivel" class="hidden space-y-3">
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
         <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-gas-pump text-amber-500 mr-1"></i>Combustível — líderes de congregação</p>
         <div class="grid grid-cols-3 gap-2">
@@ -8548,7 +8580,7 @@ window.dfRenderTela = async function(){
     </div>
     <div id="df-pane-listagem" class="hidden space-y-3">
       <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-list-ul text-teal-400 mr-1"></i>Despesas do campo — totais por tipo (agrupamento da DRE)</p>
+        <p class="text-[10px] font-bold uppercase tracking-widest opacity-60"><i class="fa-solid fa-list-ul text-teal-400 mr-1"></i>Extrato de despesas do movimento — totais por tipo (agrupamento da DRE)</p>
         <div class="grid grid-cols-3 gap-2">
           <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Ano</span><select id="dfl-ano" onchange="dflCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(anos, agora.getFullYear())}</select></div>
           <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Mês</span><select id="dfl-mes" onchange="dflCarregar()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${selOpts(meses, meses[agora.getMonth()])}</select></div>
@@ -8561,7 +8593,7 @@ window.dfRenderTela = async function(){
       </div>
       <div id="dfl-corpo"></div>
     </div>`;
-  dfMudarSub(DF.sub || 'combustivel');
+  dfMudarSub(DF.sub || 'contas');
 };
 
 /* ================= LISTAGEM DE DESPESAS DO CAMPO (sub-aba) =================
@@ -8581,16 +8613,18 @@ let dflCache = null;
 
 window.dfMudarSub = function(sub){
   DF.sub = sub;
-  ['combustivel', 'listagem'].forEach(s => {
+  ['contas', 'cartao', 'combustivel', 'listagem'].forEach(s => {
     const pane = el('df-pane-' + s), btn = el('df-sub-' + s);
     if (pane) pane.classList.toggle('hidden', s !== sub);
     if (btn){
       const ativo = s === sub;
-      btn.style.background = ativo ? '#0d9488' : 'var(--bg-card)';
+      btn.style.background = ativo ? (s === 'cartao' ? '#7c3aed' : '#0d9488') : 'var(--bg-card)';
       btn.style.color = ativo ? '#fff' : 'var(--text-main)';
       btn.style.border = ativo ? 'none' : '1px solid var(--border-color)';
     }
   });
+  if (sub === 'contas') dcpCarregar();
+  if (sub === 'cartao') dctCarregar();
   if (sub === 'listagem' && !dflCache) dflCarregar();
 };
 
@@ -8691,6 +8725,141 @@ window.dflCopiarWhatsApp = async function(){
   const txt = L.join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Listagem de despesas copiada — cole no WhatsApp.'); }
   catch(e){ prompt('Copie a listagem:', txt); }
+};
+
+/* ================= CONTAS A PAGAR + CARTÃO (sub-abas) =================
+   Mesma tabela despesas_fixas do desktop: forma='conta' → Contas a Pagar;
+   forma='cartao' → Cartão de Crédito. vencimento = data limite, pago_em = baixa. */
+let dcpCache = [];
+let dcpEditId = null;
+
+async function _dcpListar(ano, mes){
+  const r = await api('listar_despesas_fixas', { ano: String(ano), mes: String(mes) }, sessao()?.token);
+  return r?.ok ? (r.despesas || []) : [];
+}
+function _dcpDataBr(iso){
+  if (!iso) return '—';
+  const p = String(iso).slice(0, 10).split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}` : iso;
+}
+function _dcpVencida(d){
+  if (d.pago_em || !d.vencimento) return false;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return new Date(String(d.vencimento).slice(0, 10) + 'T00:00:00') < hoje;
+}
+function _dcpCard(d, comCartao){
+  const pago = !!d.pago_em, vencida = _dcpVencida(d);
+  const st = pago ? '<span class="text-[9px] font-black text-emerald-500">✔ PAGA</span>'
+    : vencida ? '<span class="text-[9px] font-black text-red-400">⚠ VENCIDA</span>'
+    : '<span class="text-[9px] font-black text-amber-500">PENDENTE</span>';
+  return `<div class="border rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${pago ? 'opacity-60' : ''}" style="background:var(--bg-card);border-color:var(--border-color)">
+    <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpMarcarPaga('${d.id}', this.checked)" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
+    <span class="flex-1 min-w-0">
+      <b class="text-[11px] block truncate">${esc(d.descricao)}</b>
+      <span class="text-[9px] opacity-55 block">${_dcpDataBr(d.vencimento)}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}</span>
+      ${st}
+    </span>
+    <b class="text-[11px] tabular-nums shrink-0 ${vencida ? 'text-red-400' : ''}">${brl(Number(d.valor_previsto) || 0)}</b>
+    <button onclick="dcpAbrirForm('${comCartao ? 'cartao' : 'conta'}', '${d.id}')" class="w-7 h-7 rounded-lg bg-sky-600/20 text-sky-400 cursor-pointer shrink-0"><i class="fa-solid fa-pen text-[9px]"></i></button>
+    <button onclick="dcpRemover('${d.id}')" class="w-7 h-7 rounded-lg bg-red-600/20 text-red-400 cursor-pointer shrink-0"><i class="fa-solid fa-trash text-[9px]"></i></button>
+  </div>`;
+}
+async function _dcpRenderLista(forma){
+  const ehCartao = forma === 'cartao';
+  const corpo = el(ehCartao ? 'dct-corpo' : 'dcp-corpo');
+  if (!corpo) return;
+  const ano = el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value, mes = el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value;
+  corpo.innerHTML = '<p class="text-center text-xs py-6 opacity-60"><span class="spin inline-block mr-2"></span>Carregando…</p>';
+  dcpCache = await _dcpListar(ano, mes);
+  const lista = dcpCache.filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
+  const pagas = lista.filter(d => d.pago_em), pend = lista.filter(d => !d.pago_em);
+  const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
+  corpo.innerHTML = (lista.length
+    ? `<div class="space-y-2">${lista.map(d => _dcpCard(d, ehCartao)).join('')}</div>`
+    : `<p class="text-center text-[11px] py-6 opacity-60">${ehCartao ? 'Nenhum débito de cartão neste mês.' : 'Nenhuma conta a pagar neste mês.'}</p>`)
+    + (lista.length ? `<p class="text-right text-[10px] font-bold mt-2"><span class="text-emerald-500">Pagas ${brl(soma(pagas))}</span> · <span class="text-amber-500">A pagar ${brl(soma(pend))}</span> · <span class="opacity-60">Total ${brl(soma(lista))}</span></p>
+      <p class="text-[9px] opacity-50 mt-1">A baixa aqui não lança no financeiro — registre a saída no movimento.</p>` : '');
+}
+window.dcpCarregar = () => _dcpRenderLista('conta');
+window.dctCarregar = () => _dcpRenderLista('cartao');
+
+window.dcpAbrirForm = function(forma, id = null){
+  dcpEditId = id;
+  const ehCartao = forma === 'cartao';
+  const box = el(ehCartao ? 'dct-form' : 'dcp-form');
+  const d = id ? dcpCache.find(x => x.id === id) : null;
+  const cartoes = [...new Set(dcpCache.filter(x => x.cartao).map(x => x.cartao))];
+  box.innerHTML = `<div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:#0d9488">
+    <p class="text-[10px] font-bold uppercase tracking-widest" style="color:${ehCartao ? '#a78bfa' : '#2dd4bf'}">${id ? 'Editar' : 'Nova'} ${ehCartao ? 'débito do cartão' : 'conta a pagar'}</p>
+    ${ehCartao ? `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Cartão</span><input id="dcp-f-cartao" list="dcp-cartoes" value="${esc(d?.cartao || '')}" placeholder="Ex.: Cartão Campo" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><datalist id="dcp-cartoes">${cartoes.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>` : ''}
+    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Descrição</span><input id="dcp-f-desc" value="${esc(d?.descricao || '')}" placeholder="${ehCartao ? 'Ex.: Compra supermercado' : 'Ex.: Aluguel, Energia, Fornecedor X'}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+    <div class="grid grid-cols-3 gap-2">
+      <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">${ehCartao ? 'Data' : 'Vencimento'}</span><input id="dcp-f-venc" type="date" value="${esc(String(d?.vencimento || '').slice(0, 10))}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+      <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+    </div>
+    ${ehCartao ? '' : `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Categoria</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['Administrativo', 'Operacional', 'Encargos', 'Manutenção'].map(c => `<option ${c === (d?.categoria || 'Operacional') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`}
+    <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-jalanc" type="checkbox" ${d?.ja_lancada_financeiro ? 'checked' : ''} class="w-4 h-4 accent-sky-500"><span>Já lançada no financeiro (só histórico)</span></label>
+    <div class="flex gap-2">
+      <button onclick="dcpSalvarForm('${forma}')" class="flex-1 py-2.5 rounded-xl ${ehCartao ? 'bg-violet-600' : 'bg-emerald-600'} text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
+      <button onclick="el('${ehCartao ? 'dct-form' : 'dcp-form'}').innerHTML=''" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
+    </div>
+  </div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.dcpSalvarForm = async function(forma){
+  const ehCartao = forma === 'cartao';
+  const descricao = el('dcp-f-desc')?.value.trim();
+  if (!descricao) { toast('Informe a descrição.'); return; }
+  const valor = parseFloat(String(el('dcp-f-valor')?.value || '0').replace(/\./g, '').replace(',', '.')) || 0;
+  const body = {
+    id: dcpEditId || undefined,
+    ano: el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value,
+    mes: el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value,
+    descricao,
+    categoria: ehCartao ? 'Cartão de Crédito' : (el('dcp-f-cat')?.value || 'Operacional'),
+    valor_previsto: valor,
+    ja_lancada_financeiro: !!el('dcp-f-jalanc')?.checked,
+    vencimento: el('dcp-f-venc')?.value || '',
+    forma: ehCartao ? 'cartao' : 'conta',
+    cartao: el('dcp-f-cartao')?.value.trim() || '',
+  };
+  const r = await api('salvar_despesa_fixa', body, sessao()?.token);
+  if (!r?.ok) { toast(r?.erro || 'Falha ao salvar.'); return; }
+  dcpEditId = null;
+  el(ehCartao ? 'dct-form' : 'dcp-form').innerHTML = '';
+  _dcpRenderLista(forma);
+};
+
+window.dcpMarcarPaga = async function(id, pago){
+  const r = await api('pagar_despesa_fixa', { id, pago }, sessao()?.token);
+  if (!r?.ok) { toast(r?.erro || 'Falha ao registrar baixa.'); return; }
+  _dcpRenderLista(DF.sub === 'cartao' ? 'cartao' : 'conta');
+};
+
+window.dcpRemover = async function(id){
+  const d = dcpCache.find(x => x.id === id);
+  if (!confirm(`Remover "${d?.descricao || 'esta conta'}"?`)) return;
+  const r = await api('excluir_despesa_fixa', { id }, sessao()?.token);
+  if (!r?.ok) { toast(r?.erro || 'Falha ao remover.'); return; }
+  _dcpRenderLista(DF.sub === 'cartao' ? 'cartao' : 'conta');
+};
+
+window.dcpWhats = async function(forma){
+  const ehCartao = forma === 'cartao';
+  const ano = el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value, mes = el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value;
+  const lista = (await _dcpListar(ano, mes)).filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
+  if (!lista.length) { toast('Nada para resumir neste período.'); return; }
+  const pagas = lista.filter(d => d.pago_em), pend = lista.filter(d => !d.pago_em);
+  const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
+  const linha = d => `▪️ ${_dcpDataBr(d.vencimento)} ${ehCartao && d.cartao ? `[${d.cartao}] ` : ''}${d.descricao} — *${brl(Number(d.valor_previsto) || 0)}*`;
+  const L = [`📋 *${ehCartao ? 'CARTÃO DE CRÉDITO' : 'CONTAS A PAGAR'} — ${String(mes).toUpperCase()}/${ano}*`, '⛪ AD Brasil · Campo de Rorainópolis', ''];
+  L.push(`✅ *Pagas:* ${brl(soma(pagas))} (${pagas.length})`, ...pagas.map(linha), '');
+  L.push(`⏳ *A pagar:* ${brl(soma(pend))} (${pend.length})`, ...pend.map(linha), '');
+  L.push(`💰 *Total: ${brl(soma(lista))}*`);
+  const txt = L.join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Resumo copiado — cole no WhatsApp.'); }
+  catch(e){ prompt('Copie o resumo:', txt); }
 };
 
 window.dfSet = function(i, n){
