@@ -8873,7 +8873,7 @@ const _pcSaidasMes = () => PC.saidas.filter(s => String(s.ano) === PC.ano && Str
 const _pcId = () => 'pc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 function _pcLinhaSaida(s = {}){
   const opts = PC_GRUPOS.map(g => `<option value="${g.nome}" ${s.grupo === g.nome || (!s.grupo && g.nome === 'Convencionais') ? 'selected' : ''}>${g.nome}</option>`).join('');
-  return `<div class="space-y-1.5" data-saida>
+  return `<div class="space-y-1.5" data-saida data-id="${esc(s.id || '')}">
     <select data-grupo class="w-full px-2 py-2 rounded-xl border text-[11px]" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts}</select>
     <div class="flex items-center gap-2">
     <input data-data type="date" value="${esc(s.data || new Date().toISOString().slice(0,10))}" class="w-[7.4rem] shrink-0 px-2 py-2.5 rounded-xl border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -9058,6 +9058,7 @@ window.pcSalvarReciboTela = async function(){
   }
   if (av){ av.textContent = ''; av.classList.add('hidden'); }
   try {
+    await _pcMesclarNuvem();
     const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
     if (r && r.sucesso === false){ SGEG.toast?.(r.mensagem || 'Falha ao salvar.', 'erro'); return; }
     SGEG.toast?.('Dados do recibo salvos.', 'sucesso');
@@ -9068,13 +9069,28 @@ window.pcAddSaida = function(){ el('pc-saidas').insertAdjacentHTML('beforeend', 
 
 window.pcSalvarSaidas = async function(){
   const novas = [...document.querySelectorAll('#pc-saidas [data-saida]')].map(l => ({
-    id: _pcId(), ano: PC.ano, mes: PC.mes,
+    id: l.dataset.id || _pcId(), ano: PC.ano, mes: PC.mes,
     grupo: l.querySelector('[data-grupo]')?.value || 'Convencionais',
     data: l.querySelector('[data-data]')?.value || '',
     descricao: (l.querySelector('[data-descricao]')?.value || '').trim(),
     valor: parseValor(l.querySelector('[data-valor]')?.value) || 0,
   })).filter(s => s.descricao || s.valor > 0);
-  PC.saidas = [...PC.saidas.filter(s => !(String(s.ano) === PC.ano && String(s.mes) === PC.mes)), ...novas];
+  /* Mescla anti-perda: relê a nuvem e preserva saídas lançadas em outro
+     aparelho depois que esta tela carregou (id desconhecido localmente). */
+  const ehMes = s => String(s.ano) === PC.ano && String(s.mes) === PC.mes;
+  try {
+    const r0 = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
+    const j0 = JSON.parse(r0?.valor || '{}');
+    const remoto = Array.isArray(j0.saidas) ? j0.saidas : PC.saidas;
+    const conhecidos = new Set(PC.saidas.filter(ehMes).map(s => s.id));
+    const usados = new Set(novas.map(n => n.id));
+    const preservar = remoto.filter(s => ehMes(s) && s.id && !conhecidos.has(s.id) && !usados.has(s.id));
+    PC.saidas = [...remoto.filter(s => !ehMes(s)), ...novas, ...preservar];
+    if (j0.recibos && typeof j0.recibos === 'object') PC.recibos = j0.recibos;
+    if (preservar.length) toast(preservar.length + ' saída(s) de outro aparelho preservada(s).');
+  } catch(e) {
+    PC.saidas = [...PC.saidas.filter(s => !ehMes(s)), ...novas];
+  }
   const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
   toast(r?.erro ? 'Erro: ' + r.erro : 'Saídas salvas.');
   pcRenderTela();
@@ -9117,8 +9133,24 @@ window.pcLerMetaRecibo = function(){
   return _pcMetaMes();
 };
 
+/* Mescla anti-perda: relê a nuvem antes de gravar. Saídas remotas vencem
+   (mais novas); recibos remotos vencem, exceto o mês em edição, que mantém
+   o valor local recém-preenchido. */
+async function _pcMesclarNuvem(){
+  const k = PC.ano + '-' + PC.mes;
+  const mLocal = PC.recibos?.[k];
+  try {
+    const r0 = await api('obter_config_sge', { chave: PC_CHAVE }, sessao()?.token);
+    const j0 = JSON.parse(r0?.valor || '{}');
+    if (Array.isArray(j0.saidas)) PC.saidas = j0.saidas;
+    if (j0.recibos && typeof j0.recibos === 'object') PC.recibos = { ...j0.recibos };
+    if (mLocal) PC.recibos[k] = mLocal;
+  } catch(e){}
+}
+
 window.pcSalvarRecibo = async function(silencioso){
   pcLerMetaRecibo();
+  await _pcMesclarNuvem();
   const r = await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token);
   if (!silencioso) toast(r?.erro ? 'Erro: ' + r.erro : 'Dados do recibo salvos.');
   return !r?.erro;
