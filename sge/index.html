@@ -313,10 +313,10 @@
           <i class="fa-solid fa-user-pen text-[12px]" style="color: var(--color-primary);"></i> Meu perfil
         </div>
         <div id="mi-bio-ativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="ativarBioPeloMenu()">
-          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-primary);"></i> Ativar digital/FaceID
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--color-primary);"></i> Ativar digital/FaceID/PIN
         </div>
         <div id="mi-bio-desativar" class="hidden theme-option-item px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-medium cursor-pointer" onclick="desativarBio()">
-          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--text-muted);"></i> Desativar digital/FaceID
+          <i class="fa-solid fa-fingerprint text-[13px]" style="color: var(--text-muted);"></i> Desativar digital/FaceID/PIN
         </div>
 
         <div class="px-3.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest opacity-50" style="color: var(--text-muted);">Sistema</div>
@@ -823,7 +823,7 @@
         <i class="fa-solid fa-fingerprint text-3xl" style="color: var(--color-primary);"></i>
       </div>
       <h1 class="font-cinzel font-bold text-lg mb-1" style="color: var(--text-accent, var(--color-primary));">SGE bloqueado</h1>
-      <p class="text-xs mb-5" style="color: var(--text-muted);">Use sua digital ou FaceID para continuar.</p>
+      <p class="text-xs mb-5" style="color: var(--text-muted);">Use sua digital, FaceID ou PIN do aparelho para continuar.</p>
       <button type="button" id="btn-unlock" onclick="desbloquearBio()" class="btn-entrar w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
         <i class="fa-solid fa-fingerprint"></i> Desbloquear
       </button>
@@ -841,8 +841,8 @@
       <i class="fa-solid fa-fingerprint text-2xl" style="color: var(--color-primary);"></i>
     </div>
     <h2 class="font-cinzel font-bold text-base mb-1" style="color: var(--text-accent, var(--color-primary));">Desbloqueio rápido</h2>
-    <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-muted);">Quer entrar com sua digital ou FaceID nas próximas vezes?<br>Se preferir, continue usando CPF e senha.</p>
-    <button type="button" id="btn-bio-sim" class="btn-entrar w-full py-2.5 rounded-2xl font-bold text-sm">Ativar digital/FaceID</button>
+    <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-muted);">Quer entrar com sua digital, FaceID ou PIN nas próximas vezes?<br>Se preferir, continue usando CPF e senha.</p>
+    <button type="button" id="btn-bio-sim" class="btn-entrar w-full py-2.5 rounded-2xl font-bold text-sm">Ativar digital/FaceID/PIN</button>
     <button type="button" id="btn-bio-nao" class="mt-2.5 w-full py-2.5 rounded-2xl font-bold text-sm" style="background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color);">Agora não</button>
   </div>
 </div>
@@ -884,7 +884,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = 'v1.339';
+const SGE_VERSAO = 'v1.340';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -1757,6 +1757,12 @@ async function bioDisponivel(){
   try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }
   catch { return false; }
 }
+async function registrarCredencialDispositivo(tokenSessao){
+  try {
+    const r = await api('registrar_credencial_dispositivo', { device_id: sgeDeviceId() }, tokenSessao);
+    return r?.segredo || null;
+  } catch { return null; }
+}
 async function registrarBiometria(){
   const s = sessao(); if (!s?.token) return false;
   const cpf = s.usuario?.cpf || s.usuario?.Cpf || 'usuario';
@@ -1769,7 +1775,8 @@ async function registrarBiometria(){
     timeout: 60000, attestation: 'none'
   }});
   if (!cred) return false;
-  localStorage.setItem(BIO_CRED, JSON.stringify({ id: cred.id, cpf }));
+  const segredo = await registrarCredencialDispositivo(s.token);
+  localStorage.setItem(BIO_CRED, JSON.stringify({ id: cred.id, cpf, segredo }));
   salvarSessaoBio(s);
   return true;
 }
@@ -1787,8 +1794,26 @@ async function desbloquearBio(auto){
   btn.disabled = true; if (erro) erro.classList.add('hidden');
   try {
     if (await verificarBiometria()) {
+      const c = bioCred();
+      // caminho principal: a credencial de dispositivo cunha sessão nova
+      // (o token de 12h pode ter expirado — o segredo continua valendo)
+      if (c?.segredo) {
+        try {
+          const res = await api('login_dispositivo', { cpf: c.cpf, device_id: sgeDeviceId(), segredo: c.segredo, plataforma: sgePlataforma() });
+          if (res?.token) {
+            const nova = { token: res.token, usuario: res.usuario || {}, expira_em: res.expira_em };
+            salvarSessao(nova); salvarSessaoBio(nova);
+            $('unlock-screen').style.display = 'none';
+            entrarNoApp();
+            return;
+          }
+        } catch (eApi) {
+          if (eApi?.data?.credencial_invalida) { usarSenha(); return; }
+          // sem rede agora: cai para a sessão bio local se ainda valer
+        }
+      }
       const bs = bioSessao();
-      if (!bs?.token) { usarSenha(); return; }
+      if (!bs?.token || (bs.expira_em && new Date(bs.expira_em) <= new Date())) { usarSenha(); return; }
       salvarSessao(bs);
       $('unlock-screen').style.display = 'none';
       entrarNoApp();
@@ -1805,7 +1830,13 @@ async function desbloquearBio(auto){
     }
   } finally { btn.disabled = false; }
 }
+async function revogarCredencialDispositivo(){
+  const t = sessao()?.token || bioSessao()?.token;
+  if (!t) return;
+  try { await api('revogar_credencial_dispositivo', { device_id: sgeDeviceId() }, t); } catch {}
+}
 function esquecerBio(){
+  revogarCredencialDispositivo();
   localStorage.removeItem(BIO_CRED); limparSessaoBio();
   usarSenha();
 }
@@ -1825,14 +1856,15 @@ async function maybeOferecerBio(s){
 async function ativarBioPeloMenu(){
   fecharMenuEngrenagem();
   try {
-    if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital/FaceID ativado.'); }
+    if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital, FaceID ou PIN ativado.'); }
     else toast('Não foi possível ativar a biometria.');
   } catch { toast('Biometria não ativada.'); }
 }
 function desativarBio(){
   fecharMenuEngrenagem();
+  revogarCredencialDispositivo();
   localStorage.removeItem(BIO_CRED); limparSessaoBio();
-  toast('Desbloqueio por digital/FaceID desativado.');
+  toast('Desbloqueio por digital, FaceID ou PIN desativado.');
 }
 function sairEFechar(){
   fecharMenuEngrenagem();
@@ -1862,9 +1894,18 @@ $('form-login').addEventListener('submit', async (e) => {
   try {
     const res = await api('login', { cpf: $('login-usuario').value.trim(), senha: $('login-senha').value, device_id: sgeDeviceId(), plataforma: sgePlataforma() });
     if (!res.token) throw new Error(res.erro || 'Falha na autenticação.');
-    const nova = { token: res.token, usuario: res.usuario || {} };
+    const nova = { token: res.token, usuario: res.usuario || {}, expira_em: res.expira_em };
     salvarSessao(nova);
-    if (bioCred()?.cpf && bioCred().cpf === (nova.usuario?.cpf || nova.usuario?.Cpf)) salvarSessaoBio(nova);
+    if (bioCred()?.cpf && bioCred().cpf === (nova.usuario?.cpf || nova.usuario?.Cpf)) {
+      salvarSessaoBio(nova);
+      // credencial antiga (sem segredo): renova silenciosamente para o
+      // unlock voltar a cunhar sessão nova sem pedir senha
+      if (!bioCred().segredo) {
+        registrarCredencialDispositivo(nova.token).then(sg => {
+          if (sg) { const c = bioCred(); localStorage.setItem(BIO_CRED, JSON.stringify({ ...c, segredo: sg })); }
+        });
+      }
+    }
     $('card-login').classList.add('saindo');
     setTimeout(() => { entrarNoApp(); maybeOferecerBio(nova); }, 420);
   } catch (err) {
@@ -2365,7 +2406,7 @@ function iniciarSequencia(){
   $('btn-bio-sim').onclick = async () => {
     $('bio-optin').style.display = 'none';
     try {
-      if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital/FaceID ativado.'); }
+      if (await registrarBiometria()) { localStorage.removeItem('sge_bio_recusado'); toast('Desbloqueio por digital, FaceID ou PIN ativado.'); }
       else toast('Não foi possível ativar a biometria.');
     } catch { toast('Biometria não ativada.'); }
   };
