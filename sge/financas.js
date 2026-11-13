@@ -9345,10 +9345,9 @@ window.pcRenderTela = async function(){
     </div>`;
 };
 
-/* Campos do recibo na tela (Nº, Bloco e Nº por fundo): editáveis, com autosave
+/* Campos do recibo na tela (Data, Bloco e Nº por fundo): editáveis, com autosave
    e trava de recibo duplicado — número já usado em outro mês não é gravado. */
 const _PC_CAMPOS_RECIBO = () => [
-  { tipo: 'numero', rotulo: 'Nº recibo' },
   { tipo: 'data', rotulo: 'Data' },
   { tipo: 'bloco', rotulo: 'Bloco' },
   ...PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%' ? null : { tipo: 'num', idx: i, rotulo: 'Nº ' + (g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'S.O.S Baixo Rio Branco' ? 'S.O.S' : g.nome) }).filter(Boolean),
@@ -9530,7 +9529,7 @@ window.pcGerarRecibo = function(){
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right">${moeda(PC.totais[g.nome])}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right">${totS(g) > 0 ? '-' + moeda(totS(g)) : '-'}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:right;font-weight:700">${moeda(PC.totais[g.nome] - totS(g))}</td>
-    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center"><span id="pc-bloco-doc-${i}">${esc(m.bloco)}</span></td>
+    <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center">${g.nome === 'Auxílio Presidencial 5%' ? '—' : `<span id="pc-bloco-doc-${i}">${esc(m.bloco)}</span>`}</td>
     <td style="border:1px solid #9ca3af;padding:4px 6px;font-size:10px;text-align:center">${g.nome === 'Auxílio Presidencial 5%' ? '—' : `<b><span id="pc-num-doc-${i}">${esc(m.nums[g.nome] || '')}</span></b>`}</td></tr>`;
   const linhaH = s => `<p style="font-size:11px;margin:4px 0">R$ ${Number(s.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} – ${esc(s.descricao)};</p>`;
   let ov = el('pc-recibo-overlay');
@@ -9547,8 +9546,7 @@ window.pcGerarRecibo = function(){
     <div id="pc-recibo-doc" style="font-family:Arial,sans-serif">
     <div style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
       ${_PC_CAB}
-      <p style="text-align:center;font-weight:800;font-size:13px;margin:12px 0 2px">Relatório de entradas e saídas</p>
-      <p style="text-align:center;font-size:11px;font-weight:700;margin:0 0 12px">Recibo Nº <span id="pc-numero-doc">${esc(m.numero) || '________'}</span></p>
+      <p style="text-align:center;font-weight:800;font-size:13px;margin:12px 0 10px">Relatório de entradas e saídas</p>
       <p style="font-size:11px;text-align:justify;line-height:1.5">Declaro para fins de prestação de contas junto a Tesouraria da CONVENÇAO ESTADUAL DAS ASSEMBLÉIAS DE DEUS NO ESTADO DE RORAIMA – CEDADER, localizado a Rua Cecilia Brasil, 459 – Centro, Boa Vista – RR, CEP: 69.301-080, que foram realizados pagamentos com os saldos do auxílio pastoral, missões e convencional pelo campo de Rorainópolis em ${mm}/${PC.ano}, conforme segue:</p>
       <p style="font-size:11px;margin:10px 0">Boa Vista – RR, <span id="pc-data-doc">${_pcDataExtenso(m.data)}</span></p>
       <p style="font-size:11px;font-weight:700;margin:10px 0 4px">Movimento ${PC.mes} - ${PC.ano}</p>
