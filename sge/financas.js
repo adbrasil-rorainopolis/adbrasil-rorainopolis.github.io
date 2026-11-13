@@ -9020,8 +9020,8 @@ function _pcReciboDuplicado(tipo, idx, valor){
   const chaveAtual = PC.ano + '-' + PC.mes;
   for (const [k, r] of Object.entries(PC.recibos || {})){
     if (k === chaveAtual || !r) continue;
-    const alvo = tipo === 'numero' ? r.numero : (r.nums || {})[PC_GRUPOS[idx].nome];
-    if (alvo && String(alvo).trim() === valor) return k.replace('-', '/');
+    const alvo = tipo === 'numero' ? r.numero : tipo === 'num' ? (r.nums || {})[PC_GRUPOS[idx].nome] : null;
+    if (alvo && String(alvo).trim() === valor) return k.split('-').reverse().join('/');
   }
   return null;
 }
@@ -9041,7 +9041,7 @@ window.pcSalvarReciboTela = async function(){
   document.querySelectorAll('#pc-recibo-campos input[data-tipo]').forEach(inp => {
     const tipo = inp.dataset.tipo, idx = Number(inp.dataset.idx || -1);
     const v = inp.value.trim();
-    const dup = tipo !== 'data' && v ? _pcReciboDuplicado(tipo, idx, v) : null;
+    const dup = (tipo === 'numero' || tipo === 'num') && v ? _pcReciboDuplicado(tipo, idx, v) : null;
     inp.style.borderColor = dup ? '#dc2626' : 'var(--border-color)';
     if (dup && !dupMsg) dupMsg = `Nº ${v} já usado em ${dup}`;
     else if (!dup){
