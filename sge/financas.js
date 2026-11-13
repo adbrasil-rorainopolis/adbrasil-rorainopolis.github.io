@@ -8807,8 +8807,7 @@ window.dcpAbrirForm = function(forma, id = null){
       <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">${ehCartao ? 'Data' : 'Vencimento'}</span><input id="dcp-f-venc" type="date" value="${esc(String(d?.vencimento || '').slice(0, 10))}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     </div>
-    ${ehCartao ? '' : `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Categoria</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['Administrativo', 'Operacional', 'Encargos', 'Manutenção'].map(c => `<option ${c === (d?.categoria || 'Operacional') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`}
-    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Classificação DRE</span><select id="dcp-f-grupo" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem grupo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Tipo de Despesa</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem tipo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
     <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
     <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-recorr" type="checkbox" ${d?.recorrente ? 'checked' : ''} class="w-4 h-4 accent-teal-500"><span>🔁 Repete todo mês (mesmo valor — edite se mudar)</span></label>
     <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-jalanc" type="checkbox" ${d?.ja_lancada_financeiro ? 'checked' : ''} class="w-4 h-4 accent-sky-500"><span>Já lançada no financeiro (só histórico)</span></label>
@@ -8826,6 +8825,59 @@ window.dcpFecharForm = function(forma){
   dcpEditId = null;
 };
 
+/* ============ DESTINO AUTOMÁTICO — tipo de despesa → Prestação/Prebenda ============ */
+const DC_DESTINOS = {
+  'Convencional': { pc: 'Convencionais' },
+  'Missões': { pc: 'Missões' },
+  'Auxílio Pastoral': { pc: 'Auxílio Presidencial 5%' },
+  'Prebenda Pastoral Pra. Lindjard': { pb: 'lindjard' },
+};
+async function _dcSincronizarDestinos(itens){
+  if (!itens?.length) return;
+  const tk = sessao()?.token;
+  let pc = {}, pcMudou = false, pbMudou = false, ptLindjard = null;
+  try { const r = await api('obter_config_sge', { chave: PC_CHAVE }, tk); pc = r?.valor ? JSON.parse(r.valor) : {}; } catch(e){ pc = {}; }
+  pc.saidas = Array.isArray(pc.saidas) ? pc.saidas : [];
+  PB.lanc = null; await pbCarregarNuvem();
+  const matchEm = d => x => (d.id && x.despesaId === d.id) || (d.import_ref && x.despesaRef === d.import_ref);
+  for (const d of itens){
+    const dest = DC_DESTINOS[d.grupo_dre] || null;
+    const dataBr = _dcpDataBr(d.data_compra || d.vencimento);
+    const ix = pc.saidas.findIndex(matchEm(d));
+    if (dest?.pc){
+      const saida = { id: ix >= 0 ? pc.saidas[ix].id : 'pcimp_' + pbId(),
+        despesaId: d.id || '', despesaRef: d.import_ref || '',
+        ano: String(d.ano), mes: String(d.mes), grupo: dest.pc,
+        data: dataBr, descricao: String(d.descricao || ''), valor: Number(d.valor_previsto) || 0 };
+      if (ix >= 0) pc.saidas[ix] = { ...pc.saidas[ix], ...saida };
+      else pc.saidas.push(saida);
+      pcMudou = true;
+    } else if (ix >= 0){ pc.saidas.splice(ix, 1); pcMudou = true; }
+    const jx = (PB.lanc || []).findIndex(matchEm(d));
+    if (dest?.pb){
+      if (ptLindjard === null){
+        const pts = await pbCarregarPastores();
+        ptLindjard = (pts || []).find(pt => /lindjard/i.test(pt.nome)) || false;
+      }
+      if (ptLindjard){
+        const lanc = { id: jx >= 0 ? PB.lanc[jx].id : pbId(),
+          despesaId: d.id || '', despesaRef: d.import_ref || '',
+          ano: String(d.ano), mes: String(d.mes), pastorId: ptLindjard.id,
+          tipo: 'S', semana: '', descricao: String(d.descricao || ''),
+          valor: pbRd(d.valor_previsto), auto: false, grupo: '', data: dataBr };
+        if (jx >= 0) PB.lanc[jx] = { ...PB.lanc[jx], ...lanc };
+        else PB.lanc.push(lanc);
+        pbMudou = true;
+      } else toast('Pra. Lindjard não encontrada na lista de pastores — verifique o cadastro.');
+    } else if (jx >= 0){ PB.lanc.splice(jx, 1); pbMudou = true; }
+  }
+  if (pcMudou){
+    try { await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: pc.saidas, recibos: pc.recibos || {} }) }, tk); } catch(e){}
+    if (Array.isArray(PC.saidas)) PC.saidas = pc.saidas;
+  }
+  if (pbMudou) await pbGravarNuvem();
+}
+
 window.dcpSalvarForm = async function(forma){
   const ehCartao = forma === 'cartao';
   const descricao = el('dcp-f-desc')?.value.trim();
@@ -8836,19 +8888,24 @@ window.dcpSalvarForm = async function(forma){
     ano: el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value,
     mes: el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value,
     descricao,
-    categoria: ehCartao ? 'Cartão de Crédito' : (el('dcp-f-cat')?.value || 'Operacional'),
+    categoria: ehCartao ? 'Cartão de Crédito' : ((dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.categoria) || 'Operacional'),
     valor_previsto: valor,
     ja_lancada_financeiro: !!el('dcp-f-jalanc')?.checked,
     vencimento: el('dcp-f-venc')?.value || '',
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
     recorrente: !!el('dcp-f-recorr')?.checked,
-    grupo_dre: el('dcp-f-grupo')?.value || '',
+    grupo_dre: el('dcp-f-cat')?.value || '',
     semana_lancada: el('dcp-f-semana')?.value || '',
     data_compra: (dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.data_compra) || '',
   };
   const r = await api('salvar_despesa_fixa', body, sessao()?.token);
   if (!r?.ok) { toast(r?.erro || 'Falha ao salvar.'); return; }
+  const ant = dcpEditId ? dcpCache.find(x => x.id === dcpEditId) : null;
+  _dcSincronizarDestinos([{ id: dcpEditId || r.id || '', ano: body.ano, mes: body.mes,
+    descricao, valor_previsto: valor, grupo_dre: body.grupo_dre,
+    data_compra: body.data_compra, vencimento: body.vencimento,
+    import_ref: ant?.import_ref || '' }]);
   dcpEditId = null;
   el(ehCartao ? 'dct-form' : 'dcp-form').innerHTML = '';
   _dcpRenderLista(forma);
@@ -8865,6 +8922,7 @@ window.dcpRemover = async function(id){
   if (!confirm(`Remover "${d?.descricao || 'esta conta'}"?`)) return;
   const r = await api('excluir_despesa_fixa', { id }, sessao()?.token);
   if (!r?.ok) { toast(r?.erro || 'Falha ao remover.'); return; }
+  _dcSincronizarDestinos([{ ...d, grupo_dre: '' }]);
   _dcpRenderLista(DF.sub === 'cartao' ? 'cartao' : 'conta');
 };
 
@@ -9024,6 +9082,7 @@ const IMP_GRUPOS = [
   'Material de Som', 'Divulgação de Eventos, Propaganda e Rádio',
   'Medicação', 'Presentes', 'Vestuário ou Ornamentação',
   'Construção, Reforma ou Ampliação', 'Materiais de Bens Duráveis ou Utensílios',
+  'Convencional', 'Missões', 'Auxílio Pastoral', 'Prebenda Pastoral Pra. Lindjard',
 ];
 const IMP_MAPA_CHAVE = 'sge_mapa_grupo_estab';
 const _impChaveEstab = d => String(d || '')
@@ -9184,6 +9243,7 @@ window.dctImpConfirmar = async function(){
   const cartaoPadrao = el('imp-cartao-nome')?.value.trim();
   const cartaoUnico = new Set(impItens.map(i => i.cartaoNome)).size === 1;
   let ok = 0, fut = 0, falhou = 0;
+  const sinc = [];
   for (const it of sel){
     const cartao = (cartaoUnico && cartaoPadrao) ? cartaoPadrao : it.cartaoNome;
     const r = await api('salvar_despesa_fixa', {
@@ -9193,21 +9253,30 @@ window.dctImpConfirmar = async function(){
     }, sessao()?.token);
     if (!r?.ok){ falhou++; continue; }
     ok++;
+    if (!r.duplicado && DC_DESTINOS[it.grupo])
+      sinc.push({ id: r.id || '', ano: String(ano), mes: String(mes), descricao: it.descricao,
+        valor_previsto: it.valor, grupo_dre: it.grupo, data_compra: it.data,
+        vencimento: _impVenc(ano, mes), import_ref: it.ref });
     if (it.parc){
       for (let k = it.parc[0] + 1; k <= it.parc[1]; k++){
         const alvo = _impMesAlvo(Number(ano), mes, k - it.parc[0]);
         const descFut = it.descricao.replace(/PARC\s*\d{2}\s*\/\s*\d{2}/i, `PARC ${String(k).padStart(2, '0')}/${String(it.parc[1]).padStart(2, '0')}`)
           .replace(/\b\d{2}\/\d{2}\s*$/, `${String(k).padStart(2, '0')}/${String(it.parc[1]).padStart(2, '0')}`);
+        const refFut = _impRef(cartao, it, [k, it.parc[1]]);
         const rf = await api('salvar_despesa_fixa', {
           ano: alvo.ano, mes: alvo.mes, descricao: descFut, categoria: 'Cartão de Crédito',
           valor_previsto: it.valor, vencimento: _impVenc(alvo.ano, alvo.mes),
-          forma: 'cartao', cartao, import_ref: _impRef(cartao, it, [k, it.parc[1]]),
+          forma: 'cartao', cartao, import_ref: refFut,
           grupo_dre: it.grupo || '', data_compra: it.data,
         }, sessao()?.token);
-        if (rf?.ok) fut++;
+        if (rf?.ok){ fut++; if (!rf.duplicado && DC_DESTINOS[it.grupo])
+          sinc.push({ id: rf.id || '', ano: alvo.ano, mes: alvo.mes, descricao: descFut,
+            valor_previsto: it.valor, grupo_dre: it.grupo, data_compra: it.data,
+            vencimento: _impVenc(alvo.ano, alvo.mes), import_ref: refFut }); }
       }
     }
   }
+  if (sinc.length) _dcSincronizarDestinos(sinc);
   // Memória: estabelecimento → grupo escolhido (sincroniza pela nuvem).
   let mapaMudou = false;
   sel.forEach(it => { if (it.grupo) { impMapaGrupos[_impChaveEstab(it.descricao)] = it.grupo; mapaMudou = true; } });
