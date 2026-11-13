@@ -9032,6 +9032,16 @@ function _pcMetaMes(){
   const m = PC.recibos[k] || (PC.recibos[k] = {});
   if (!m.nums || typeof m.nums !== 'object') m.nums = {};
   m.numero = m.numero || ''; m.data = m.data || ''; m.bloco = m.bloco || '';
+  /* ~1 bloco por mês: mês sem bloco registrado sugere último usado + 1. */
+  if (!m.bloco){
+    const MESES = SGEG.MESES_G || [];
+    let aa = Number(PC.ano), mm = MESES.indexOf(PC.mes);
+    for (let i = 0; i < 24; i++){
+      mm -= 1; if (mm < 0){ mm = 11; aa -= 1; }
+      const n = parseInt((PC.recibos[`${aa}-${MESES[mm]}`] || {}).bloco, 10);
+      if (Number.isFinite(n)){ m.bloco = String(n + 1); break; }
+    }
+  }
   return m;
 }
 const _pcBrParaIso = br => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(br || '').trim()); return (m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12) ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
