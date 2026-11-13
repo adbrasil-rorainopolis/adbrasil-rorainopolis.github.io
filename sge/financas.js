@@ -8755,7 +8755,7 @@ function _dcpCard(d, comCartao){
   return `<div class="border rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${pago ? 'opacity-60' : ''}" style="background:var(--bg-card);border-color:var(--border-color)">
     <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpMarcarPaga('${d.id}', this.checked)" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
     <span class="flex-1 min-w-0">
-      <b class="text-[11px] block truncate">${esc(d.descricao)}</b>
+      <b class="text-[11px] block truncate">${d.recorrente ? '<i class="fa-solid fa-rotate text-teal-400 mr-0.5" title="Recorrente"></i>' : ''}${esc(d.descricao)}</b>
       <span class="text-[9px] opacity-55 block">${_dcpDataBr(d.vencimento)}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}</span>
       ${st}
     </span>
@@ -8798,13 +8798,20 @@ window.dcpAbrirForm = function(forma, id = null){
       <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     </div>
     ${ehCartao ? '' : `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Categoria</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['Administrativo', 'Operacional', 'Encargos', 'Manutenção'].map(c => `<option ${c === (d?.categoria || 'Operacional') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`}
+    <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-recorr" type="checkbox" ${d?.recorrente ? 'checked' : ''} class="w-4 h-4 accent-teal-500"><span>🔁 Repete todo mês (mesmo valor — edite se mudar)</span></label>
     <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-jalanc" type="checkbox" ${d?.ja_lancada_financeiro ? 'checked' : ''} class="w-4 h-4 accent-sky-500"><span>Já lançada no financeiro (só histórico)</span></label>
     <div class="flex gap-2">
       <button onclick="dcpSalvarForm('${forma}')" class="flex-1 py-2.5 rounded-xl ${ehCartao ? 'bg-violet-600' : 'bg-emerald-600'} text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
-      <button onclick="el('${ehCartao ? 'dct-form' : 'dcp-form'}').innerHTML=''" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
+      <button onclick="dcpFecharForm('${forma}')" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
     </div>
   </div>`;
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.dcpFecharForm = function(forma){
+  const box = el(forma === 'cartao' ? 'dct-form' : 'dcp-form');
+  if (box) box.innerHTML = '';
+  dcpEditId = null;
 };
 
 window.dcpSalvarForm = async function(forma){
@@ -8823,6 +8830,7 @@ window.dcpSalvarForm = async function(forma){
     vencimento: el('dcp-f-venc')?.value || '',
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
+    recorrente: !!el('dcp-f-recorr')?.checked,
   };
   const r = await api('salvar_despesa_fixa', body, sessao()?.token);
   if (!r?.ok) { toast(r?.erro || 'Falha ao salvar.'); return; }
