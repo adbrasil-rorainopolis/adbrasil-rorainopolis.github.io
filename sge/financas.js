@@ -8757,7 +8757,7 @@ function _dcpCard(d, comCartao){
     <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpMarcarPaga('${d.id}', this.checked)" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
     <span class="flex-1 min-w-0">
       <b class="text-[11px] block truncate">${d.recorrente ? '<i class="fa-solid fa-rotate text-teal-400 mr-0.5" title="Recorrente"></i>' : ''}${esc(d.descricao)}</b>
-      <span class="text-[9px] opacity-55 block">${_dcpDataBr(d.vencimento)}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}</span>
+      <span class="text-[9px] opacity-55 block">${_dcpDataBr(d.vencimento)}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}${d.grupo_dre ? ` · <b class="text-sky-400">${esc(d.grupo_dre)}</b>` : ''}</span>
       ${st}
     </span>
     <b class="text-[11px] tabular-nums shrink-0 ${vencida ? 'text-red-400' : ''}">${brl(Number(d.valor_previsto) || 0)}</b>
@@ -8873,6 +8873,24 @@ window.dcpWhats = async function(forma){
 
 /* ============ IMPORTAÇÃO DE FATURA — Banco do Brasil / Ourocard (.txt) ============ */
 let impItens = [];
+let impMapaGrupos = {};
+
+/* Grupos oficiais da DRE escolhidos pelo gestor para classificar débitos do cartão. */
+const IMP_GRUPOS = [
+  'Telefone e Internet', 'Material de Expediente', 'Material de Limpeza',
+  'INSS, Taxas e Impostos Diversos', 'Combustivel e Lubrificantes',
+  'Manutenção de Veículo', 'Frete ou Aluguel de Veiculo', 'Passagens',
+  'Hospedagem', 'Alimentação para Eventos', 'Lanche EBD ou Santa Ceia',
+  'Material de Som', 'Divulgação de Eventos, Propaganda e Rádio',
+  'Medicação', 'Presentes', 'Vestuário ou Ornamentação',
+  'Construção, Reforma ou Ampliação', 'Materiais de Bens Duráveis ou Utensílios',
+];
+const IMP_MAPA_CHAVE = 'sge_mapa_grupo_estab';
+const _impChaveEstab = d => String(d || '')
+  .replace(/PARC\s*\d{1,2}\s*\/\s*\d{1,2}/ig, '')
+  .replace(/\b\d{1,2}\s*\/\s*\d{1,2}\s*$/, '')
+  .replace(/\s+(BR|CA|US|PT|GB|ES|FR|DE|IT|AR|CL|PY|UY|MX|JP|CN)$/i, '')
+  .replace(/\s+/g, ' ').trim().toUpperCase();
 
 function _impValor(t){ return parseFloat(String(t).replace(/\./g, '').replace(',', '.')) || 0; }
 
@@ -8962,6 +8980,10 @@ window.dctLerArquivos = async function(files){
   let refs = new Set();
   try { refs = new Set((await api('listar_import_refs', {}, sessao()?.token))?.refs || []); }
   catch(e){ /* API antiga sem a action — importa sem dedupe remoto */ }
+  try {
+    const rm = await api('obter_config_sge', { chave: IMP_MAPA_CHAVE }, sessao()?.token);
+    impMapaGrupos = rm?.valor ? JSON.parse(rm.valor) : {};
+  } catch(e){ impMapaGrupos = {}; }
   impItens = [];
   faturas.forEach(fat => {
     const cartaoNome = fat.modalidade || `Cartão final ${fat.cartaoMask || '????'}`;
@@ -8970,6 +8992,7 @@ window.dctLerArquivos = async function(files){
       it.ref = _impRef(cartaoNome, it);
       it.duplicado = refs.has(it.ref);
       it.marcado = !it.duplicado && it.secao !== 'Pagamentos/Créditos';
+      it.grupo = impMapaGrupos[_impChaveEstab(it.descricao)] || '';
       impItens.push(it);
     });
   });
@@ -8990,11 +9013,13 @@ function dcpImpRender(faturas){
         if (rot !== secaoAtual){ secaoAtual = rot; cab = `<p class="text-[8px] font-black uppercase tracking-widest opacity-50 pt-1.5">${esc(rot)}</p>`; }
         const parc = it.parc ? `<span class="px-1 rounded text-[8px] font-bold bg-amber-600/20 text-amber-300">P${it.parc[0]}/${it.parc[1]}</span> ` : '';
         const dup = it.duplicado ? '<span class="text-[8px] font-black text-emerald-500">IMPORTADO</span>' : '';
+        const selG = it.duplicado ? '' : `<select onclick="event.preventDefault();event.stopPropagation()" onchange="impItens[${i}].grupo=this.value" class="shrink-0 max-w-[120px] px-1 py-1 rounded-md border text-[8px] font-bold" style="background:var(--bg-input);border-color:${it.grupo ? 'var(--border-color)' : '#b45309'};color:var(--text-main)"><option value="">grupo…</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${it.grupo === g ? 'selected' : ''}>${g}</option>`).join('')}</select>`;
         return cab + `<label class="flex items-center gap-2 px-2 py-2 rounded-xl border ${it.duplicado ? 'opacity-45' : ''}" style="border-color:var(--border-color);background:var(--bg-surface)">
           <input type="checkbox" ${it.marcado ? 'checked' : ''} ${it.duplicado ? 'disabled' : ''} onchange="impItens[${i}].marcado=this.checked" class="w-4 h-4 accent-violet-500 shrink-0">
           <span class="w-11 text-[9px] tabular-nums opacity-70 shrink-0">${_dcpDataBr(it.data)}</span>
           <span class="flex-1 min-w-0 text-[10px] truncate">${parc}${esc(it.descricao)}</span>
           ${dup}
+          ${selG}
           <b class="text-[10px] tabular-nums shrink-0">${brl(it.valor)}</b>
         </label>`;
       }).join('')}
@@ -9019,7 +9044,7 @@ window.dctImpConfirmar = async function(){
     const r = await api('salvar_despesa_fixa', {
       ano: String(ano), mes, descricao: it.descricao, categoria: 'Cartão de Crédito',
       valor_previsto: it.valor, vencimento: it.data, forma: 'cartao', cartao,
-      import_ref: it.ref,
+      import_ref: it.ref, grupo_dre: it.grupo || '',
     }, sessao()?.token);
     if (!r?.ok){ falhou++; continue; }
     ok++;
@@ -9032,11 +9057,16 @@ window.dctImpConfirmar = async function(){
           ano: alvo.ano, mes: alvo.mes, descricao: descFut, categoria: 'Cartão de Crédito',
           valor_previsto: it.valor, vencimento: _impDiaNoMes(it.data, alvo.ano, alvo.mes),
           forma: 'cartao', cartao, import_ref: _impRef(cartao, it, [k, it.parc[1]]),
+          grupo_dre: it.grupo || '',
         }, sessao()?.token);
         if (rf?.ok) fut++;
       }
     }
   }
+  // Memória: estabelecimento → grupo escolhido (sincroniza pela nuvem).
+  let mapaMudou = false;
+  sel.forEach(it => { if (it.grupo) { impMapaGrupos[_impChaveEstab(it.descricao)] = it.grupo; mapaMudou = true; } });
+  if (mapaMudou) api('salvar_config_sge', { chave: IMP_MAPA_CHAVE, valor: JSON.stringify(impMapaGrupos) }, sessao()?.token).catch(() => {});
   el('dct-form').innerHTML = '';
   toast(`${ok} débito(s) importado(s)${fut ? ` + ${fut} parcela(s) futura(s)` : ''}${falhou ? ` — ${falhou} falhou` : ''}.`);
   dctCarregar();
