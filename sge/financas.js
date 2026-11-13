@@ -8982,9 +8982,24 @@ window.pcRenderTela = async function(){
           `<div class="rounded-xl border px-2 py-1.5 text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rot}</p><p class="text-[11px] font-extrabold" style="color:${c}">${moeda(v)}</p></div>`).join('')}
       </div>
       <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border shrink-0" style="border-color:#b45309;background:rgba(245,158,11,.08)" title="Nº do bloco do recibo — fica fixo no mês e sai na coluna Bloco">
+          <label class="text-[8px] font-black uppercase tracking-widest" style="color:#f59e0b">Bloco</label>
+          <input id="pc-bloco-tela" type="text" inputmode="numeric" maxlength="8" placeholder="—" value="${esc(_pcMetaMes().bloco)}" oninput="pcBlocoTela(this)" class="w-14 px-1.5 py-0.5 rounded-md border text-[11px] text-center font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
+        </div>
         <button onclick="pcGerarRecibo()" class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:#b45309"><i class="fa-solid fa-file-pdf mr-1"></i>Gerar Recibo</button>
       </div>
     </div>`;
+};
+
+/* Caixinha do bloco na tela: registra o Nº do bloco do recibo do mês — fica
+   fixo, grava na nuvem com debounce e sai na coluna Bloco do relatório. */
+let _pcBlocoTimer = null;
+window.pcBlocoTela = function(inp){
+  _pcMetaMes().bloco = (inp.value || '').trim();
+  clearTimeout(_pcBlocoTimer);
+  _pcBlocoTimer = setTimeout(async () => {
+    try { await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token); } catch(e){}
+  }, 700);
 };
 
 window.pcAddSaida = function(){ el('pc-saidas').insertAdjacentHTML('beforeend', _pcLinhaSaida()); };
