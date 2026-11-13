@@ -8546,6 +8546,10 @@ window.dfRenderTela = async function(){
           <button onclick="dctImportar()" class="flex-1 py-2.5 rounded-xl bg-sky-600 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-file-import mr-1"></i> Importar</button>
           <button onclick="dcpWhats('cartao')" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><i class="fa-brands fa-whatsapp mr-1"></i> Resumo</button>
         </div>
+        <div class="flex gap-2">
+          <button onclick="dctRelatorio()" class="flex-1 py-2.5 rounded-xl bg-amber-700 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-print mr-1"></i> Relatório</button>
+          <button onclick="dctRelatorio('Combustivel e Lubrificantes')" class="flex-1 py-2.5 rounded-xl bg-orange-700 text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-gas-pump mr-1"></i> Combustível</button>
+        </div>
       </div>
       <div id="dct-form"></div>
       <div id="dct-corpo"></div>
@@ -8757,7 +8761,7 @@ function _dcpCard(d, comCartao){
     <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpMarcarPaga('${d.id}', this.checked)" class="w-5 h-5 accent-emerald-500 cursor-pointer shrink-0">
     <span class="flex-1 min-w-0">
       <b class="text-[11px] block truncate">${d.recorrente ? '<i class="fa-solid fa-rotate text-teal-400 mr-0.5" title="Recorrente"></i>' : ''}${esc(d.descricao)}</b>
-      <span class="text-[9px] opacity-55 block">venc ${_dcpDataBr(d.vencimento)}${d.data_compra ? ` · compra ${_dcpDataBr(d.data_compra)}` : ''}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}${d.grupo_dre ? ` · <b class="text-sky-400">${esc(d.grupo_dre)}</b>` : ''}</span>
+      <span class="text-[9px] opacity-55 block">venc ${_dcpDataBr(d.vencimento)}${d.data_compra ? ` · compra ${_dcpDataBr(d.data_compra)}` : ''}${comCartao && d.cartao ? ` · ${esc(d.cartao)}` : ''} · ${esc(d.categoria)}${d.grupo_dre ? ` · <b class="text-sky-400">${esc(d.grupo_dre)}</b>` : ''}${d.semana_lancada ? ` · <b class="text-teal-400">${esc(d.semana_lancada)}</b>` : ''}</span>
       ${st}
     </span>
     <b class="text-[11px] tabular-nums shrink-0 ${vencida ? 'text-red-400' : ''}">${brl(Number(d.valor_previsto) || 0)}</b>
@@ -8775,8 +8779,13 @@ async function _dcpRenderLista(forma){
   const lista = dcpCache.filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
   const pagas = lista.filter(d => d.pago_em), pend = lista.filter(d => !d.pago_em);
   const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
+  const blocos = ehCartao
+    ? _dcGruposDe(lista).map(g => `
+        <p class="text-[9px] font-black uppercase tracking-widest text-sky-400 pt-2 flex items-center justify-between"><span><i class="fa-solid fa-folder-open mr-1"></i>${esc(g.nome)}</span><span class="tabular-nums">${brl(g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0))}</span></p>
+        <div class="space-y-2">${g.itens.map(d => _dcpCard(d, true)).join('')}</div>`).join('')
+    : `<div class="space-y-2">${lista.map(d => _dcpCard(d, false)).join('')}</div>`;
   corpo.innerHTML = (lista.length
-    ? `<div class="space-y-2">${lista.map(d => _dcpCard(d, ehCartao)).join('')}</div>`
+    ? blocos
     : `<p class="text-center text-[11px] py-6 opacity-60">${ehCartao ? 'Nenhum débito de cartão neste mês.' : 'Nenhuma conta a pagar neste mês.'}</p>`)
     + (lista.length ? `<p class="text-right text-[10px] font-bold mt-2"><span class="text-emerald-500">Pagas ${brl(soma(pagas))}</span> · <span class="text-amber-500">A pagar ${brl(soma(pend))}</span> · <span class="opacity-60">Total ${brl(soma(lista))}</span></p>
       <p class="text-[9px] opacity-50 mt-1">A baixa aqui não lança no financeiro — registre a saída no movimento.</p>` : '');
@@ -8799,6 +8808,8 @@ window.dcpAbrirForm = function(forma, id = null){
       <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     </div>
     ${ehCartao ? '' : `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Categoria</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${['Administrativo', 'Operacional', 'Encargos', 'Manutenção'].map(c => `<option ${c === (d?.categoria || 'Operacional') ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`}
+    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Classificação DRE</span><select id="dcp-f-grupo" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem grupo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
     <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-recorr" type="checkbox" ${d?.recorrente ? 'checked' : ''} class="w-4 h-4 accent-teal-500"><span>🔁 Repete todo mês (mesmo valor — edite se mudar)</span></label>
     <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-jalanc" type="checkbox" ${d?.ja_lancada_financeiro ? 'checked' : ''} class="w-4 h-4 accent-sky-500"><span>Já lançada no financeiro (só histórico)</span></label>
     <div class="flex gap-2">
@@ -8832,6 +8843,9 @@ window.dcpSalvarForm = async function(forma){
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
     recorrente: !!el('dcp-f-recorr')?.checked,
+    grupo_dre: el('dcp-f-grupo')?.value || '',
+    semana_lancada: el('dcp-f-semana')?.value || '',
+    data_compra: (dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.data_compra) || '',
   };
   const r = await api('salvar_despesa_fixa', body, sessao()?.token);
   if (!r?.ok) { toast(r?.erro || 'Falha ao salvar.'); return; }
@@ -8869,6 +8883,82 @@ window.dcpWhats = async function(forma){
   const txt = L.join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Resumo copiado — cole no WhatsApp.'); }
   catch(e){ prompt('Copie o resumo:', txt); }
+};
+
+/* ============ RELATÓRIOS DE DESPESAS — modelo do campo (uma página por grupo) ============ */
+function _dcGruposDe(lista){
+  const grupos = IMP_GRUPOS
+    .map(nome => ({ nome, itens: lista.filter(d => d.grupo_dre === nome) }))
+    .filter(g => g.itens.length);
+  const sem = lista.filter(d => !d.grupo_dre || !IMP_GRUPOS.includes(d.grupo_dre));
+  if (sem.length) grupos.push({ nome: 'Despesas Diversas', itens: sem });
+  return grupos;
+}
+
+const _dcSemanaPadrao = itens => {
+  const freq = {};
+  itens.forEach(d => { const s = String(d.semana_lancada || '').trim(); if (s) freq[s] = (freq[s] || 0) + 1; });
+  const melhor = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+  return melhor ? melhor[0].replace(/semana$/i, 'Semana') : '___ª Semana';
+};
+
+function _dcPaginaGrupo(g, mesExt, ano){
+  const td = 'border:1px solid #9ca3af;padding:5px 7px;font-size:10px';
+  const th = 'border:1px solid #9ca3af;padding:5px;font-size:9px';
+  const total = g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
+  const linha = d => `<tr>
+    <td style="${td};text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td>
+    <td style="${td}">${esc(d.descricao)}</td>
+    <td style="${td};font-size:9px">${esc(d.cartao || '—')}</td>
+    <td style="${td};text-align:center;font-size:9px;white-space:nowrap">${esc(d.semana_lancada || '—')}</td>
+    <td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`;
+  return `<div class="dc-page" style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
+    <img src="icons/cabecalho_ad_brasil.png" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
+    <p style="text-align:center;font-weight:800;font-size:14px;margin:10px 0 2px;letter-spacing:.5px">RELATÓRIO DE DESPESAS</p>
+    <p style="text-align:center;font-weight:700;font-size:12px;margin:0 0 10px">Cartão de Crédito</p>
+    <p style="font-size:11px;text-align:justify;line-height:1.55;margin:0 0 12px">Declaramos para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(_dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
+    <table style="width:100%;border-collapse:collapse">
+      <tr style="background:#f3f4f6"><th style="${th};text-align:center">Data</th><th style="${th};text-align:left">Descrição</th><th style="${th};text-align:left">Cartão</th><th style="${th};text-align:center">Semana</th><th style="${th};text-align:right">Valor</th></tr>
+      ${g.itens.map(linha).join('')}
+      <tr style="background:#f9fafb"><td colspan="4" style="${td};font-weight:800;text-align:right">Total ${esc(g.nome)}</td><td style="${td};text-align:right;font-weight:800">${brl(total)}</td></tr>
+    </table>
+    <p style="font-size:11px;margin:14px 0 0">Rorainópolis – RR, ${_pcDataExtenso(new Date().toISOString().slice(0, 10))}</p>
+    <div style="text-align:center;margin-top:44px;font-size:11px;line-height:1.7">
+      <p style="border-top:1px solid #111;width:64%;margin:0 auto 4px"></p>
+      <p style="font-weight:800;margin:0">CARLOS DANIEL ALMEIDA DE ALENCAR</p>
+      <p style="margin:0">Gestor Financeiro – AD Brasil Campo Rorainópolis</p>
+      <p style="margin-top:14px;font-weight:700">CONTADOR – CRC-RR 002134/O</p>
+    </div>
+  </div>`;
+}
+
+window.dctRelatorio = async function(grupoFiltro){
+  const ano = el('dct-ano')?.value, mes = el('dct-mes')?.value;
+  const lista = ((dcpCache.length ? dcpCache : await _dcpListar(ano, mes)) || []).filter(d => d.forma === 'cartao');
+  let grupos = _dcGruposDe(lista);
+  if (grupoFiltro) grupos = grupos.filter(g => g.nome === grupoFiltro);
+  if (!grupos.length){ toast(grupoFiltro ? `Nenhum débito em "${grupoFiltro}" neste mês.` : 'Nenhum débito de cartão neste mês.'); return; }
+  const mesExt = String(mes || '').toLowerCase();
+  let ov = el('dc-rel-overlay');
+  if (!ov){ ov = document.createElement('div'); ov.id = 'dc-rel-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `
+    <style>@media print{ @page{size:A4;margin:12mm} body *{visibility:hidden!important} #dc-rel-doc, #dc-rel-doc *{visibility:visible!important} #dc-rel-doc{position:absolute!important;left:0;top:0;width:100%} .dc-page{page-break-after:always;break-after:page} .dc-page:last-child{page-break-after:auto} }</style>
+    <div style="position:sticky;top:8px;z-index:5;max-width:640px;margin:0 auto 10px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de Despesas — ${esc(String(mes))}/${esc(String(ano))}</p>
+        <p style="font-size:10px;color:#9ca3af">${grupos.length} página(s), uma por classificação</p>
+      </div>
+      <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
+    </div>
+    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${grupos.map(g => _dcPaginaGrupo(g, mesExt, ano)).join('')}</div>
+    <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
+      <div style="display:flex;gap:8px">
+        <button onclick="window.print()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir / PDF</button>
+        <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:44px;padding:11px;border-radius:10px;border:none;background:#374151;color:#fff;font-weight:700;font-size:12px;cursor:pointer" title="Fechar">✕</button>
+      </div>
+    </div>`;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(15,23,42,.92);padding:10px 10px calc(10px + env(safe-area-inset-bottom))';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
 };
 
 /* ============ IMPORTAÇÃO DE FATURA — Banco do Brasil / Ourocard (.txt) ============ */
