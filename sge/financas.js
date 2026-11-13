@@ -8998,18 +8998,20 @@ window.pcRenderTela = async function(){
    e trava de recibo duplicado — número já usado em outro mês não é gravado. */
 const _PC_CAMPOS_RECIBO = () => [
   { tipo: 'numero', rotulo: 'Nº recibo' },
+  { tipo: 'data', rotulo: 'Data' },
   { tipo: 'bloco', rotulo: 'Bloco' },
   ...PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%' ? null : { tipo: 'num', idx: i, rotulo: 'Nº ' + (g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio Pastoral' : g.nome) }).filter(Boolean),
 ];
 function _pcReciboCampos(){
   const m = _pcMetaMes();
   return _PC_CAMPOS_RECIBO().map(c => {
-    const v = c.tipo === 'num' ? (m.nums[PC_GRUPOS[c.idx].nome] || '') : c.tipo === 'bloco' ? m.bloco : m.numero;
+    const ehData = c.tipo === 'data';
+    const v = c.tipo === 'num' ? (m.nums[PC_GRUPOS[c.idx].nome] || '') : c.tipo === 'bloco' ? m.bloco : ehData ? (m.data ? m.data.slice(8,10) + '/' + m.data.slice(5,7) + '/' + m.data.slice(0,4) : '') : m.numero;
     return `<label class="flex items-center gap-1 px-1.5 py-1 rounded-lg border" style="border-color:var(--border-color);background:var(--bg-input)">
       <span class="text-[7px] font-black uppercase tracking-widest opacity-50">${c.rotulo}</span>
-      <input type="text" inputmode="numeric" maxlength="8" value="${esc(v)}" placeholder="—"
-        data-tipo="${c.tipo}" data-idx="${c.idx ?? -1}" oninput="pcCampoRecibo(this)"
-        class="w-12 px-1 py-0.5 rounded-md border text-[11px] text-center font-bold"
+      <input type="text" inputmode="numeric" maxlength="${ehData ? 10 : 8}" value="${esc(v)}" placeholder="${ehData ? 'DD/MM/AAAA' : '—'}"
+        data-tipo="${c.tipo}" data-idx="${c.idx ?? -1}" oninput="${ehData ? 'pcMascaraDataRecibo(this);' : ''}pcCampoRecibo(this)"
+        class="${ehData ? 'w-20' : 'w-12'} px-1 py-0.5 rounded-md border text-[11px] text-center font-bold"
         style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
     </label>`;
   }).join('');
@@ -9039,11 +9041,12 @@ window.pcSalvarReciboTela = async function(){
   document.querySelectorAll('#pc-recibo-campos input[data-tipo]').forEach(inp => {
     const tipo = inp.dataset.tipo, idx = Number(inp.dataset.idx || -1);
     const v = inp.value.trim();
-    const dup = v ? _pcReciboDuplicado(tipo, idx, v) : null;
+    const dup = tipo !== 'data' && v ? _pcReciboDuplicado(tipo, idx, v) : null;
     inp.style.borderColor = dup ? '#dc2626' : 'var(--border-color)';
     if (dup && !dupMsg) dupMsg = `Nº ${v} já usado em ${dup}`;
     else if (!dup){
       if (tipo === 'numero') m.numero = v;
+      else if (tipo === 'data') m.data = _pcBrParaIso(v);
       else if (tipo === 'bloco') m.bloco = v;
       else m.nums[PC_GRUPOS[idx].nome] = v;
     }
@@ -9110,12 +9113,8 @@ window.pcMascaraDataRecibo = function(inp){
 };
 
 window.pcLerMetaRecibo = function(){
-  const m = _pcMetaMes();
-  m.numero = (el('pc-numero-in')?.value || '').trim();
-  m.data = _pcBrParaIso(el('pc-data-in')?.value);
-  m.bloco = (el('pc-bloco-in')?.value || '').trim();
-  PC_GRUPOS.forEach((g, i) => { m.nums[g.nome] = g.nome === 'Auxílio Presidencial 5%' ? '' : (el('pc-num-in-' + i)?.value || '').trim(); });
-  return m;
+  /* Os campos saíram da prévia — a edição é só na tela (botão Salvar). */
+  return _pcMetaMes();
 };
 
 window.pcSalvarRecibo = async function(silencioso){
@@ -9129,7 +9128,7 @@ window.pcFecharRecibo = function(){ pcSalvarRecibo(true); el('pc-recibo-overlay'
 
 window.pcImprimirRecibo = async function(){
   const m = pcLerMetaRecibo();
-  if (!m.data){ toast('Preencha a data do recibo antes de imprimir.'); el('pc-data-in')?.focus(); return; }
+  if (!m.data){ toast('Preencha a data do recibo na tela antes de imprimir.'); return; }
   await pcSalvarRecibo(true);
   window.print();
 };
@@ -9179,14 +9178,7 @@ window.pcGerarRecibo = function(){
       </div>
     </div>
     <div style="max-width:520px;margin:10px auto 0">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <input id="pc-numero-in" placeholder="Nº Recibo" inputmode="numeric" value="${esc(m.numero)}" style="width:92px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.getElementById('pc-numero-doc').textContent = this.value || '________'">
-        <input id="pc-data-in" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" value="${esc(m.data ? m.data.slice(8,10) + '/' + m.data.slice(5,7) + '/' + m.data.slice(0,4) : '')}" style="width:100px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="pcMascaraDataRecibo(this)">
-        <input id="pc-bloco-in" placeholder="Bloco" value="${esc(m.bloco)}" style="width:64px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.querySelectorAll('[id^=pc-bloco-doc-]').forEach(x => x.textContent = this.value)">
-        ${PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%'
-          ? `<input id="pc-num-in-${i}" placeholder="Nº Auxílio" disabled title="Auxílio Pastoral não possui recibo próprio" style="width:110px;padding:7px;border-radius:8px;border:1px solid #e5e7eb;background:#f3f4f6;color:#9ca3af;font-size:11px">`
-          : `<input id="pc-num-in-${i}" placeholder="Nº ${rot(g)}" value="${esc(m.nums[g.nome] || '')}" style="width:110px;padding:7px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#111;font-size:11px" oninput="document.getElementById('pc-num-doc-${i}').textContent = this.value">`).join('')}
-      </div>
+      <p style="font-size:10px;color:#9ca3af;margin:0 0 6px;text-align:center">Nº, data, bloco e números por fundo são editados na tela (botão Salvar).</p>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button onclick="pcSalvarRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#15803d;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Salvar</button>
         <button onclick="pcImprimirRecibo()" style="flex:1;padding:10px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer">Imprimir / PDF</button>
