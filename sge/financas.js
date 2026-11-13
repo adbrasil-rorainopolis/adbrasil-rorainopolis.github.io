@@ -8981,23 +8981,65 @@ window.pcRenderTela = async function(){
         ${[['Entradas', totE, '#34d399'], ['Saídas', totS, '#f87171'], ['Líquido', totE - totS, (totE - totS) >= 0 ? '#34d399' : '#f87171']].map(([rot, v, c]) =>
           `<div class="rounded-xl border px-2 py-1.5 text-center" style="border-color:var(--border-color);background:var(--bg-input)"><p class="text-[8px] uppercase font-bold opacity-60">${rot}</p><p class="text-[11px] font-extrabold" style="color:${c}">${moeda(v)}</p></div>`).join('')}
       </div>
+      <div class="rounded-2xl border p-3 space-y-2" style="background:var(--bg-card);border-color:var(--border-color)">
+        <p class="text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5" style="color:#f59e0b"><i class="fa-solid fa-receipt"></i> Dados do recibo</p>
+        <div class="flex flex-wrap gap-1.5" id="pc-recibo-campos">${_pcReciboCampos()}</div>
+        <p id="pc-dup-aviso" class="hidden text-[10px] font-bold px-2 py-1 rounded-lg" style="background:rgba(220,38,38,.12);color:#f87171"></p>
+      </div>
       <div class="flex items-center gap-2">
-        <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border shrink-0" style="border-color:#b45309;background:rgba(245,158,11,.08)" title="Nº do bloco do recibo — fica fixo no mês e sai na coluna Bloco">
-          <label class="text-[8px] font-black uppercase tracking-widest" style="color:#f59e0b">Bloco</label>
-          <input id="pc-bloco-tela" type="text" inputmode="numeric" maxlength="8" placeholder="—" value="${esc(_pcMetaMes().bloco)}" oninput="pcBlocoTela(this)" class="w-14 px-1.5 py-0.5 rounded-md border text-[11px] text-center font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
-        </div>
         <button onclick="pcGerarRecibo()" class="flex-1 py-2.5 rounded-xl text-white text-xs font-bold cursor-pointer" style="background:#b45309"><i class="fa-solid fa-file-pdf mr-1"></i>Gerar Recibo</button>
       </div>
     </div>`;
 };
 
-/* Caixinha do bloco na tela: registra o Nº do bloco do recibo do mês — fica
-   fixo, grava na nuvem com debounce e sai na coluna Bloco do relatório. */
-let _pcBlocoTimer = null;
-window.pcBlocoTela = function(inp){
-  _pcMetaMes().bloco = (inp.value || '').trim();
-  clearTimeout(_pcBlocoTimer);
-  _pcBlocoTimer = setTimeout(async () => {
+/* Campos do recibo na tela (Nº, Bloco e Nº por fundo): editáveis, com autosave
+   e trava de recibo duplicado — número já usado em outro mês não é gravado. */
+const _PC_CAMPOS_RECIBO = () => [
+  { tipo: 'numero', rotulo: 'Nº recibo' },
+  { tipo: 'bloco', rotulo: 'Bloco' },
+  ...PC_GRUPOS.map((g, i) => g.nome === 'Auxílio Presidencial 5%' ? null : { tipo: 'num', idx: i, rotulo: 'Nº ' + (g.nome === 'Convencionais' ? 'Convencional' : g.nome === 'Auxílio Presidencial 5%' ? 'Auxílio Pastoral' : g.nome) }).filter(Boolean),
+];
+function _pcReciboCampos(){
+  const m = _pcMetaMes();
+  return _PC_CAMPOS_RECIBO().map(c => {
+    const v = c.tipo === 'num' ? (m.nums[PC_GRUPOS[c.idx].nome] || '') : c.tipo === 'bloco' ? m.bloco : m.numero;
+    return `<label class="flex items-center gap-1 px-1.5 py-1 rounded-lg border" style="border-color:var(--border-color);background:var(--bg-input)">
+      <span class="text-[7px] font-black uppercase tracking-widest opacity-50">${c.rotulo}</span>
+      <input type="text" inputmode="numeric" maxlength="8" value="${esc(v)}" placeholder="—"
+        oninput="pcCampoRecibo(this, '${c.tipo}', ${c.idx ?? -1})"
+        class="w-12 px-1 py-0.5 rounded-md border text-[11px] text-center font-bold"
+        style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)">
+    </label>`;
+  }).join('');
+}
+function _pcReciboDuplicado(tipo, idx, valor){
+  const chaveAtual = PC.ano + '-' + PC.mes;
+  for (const [k, r] of Object.entries(PC.recibos || {})){
+    if (k === chaveAtual || !r) continue;
+    const alvo = tipo === 'numero' ? r.numero : (r.nums || {})[PC_GRUPOS[idx].nome];
+    if (alvo && String(alvo).trim() === valor) return k.replace('-', '/');
+  }
+  return null;
+}
+let _pcReciboTimer = null;
+window.pcCampoRecibo = function(inp, tipo, idx){
+  const v = (inp.value || '').trim();
+  const m = _pcMetaMes();
+  const av = el('pc-dup-aviso');
+  const dup = v ? _pcReciboDuplicado(tipo, idx, v) : null;
+  inp.style.borderColor = dup ? '#dc2626' : 'var(--border-color)';
+  if (dup){
+    if (av){ av.textContent = `⚠ Nº ${v} já usado em ${dup} — escolha outro`; av.classList.remove('hidden'); }
+    return; /* trava: número duplicado não é gravado */
+  }
+  if (av && ![...document.querySelectorAll('#pc-recibo-campos input')].some(x => x.style.borderColor === 'rgb(220, 38, 38)')){
+    av.textContent = ''; av.classList.add('hidden');
+  }
+  if (tipo === 'numero') m.numero = v;
+  else if (tipo === 'bloco') m.bloco = v;
+  else m.nums[PC_GRUPOS[idx].nome] = v;
+  clearTimeout(_pcReciboTimer);
+  _pcReciboTimer = setTimeout(async () => {
     try { await api('salvar_config_sge', { chave: PC_CHAVE, valor: JSON.stringify({ saidas: PC.saidas, recibos: PC.recibos }) }, sessao()?.token); } catch(e){}
   }, 700);
 };
@@ -9032,16 +9074,6 @@ function _pcMetaMes(){
   const m = PC.recibos[k] || (PC.recibos[k] = {});
   if (!m.nums || typeof m.nums !== 'object') m.nums = {};
   m.numero = m.numero || ''; m.data = m.data || ''; m.bloco = m.bloco || '';
-  /* ~1 bloco por mês: mês sem bloco registrado sugere último usado + 1. */
-  if (!m.bloco){
-    const MESES = SGEG.MESES_G || [];
-    let aa = Number(PC.ano), mm = MESES.indexOf(PC.mes);
-    for (let i = 0; i < 24; i++){
-      mm -= 1; if (mm < 0){ mm = 11; aa -= 1; }
-      const n = parseInt((PC.recibos[`${aa}-${MESES[mm]}`] || {}).bloco, 10);
-      if (Number.isFinite(n)){ m.bloco = String(n + 1); break; }
-    }
-  }
   return m;
 }
 const _pcBrParaIso = br => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(br || '').trim()); return (m && +m[1] >= 1 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12) ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
