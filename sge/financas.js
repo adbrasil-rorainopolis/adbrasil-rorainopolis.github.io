@@ -8937,24 +8937,31 @@ function _impDiaNoMes(dataIso, ano, mesNome){
 
 window.dctImportar = function(){
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = '.txt,.csv,.ofx'; inp.multiple = true;
-  inp.onchange = () => dctLerArquivos(inp.files);
+  inp.type = 'file'; inp.accept = '.txt,.csv,.ofx,text/plain'; inp.multiple = true;
+  // iOS/Safari: o input precisa estar no DOM para o seletor de arquivos abrir.
+  inp.style.position = 'fixed'; inp.style.left = '-9999px'; inp.style.opacity = '0';
+  document.body.appendChild(inp);
+  inp.onchange = () => { dctLerArquivos(inp.files); setTimeout(() => inp.remove(), 500); };
   inp.click();
 };
 
 window.dctLerArquivos = async function(files){
   if (!files?.length) return;
-  const faturas = [];
-  for (const f of files){
-    const buf = await f.arrayBuffer();
-    let texto;
-    try { texto = new TextDecoder('iso-8859-1').decode(buf); }
-    catch(e){ texto = new TextDecoder('utf-8').decode(buf); }
-    const fat = _impParseFatura(texto, f.name);
-    if (fat.itens.length) faturas.push(fat);
-  }
-  if (!faturas.length){ toast('Nenhum lançamento reconhecido nos arquivos.'); return; }
-  const refs = new Set((await api('listar_import_refs', {}, sessao()?.token))?.refs || []);
+  let faturas = [];
+  try {
+    for (const f of files){
+      const buf = await f.arrayBuffer();
+      let texto;
+      try { texto = new TextDecoder('iso-8859-1').decode(buf); }
+      catch(e){ texto = new TextDecoder('utf-8').decode(buf); }
+      const fat = _impParseFatura(texto, f.name);
+      if (fat.itens.length) faturas.push(fat);
+    }
+    if (!faturas.length){ toast('Nenhum lançamento reconhecido nos arquivos.'); return; }
+  } catch(e){ toast('Falha ao ler o arquivo: ' + (e.message || e)); return; }
+  let refs = new Set();
+  try { refs = new Set((await api('listar_import_refs', {}, sessao()?.token))?.refs || []); }
+  catch(e){ /* API antiga sem a action — importa sem dedupe remoto */ }
   impItens = [];
   faturas.forEach(fat => {
     const cartaoNome = fat.modalidade || `Cartão final ${fat.cartaoMask || '????'}`;
