@@ -885,7 +885,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.0.1';
+const SGE_VERSAO = '2.0.2';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -903,7 +903,7 @@ async function api(action, payload, token){
   if (res.ok) sgeOffline(false);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401 && token) { limparSessao(); limparSessaoBio(); location.reload(); }
+    if (res.status === 401 && token) { limparSessao(); location.reload(); }
     throw Object.assign(new Error(data.erro || 'Erro ' + res.status), { data });
   }
   return data;
@@ -1799,18 +1799,21 @@ async function desbloquearBio(auto){
       // caminho principal: a credencial de dispositivo cunha sessão nova
       // (o token de 12h pode ter expirado — o segredo continua valendo)
       if (c?.segredo) {
-        try {
-          const res = await api('login_dispositivo', { cpf: c.cpf, device_id: sgeDeviceId(), segredo: c.segredo, plataforma: sgePlataforma() });
-          if (res?.token) {
-            const nova = { token: res.token, usuario: res.usuario || {}, expira_em: res.expira_em };
-            salvarSessao(nova); salvarSessaoBio(nova);
-            $('unlock-screen').style.display = 'none';
-            entrarNoApp();
-            return;
+        let res = null;
+        for (let tent = 0; tent < 2 && !res?.token; tent++) {
+          try {
+            res = await api('login_dispositivo', { cpf: c.cpf, device_id: sgeDeviceId(), segredo: c.segredo, plataforma: sgePlataforma() });
+          } catch (eApi) {
+            if (eApi?.data?.credencial_invalida) { usarSenha(); return; }
+            if (tent === 0) await new Promise(r => setTimeout(r, 1200)); // rede fria: tenta de novo
           }
-        } catch (eApi) {
-          if (eApi?.data?.credencial_invalida) { usarSenha(); return; }
-          // sem rede agora: cai para a sessão bio local se ainda valer
+        }
+        if (res?.token) {
+          const nova = { token: res.token, usuario: res.usuario || {}, expira_em: res.expira_em };
+          salvarSessao(nova); salvarSessaoBio(nova);
+          $('unlock-screen').style.display = 'none';
+          entrarNoApp();
+          return;
         }
       }
       const bs = bioSessao();
