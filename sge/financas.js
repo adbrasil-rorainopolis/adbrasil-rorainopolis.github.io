@@ -8960,34 +8960,59 @@ const _dcSemanaPadrao = itens => {
   return melhor ? melhor[0].replace(/semana$/i, 'Semana') : '___ª Semana';
 };
 
-function _dcPaginaGrupo(g, mesExt, ano, timbSrc){
-  const td = 'border:1px solid #9ca3af;padding:5px 7px;font-size:10px';
-  const th = 'border:1px solid #9ca3af;padding:5px;font-size:9px';
+/* Modelos de página — mesma distribuição do PDF do campo. */
+const _DC_ASSINATURA = `<div style="text-align:center;margin-top:46px;font-size:11px;line-height:1.7">
+  <p style="border-top:1px solid #111;width:72%;margin:0 auto 4px"></p>
+  <p style="font-weight:800;margin:0">CARLOS DANIEL ALMEIDA DE ALENCAR</p>
+  <p style="margin:0">Gestor Financeiro – AD Brasil Campo Rorainópolis</p>
+  <p style="margin-top:12px;font-weight:700">CONTADOR – CRC-RR 002134/O</p>
+</div>`;
+const _dcRodape = logoAd => `<div style="position:absolute;bottom:14px;left:0;right:0;text-align:center">
+  <img src="${logoAd}" alt="" style="width:52px;height:auto;display:block;margin:0 auto 3px" onerror="this.style.display='none'">
+  <p style="font-size:9px;font-weight:800;letter-spacing:1px;margin:0">AD BRASIL — SEDE RORAINÓPOLIS</p>
+  <p style="font-size:8.5px;margin:0">Rua Pastor Manoel Batista, nº 102 – Centro</p>
+</div>`;
+const _DC_MODELOS = [
+  { id: 'oficial', nome: 'Modelo Oficial', desc: 'Igual ao PDF do campo — tabela centralizada, limpa' },
+  { id: 'executivo', nome: 'Executivo', desc: 'Faixa escura no título, linhas zebradas' },
+  { id: 'classico', nome: 'Clássico', desc: 'Tabela quadriculada com cabeçalho de colunas' },
+];
+let dcEstilo = localStorage.getItem('sge_dc_estilo') || 'oficial';
+
+function _dcPaginaConta(g, mesExt, ano, timbSrc, logoAd, estilo){
   const total = g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
-  const linha = d => `<tr>
-    <td style="${td};text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td>
-    <td style="${td}">${esc(d.descricao)}</td>
-    <td style="${td};font-size:9px">${esc(d.cartao || '—')}</td>
-    <td style="${td};text-align:center;font-size:9px;white-space:nowrap">${esc(d.semana_lancada || '—')}</td>
-    <td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`;
-  return `<div class="dc-page" style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
-    <img src="${timbSrc || 'icons/cabecalho_ad_brasil.png'}" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
+  const base = `class="dc-page" style="position:relative;background:#fff;color:#111;padding:22px 20px 90px;max-width:600px;min-height:760px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)"`;
+  const topo = `<img src="${timbSrc}" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
     <p style="text-align:center;font-weight:800;font-size:14px;margin:10px 0 2px;letter-spacing:.5px">RELATÓRIO DE DESPESAS</p>
     <p style="text-align:center;font-weight:700;font-size:12px;margin:0 0 10px">Cartão de Crédito</p>
-    <p style="font-size:11px;text-align:justify;line-height:1.55;margin:0 0 12px">Declaramos para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(_dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
-    <table style="width:100%;border-collapse:collapse">
+    <p style="font-size:11px;text-align:justify;line-height:1.55;margin:0 0 8px">Declaramos para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(_dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
+    <p style="font-size:11px;text-align:right;margin:0 0 14px">Rorainópolis – RR, ${_pcDataExtenso(new Date().toISOString().slice(0, 10))}</p>`;
+  let tabela = '';
+  if (estilo === 'oficial'){
+    tabela = `<table style="width:82%;margin:0 auto;border-collapse:collapse;font-size:10.5px">
+      <tr><td colspan="5" style="text-align:center;font-weight:800;color:#7f1d1d;font-size:12px;padding:6px 0 10px">${esc(g.nome)}</td></tr>
+      ${g.itens.map(d => `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:5px 4px;font-size:9.5px;text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="padding:5px 4px">${esc(d.descricao)}</td><td style="padding:5px 4px;font-size:9px">${esc(d.cartao || '—')}</td><td style="padding:5px 4px;font-size:9px;text-align:center;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="padding:5px 4px;text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
+      <tr><td colspan="4" style="padding:7px 4px;font-weight:800;font-size:11px;border-top:2px solid #111">Total</td><td style="padding:7px 4px;font-weight:800;font-size:11px;text-align:right;border-top:2px solid #111">${brl(total)}</td></tr>
+    </table>`;
+  } else if (estilo === 'executivo'){
+    const th = 'padding:6px 7px;font-size:9px;color:#fff;text-align:left';
+    tabela = `<table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <tr style="background:#1f2937"><td colspan="5" style="padding:7px 10px;font-weight:800;color:#fff;font-size:11.5px;letter-spacing:.4px">${esc(g.nome)}<span style="float:right;font-weight:700;color:#d1d5db">${g.itens.length} item(ns)</span></td></tr>
+      <tr style="background:#374151"><th style="${th}">Data</th><th style="${th}">Descrição</th><th style="${th}">Cartão</th><th style="${th};text-align:center">Semana</th><th style="${th};text-align:right">Valor</th></tr>
+      ${g.itens.map((d, i) => `<tr style="background:${i % 2 ? '#f9fafb' : '#fff'};border-bottom:1px solid #e5e7eb"><td style="padding:5px 7px;font-size:9.5px;text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="padding:5px 7px">${esc(d.descricao)}</td><td style="padding:5px 7px;font-size:9px">${esc(d.cartao || '—')}</td><td style="padding:5px 7px;font-size:9px;text-align:center;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="padding:5px 7px;text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
+      <tr style="background:#f3f4f6"><td colspan="4" style="padding:7px;font-weight:800;text-align:right">Total ${esc(g.nome)}</td><td style="padding:7px;font-weight:800;text-align:right">${brl(total)}</td></tr>
+    </table>`;
+  } else {
+    const td = 'border:1px solid #9ca3af;padding:5px 7px;font-size:10px';
+    const th = 'border:1px solid #9ca3af;padding:5px;font-size:9px';
+    tabela = `<table style="width:100%;border-collapse:collapse">
+      <tr style="background:#e5e7eb"><td colspan="5" style="${td};text-align:center;font-weight:800;font-size:11.5px">${esc(g.nome)}</td></tr>
       <tr style="background:#f3f4f6"><th style="${th};text-align:center">Data</th><th style="${th};text-align:left">Descrição</th><th style="${th};text-align:left">Cartão</th><th style="${th};text-align:center">Semana</th><th style="${th};text-align:right">Valor</th></tr>
-      ${g.itens.map(linha).join('')}
+      ${g.itens.map(d => `<tr><td style="${td};text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="${td}">${esc(d.descricao)}</td><td style="${td};font-size:9px">${esc(d.cartao || '—')}</td><td style="${td};text-align:center;font-size:9px;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
       <tr style="background:#f9fafb"><td colspan="4" style="${td};font-weight:800;text-align:right">Total ${esc(g.nome)}</td><td style="${td};text-align:right;font-weight:800">${brl(total)}</td></tr>
-    </table>
-    <p style="font-size:11px;margin:14px 0 0">Rorainópolis – RR, ${_pcDataExtenso(new Date().toISOString().slice(0, 10))}</p>
-    <div style="text-align:center;margin-top:44px;font-size:11px;line-height:1.7">
-      <p style="border-top:1px solid #111;width:64%;margin:0 auto 4px"></p>
-      <p style="font-weight:800;margin:0">CARLOS DANIEL ALMEIDA DE ALENCAR</p>
-      <p style="margin:0">Gestor Financeiro – AD Brasil Campo Rorainópolis</p>
-      <p style="margin-top:14px;font-weight:700">CONTADOR – CRC-RR 002134/O</p>
-    </div>
-  </div>`;
+    </table>`;
+  }
+  return `<div ${base}>${topo}${tabela}${_DC_ASSINATURA}${_dcRodape(logoAd)}</div>`;
 }
 
 /* Agrupa pela conta de despesa (estabelecimento normalizado) — uma página
@@ -9041,26 +9066,50 @@ window.dctRelatorio = async function(grupoFiltro){
   document.body.appendChild(ov);
 };
 
+let _dcDocContas = [], _dcDocMesExt = '', _dcDocAno = '', _dcDocTimb = '', _dcDocLogo = '';
+function _dcRenderDoc(){
+  const box = el('dc-rel-doc');
+  if (box) box.innerHTML = _dcDocContas.map(g => _dcPaginaConta(g, _dcDocMesExt, _dcDocAno, _dcDocTimb, _dcDocLogo, dcEstilo)).join('');
+}
+window.dcTrocarModelo = function(id){
+  dcEstilo = id;
+  try { localStorage.setItem('sge_dc_estilo', id); } catch(e){}
+  document.querySelectorAll('#dc-modelos label').forEach((lb, i) => {
+    const ativo = _DC_MODELOS[i].id === id;
+    lb.style.borderColor = ativo ? '#f59e0b' : '#374151';
+    lb.style.background = ativo ? '#78350f33' : '#1f2937';
+  });
+  _dcRenderDoc();
+};
+
 window.dctGerarSelecionadas = async function(){
   const marcadas = [...document.querySelectorAll('[data-dcsel]:checked')].map(c => _dcSelItens[Number(c.dataset.dcsel)]);
   if (!marcadas.length){ toast('Marque ao menos uma despesa.'); return; }
   el('dc-sel-overlay')?.remove();
-  const mesExt = _dcSelMes.toLowerCase();
-  const contas = _dcContasDe(marcadas);
-  /* Timbrado embutido em data URI — imprime mesmo se o path falhar. */
-  const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || 'icons/cabecalho_ad_brasil.png';
+  _dcDocMesExt = _dcSelMes.toLowerCase();
+  _dcDocAno = _dcSelAno;
+  _dcDocContas = _dcContasDe(marcadas);
+  /* Timbrado e logo embutidos em data URI — imprimem mesmo se o path falhar. */
+  _dcDocTimb = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || 'icons/cabecalho_ad_brasil.png';
+  _dcDocLogo = (await rcmImgData('icons/logo_ad_brasil.png'))?.data || 'icons/logo_ad_brasil.png';
   let ov = el('dc-rel-overlay');
   if (!ov){ ov = document.createElement('div'); ov.id = 'dc-rel-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
     <style>@media print{ @page{size:A4;margin:12mm} body *{visibility:hidden!important} #dc-rel-doc, #dc-rel-doc *{visibility:visible!important} #dc-rel-doc{position:absolute!important;left:0;top:0;width:100%} .dc-page{page-break-after:always;break-after:page} .dc-page:last-child{page-break-after:auto} }</style>
-    <div style="position:sticky;top:8px;z-index:5;max-width:640px;margin:0 auto 10px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px">
-      <div style="flex:1;min-width:0">
-        <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de Despesas — ${esc(_dcSelMes)}/${esc(_dcSelAno)}</p>
-        <p style="font-size:10px;color:#9ca3af">${contas.length} página(s), uma por conta de despesa</p>
+    <div style="position:sticky;top:8px;z-index:5;max-width:640px;margin:0 auto 10px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de Despesas — ${esc(_dcSelMes)}/${esc(_dcSelAno)}</p>
+          <p style="font-size:10px;color:#9ca3af">${_dcDocContas.length} página(s), uma por conta de despesa</p>
+        </div>
+        <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
       </div>
-      <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
+      <div id="dc-modelos" style="display:flex;flex-direction:column;gap:6px">${_DC_MODELOS.map(m => `<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid ${dcEstilo === m.id ? '#f59e0b' : '#374151'};background:${dcEstilo === m.id ? '#78350f33' : '#1f2937'};cursor:pointer">
+        <input type="radio" name="dc-modelo" value="${m.id}" ${dcEstilo === m.id ? 'checked' : ''} onchange="dcTrocarModelo('${m.id}')" style="margin-top:2px;accent-color:#f59e0b">
+        <span style="font-size:11px;color:#f9fafb"><b>${m.nome}</b><br><span style="font-size:9.5px;color:#9ca3af">${m.desc}</span></span>
+      </label>`).join('')}</div>
     </div>
-    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${contas.map(g => _dcPaginaGrupo(g, mesExt, _dcSelAno, timbSrc)).join('')}</div>
+    <div id="dc-rel-doc" style="font-family:Arial,sans-serif"></div>
     <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
       <div style="display:flex;gap:8px">
         <button onclick="window.print()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir / PDF</button>
@@ -9069,6 +9118,7 @@ window.dctGerarSelecionadas = async function(){
     </div>`;
   ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(15,23,42,.92);padding:10px 10px calc(10px + env(safe-area-inset-bottom))';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  _dcRenderDoc();
 };
 
 /* ============ IMPORTAÇÃO DE FATURA — Banco do Brasil / Ourocard (.txt) ============ */
