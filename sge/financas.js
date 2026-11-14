@@ -9025,7 +9025,7 @@ window.dctRelatorio = async function(grupoFiltro){
       <span class="text-[9px] opacity-55">${_dcpDataBr(d.data_compra || d.vencimento)} · ${esc(d.cartao || '—')}${d.grupo_dre ? ` · ${esc(d.grupo_dre)}` : ''}</span></span>
       <b class="text-[11px] tabular-nums shrink-0" style="color:var(--text-main)">${brl(Number(d.valor_previsto) || 0)}</b>
     </label>
-    <select data-dcsem="${i}" class="shrink-0 rounded-lg border px-1.5 py-1.5 text-[10px] font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${semOps(d)}</select>
+    <select data-dcsem="${i}" onchange="dctSalvarSemanaItem(${i}, this.value)" class="shrink-0 rounded-lg border px-1.5 py-1.5 text-[10px] font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${semOps(d)}</select>
   </div>`;
   ov.innerHTML = `<div style="min-height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto">
     <div style="position:sticky;top:8px;z-index:5;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;margin-bottom:10px">
@@ -9054,16 +9054,33 @@ window.dctRelatorio = async function(grupoFiltro){
   document.body.appendChild(ov);
 };
 
-/* Aplica uma semana a todas as despesas marcadas de uma vez. */
-window.dctAplicarSemanaLote = function(){
+/* Grava a semana de uma despesa no banco — feedback imediato. */
+async function _dcGravarSemana(d, sem){
+  const r = await api('salvar_despesa_fixa', { ...d, semana_lancada: sem }, sessao()?.token);
+  if (r?.ok){ d.semana_lancada = sem; return true; }
+  toast(`Semana de "${d.descricao}" não gravada.`);
+  return false;
+}
+window.dctSalvarSemanaItem = async function(i, sem){
+  const d = _dcSelItens[i];
+  if (!d) return;
+  if (await _dcGravarSemana(d, sem)) toast(`${sem || 'Semana removida'} — ${d.descricao}`);
+};
+
+/* Aplica uma semana a todas as despesas marcadas — já grava no banco. */
+window.dctAplicarSemanaLote = async function(){
   const sem = el('dc-sel-sem-lote')?.value || '';
   if (!sem){ toast('Escolha a semana no campo ao lado.'); return; }
-  let n = 0;
-  document.querySelectorAll('[data-dcsel]:checked').forEach(c => {
-    const s = document.querySelector(`[data-dcsem="${c.dataset.dcsel}"]`);
-    if (s){ s.value = sem; n++; }
-  });
-  toast(n ? `${sem} aplicada a ${n} despesa(s).` : 'Marque as despesas primeiro.');
+  let n = 0, erros = 0;
+  for (const c of document.querySelectorAll('[data-dcsel]:checked')){
+    const i = Number(c.dataset.dcsel);
+    const s = document.querySelector(`[data-dcsem="${i}"]`);
+    if (s) s.value = sem;
+    const d = _dcSelItens[i];
+    if (d && sem !== (d.semana_lancada || '') && !(await _dcGravarSemana(d, sem))) erros++; else n++;
+  }
+  if (!n && !erros){ toast('Marque as despesas primeiro.'); return; }
+  toast(erros ? `${sem} gravada em ${n} despesa(s); ${erros} falharam.` : `${sem} gravada em ${n} despesa(s).`);
 };
 
 let _dcDocContas = [], _dcDocMesExt = '', _dcDocAno = '', _dcDocTimb = '';
@@ -9075,15 +9092,11 @@ function _dcRenderDoc(){
 window.dctGerarSelecionadas = async function(){
   const marcadas = [...document.querySelectorAll('[data-dcsel]:checked')].map(c => _dcSelItens[Number(c.dataset.dcsel)]);
   if (!marcadas.length){ toast('Marque ao menos uma despesa.'); return; }
-  /* Semanas ajustadas na seleção são gravadas antes de agrupar. */
+  /* Rede de segurança: semanas normalmente já foram gravadas no
+     onchange/em lote; aqui só sobra o que falhou antes. */
   for (const c of document.querySelectorAll('[data-dcsem]')){
     const d = _dcSelItens[Number(c.dataset.dcsem)];
-    if (!d) continue;
-    const sem = c.value || '';
-    if (sem === (d.semana_lancada || '')) continue;
-    const r = await api('salvar_despesa_fixa', { ...d, semana_lancada: sem }, sessao()?.token);
-    if (r?.ok) { d.semana_lancada = sem; }
-    else { toast(`Semana de "${d.descricao}" não gravada.`); }
+    if (d && (c.value || '') !== (d.semana_lancada || '')) await _dcGravarSemana(d, c.value || '');
   }
   el('dc-sel-overlay')?.remove();
   _dcDocMesExt = _dcSelMes.toLowerCase();
