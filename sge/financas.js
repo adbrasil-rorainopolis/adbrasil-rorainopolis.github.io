@@ -8960,7 +8960,7 @@ const _dcSemanaPadrao = itens => {
   return melhor ? melhor[0].replace(/semana$/i, 'Semana') : '___ª Semana';
 };
 
-function _dcPaginaGrupo(g, mesExt, ano){
+function _dcPaginaGrupo(g, mesExt, ano, timbSrc){
   const td = 'border:1px solid #9ca3af;padding:5px 7px;font-size:10px';
   const th = 'border:1px solid #9ca3af;padding:5px;font-size:9px';
   const total = g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
@@ -8971,7 +8971,7 @@ function _dcPaginaGrupo(g, mesExt, ano){
     <td style="${td};text-align:center;font-size:9px;white-space:nowrap">${esc(d.semana_lancada || '—')}</td>
     <td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`;
   return `<div class="dc-page" style="background:#fff;color:#111;padding:22px 20px;max-width:600px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)">
-    <img src="icons/cabecalho_ad_brasil.png" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
+    <img src="${timbSrc || 'icons/cabecalho_ad_brasil.png'}" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
     <p style="text-align:center;font-weight:800;font-size:14px;margin:10px 0 2px;letter-spacing:.5px">RELATÓRIO DE DESPESAS</p>
     <p style="text-align:center;font-weight:700;font-size:12px;margin:0 0 10px">Cartão de Crédito</p>
     <p style="font-size:11px;text-align:justify;line-height:1.55;margin:0 0 12px">Declaramos para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(_dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
@@ -9041,12 +9041,14 @@ window.dctRelatorio = async function(grupoFiltro){
   document.body.appendChild(ov);
 };
 
-window.dctGerarSelecionadas = function(){
+window.dctGerarSelecionadas = async function(){
   const marcadas = [...document.querySelectorAll('[data-dcsel]:checked')].map(c => _dcSelItens[Number(c.dataset.dcsel)]);
   if (!marcadas.length){ toast('Marque ao menos uma despesa.'); return; }
   el('dc-sel-overlay')?.remove();
   const mesExt = _dcSelMes.toLowerCase();
   const contas = _dcContasDe(marcadas);
+  /* Timbrado embutido em data URI — imprime mesmo se o path falhar. */
+  const timbSrc = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || 'icons/cabecalho_ad_brasil.png';
   let ov = el('dc-rel-overlay');
   if (!ov){ ov = document.createElement('div'); ov.id = 'dc-rel-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
@@ -9058,7 +9060,7 @@ window.dctGerarSelecionadas = function(){
       </div>
       <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
     </div>
-    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${contas.map(g => _dcPaginaGrupo(g, mesExt, _dcSelAno)).join('')}</div>
+    <div id="dc-rel-doc" style="font-family:Arial,sans-serif">${contas.map(g => _dcPaginaGrupo(g, mesExt, _dcSelAno, timbSrc)).join('')}</div>
     <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
       <div style="display:flex;gap:8px">
         <button onclick="window.print()" style="flex:1;padding:11px;border-radius:10px;border:none;background:#b45309;color:#fff;font-weight:700;font-size:12px;cursor:pointer"><i class="fa-solid fa-print mr-1"></i>Imprimir / PDF</button>
