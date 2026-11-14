@@ -1996,29 +1996,55 @@ async function renderAbaDispositivos(){
   }
   const cfg = { online: ['#10b981', 'Online'], ausente: ['#f59e0b', 'Ausente'], offline: ['#64748b', 'Desconectado'] };
   const fmtHb = s => { const d = new Date(String(s || '')); return isNaN(d) ? (s || '-') : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); };
-  const on = (GU.disp || []).filter(d => d.status === 'online').length;
+  const idadeSeg = s => { const t = new Date(String(s || '')).getTime(); return t ? Math.max(0, (Date.now() - t) / 1000) : Infinity; };
+  // Status calculado no cliente: não depende da versão da Edge nem de fuso —
+  // timestamps com Z/+00:00 são UTC; sem fuso, hora local do aparelho.
+  const stDe = d => { const s = idadeSeg(d.ultimo_heartbeat); return s <= 90 ? 'online' : s <= 300 ? 'ausente' : 'offline'; };
+  const fmtRel = s => { const seg = idadeSeg(s); if (!isFinite(seg)) return 'sem sinal';
+    const x = Math.round(seg);
+    if (x < 10) return 'agora'; if (x < 60) return `há ${x}s`;
+    if (x < 3600) return `há ${Math.floor(x / 60)}min`;
+    if (x < 86400) return `há ${Math.floor(x / 3600)}h`; return `há ${Math.floor(x / 86400)}d`; };
+  const qtd = st => (GU.disp || []).filter(d => stDe(d) === st).length;
+  const chip = (st, n) => `<span class="px-2 py-1 rounded-lg text-[9px] font-extrabold" style="color:${cfg[st][0]};background:${cfg[st][0]}1c;border:1px solid ${cfg[st][0]}55"><i class="fa-solid fa-circle text-[5px] mr-1 align-middle"></i>${n} ${cfg[st][1].toLowerCase()}</span>`;
   corpo.innerHTML = `
     <div class="space-y-2">
-      <div class="flex items-center gap-2 mb-1">
-        <p class="text-[11px] font-bold flex-1">${on} online agora • ${GU.disp.length} aparelho(s) conhecidos</p>
+      <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+        <div class="flex-1 flex items-center gap-1.5 flex-wrap">${chip('online', qtd('online'))}${chip('ausente', qtd('ausente'))}${chip('offline', qtd('offline'))}</div>
         <button onclick="renderAbaDispositivos()" class="px-3 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer" style="border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-rotate mr-1"></i>Atualizar</button>
       </div>
+      <p class="text-[9px] opacity-40">${GU.disp.length} aparelho(s) conhecidos • atualiza sozinho a cada 30s</p>
       ${GU.disp.map(d => {
-        const [cor, rot] = cfg[d.status] || cfg.offline;
+        const st = stDe(d);
+        const [cor, rot] = cfg[st];
         const ehPwa = String(d.machine_id || '').startsWith('pwa-');
         const nome = d.nome_dispositivo || d.hostname || 'Aparelho';
-        return `<div class="border rounded-2xl p-3 flex items-center gap-3 cursor-pointer" style="border-color:var(--border-color);background:var(--bg-card)" onclick="guRenomearDisp('${esc(d.machine_id)}')">
-          <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:${cor}1c"><i class="fa-solid ${ehPwa ? 'fa-mobile-screen' : 'fa-desktop'}" style="color:${cor}"></i></div>
+        const pulso = st === 'online' ? 'gu-pulse' : '';
+        return `<div class="border rounded-2xl p-3 flex items-center gap-3 cursor-pointer transition-all" style="border-color:var(--border-color);background:var(--bg-card)" onclick="guRenomearDisp('${esc(d.machine_id)}')">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative" style="background:${cor}1c"><i class="fa-solid ${ehPwa ? 'fa-mobile-screen' : 'fa-desktop'}" style="color:${cor}"></i><span class="${pulso} absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style="background:${cor}"></span></div>
           <div class="flex-1 min-w-0">
             <p class="text-[11px] font-bold truncate">${esc(nome)}</p>
             <p class="text-[9px] opacity-60 truncate">${esc(d.usuario_logado || '-')} • ${esc(d.perfil || '')} • ${esc(d.modulo_ativo || 'SGE')}</p>
             <p class="text-[9px] opacity-40 truncate font-mono">${esc(String(d.machine_id || '').slice(0, 18))}… · ${fmtHb(d.ultimo_heartbeat)}</p>
           </div>
-          <span class="text-[9px] font-bold shrink-0" style="color:${cor}"><i class="fa-solid fa-circle text-[6px] mr-1"></i>${rot}</span>
+          <div class="text-right shrink-0">
+            <span class="text-[9px] font-bold block" style="color:${cor}"><i class="fa-solid fa-circle text-[6px] mr-0.5 ${st === 'online' ? 'gu-pulse' : ''}"></i>${rot}</span>
+            <span class="text-[8px] opacity-40 font-mono">${fmtRel(d.ultimo_heartbeat)}</span>
+          </div>
         </div>`;
       }).join('') || '<div class="text-center py-10 text-xs opacity-50">Nenhum aparelho registrado ainda.</div>'}
       <p class="text-[9px] opacity-40 text-center pt-1">Toque num aparelho para dar um nome amigável a ele.</p>
     </div>`;
+  // Auto-atualização a cada 30s enquanto a aba Aparelhos estiver aberta.
+  const corpoRef = corpo;
+  if (window._guTimerDisp) clearInterval(window._guTimerDisp);
+  window._guTimerDisp = setInterval(() => {
+    // O nó morre junto da view; ACESSOS.aba/G.aba marcam a aba ativa em cada navegador.
+    const ativa = document.body.contains(corpoRef)
+      && (G?.aba === 'dispositivos' || window.ACESSOS?.aba === 'dispositivos');
+    if (ativa) renderAbaDispositivos();
+    else { clearInterval(window._guTimerDisp); window._guTimerDisp = null; }
+  }, 30000);
 }
 window.guRenomearDisp = async function(machineId){
   const atual = (GU.disp || []).find(d => d.machine_id === machineId);
