@@ -8809,8 +8809,6 @@ window.dcpAbrirForm = function(forma, id = null){
     </div>
     <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Tipo de Despesa</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem tipo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
     <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
-    <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-recorr" type="checkbox" ${d?.recorrente ? 'checked' : ''} class="w-4 h-4 accent-teal-500"><span>🔁 Repete todo mês (mesmo valor — edite se mudar)</span></label>
-    <label class="flex items-center gap-2 text-[10px]"><input id="dcp-f-jalanc" type="checkbox" ${d?.ja_lancada_financeiro ? 'checked' : ''} class="w-4 h-4 accent-sky-500"><span>Já lançada no financeiro (só histórico)</span></label>
     <div class="flex gap-2">
       <button onclick="dcpSalvarForm('${forma}')" class="flex-1 py-2.5 rounded-xl ${ehCartao ? 'bg-violet-600' : 'bg-emerald-600'} text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
       <button onclick="dcpFecharForm('${forma}')" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
@@ -8890,11 +8888,11 @@ window.dcpSalvarForm = async function(forma){
     descricao,
     categoria: ehCartao ? 'Cartão de Crédito' : ((dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.categoria) || 'Operacional'),
     valor_previsto: valor,
-    ja_lancada_financeiro: !!el('dcp-f-jalanc')?.checked,
+    ja_lancada_financeiro: !!(dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.ja_lancada_financeiro),
     vencimento: el('dcp-f-venc')?.value || '',
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
-    recorrente: !!el('dcp-f-recorr')?.checked,
+    recorrente: !!(dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.recorrente),
     grupo_dre: el('dcp-f-cat')?.value || '',
     semana_lancada: el('dcp-f-semana')?.value || '',
     data_compra: (dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.data_compra) || '',
@@ -9011,7 +9009,8 @@ let _dcSelItens = [], _dcSelMes = '', _dcSelAno = '';
 window.dctRelatorio = async function(grupoFiltro){
   const ano = el('dct-ano')?.value, mes = el('dct-mes')?.value;
   const lista = ((dcpCache.length ? dcpCache : await _dcpListar(ano, mes)) || [])
-    .filter(d => d.forma === 'cartao' && (!grupoFiltro || d.grupo_dre === grupoFiltro));
+    .filter(d => d.forma === 'cartao' && !DC_DESTINOS[d.grupo_dre]
+      && (!grupoFiltro || d.grupo_dre === grupoFiltro));
   if (!lista.length){ toast(grupoFiltro ? `Nenhum débito em "${grupoFiltro}" neste mês.` : 'Nenhum débito de cartão neste mês.'); return; }
   _dcSelItens = lista; _dcSelMes = String(mes || ''); _dcSelAno = String(ano || '');
   let ov = el('dc-sel-overlay');
@@ -9036,9 +9035,13 @@ window.dctRelatorio = async function(grupoFiltro){
       </div>
       <button onclick="document.getElementById('dc-sel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;padding:4px 6px 10px;font-size:11px;color:#d1d5db;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:8px;padding:4px 6px 8px;font-size:11px;color:#d1d5db;cursor:pointer">
       <input type="checkbox" checked onchange="document.querySelectorAll('[data-dcsel]').forEach(c => c.checked = this.checked)" style="width:18px;height:18px;accent-color:#f59e0b"> <b>Todas (${lista.length})</b>
     </label>
+    <div style="display:flex;gap:6px;padding:0 6px 10px">
+      <select id="dc-sel-sem-lote" style="flex:1;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#f9fafb;padding:8px;font-size:11px;font-weight:700"><option value="">Semana das marcadas…</option><option>1ª semana</option><option>2ª semana</option><option>3ª semana</option><option>4ª semana</option><option>5ª semana</option></select>
+      <button onclick="dctAplicarSemanaLote()" style="padding:8px 14px;border-radius:8px;border:none;background:#0f766e;color:#fff;font-weight:700;font-size:11px;cursor:pointer">Aplicar</button>
+    </div>
     <div style="display:flex;flex-direction:column;gap:6px">${lista.map(linha).join('')}</div>
     <div style="position:sticky;bottom:0;z-index:5;margin-top:12px;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
       <div style="display:flex;gap:8px">
@@ -9049,6 +9052,18 @@ window.dctRelatorio = async function(grupoFiltro){
   </div>`;
   ov.style.cssText = 'position:fixed;inset:0;z-index:80;overflow-y:auto;background:rgba(15,23,42,.96);padding:10px 10px calc(10px + env(safe-area-inset-bottom))';
   document.body.appendChild(ov);
+};
+
+/* Aplica uma semana a todas as despesas marcadas de uma vez. */
+window.dctAplicarSemanaLote = function(){
+  const sem = el('dc-sel-sem-lote')?.value || '';
+  if (!sem){ toast('Escolha a semana no campo ao lado.'); return; }
+  let n = 0;
+  document.querySelectorAll('[data-dcsel]:checked').forEach(c => {
+    const s = document.querySelector(`[data-dcsem="${c.dataset.dcsel}"]`);
+    if (s){ s.value = sem; n++; }
+  });
+  toast(n ? `${sem} aplicada a ${n} despesa(s).` : 'Marque as despesas primeiro.');
 };
 
 let _dcDocContas = [], _dcDocMesExt = '', _dcDocAno = '', _dcDocTimb = '';
