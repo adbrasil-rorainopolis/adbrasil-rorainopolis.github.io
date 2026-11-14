@@ -8960,59 +8960,35 @@ const _dcSemanaPadrao = itens => {
   return melhor ? melhor[0].replace(/semana$/i, 'Semana') : '___ª Semana';
 };
 
-/* Modelos de página — mesma distribuição do PDF do campo. */
-const _DC_ASSINATURA = `<div style="text-align:center;margin-top:46px;font-size:11px;line-height:1.7">
+/* Página do relatório — modelo aprovado (clássico, igual ao desktop). */
+const _DC_ASSINATURA = `<div style="text-align:center;margin-top:46px;font-size:12.5px;line-height:1.7">
   <p style="border-top:1px solid #111;width:72%;margin:0 auto 4px"></p>
   <p style="font-weight:800;margin:0">CARLOS DANIEL ALMEIDA DE ALENCAR</p>
   <p style="margin:0">Gestor Financeiro – AD Brasil Campo Rorainópolis</p>
   <p style="margin-top:12px;font-weight:700">CONTADOR – CRC-RR 002134/O</p>
 </div>`;
-const _dcRodape = logoAd => `<div style="position:absolute;bottom:14px;left:0;right:0;text-align:center">
-  <img src="${logoAd}" alt="" style="width:52px;height:auto;display:block;margin:0 auto 3px" onerror="this.style.display='none'">
-  <p style="font-size:9px;font-weight:800;letter-spacing:1px;margin:0">AD BRASIL — SEDE RORAINÓPOLIS</p>
-  <p style="font-size:8.5px;margin:0">Rua Pastor Manoel Batista, nº 102 – Centro</p>
+const _DC_RODAPE = `<div style="position:absolute;bottom:14px;left:0;right:0;text-align:center">
+  <p style="font-size:10px;font-weight:800;letter-spacing:1px;margin:0">AD BRASIL — SEDE RORAINÓPOLIS</p>
+  <p style="font-size:9.5px;margin:0">Rua Pastor Manoel Batista, nº 102 – Centro</p>
 </div>`;
-const _DC_MODELOS = [
-  { id: 'oficial', nome: 'Modelo Oficial', desc: 'Igual ao PDF do campo — tabela centralizada, limpa' },
-  { id: 'executivo', nome: 'Executivo', desc: 'Faixa escura no título, linhas zebradas' },
-  { id: 'classico', nome: 'Clássico', desc: 'Tabela quadriculada com cabeçalho de colunas' },
-];
-let dcEstilo = localStorage.getItem('sge_dc_estilo') || 'oficial';
 
-function _dcPaginaConta(g, mesExt, ano, timbSrc, logoAd, estilo){
+function _dcPaginaConta(g, mesExt, ano, timbSrc){
   const total = g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
   const base = `class="dc-page" style="position:relative;background:#fff;color:#111;padding:22px 20px 90px;max-width:600px;min-height:760px;margin:0 auto 14px;box-shadow:0 6px 24px rgba(0,0,0,.45)"`;
-  const topo = `<img src="${timbSrc}" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto 6px" onerror="this.style.display='none'">
-    <p style="text-align:center;font-weight:800;font-size:14px;margin:10px 0 2px;letter-spacing:.5px">RELATÓRIO DE DESPESAS</p>
-    <p style="text-align:center;font-weight:700;font-size:12px;margin:0 0 10px">Cartão de Crédito</p>
-    <p style="font-size:11px;text-align:justify;line-height:1.55;margin:0 0 8px">Declaramos para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(_dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
-    <p style="font-size:11px;text-align:right;margin:0 0 14px">Rorainópolis – RR, ${_pcDataExtenso(new Date().toISOString().slice(0, 10))}</p>`;
-  let tabela = '';
-  if (estilo === 'oficial'){
-    tabela = `<table style="width:82%;margin:0 auto;border-collapse:collapse;font-size:10.5px">
-      <tr><td colspan="5" style="text-align:center;font-weight:800;color:#7f1d1d;font-size:12px;padding:6px 0 10px">${esc(g.nome)}</td></tr>
-      ${g.itens.map(d => `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:5px 4px;font-size:9.5px;text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="padding:5px 4px">${esc(d.descricao)}</td><td style="padding:5px 4px;font-size:9px">${esc(d.cartao || '—')}</td><td style="padding:5px 4px;font-size:9px;text-align:center;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="padding:5px 4px;text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
-      <tr><td colspan="4" style="padding:7px 4px;font-weight:800;font-size:11px;border-top:2px solid #111">Total</td><td style="padding:7px 4px;font-weight:800;font-size:11px;text-align:right;border-top:2px solid #111">${brl(total)}</td></tr>
-    </table>`;
-  } else if (estilo === 'executivo'){
-    const th = 'padding:6px 7px;font-size:9px;color:#fff;text-align:left';
-    tabela = `<table style="width:100%;border-collapse:collapse;font-size:10.5px">
-      <tr style="background:#1f2937"><td colspan="5" style="padding:7px 10px;font-weight:800;color:#fff;font-size:11.5px;letter-spacing:.4px">${esc(g.nome)}<span style="float:right;font-weight:700;color:#d1d5db">${g.itens.length} item(ns)</span></td></tr>
-      <tr style="background:#374151"><th style="${th}">Data</th><th style="${th}">Descrição</th><th style="${th}">Cartão</th><th style="${th};text-align:center">Semana</th><th style="${th};text-align:right">Valor</th></tr>
-      ${g.itens.map((d, i) => `<tr style="background:${i % 2 ? '#f9fafb' : '#fff'};border-bottom:1px solid #e5e7eb"><td style="padding:5px 7px;font-size:9.5px;text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="padding:5px 7px">${esc(d.descricao)}</td><td style="padding:5px 7px;font-size:9px">${esc(d.cartao || '—')}</td><td style="padding:5px 7px;font-size:9px;text-align:center;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="padding:5px 7px;text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
-      <tr style="background:#f3f4f6"><td colspan="4" style="padding:7px;font-weight:800;text-align:right">Total ${esc(g.nome)}</td><td style="padding:7px;font-weight:800;text-align:right">${brl(total)}</td></tr>
-    </table>`;
-  } else {
-    const td = 'border:1px solid #9ca3af;padding:5px 7px;font-size:10px';
-    const th = 'border:1px solid #9ca3af;padding:5px;font-size:9px';
-    tabela = `<table style="width:100%;border-collapse:collapse">
-      <tr style="background:#e5e7eb"><td colspan="5" style="${td};text-align:center;font-weight:800;font-size:11.5px">${esc(g.nome)}</td></tr>
-      <tr style="background:#f3f4f6"><th style="${th};text-align:center">Data</th><th style="${th};text-align:left">Descrição</th><th style="${th};text-align:left">Cartão</th><th style="${th};text-align:center">Semana</th><th style="${th};text-align:right">Valor</th></tr>
-      ${g.itens.map(d => `<tr><td style="${td};text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="${td}">${esc(d.descricao)}</td><td style="${td};font-size:9px">${esc(d.cartao || '—')}</td><td style="${td};text-align:center;font-size:9px;white-space:nowrap">${esc(d.semana_lancada || '—')}</td><td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
-      <tr style="background:#f9fafb"><td colspan="4" style="${td};font-weight:800;text-align:right">Total ${esc(g.nome)}</td><td style="${td};text-align:right;font-weight:800">${brl(total)}</td></tr>
-    </table>`;
-  }
-  return `<div ${base}>${topo}${tabela}${_DC_ASSINATURA}${_dcRodape(logoAd)}</div>`;
+  const td = 'border:1px solid #9ca3af;padding:6px 7px;font-size:12px';
+  const th = 'border:1px solid #9ca3af;padding:6px;font-size:10.5px';
+  const topo = `<img src="${timbSrc}" alt="AD Brasil" style="display:block;width:100%;height:auto;margin:0 auto" onerror="this.style.display='none'">
+    <p style="text-align:center;font-weight:800;font-size:16px;margin:34px 0 3px;letter-spacing:.5px">RELATÓRIO DE DESPESAS</p>
+    <p style="text-align:center;font-weight:700;font-size:13.5px;margin:0 0 12px">Cartão de Crédito</p>
+    <p style="font-size:12.5px;text-align:justify;line-height:1.6;margin:0 0 10px">Declaro para fins de prestação de contas junto a Tesouraria de AD Brasil – Rorainópolis, localizado a Rua Pastor Manoel Batista, 102 – Centro, Rorainópolis – RR, CEP: 69.373-000, que foi realizado o pagamento referente a <b>${esc(g.nome)}</b>, pelo cartão de crédito da igreja, de acordo com o histórico da fatura de ${esc(mesExt)} abaixo. O movimento foi registrado no fechamento financeiro da ${esc(g.semana ? g.semana.replace(/semana$/i, 'Semana') : _dcSemanaPadrao(g.itens))} ${esc(mesExt)} de ${esc(String(ano))}.</p>
+    <p style="font-size:12.5px;text-align:right;margin:0 0 16px">Rorainópolis – RR, ${_pcDataExtenso(new Date().toISOString().slice(0, 10))}</p>`;
+  const tabela = `<table style="width:100%;border-collapse:collapse">
+    <tr style="background:#e5e7eb"><td colspan="4" style="${td};text-align:center;font-weight:800;font-size:13px">${esc(g.nome)}</td></tr>
+    <tr style="background:#f3f4f6"><th style="${th};text-align:center">Data</th><th style="${th};text-align:left">Descrição</th><th style="${th};text-align:left">Cartão</th><th style="${th};text-align:right">Valor</th></tr>
+    ${g.itens.map(d => `<tr><td style="${td};text-align:center;white-space:nowrap">${_dcpDataBr(d.data_compra || d.vencimento)}</td><td style="${td}">${esc(d.descricao)}</td><td style="${td};font-size:11px">${esc(d.cartao || '—')}</td><td style="${td};text-align:right;white-space:nowrap">${brl(Number(d.valor_previsto) || 0)}</td></tr>`).join('')}
+    <tr style="background:#f9fafb"><td colspan="3" style="${td};font-weight:800;text-align:right">Total</td><td style="${td};text-align:right;font-weight:800">${brl(total)}</td></tr>
+  </table>`;
+  return `<div ${base}>${topo}${tabela}${_DC_ASSINATURA}${_DC_RODAPE}</div>`;
 }
 
 /* Agrupa pela conta de despesa (estabelecimento normalizado) — uma página
@@ -9023,8 +8999,12 @@ const _dcChave = d => {
 };
 const _dcContasDe = itens => {
   const mapa = {};
-  itens.forEach(d => { const k = _dcChave(d); (mapa[k] = mapa[k] || { nome: k, itens: [] }).itens.push(d); });
-  return Object.values(mapa).sort((a, b) => a.nome.localeCompare(b.nome));
+  itens.forEach(d => {
+    const k = _dcChave(d), s = String(d.semana_lancada || '').trim();
+    const gk = `${k}|${s}`;
+    (mapa[gk] = mapa[gk] || { nome: k, semana: s, itens: [] }).itens.push(d);
+  });
+  return Object.values(mapa).sort((a, b) => a.nome.localeCompare(b.nome) || a.semana.localeCompare(b.semana));
 };
 
 let _dcSelItens = [], _dcSelMes = '', _dcSelAno = '';
@@ -9037,17 +9017,22 @@ window.dctRelatorio = async function(grupoFiltro){
   let ov = el('dc-sel-overlay');
   if (ov) ov.remove();
   ov = document.createElement('div'); ov.id = 'dc-sel-overlay';
-  const linha = (d, i) => `<label class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer" style="background:var(--bg-input);border-color:var(--border-color)">
-    <input type="checkbox" data-dcsel="${i}" checked class="w-5 h-5 accent-amber-500 cursor-pointer shrink-0">
-    <span class="flex-1 min-w-0"><b class="text-[11px] block truncate" style="color:var(--text-main)">${esc(d.descricao)}</b>
-    <span class="text-[9px] opacity-55">${_dcpDataBr(d.data_compra || d.vencimento)} · ${esc(d.cartao || '—')}${d.grupo_dre ? ` · ${esc(d.grupo_dre)}` : ''}${d.semana_lancada ? ` · ${esc(d.semana_lancada)}` : ''}</span></span>
-    <b class="text-[11px] tabular-nums shrink-0" style="color:var(--text-main)">${brl(Number(d.valor_previsto) || 0)}</b>
-  </label>`;
+  const semOps = d => ['', '1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana']
+    .map(s => `<option value="${s}" ${s === (d.semana_lancada || '') ? 'selected' : ''}>${s || 'sem semana'}</option>`).join('');
+  const linha = (d, i) => `<div class="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style="background:var(--bg-input);border-color:var(--border-color)">
+    <label class="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+      <input type="checkbox" data-dcsel="${i}" checked class="w-5 h-5 accent-amber-500 cursor-pointer shrink-0">
+      <span class="flex-1 min-w-0"><b class="text-[11px] block truncate" style="color:var(--text-main)">${esc(d.descricao)}</b>
+      <span class="text-[9px] opacity-55">${_dcpDataBr(d.data_compra || d.vencimento)} · ${esc(d.cartao || '—')}${d.grupo_dre ? ` · ${esc(d.grupo_dre)}` : ''}</span></span>
+      <b class="text-[11px] tabular-nums shrink-0" style="color:var(--text-main)">${brl(Number(d.valor_previsto) || 0)}</b>
+    </label>
+    <select data-dcsem="${i}" class="shrink-0 rounded-lg border px-1.5 py-1.5 text-[10px] font-bold" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${semOps(d)}</select>
+  </div>`;
   ov.innerHTML = `<div style="min-height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto">
     <div style="position:sticky;top:8px;z-index:5;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <div style="flex:1;min-width:0">
         <p style="font-weight:700;font-size:13px;color:#f9fafb">Relatório de despesas ${grupoFiltro ? '— ' + esc(grupoFiltro) : ''}</p>
-        <p style="font-size:10px;color:#9ca3af">Marque o que vai pro documento — cada conta sai numa página própria</p>
+        <p style="font-size:10px;color:#9ca3af">Marque as despesas e ajuste a semana — cada conta + semana sai numa página</p>
       </div>
       <button onclick="document.getElementById('dc-sel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
     </div>
@@ -9066,32 +9051,31 @@ window.dctRelatorio = async function(grupoFiltro){
   document.body.appendChild(ov);
 };
 
-let _dcDocContas = [], _dcDocMesExt = '', _dcDocAno = '', _dcDocTimb = '', _dcDocLogo = '';
+let _dcDocContas = [], _dcDocMesExt = '', _dcDocAno = '', _dcDocTimb = '';
 function _dcRenderDoc(){
   const box = el('dc-rel-doc');
-  if (box) box.innerHTML = _dcDocContas.map(g => _dcPaginaConta(g, _dcDocMesExt, _dcDocAno, _dcDocTimb, _dcDocLogo, dcEstilo)).join('');
+  if (box) box.innerHTML = _dcDocContas.map(g => _dcPaginaConta(g, _dcDocMesExt, _dcDocAno, _dcDocTimb)).join('');
 }
-window.dcTrocarModelo = function(id){
-  dcEstilo = id;
-  try { localStorage.setItem('sge_dc_estilo', id); } catch(e){}
-  document.querySelectorAll('#dc-modelos label').forEach((lb, i) => {
-    const ativo = _DC_MODELOS[i].id === id;
-    lb.style.borderColor = ativo ? '#f59e0b' : '#374151';
-    lb.style.background = ativo ? '#78350f33' : '#1f2937';
-  });
-  _dcRenderDoc();
-};
 
 window.dctGerarSelecionadas = async function(){
   const marcadas = [...document.querySelectorAll('[data-dcsel]:checked')].map(c => _dcSelItens[Number(c.dataset.dcsel)]);
   if (!marcadas.length){ toast('Marque ao menos uma despesa.'); return; }
+  /* Semanas ajustadas na seleção são gravadas antes de agrupar. */
+  for (const c of document.querySelectorAll('[data-dcsem]')){
+    const d = _dcSelItens[Number(c.dataset.dcsem)];
+    if (!d) continue;
+    const sem = c.value || '';
+    if (sem === (d.semana_lancada || '')) continue;
+    const r = await api('salvar_despesa_fixa', { ...d, semana_lancada: sem }, sessao()?.token);
+    if (r?.ok) { d.semana_lancada = sem; }
+    else { toast(`Semana de "${d.descricao}" não gravada.`); }
+  }
   el('dc-sel-overlay')?.remove();
   _dcDocMesExt = _dcSelMes.toLowerCase();
   _dcDocAno = _dcSelAno;
   _dcDocContas = _dcContasDe(marcadas);
-  /* Timbrado e logo embutidos em data URI — imprimem mesmo se o path falhar. */
+  /* Timbrado embutido em data URI — imprime mesmo se o path falhar. */
   _dcDocTimb = (await rcmImgData('icons/cabecalho_ad_brasil.png'))?.data || 'icons/cabecalho_ad_brasil.png';
-  _dcDocLogo = (await rcmImgData('icons/logo_ad_brasil.png'))?.data || 'icons/logo_ad_brasil.png';
   let ov = el('dc-rel-overlay');
   if (!ov){ ov = document.createElement('div'); ov.id = 'dc-rel-overlay'; document.body.appendChild(ov); }
   ov.innerHTML = `
@@ -9104,10 +9088,6 @@ window.dctGerarSelecionadas = async function(){
         </div>
         <button onclick="document.getElementById('dc-rel-overlay').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid #4b5563;background:#1f2937;color:#9ca3af;cursor:pointer;font-size:13px">✕</button>
       </div>
-      <div id="dc-modelos" style="display:flex;flex-direction:column;gap:6px">${_DC_MODELOS.map(m => `<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid ${dcEstilo === m.id ? '#f59e0b' : '#374151'};background:${dcEstilo === m.id ? '#78350f33' : '#1f2937'};cursor:pointer">
-        <input type="radio" name="dc-modelo" value="${m.id}" ${dcEstilo === m.id ? 'checked' : ''} onchange="dcTrocarModelo('${m.id}')" style="margin-top:2px;accent-color:#f59e0b">
-        <span style="font-size:11px;color:#f9fafb"><b>${m.nome}</b><br><span style="font-size:9.5px;color:#9ca3af">${m.desc}</span></span>
-      </label>`).join('')}</div>
     </div>
     <div id="dc-rel-doc" style="font-family:Arial,sans-serif"></div>
     <div style="position:sticky;bottom:0;z-index:5;max-width:640px;margin:10px auto 0;background:#111827f2;backdrop-filter:blur(8px);border:1px solid #374151;border-radius:14px;padding:10px 12px">
@@ -9408,7 +9388,7 @@ window.dfGerarRelatorio = async function(){
       ${timb}
       <h2 style="text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;margin:14px 0 4px">RECIBO DE CAMPO</h2>
       <p style="text-align:center;font-size:10px;color:#666;margin-bottom:26px">Despesa fixa — Combustível dos líderes de congregação</p>
-      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaramos, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, localizada à Rua Pr. Manoel Batista, 102, Centro, Rorainópolis/RR, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em ${totalPags - 1} (${extPag}) ${totalPags - 1 === 1 ? 'página' : 'páginas'}.</p>
+      <p style="text-align:justify;font-size:13px;line-height:2.1">Declaro, para fins de prestação de contas na Tesouraria da <b>AD BRASIL — RORAINÓPOLIS</b>, localizada à Rua Pr. Manoel Batista, 102, Centro, Rorainópolis/RR, que foi realizado o repasse do <b>combustível dos líderes</b> referente ao mês de <b>${esc(String(refMes).toUpperCase())} de ${esc(refAno)}</b>, no valor total de <b>${brl(total)} (${dfExtenso(total).toUpperCase()})</b>, lançados na <b>${sem}ª semana</b> do mês de ${esc(mes)} de ${esc(ano)}, conforme demonstrativo anexo em ${totalPags - 1} (${extPag}) ${totalPags - 1 === 1 ? 'página' : 'páginas'}.</p>
       <table style="width:118mm;margin:20px auto 0;border-collapse:collapse;font-size:11px">
         <thead><tr style="background:#1e3a5f;color:#fff">
           <th style="padding:6px 10px;border:1px solid #1e3a5f;text-align:left;font-size:9px;letter-spacing:1px">CONSELHO</th>
