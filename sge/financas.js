@@ -3810,10 +3810,13 @@ function prestTopoHtml(){
       ${['semanal', 'periodicidade'].map(t => `<button onclick="prestSub('${t}')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="${PREST.sub === t ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${t === 'semanal' ? 'Prestação Semanal' : 'Periodicidade'}</button>`).join('')}
     </div>
     ${PREST.sub === 'semanal' ? `
-    <div class="flex items-center gap-1.5 mb-2">
-      <button onclick="prestMesNav(-1)" title="Mês anterior" class="w-6 h-6 shrink-0 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
-      <span class="flex-1 text-center text-[10px] font-extrabold" style="color:var(--color-primary)">${PREST.mes}/${PREST.ano}</span>
-      <button onclick="prestMesNav(1)" title="Próximo mês" class="w-6 h-6 shrink-0 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-[10px] font-bold uppercase opacity-60">Mês financeiro</span>
+      <div class="flex items-center gap-1.5">
+        <button onclick="prestMesNav(-1)" title="Mês anterior" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
+        <span class="text-[10px] font-extrabold min-w-[86px] text-center" style="color:var(--color-primary)">${PREST.mes}/${PREST.ano}</span>
+        <button onclick="prestMesNav(1)" title="Próximo mês" class="w-6 h-6 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
     </div>
     <div class="flex gap-1.5 mb-3" id="prest-semanas">
       ${semanas.map(sem => {
