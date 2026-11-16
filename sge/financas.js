@@ -6299,9 +6299,17 @@ function _semRenderParcelas(){
     const cg = p.cong || L.mem.congregacao || '';
     if (sel && cg) sel.value = cg;
   });
+  _semResumoParcelas();
+}
+
+/* Só o rodapé de totais — separado do rebuild da lista para a digitação
+   poder atualizá-lo sem recriar os inputs (rebuild por tecla derruba o foco). */
+function _semResumoParcelas(){
+  const L = F.semLanc; if (!L) return;
   let te = 0, tp = 0;
   L.parcelas.forEach(p => { te += p.especie || 0; tp += p.pix || 0; });
-  el('seml-resumo').innerHTML = `Espécie: <b style="color:#2ecc71">${moeda(te)}</b> &nbsp;|&nbsp; PIX/TB: <b style="color:#38bdf8">${moeda(tp)}</b> &nbsp;|&nbsp; Total: <b class="valor-ouro">${moeda(te + tp)}</b>`;
+  const r = el('seml-resumo');
+  if (r) r.innerHTML = `Espécie: <b style="color:#2ecc71">${moeda(te)}</b> &nbsp;|&nbsp; PIX/TB: <b style="color:#38bdf8">${moeda(tp)}</b> &nbsp;|&nbsp; Total: <b class="valor-ouro">${moeda(te + tp)}</b>`;
 }
 
 window.semLancCong = function(i, sel){
@@ -6318,10 +6326,17 @@ window.semLancDigito = function(i, canal, inp){
   const v = raw ? parseInt(raw, 10) / 100 : 0;
   inp.value = v > 0 ? v.toFixed(2).replace('.', ',') : '';
   L.parcelas[i][canal] = v;
-  if (v > 0){ L.parcelas[i][canal === 'especie' ? 'pix' : 'especie'] = 0; }
-  _semRenderParcelas();
-  const el2 = el('seml-parcelas').querySelectorAll('input')[i * 2 + (canal === 'especie' ? 0 : 1)];
-  if (el2){ el2.focus(); const l = el2.value.length; el2.setSelectionRange(l, l); }
+  /* Espécie e PIX são excludentes — zera o campo irmão direto no DOM.
+     Não redesenha a lista por tecla: o rebuild destruía o input focado,
+     o teclado fechava e dígitos se perdiam entre rebuild e refocus. */
+  if (v > 0){
+    const outro = canal === 'especie' ? 'pix' : 'especie';
+    L.parcelas[i][outro] = 0;
+    const sibs = el('seml-parcelas')?.querySelectorAll('input');
+    const sib = sibs && sibs[i * 2 + (outro === 'especie' ? 0 : 1)];
+    if (sib) sib.value = '';
+  }
+  _semResumoParcelas();
 };
 window.semLancAddParcela = function(){ F.semLanc?.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
 window.semLancDelParcela = function(i){ F.semLanc?.parcelas.splice(i, 1); if (!F.semLanc.parcelas.length) F.semLanc.parcelas.push({ especie: 0, pix: 0 }); _semRenderParcelas(); };
