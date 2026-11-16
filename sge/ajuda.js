@@ -40,7 +40,7 @@ const SGE_AJUDA = {
     t: 'Gestão Unificada', ico: 'fa-chart-pie', cor: '#f59e0b',
     intro: 'Inteligência financeira do campo: cruzamentos, indicadores e relatórios com os mesmos cálculos do desktop. Cada aba é liberada separadamente na Gestão de Usuários.',
     grupos: [
-      { titulo: 'Cruzamento & BI', se: () => _aba('gestao','cruzamento'), itens: [
+      { titulo: 'Comparativos & Gráficos', se: () => _aba('gestao','cruzamento'), itens: [
         { q: 'O que faz', a: 'Cruza os lançamentos financeiros por período, conselho, congregação e contas — e desenha o gráfico correspondente.' },
         { q: 'Modo de análise', a: 'Define o cruzamento: evolução no tempo, comparativo anual, mês a mês, meses específicos lado a lado, tabela anual ou comparativo por conselho/congregação.' },
         { q: 'Filtros', a: 'Período inicial/final, conselho e congregação restringem a base. "Contas" escolhe quais rubricas entram no somatório; "semanas específicas" compara a mesma semana entre os meses.' },

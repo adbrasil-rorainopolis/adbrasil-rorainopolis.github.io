@@ -1065,7 +1065,7 @@ const G = {
 };
 const ABAS = [
   ['mensal', 'Análise do Mês', 'fa-calendar-week', '#8b5cf6'],
-  ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
+  ['cruzamento', 'Comparativos & Gráficos', 'fa-code-compare', '#f59e0b'],
   ['relatorios', 'Relatórios', 'fa-file-pdf', '#ef4444'],
 ];
 const el = id => document.getElementById(id);
@@ -1121,7 +1121,7 @@ window.gestaoAba = async function(aba){
   else if (aba === 'mensal') renderAbaMensal();
 };
 
-/* ===================== ABA 1/4/5 — Cruzamento + Indicadores + Relatórios ===================== */
+/* ===================== ABAS — Comparativos & Gráficos + Relatórios ===================== */
 function _filtrosUI(){
   const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
   const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
