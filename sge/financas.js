@@ -1594,8 +1594,8 @@ const RC_CATS = [
     'Oferta Ordinária do Culto de Assembleia Geral - 2ª Feira',
     'Oferta Ordinária - Assembleia Geral - Culto de Milagres - 4ª Feira',
     'Outros cultos de Assembleia Geral'] },
-  { id: 'OFERTA MISSIONARIA', rotulo: 'Oferta Missionária', titulo: 'OFERTA MISSIONÁRIA', subs: [
-    'Oferta da EBD Missionária', 'Oferta do Culto de Missões', 'Oferta Missionária',
+  { id: 'OFERTA MISSIONARIA', rotulo: 'Oferta de Missões', titulo: 'OFERTA MISSIONÁRIA', subs: [
+    'Oferta da EBD Missionária', 'Oferta do Culto de Missões', 'Mantenedor Missionário',
     'Oferta Missionária do Círculo de Oração', 'Santa Ceia Missionária'] },
   { id: 'CIRCULO DE ORACAO', rotulo: 'Oferta do Círculo de Oração', titulo: 'CÍRCULO DE ORAÇÃO', subs: [
     'Oferta do Círculo de Oração - 6ª Feira', 'Oferta do Círculo de Oração - Sábado',
@@ -1704,7 +1704,7 @@ const RC_SAIDAS_SUBS = ['Outros', ...[
 ].sort((a, b) => a.localeCompare(b, 'pt-BR'))];
 const RC_OUTROS = ['Outros', 'Outros cultos de Assembleia Geral'];
 // Sub que exige o nome do ofertante na descrição (mantenedor missionário).
-const RC_SUB_MANTENEDOR = 'Oferta Missionária';
+const RC_SUB_MANTENEDOR = 'Mantenedor Missionário';
 const RC_TIPOS = RC_CATS.flatMap(c => [c.id, c.id + ' - TB']);
 const RC_TITULOS = {};
 RC_CATS.forEach(c => { RC_TITULOS[c.id] = c.titulo; RC_TITULOS[c.id + ' - TB'] = c.titulo + ' PIX'; });
@@ -2185,12 +2185,20 @@ window.rcmMudarSub = function(p){
   const mantenedor = sub === RC_SUB_MANTENEDOR;
   if (w) w.classList.toggle('hidden', !(RC_OUTROS.includes(sub) || mantenedor));
   const inp = el(`rcm-${pre}outros`);
-  if (inp) inp.placeholder = mantenedor ? 'Nome do mantenedor missionário (obrigatório)' : 'Descreva o lançamento (obrigatório)';
+  if (inp){
+    /* Mantenedor Missionário abre o picker de irmãos (lista oficial + digitação
+       livre); os demais "Outros" continuam texto livre. */
+    inp.readOnly = mantenedor;
+    inp.style.cursor = mantenedor ? 'pointer' : '';
+    inp.onclick = mantenedor ? () => rcmAbrirIrmao(pre, 'outros') : null;
+    inp.placeholder = mantenedor ? 'Toque para selecionar o mantenedor missionário' : 'Descreva o lançamento (obrigatório)';
+  }
 };
 
 let rcmListaIrmaos = [];
 let rcmListaIrmaosCong = '';
 let rcmIrmaoAlvo = '';
+let rcmIrmaoCampo = 'irmao';
 async function rcmPopularIrmaos(pre){
   try { await carregarMembros(); } catch(e){}
   const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
@@ -2209,12 +2217,12 @@ function _rcmIrmaoModal(){
     <div id="rcm-irmao-modal" class="hidden fixed inset-0 z-[97] flex items-end justify-center" style="background:rgba(0,0,0,.55)" onclick="if(event.target===this)rcmFecharIrmao()">
       <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-t-3xl border theme-transition" style="background:var(--bg-surface);border-color:var(--border-color)">
         <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
-          <div class="min-w-0"><h3 class="font-bold text-sm">Selecionar Dizimista</h3><p id="rcm-irmao-sub" class="text-[10px] opacity-60"></p></div>
+          <div class="min-w-0"><h3 id="rcm-irmao-titulo" class="font-bold text-sm">Selecionar Dizimista</h3><p id="rcm-irmao-sub" class="text-[10px] opacity-60"></p></div>
           <button onclick="rcmFecharIrmao()" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" style="background:var(--bg-input)"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="px-4 pb-2 shrink-0 space-y-2">
           <div id="rcm-irmao-livre-wrap">
-            <button onclick="rcmIrmaoLivre()" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold cursor-pointer text-left flex items-center gap-2" style="border-color:rgba(245,158,11,.4);color:#f59e0b;background:rgba(245,158,11,.08)"><i class="fa-solid fa-pen-to-square"></i>Não encontrou o irmão? Digite o nome aqui</button>
+            <button onclick="rcmIrmaoLivre()" class="w-full px-3 py-2.5 rounded-xl border text-xs font-bold cursor-pointer text-left flex items-center gap-2" style="border-color:rgba(245,158,11,.4);color:#f59e0b;background:rgba(245,158,11,.08)"><i class="fa-solid fa-pen-to-square"></i><span id="rcm-irmao-livre-txt">Não encontrou o irmão? Digite o nome aqui</span></button>
           </div>
           <div id="rcm-irmao-livre-form" class="hidden space-y-2">
             <input id="rcm-irmao-livre-nome" placeholder="Digite o nome completo do dizimista" class="w-full px-3 py-2.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">
@@ -2233,11 +2241,16 @@ function _rcmIrmaoModal(){
   return m;
 }
 
-window.rcmAbrirIrmao = async function(pre){
+window.rcmAbrirIrmao = async function(pre, campo){
   rcmIrmaoAlvo = pre || '';
+  rcmIrmaoCampo = campo || 'irmao';
   const congAtual = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
   if (congAtual !== rcmListaIrmaosCong) await rcmPopularIrmaos();
   const m = _rcmIrmaoModal();
+  const mantenedor = rcmIrmaoCampo === 'outros';
+  const tit = el('rcm-irmao-titulo'); if (tit) tit.textContent = mantenedor ? 'Selecionar Mantenedor Missionário' : 'Selecionar Dizimista';
+  const livre = el('rcm-irmao-livre-txt'); if (livre) livre.textContent = mantenedor ? 'Não está na lista? Digite o nome aqui' : 'Não encontrou o irmão? Digite o nome aqui';
+  const livreInp = el('rcm-irmao-livre-nome'); if (livreInp) livreInp.placeholder = mantenedor ? 'Digite o nome do mantenedor missionário' : 'Digite o nome completo do dizimista';
   const sub = el('rcm-irmao-sub'); if (sub) sub.textContent = congAtual ? `Lista oficial — ${congAtual}` : 'Lista oficial de dizimistas';
   el('rcm-irmao-busca').value = '';
   rcmIrmaoVoltar();
@@ -2255,7 +2268,7 @@ window.rcmRenderIrmaos = function(){
 };
 
 window.rcmEscolherIrmao = function(nome){
-  const inp = el(`rcm-${rcmIrmaoAlvo}irmao`); if (inp) inp.value = nome || '';
+  const inp = el(`rcm-${rcmIrmaoAlvo}${rcmIrmaoCampo || 'irmao'}`); if (inp) inp.value = nome || '';
   rcmFecharIrmao();
 };
 window.rcmIrmaoLivre = function(){
@@ -2274,8 +2287,8 @@ window.rcmIrmaoVoltar = function(){
 };
 window.rcmConfirmarIrmaoLivre = function(){
   const nome = String(el('rcm-irmao-livre-nome')?.value || '').trim();
-  if (!nome) return toast('Digite o nome do dizimista.');
-  const inp = el(`rcm-${rcmIrmaoAlvo}irmao`); if (inp) inp.value = nome;
+  if (!nome) return toast(rcmIrmaoCampo === 'outros' ? 'Digite o nome do mantenedor missionário.' : 'Digite o nome do dizimista.');
+  const inp = el(`rcm-${rcmIrmaoAlvo}${rcmIrmaoCampo || 'irmao'}`); if (inp) inp.value = nome;
   rcmFecharIrmao();
 };
 window.rcmFecharIrmao = function(){ el('rcm-irmao-modal')?.classList.add('hidden'); };
