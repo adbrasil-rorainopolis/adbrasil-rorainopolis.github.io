@@ -7285,8 +7285,8 @@ window.renderContabil = function(){
           <button onclick="ajudaAbrir('contabil')" title="Como usar — ajuda do módulo" class="w-7 h-7 rounded-full border text-[11px] font-extrabold cursor-pointer shrink-0" style="border-color:var(--border-color);color:var(--color-primary)">?</button></div>
         <p class="text-[10px] opacity-60 mt-0.5">Demonstrações contábeis oficiais do campo — acesso restrito (administradores ou concessão na Gestão de Usuários).</p>
       </div>
-      <div class="grid grid-cols-3 gap-1.5">
-        ${[['dre','Demonstrações','fa-scale-balanced','#818cf8'],['contas','Contas a Pagar/Receber','fa-money-bill-transfer','#10b981'],['indicadores','Indicadores','fa-chart-line','#38bdf8']].map(([v, t, ico, cor]) =>
+      <div class="grid grid-cols-2 gap-1.5">
+        ${[['dre','Demonstrações','fa-scale-balanced','#818cf8'],['indicadores','Indicadores','fa-chart-line','#38bdf8']].map(([v, t, ico, cor]) =>
           `<button onclick="contSub('${v}')" data-sub="${v}" class="cont-sub px-1.5 py-2 rounded-xl border text-[9px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid ${ico} mr-0.5" style="color:${cor}"></i>${t}</button>`).join('')}
       </div>
       <div class="grid grid-cols-2 gap-2 border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -7306,9 +7306,6 @@ window.renderContabil = function(){
           <button onclick="drePdf()" class="w-full py-2 rounded-xl border text-[10px] font-bold cursor-pointer" style="border-color:var(--border-color)"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Gerar PDF oficial</button>
         </div>
         <div id="dre-doc-m" class="overflow-x-auto"></div>
-      </div>
-      <div id="cont-sub-contas" class="cont-sub-pane hidden space-y-3">
-        <div id="cont-fluxo-host"></div>
       </div>
       <div id="cont-sub-indicadores" class="cont-sub-pane hidden space-y-3">
         <div class="border rounded-2xl p-3 flex items-center gap-2.5" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.30)">
@@ -7384,28 +7381,22 @@ function contSubPermitida(sub){
   return perms.some(p => p.modulo === 'contabil' && (!p.aba || p.aba === '*'));
 }
 window.contSub = function(sub){
-  ['dre','contas','indicadores'].forEach(n => {
+  ['dre','indicadores'].forEach(n => {
     const b = document.querySelector(`.cont-sub[data-sub="${n}"]`);
     if (b) b.classList.toggle('hidden', !contSubPermitida(n));
   });
-  if (!contSubPermitida(sub)) sub = ['dre','contas','indicadores'].find(contSubPermitida) || 'dre';
+  if (!contSubPermitida(sub)) sub = ['dre','indicadores'].find(contSubPermitida) || 'dre';
   DR.sub = sub;
   _contEstiloSub();
-  ['dre','contas','indicadores'].forEach(n => el('cont-sub-' + n)?.classList.toggle('hidden', n !== sub));
+  ['dre','indicadores'].forEach(n => el('cont-sub-' + n)?.classList.toggle('hidden', n !== sub));
   if (sub === 'dre') dreCarregar();
-  else if (sub === 'contas') contContas();
   else if (sub === 'indicadores') contIndicadores();
 };
 window.contPeriodoMudou = function(){
   DR.ano = el('dre-ano')?.value || DR.ano; DR.mes = el('dre-mes')?.value || DR.mes;
   if ((DR.sub || 'dre') === 'dre') dreCarregar();
-  else if (DR.sub === 'contas') contContas();
   else if (DR.sub === 'indicadores') contIndicadores();
 };
-function contContas(){
-  if (window.SGEG?.G) SGEG.G.fluxoSel = { ano: DR.ano, mes: DR.mes };
-  SGEG.renderAbaFluxo('cont-fluxo-host');
-}
 function _contEstiloSub(){
   document.querySelectorAll('.cont-sub').forEach(b => {
     const ativo = b.dataset.sub === (DR.sub || 'dre');

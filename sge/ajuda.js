@@ -286,9 +286,6 @@ const SGE_AJUDA = {
         { q: 'Modos', a: '<b>Balancete</b> — mês selecionado; <b>Exercício</b> — o ano inteiro; <b>Série</b> — evolução mês a mês.' },
         { q: 'PDF oficial', a: 'Gera o documento contábil formatado para impressão/arquivo.' },
       ]},
-      { titulo: 'Contas a Pagar/Receber', itens: [
-        { q: 'Fluxo', a: 'Posição de obrigações e recebíveis do período — o que entra, o que sai e o que fica programado.' },
-      ]},
       { titulo: 'Indicadores', itens: [
         { q: 'Salários mínimos', a: 'Resultados convertidos em SM do exercício vigente — leitura real do poder de compra da arrecadação.' },
         { q: 'Crescimento interanual (YoY)', a: 'Compara o mês e o acumulado com o mesmo período do ano anterior — nominal e em SM.' },

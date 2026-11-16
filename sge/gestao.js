@@ -296,11 +296,6 @@ const _filtroEscopoUI = pfx => `
       <div class="flex flex-wrap items-center gap-1.5 min-w-0"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
         ${selHtml(`${pfx}-conselho`, [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('${pfx}', gestaoMensalCarregar)`, 'flex-1 min-w-28')}
         ${selHtml(`${pfx}-congregacao`, [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('${pfx}', gestaoMensalCarregar)`, 'flex-1 min-w-28')}</div>`;
-const _filtroEscopoUIFluxo = () => `
-      <div class="flex flex-wrap items-center gap-1.5 min-w-0"><i class="fa-solid fa-layer-group text-[10px] opacity-50"></i>
-        ${selHtml('fx-conselho', [['Todos', 'Todos os conselhos']], G.filtroMensal.conselho, `gestaoEscopoConselho('fx', gestaoFluxoCarregar)`, 'flex-1 min-w-28')}
-        ${selHtml('fx-congregacao', [['Todas', 'Todas']], G.filtroMensal.congregacao, `gestaoEscopoCongregacao('fx', gestaoFluxoCarregar)`, 'flex-1 min-w-28')}</div>`;
-
 /* ---------- Ciclo financeiro (localStorage — paridade com JSON por estação) ---------- */
 const CHAVE_CICLO = 'sge_ciclo_config';
 function _cicloMapa(){ try { return JSON.parse(localStorage.getItem(CHAVE_CICLO) || '{}'); } catch { return {}; } }
@@ -1880,92 +1875,6 @@ function graficosMensal(res){
   }
 }
 
-/* ===================== Contas a Pagar e a Receber (Módulo Contábil) ========= */
-async function renderAbaFluxo(hostId){
-  const host = el(hostId || 'gestao-corpo');
-  if (!host) return;
-  _mmFiltroInit();
-  if (!G.periodos.length) G.periodos = await listarPeriodos();
-  const ord = [...G.periodos].sort((a, b) => (+b.ano) - (+a.ano) || indiceMes(b.mes) - indiceMes(a.mes));
-  const ult = ord[0] || { ano: new Date().getFullYear(), mes: ORDEM_MESES[new Date().getMonth()] };
-  const anos = [...new Set(G.periodos.map(p => String(p.ano)))].sort().map(a => [a, a]);
-  if (!anos.length) anos.push([String(ult.ano), String(ult.ano)]);
-  const m = G.fluxoSel || { ano: ult.ano, mes: ult.mes };
-  G.fluxoSel = m;
-  host.innerHTML = `
-    <div class="border rounded-2xl p-3 flex flex-wrap items-center gap-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex-1 min-w-40"><h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>Contas a Pagar e a Receber</h3><p class="text-[10px] opacity-60 mt-0.5">Semáforo de caixa e despesas fixas do mês. <span class="text-amber-500">Somente leitura — a gestão é feita no desktop.</span></p></div>
-      ${selHtml('fx-ano', anos, m.ano, 'gestaoFluxoSel()')}${selHtml('fx-mes', ORDEM_MESES.map(x => [x, x]), m.mes, 'gestaoFluxoSel()')}
-      ${_filtroEscopoUIFluxo()}
-    </div>
-    <div id="fx-semaforo" class="border rounded-2xl p-4" style="border-color:var(--border-color)"></div>
-    <div id="fx-kpis" class="grid grid-cols-2 gap-2.5"></div>
-    <div class="border rounded-2xl overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="px-4 py-3 border-b" style="border-color:var(--border-color)"><h3 class="font-bold text-sm">Despesas fixas do mês</h3><span id="fx-legenda" class="text-[10px] opacity-60"></span></div>
-      <div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead style="background:var(--bg-surface)"><tr id="fx-thead"></tr></thead><tbody id="fx-tbody" class="divide-y" style="border-color:var(--border-color)"></tbody></table></div>
-    </div>
-`;
-  _popularFiltrosEscopo('fx');
-  gestaoFluxoCarregar();
-}
-window.gestaoFluxoSel = () => {
-  G.fluxoSel = { ano: el('fx-ano').value, mes: el('fx-mes').value };
-  const dA = el('dre-ano'), dM = el('dre-mes'); // mantém o seletor do Módulo Contábil em sincronia
-  if (dA && dA !== document.activeElement) { dA.value = G.fluxoSel.ano; }
-  if (dM && dM !== document.activeElement) { dM.value = G.fluxoSel.mes; }
-  gestaoFluxoCarregar();
-};
-window.gestaoFluxoCarregar = async function(){
-  const sem = el('fx-semaforo'); if (sem) sem.innerHTML = '<div class="flex items-center gap-2 opacity-60 text-xs justify-center"><i class="fa-solid fa-circle-notch fa-spin"></i>Calculando fluxo de caixa…</div>';
-  await sincronizarCicloNuvem();
-  const c = await calcularFluxo(G.fluxoSel.ano, G.fluxoSel.mes);
-  if (!el('fx-semaforo')) return;
-  if (!c.sucesso){ if (sem) sem.innerHTML = `<div class="text-red-500 text-xs text-center">${esc(c.mensagem)}</div>`; return; }
-  G.fluxo = c;
-  const kcard = (t2, v, cor, det) => `<div class="border rounded-xl p-3" style="background:var(--bg-card);border-color:var(--border-color)"><p class="text-[10px] font-bold uppercase opacity-60">${t2}</p><p class="mt-1 text-sm font-black tabular-nums ${cor}">${v}</p><p class="text-[10px] opacity-50 mt-1">${det}</p></div>`;
-  if (c.mes_fechado){
-    const fr = c.fechamento_real || {}, cor = num(fr.caixa_final) >= 0 ? '#10b981' : '#ef4444';
-    el('fx-semaforo').innerHTML = `<div class="flex items-center gap-4 rounded-xl p-4" style="background:${num(fr.caixa_final) >= 0 ? 'rgba(16,185,129,.10)' : 'rgba(239,68,68,.10)'}">
-      <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:${cor}22;border:2px solid ${cor}"><i class="fa-solid fa-lock text-lg" style="color:${cor}"></i></div>
-      <div class="flex-1"><p class="font-black text-sm tracking-wide" style="color:${cor}">MÊS FECHADO</p><p class="text-[11px] opacity-75 mt-0.5">Valores reais do fechamento de ${esc(c.periodo.mes)}/${c.periodo.ano} — sem projeção.</p></div>
-      <div class="text-right shrink-0"><p class="text-[10px] uppercase opacity-60 font-bold">Caixa final</p><p class="text-xl font-black tabular-nums" style="color:${cor}">${moeda(fr.caixa_final)}</p></div></div>`;
-    el('fx-kpis').innerHTML =
-      kcard('Entradas do mês', moeda(fr.entradas_mes), 'text-sky-500', 'total real lançado')
-      + kcard('Despesas do mês', moeda(fr.despesas_mes), 'text-red-500', 'total real lançado')
-      + (perfilConsultor() ? '' : kcard('Resultado do mês', moeda(fr.resultado_mes), num(fr.resultado_mes) >= 0 ? 'text-emerald-500' : 'text-red-500', 'entradas − despesas'))
-      + kcard('Fixas pagas', moeda(c.despesas_quitadas), 'text-emerald-500', 'liquidadas no período')
-      + kcard('Fixas pendentes', moeda(c.despesas_pendentes), 'text-red-500', `${c.pct_despesas_pendentes}% das fixas`);
-  } else {
-    const cfg = { verde: { cor: '#10b981', bg: 'rgba(16,185,129,.10)', ico: 'fa-circle-check', rot: 'EQUILIBRADO', msg: 'As entradas previstas cobrem a reposição do caixa e todas as despesas fixas do ciclo.' },
-      amarelo: { cor: '#f59e0b', bg: 'rgba(245,158,11,.10)', ico: 'fa-triangle-exclamation', rot: 'EM ALERTA DE CAIXA', msg: 'Margem apertada: a sobra prevista ficou negativa dentro de 15% dos compromissos.' },
-      vermelho: { cor: '#ef4444', bg: 'rgba(239,68,68,.10)', ico: 'fa-circle-xmark', rot: 'CRÍTICO — AUSTERIDADE', msg: 'Saldo severamente negativo: as entradas previstas não cobrem a reposição do caixa nem as despesas pendentes.' } }[c.semaforo];
-    el('fx-semaforo').innerHTML = `<div class="flex items-center gap-4 rounded-xl p-4" style="background:${cfg.bg}">
-      <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:${cfg.cor}22;border:2px solid ${cfg.cor}"><i class="fa-solid ${cfg.ico} text-lg" style="color:${cfg.cor}"></i></div>
-      <div class="flex-1"><p class="font-black text-sm tracking-wide" style="color:${cfg.cor}">${cfg.rot}</p><p class="text-[11px] opacity-75 mt-0.5">${cfg.msg}</p></div>
-      <div class="text-right shrink-0"><p class="text-[10px] uppercase opacity-60 font-bold">Sobra prevista</p><p class="text-xl font-black tabular-nums ${num(c.saldo_liquido) >= 0 ? 'text-emerald-500' : 'text-red-500'}">${moeda(c.saldo_liquido)}</p><p class="text-[9px] opacity-55 mt-1">= entrada − reposição − fixas pendentes</p></div></div>`;
-    const origemTxt = { realizada: 'valor real lançado', posicao: `média histórica da ${c.semana_atual}ª semana`, mes: 'média semanal do mês', ano: 'média semanal do ano' }[c.receita_origem] || 'projetada';
-    const caixaPos = num(c.saldo_semana_anterior) >= 0;
-    el('fx-kpis').innerHTML = [
-      ['Entrada prevista da semana', moeda(c.receita_gerentes), 'text-sky-500', `semana ${c.semana_atual}/${c.ciclo?.total_semanas ?? '—'} • ${origemTxt}`],
-      ['Caixa acumulado', moeda(c.saldo_semana_anterior), caixaPos ? 'text-emerald-500' : 'text-red-500', 'ao fim da última semana fechada'],
-      caixaPos ? ['Reposição do caixa', moeda(0), 'text-emerald-500', 'caixa positivo — nada a repor'] : ['Entrada p/ repor o caixa', moeda(c.bruto_necessario), 'text-amber-500', 'receita bruta p/ cobrir caixa negativo (÷0,54)'],
-      ['Fixas a pagar', moeda(c.despesas_pendentes), 'text-red-500', `${c.pct_despesas_pendentes}% das fixas`],
-      ['Fixas já pagas', moeda(c.despesas_quitadas), 'text-emerald-500', 'liquidadas no período'],
-    ].filter(k => !(perfilConsultor() && /caixa|resultado/i.test(k[0]))).map(k => kcard(...k)).join('');
-  }
-  const totalSem = c.ciclo?.total_semanas || 4;
-  el('fx-thead').innerHTML = `<th class="p-3">Descrição</th><th class="p-3">Categoria</th><th class="p-3 text-right">Previsto</th>${Array.from({ length: totalSem }, (_, i) => `<th class="p-3 text-center">S${i + 1}${i + 1 === c.semana_atual ? ' <i class="fa-solid fa-arrow-down text-violet-400"></i>' : ''}</th>`).join('')}<th class="p-3 text-center">Status</th>${SOMENTE_LEITURA ? '' : '<th class="p-3 text-center">Ações</th>'}`;
-  el('fx-tbody').innerHTML = !c.despesas?.length
-    ? `<tr><td colspan="${5 + totalSem - (SOMENTE_LEITURA ? 1 : 0)}" class="p-8 text-center opacity-60">Nenhuma despesa fixa em ${esc(c.periodo.mes)}/${c.periodo.ano}.</td></tr>`
-    : c.despesas.map(d => `<tr><td class="p-3 font-semibold">${esc(d.descricao)}</td><td class="p-3"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold" style="background:var(--bg-surface)">${esc(d.categoria)}</span></td><td class="p-3 text-right font-bold tabular-nums">${moeda(d.valor_previsto)}</td>${Array.from({ length: totalSem }, (_, i) => { const s = i + 1, on = !!d.quitacao?.[String(s)]; return `<td class="p-3 text-center"><input type="checkbox" ${on ? 'checked' : ''} ${SOMENTE_LEITURA ? 'disabled' : `onchange="gestaoQuitacao('${d.id}',${s},this.checked)"`} class="w-4 h-4 accent-emerald-500 ${SOMENTE_LEITURA ? 'opacity-60' : ''}"></td>`; }).join('')}<td class="p-3 text-center">${d.quitada ? '<span class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-check mr-0.5"></i>QUITADA</span>' : '<span class="text-[10px] font-bold text-amber-500">PENDENTE</span>'}</td>${SOMENTE_LEITURA ? '' : `<td class="p-3 text-center whitespace-nowrap"><button onclick="gestaoAbrirModalDesp('${d.id}')" class="px-2 py-1 rounded-md bg-sky-600/20 text-sky-400 cursor-pointer"><i class="fa-solid fa-pen text-[10px]"></i></button> <button onclick="gestaoRemoverDesp('${d.id}')" class="px-2 py-1 rounded-md bg-red-600/20 text-red-400 cursor-pointer"><i class="fa-solid fa-trash text-[10px]"></i></button></td>`}</tr>`).join('');
-  el('fx-legenda').textContent = `${c.despesas?.length || 0} despesa(s) • ciclo de ${totalSem} fechamentos • quitação gerenciada no desktop`;
-};
-window.gestaoAbrirModalDesp = () => { toast('Somente leitura — despesas são gerenciadas no desktop.'); };
-window.gestaoFecharModalDesp = () => {};
-window.gestaoSalvarDesp = () => { toast('Somente leitura.'); };
-window.gestaoRemoverDesp = () => { toast('Somente leitura.'); };
-window.gestaoQuitacao = (id, sem, on) => { alternarQuitacao(id, sem, on); gestaoFluxoCarregar(); };
-
 /* ===================== ABA 6 — Gestão de Usuários (Administrador) ===================== */
 const GU_STATUS = {
   pendente:         { rot: 'Pendente',          cor: '#f59e0b', ico: 'fa-clock' },
@@ -2613,6 +2522,6 @@ window.acessosAba = function(aba){
 window.SGEG = { consultarCruzamento, resumoMes, analisarMes, calcularFluxo, carregarMovimento,
   listarPeriodos, mapaConselhos, obterCiclo, sincronizarCicloNuvem, salvarCiclo, cicloPodeGravar, gestaoMissoesResumo, listarDespesas, adicionarDespesa,
   atualizarDespesa, removerDespesa, alternarQuitacao, mediaReferencia, ordenarConselhosG,
-  ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, renderAbaFluxo, G };
+  ordenarCongregacoesG, ordemCongregacaoIdxG, ordemConselhoIdxG, G };
 
 })();
