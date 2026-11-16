@@ -3800,7 +3800,6 @@ window.prestRender = async function(){
 
 function prestTopoHtml(){
   const ciclo = SGEG.obterCiclo(PREST.ano, PREST.mes);
-  const anos = [+PREST.ano - 1, +PREST.ano, +PREST.ano + 1].map(String);
   /* 5º botão aparece quando o ciclo tem 5 semanas OU já existe lançamento na
      5ª — no desktop a semana 5 sempre é selecionável; antes ficava escondida. */
   const temSem5 = PREST.bruto.some(r => String(r.ano) === PREST.ano && String(r.mes) === PREST.mes && _prestNumSemana(r.semana) === 5);
@@ -3811,13 +3810,10 @@ function prestTopoHtml(){
       ${['semanal', 'periodicidade'].map(t => `<button onclick="prestSub('${t}')" class="flex-1 py-2 rounded-xl text-[11px] font-bold border cursor-pointer" style="${PREST.sub === t ? 'background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border-color:transparent' : 'background:var(--bg-card);border-color:var(--border-color);color:var(--text-muted)'}">${t === 'semanal' ? 'Prestação Semanal' : 'Periodicidade'}</button>`).join('')}
     </div>
     ${PREST.sub === 'semanal' ? `
-    <div class="flex items-center gap-2 mb-2">
-      <button onclick="prestMesNav(-1)" title="M\u00eas anterior" class="w-9 h-9 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-      <div class="flex-1 grid grid-cols-2 gap-2">
-        ${selF('prest-mes', MESES_ORD.map(m => [m, m]), PREST.mes, 'prestMuda()')}
-        ${selF('prest-ano', anos.map(a => [a, a]), PREST.ano, 'prestMuda()')}
-      </div>
-      <button onclick="prestMesNav(1)" title="Pr\u00f3ximo m\u00eas" class="w-9 h-9 shrink-0 rounded-lg border cursor-pointer flex items-center justify-center" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+    <div class="flex items-center gap-1.5 mb-2">
+      <button onclick="prestMesNav(-1)" title="Mês anterior" class="w-6 h-6 shrink-0 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-left"></i></button>
+      <span class="flex-1 text-center text-[10px] font-extrabold" style="color:var(--color-primary)">${PREST.mes}/${PREST.ano}</span>
+      <button onclick="prestMesNav(1)" title="Próximo mês" class="w-6 h-6 shrink-0 rounded-lg text-[9px] cursor-pointer" style="background:var(--bg-input);color:var(--text-muted)"><i class="fa-solid fa-chevron-right"></i></button>
     </div>
     <div class="flex gap-1.5 mb-3" id="prest-semanas">
       ${semanas.map(sem => {
@@ -3835,7 +3831,6 @@ function prestTopoHtml(){
       : ''}` : ''}`;
 }
 window.prestSub = t => { PREST.sub = t; window.prestRender(); };
-window.prestMuda = () => { PREST.mes = el('prest-mes').value; PREST.ano = el('prest-ano').value; window.prestRender(); };
 window.prestMesNav = (delta) => {
   let i = MESES_ORD.indexOf(PREST.mes) + delta, a = +PREST.ano;
   if (i < 0) { i = 11; a--; } else if (i > 11) { i = 0; a++; }
