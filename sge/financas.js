@@ -2201,11 +2201,14 @@ let rcmIrmaoAlvo = '';
 let rcmIrmaoCampo = 'irmao';
 async function rcmPopularIrmaos(pre){
   try { await carregarMembros(); } catch(e){}
-  const cong = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
+  /* Mantenedor missionário: mantenedor não precisa ser dizimista nem da
+     congregação do relatório — lista todos os irmãos cadastrados. */
+  const mantenedor = rcmIrmaoCampo === 'outros';
+  const cong = mantenedor ? '' : String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
   const nomes = listarMembrosDizimistas({ congregacao: cong || 'Todas', status: 'Ativos' })
     .map(m => String(m.nome || '').trim()).filter(Boolean);
   rcmListaIrmaos = [...new Set(nomes)].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  rcmListaIrmaosCong = cong;
+  rcmListaIrmaosCong = mantenedor ? '__TODAS__' : cong;
 }
 
 /* Seletor oficial de dizimista (paridade desktop): lista alfabética com busca;
@@ -2245,13 +2248,13 @@ window.rcmAbrirIrmao = async function(pre, campo){
   rcmIrmaoAlvo = pre || '';
   rcmIrmaoCampo = campo || 'irmao';
   const congAtual = String(el('rcm-congregacao')?.value || RC.meta?.congregacao || '').trim();
-  if (congAtual !== rcmListaIrmaosCong) await rcmPopularIrmaos();
-  const m = _rcmIrmaoModal();
   const mantenedor = rcmIrmaoCampo === 'outros';
+  if ((mantenedor ? '__TODAS__' : congAtual) !== rcmListaIrmaosCong) await rcmPopularIrmaos();
+  const m = _rcmIrmaoModal();
   const tit = el('rcm-irmao-titulo'); if (tit) tit.textContent = mantenedor ? 'Selecionar Mantenedor Missionário' : 'Selecionar Dizimista';
   const livre = el('rcm-irmao-livre-txt'); if (livre) livre.textContent = mantenedor ? 'Não está na lista? Digite o nome aqui' : 'Não encontrou o irmão? Digite o nome aqui';
   const livreInp = el('rcm-irmao-livre-nome'); if (livreInp) livreInp.placeholder = mantenedor ? 'Digite o nome do mantenedor missionário' : 'Digite o nome completo do dizimista';
-  const sub = el('rcm-irmao-sub'); if (sub) sub.textContent = congAtual ? `Lista oficial — ${congAtual}` : 'Lista oficial de dizimistas';
+  const sub = el('rcm-irmao-sub'); if (sub) sub.textContent = mantenedor ? 'Irmãos cadastrados' : (congAtual ? `Lista oficial — ${congAtual}` : 'Lista oficial de dizimistas');
   el('rcm-irmao-busca').value = '';
   rcmIrmaoVoltar();
   rcmRenderIrmaos();
@@ -2264,7 +2267,7 @@ window.rcmRenderIrmaos = function(){
   const itens = termo ? rcmListaIrmaos.filter(n => cfq(n).includes(termo)) : rcmListaIrmaos;
   lista.innerHTML = itens.map(n =>
     `<button onclick="rcmEscolherIrmao(this.dataset.n)" data-n="${rcEsc(n)}" class="w-full px-3 py-2.5 rounded-xl border text-left text-xs font-bold cursor-pointer flex items-center gap-2" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-user opacity-50"></i>${rcEsc(n)}</button>`
-  ).join('') || `<p class="text-center text-xs opacity-60 py-8">Nenhum dizimista encontrado.<br>Use a opção acima para digitar o nome.</p>`;
+  ).join('') || `<p class="text-center text-xs opacity-60 py-8">${rcmIrmaoCampo === 'outros' ? 'Nenhum irmão encontrado.' : 'Nenhum dizimista encontrado.'}<br>Use a opção acima para digitar o nome.</p>`;
 };
 
 window.rcmEscolherIrmao = function(nome){
