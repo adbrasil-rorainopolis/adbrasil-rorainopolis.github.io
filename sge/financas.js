@@ -611,13 +611,21 @@ window.finMenu = function(){
 function finAbaPermitida(t){
   if (t === 'rol' || t === 'frequencia' || t === 'semanal' || t === 'livro' || t === 'mapa') return dizAbaPermitida(t);
   if (t === 'relatorio') return sgeAbaPermitida('financeiro','relatorio');
-  if (t === 'prestacao') return rcDadosUsuario().admin && sgeAbaPermitida('financeiro','prestacao');
+  if (t === 'prestacao') return prestPodeVerM();
   if (t === 'orcamentos') return sgeAbaPermitida('financeiro','orcamentos');
   if (t === 'movfin') return sgeEhAdmin();
   if (t === 'prebenda') return pbPodeVerM();
   if (t === 'despesas') return sgeAbaPermitida('financeiro','despesas');
   if (t === 'prestconv') return sgeAbaPermitida('financeiro','prestconv');
   return false;
+}
+
+/* Conferência de Caixa — restrita a Carlos Daniel e Elaine Cabral (mesmos CPFs
+   do piloto da Comunidade). Nenhum outro administrador visualiza a aba. */
+const PREST_CPFS = ['04421351229', '53822480282'];
+function prestPodeVerM(){
+  const cpf = String(sessao()?.usuario?.cpf || '').replace(/\D/g, '');
+  return PREST_CPFS.includes(cpf);
 }
 
 /* Prebenda Pastoral — restrita: CPF mestre sempre; demais administradores só
@@ -3791,6 +3799,7 @@ function prestLinhas(){
 
 window.prestRender = async function(){
   const corpo = el('fin-sub'); if (!corpo) return;
+  if (!prestPodeVerM()){ corpo.innerHTML = '<div class="text-center py-10 text-xs" style="color:var(--text-muted)">Área restrita.</div>'; return; }
   corpo.innerHTML = '<div class="flex items-center justify-center gap-2.5 py-14 text-xs" style="color:var(--text-muted)"><div class="spin"></div>Carregando presta\u00e7\u00e3o\u2026</div>';
   try { await prestCarregarDados(); }
   catch(e){ corpo.innerHTML = `<div class="text-center py-10 text-xs" style="color:var(--color-danger)">${esc(e.message || 'Falha ao carregar.')}</div>`; return; }
