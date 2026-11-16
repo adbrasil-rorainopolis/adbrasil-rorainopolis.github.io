@@ -1940,8 +1940,14 @@ function rcRenderTela(){
           <div id="rcm-totais" class="mt-2 pt-2 border-t text-xs space-y-1" style="border-color:var(--border-color)"></div>
         </div>
         </div>
-        <div id="rcm-baixa-bloq" class="absolute inset-0 z-20 flex items-start justify-center pt-16" style="pointer-events:none;margin-top:0;opacity:0;transition:opacity .35s ease">
-          <div class="rounded-2xl px-4 py-3 text-[11px] font-extrabold flex items-center gap-2" style="background:rgba(15,23,42,.92);color:#fca5a5;border:1px solid rgba(248,113,113,.5);box-shadow:0 12px 28px rgba(0,0,0,.4)"><i class="fa-solid fa-lock text-sm"></i><span>Semana fechada — selecione uma semana aberta</span></div>
+        <div id="rcm-baixa-bloq" class="absolute inset-0 z-20 flex items-start justify-center pt-14" style="pointer-events:none;margin-top:0;opacity:0;transition:opacity .35s ease">
+          <div class="rounded-2xl px-5 pt-5 pb-4 flex flex-col items-center text-center" style="pointer-events:auto;background:var(--bg-card);border:1px solid var(--border-color);box-shadow:0 16px 34px rgba(0,0,0,.30);max-width:230px">
+            <span id="rcm-bloq-carimbo" style="display:inline-block;transform:rotate(-9deg);color:#dc2626;opacity:.9;font-family:'Courier New',monospace;font-weight:900;letter-spacing:4px;font-size:19px;padding:6px 16px 6px 20px;border-radius:6px;border:3px double #dc2626;text-shadow:0 0 1px rgba(220,38,38,.4);position:relative">FECHADA<span id="rcm-bloq-sem" style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);background:var(--bg-card);padding:0 6px;font-size:7px;letter-spacing:2px;font-weight:800;white-space:nowrap">—</span></span>
+            <p style="font-size:12.5px;font-weight:800;color:var(--text-main);margin-top:12px">Lançamentos encerrados.</p>
+            <p id="rcm-bloq-msg" style="font-size:10px;color:var(--text-muted);line-height:1.35;margin-top:3px"></p>
+            <button id="rcm-bloq-go" class="w-full py-2 rounded-xl text-white cursor-pointer" style="margin-top:10px;font-size:10.5px;font-weight:800;background:linear-gradient(135deg,#059669,#10b981);border:none"></button>
+            <p id="rcm-bloq-adm" class="cursor-pointer" style="margin-top:8px;font-size:8.5px;font-weight:700;color:var(--text-muted);text-decoration:underline;display:none">Reabrir (admin)</p>
+          </div>
         </div>
         </div>
       </div>
@@ -2678,7 +2684,9 @@ function _rcmSemanaTravadaMsg(){
               : 'Semana fechada — não há semana aberta neste mês.';
 }
 /* Semana fechada selecionada: a parte de baixo do formulário fica ofuscada
-   e bloqueada até escolher uma semana aberta (vale para todos os perfis). */
+   e bloqueada até escolher uma semana aberta (vale para todos os perfis).
+   O selo mostra carimbo FECHADA + a semana; o botão navega pra próxima aberta
+   (some quando o mês inteiro está fechado) e "Reabrir" só aparece p/ admin. */
 function _rcmAplicarBloqueioBaixa(){
   const wrap = el('rcm-baixa'), bloq = el('rcm-baixa-bloq');
   if (!wrap || !bloq) return;
@@ -2690,6 +2698,25 @@ function _rcmAplicarBloqueioBaixa(){
   wrap.style.pointerEvents = fechada ? 'none' : '';
   wrap.style.userSelect = fechada ? 'none' : '';
   bloq.style.opacity = fechada ? '1' : '0';
+  if (!fechada) return;
+  const admin = typeof sgeEhAdmin === 'function' && sgeEhAdmin();
+  const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
+  const proxN = prox ? _rcSemanaNum(prox) : 0;
+  const lbl = el('rcm-bloq-sem'); if (lbl) lbl.textContent = sem.toUpperCase();
+  const msg = el('rcm-bloq-msg');
+  if (msg) msg.innerHTML = prox
+    ? `Selecione uma semana aberta para continuar <b>(a próxima aberta é a ${proxN}ª)</b>.`
+    : `Todas as semanas de <b>${rcEsc(p.mes)}</b> estão fechadas — contate o administrador para reabrir.`;
+  const go = el('rcm-bloq-go');
+  if (go) {
+    if (prox) { go.style.display = ''; go.textContent = `Ir para a ${proxN}ª →`; go.onclick = () => rcmTocarSemana(proxN); }
+    else go.style.display = 'none';
+  }
+  const adm = el('rcm-bloq-adm');
+  if (adm) {
+    adm.style.display = admin ? '' : 'none';
+    adm.onclick = () => rcmToggleSemana(_rcSemanaNum(sem));
+  }
 }
 
 window.rcmMudarSemana = function(){
