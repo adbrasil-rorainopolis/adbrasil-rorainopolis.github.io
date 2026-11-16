@@ -2605,10 +2605,15 @@ function rcSemanaFechada(ano, mes, semana){
     && String(b.mes || '').toLowerCase() === String(mes || '').toLowerCase()
     && (b.bloqueado === true || +b.bloqueado === 1) && _rcSemanaNum(b.semana) === n);
 }
-/* Próxima semana aberta depois da informada (mesmo mês) — orienta o tesoureiro
-   que tocou numa semana travada. null = todas as seguintes estão fechadas. */
+/* Semana aberta mais próxima da informada (mesmo mês) — procura pra frente
+   primeiro; se não houver, olha pra trás. null = mês inteiro fechado. */
 function rcmProximaSemanaAberta(ano, mes, semanaAtual){
-  for (let n = _rcSemanaNum(semanaAtual) + 1; n <= 5; n++){
+  const base = _rcSemanaNum(semanaAtual);
+  for (let n = base + 1; n <= 5; n++){
+    const s = n + 'ª Semana';
+    if (!rcSemanaFechada(ano, mes, s)) return s;
+  }
+  for (let n = base - 1; n >= 1; n--){
     const s = n + 'ª Semana';
     if (!rcSemanaFechada(ano, mes, s)) return s;
   }
@@ -2640,8 +2645,8 @@ window.rcmAvisoSemana = async function(){
     const prox = rel.semana ? rcmProximaSemanaAberta(rel.ano, rel.mes, rel.semana) : null;
     const btn = (prox && !admin)
       ? `<button onclick="rcmTocarSemana(${_rcSemanaNum(prox)})" class="px-2 py-1 rounded-lg text-[9px] font-extrabold text-white shrink-0 cursor-pointer" style="background:#ef4444">Ir para a ${prox}</button>` : '';
-    const txt = prox ? `Semana financeira fechada — a próxima aberta é a <b>${prox}</b>`
-                     : 'Semana financeira fechada — as demais semanas deste mês também estão fechadas';
+    const txt = prox ? `Semana financeira fechada — a aberta mais próxima é a <b>${prox}</b>`
+                     : 'Semana financeira fechada — todas as semanas deste mês estão fechadas';
     return `<div class="w-full rounded-xl px-3 py-2.5 text-[10px] font-bold flex items-center gap-2" style="background:rgba(239,68,68,.10);color:#ef4444;border:1px solid rgba(239,68,68,.35)"><i class="fa-solid fa-lock"></i><span class="flex-1">${txt}${admin ? ' (admin: reabra pelo cadeado para retificar)' : ''}</span>${btn}</div>`;
   };
   if (!rel.congregacao || !rel.semana || (rel.data_relatorio && rel.data_relatorio.length < 10)){
@@ -2680,7 +2685,7 @@ function _rcmSemanaTravadaMsg(){
   if (typeof sgeEhAdmin === 'function' && sgeEhAdmin())
     return 'Semana fechada — toque no cadeado para reabrir antes de retificar.';
   const prox = rcmProximaSemanaAberta(p.ano, p.mes, sem);
-  return prox ? `Semana fechada — a próxima aberta é a ${prox}.`
+  return prox ? `Semana fechada — a aberta mais próxima é a ${prox}.`
               : 'Semana fechada — não há semana aberta neste mês.';
 }
 /* Semana fechada selecionada: a parte de baixo do formulário fica ofuscada
@@ -2705,7 +2710,7 @@ function _rcmAplicarBloqueioBaixa(){
   const lbl = el('rcm-bloq-sem'); if (lbl) lbl.textContent = sem.toUpperCase();
   const msg = el('rcm-bloq-msg');
   if (msg) msg.innerHTML = prox
-    ? `Selecione uma semana aberta para continuar <b>(a próxima aberta é a ${proxN}ª)</b>.`
+    ? `Selecione uma semana aberta para continuar <b>(a aberta mais próxima é a ${proxN}ª)</b>.`
     : `Todas as semanas de <b>${rcEsc(p.mes)}</b> estão fechadas — contate o administrador para reabrir.`;
   const go = el('rcm-bloq-go');
   if (go) {
@@ -2827,8 +2832,8 @@ window.rcmSalvar = async function(enviar){
   if (congFixa && rel.congregacao !== congFixa){ toast(`Tesoureiro: relatório só pode ser da congregação ${congFixa}.`); return; }
   if (rcSemanaFechada(rel.ano, rel.mes, rel.semana) && !(typeof sgeEhAdmin === 'function' && sgeEhAdmin())){
     const prox = rcmProximaSemanaAberta(rel.ano, rel.mes, rel.semana);
-    toast(prox ? `Semana financeira fechada — a próxima aberta é a ${prox}.`
-               : 'Semana financeira fechada — as demais semanas deste mês também estão fechadas.');
+    toast(prox ? `Semana financeira fechada — a aberta mais próxima é a ${prox}.`
+               : 'Semana financeira fechada — todas as semanas deste mês estão fechadas.');
     rcmAvisoSemana(); return;
   }
   /* Trava anti-duplicata: mesma congregação + semana + período já tem relatório? */
@@ -3710,9 +3715,11 @@ window.rcmSugerirSemana = async function(){
   if (RC.id) return null;
   const cong = String(el('rcm-congregacao')?.value || F.rcCongregacao || '').trim();
   if (!cong) return null;
+  const sujoAntes = RC.sujo;
   const SEM = ['1ª Semana','2ª Semana','3ª Semana','4ª Semana','5ª Semana'];
   try {
     const res = await api('listar_relatorios_caixa', null, sessao()?.token);
+    if (res?.bloqueios) RC.bloqueios = res.bloqueios;
     const per = _rcPeriodoAtual();
     const chave = rcmPeriodoChave(per);
     const usadas = new Set((res?.relatorios || [])
@@ -3720,7 +3727,8 @@ window.rcmSugerirSemana = async function(){
                && rcmPeriodoChave(r) === chave)
       .map(r => r.semana));
     const prox = SEM.find(s => !usadas.has(s) && !rcSemanaFechada(per.ano, per.mes, s));
-    if (!prox) return null;
+    /* O usuário já mexeu na semana enquanto a API respondia — não sobrescreve. */
+    if (!prox || RC.sujo !== sujoAntes) return null;
     if (F.rcSemana !== prox){
       F.rcSemana = prox;
       const s = el('rcm-semana'); if (s) s.value = prox;
