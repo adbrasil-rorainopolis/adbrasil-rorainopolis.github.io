@@ -2265,9 +2265,11 @@ window.rcmRenderIrmaos = function(){
   const lista = el('rcm-irmao-lista'); if (!lista) return;
   const termo = cfq(el('rcm-irmao-busca')?.value || '');
   const itens = termo ? rcmListaIrmaos.filter(n => cfq(n).includes(termo)) : rcmListaIrmaos;
-  lista.innerHTML = itens.map(n =>
+  const LIM = 80, resto = itens.length - LIM;
+  lista.innerHTML = (itens.slice(0, LIM).map(n =>
     `<button onclick="rcmEscolherIrmao(this.dataset.n)" data-n="${rcEsc(n)}" class="w-full px-3 py-2.5 rounded-xl border text-left text-xs font-bold cursor-pointer flex items-center gap-2" style="background:var(--bg-card);border-color:var(--border-color);color:var(--text-main)"><i class="fa-solid fa-user opacity-50"></i>${rcEsc(n)}</button>`
-  ).join('') || `<p class="text-center text-xs opacity-60 py-8">${rcmIrmaoCampo === 'outros' ? 'Nenhum irmão encontrado.' : 'Nenhum dizimista encontrado.'}<br>Use a opção acima para digitar o nome.</p>`;
+  ).join('') || `<p class="text-center text-xs opacity-60 py-8">${rcmIrmaoCampo === 'outros' ? 'Nenhum irmão encontrado.' : 'Nenhum dizimista encontrado.'}<br>Use a opção acima para digitar o nome.</p>`)
+    + (resto > 0 ? `<p class="text-center text-[10px] opacity-55 py-2">+${resto} irmãos — digite na busca para filtrar</p>` : '');
 };
 
 window.rcmEscolherIrmao = function(nome){
