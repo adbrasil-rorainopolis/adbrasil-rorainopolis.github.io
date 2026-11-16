@@ -1066,7 +1066,6 @@ const G = {
 const ABAS = [
   ['mensal', 'Análise do Mês', 'fa-calendar-week', '#8b5cf6'],
   ['cruzamento', 'Cruzamento & BI', 'fa-code-compare', '#f59e0b'],
-  ['indicadores', 'Indicadores', 'fa-chart-line', '#38bdf8'],
   ['relatorios', 'Relatórios', 'fa-file-pdf', '#ef4444'],
 ];
 const el = id => document.getElementById(id);
@@ -1118,7 +1117,7 @@ window.gestaoAba = async function(aba){
   if (aba === 'usuarios') return renderAbaUsuarios();
   if (aba === 'dispositivos') return renderAbaDispositivos();
   if (!G.periodos.length) G.periodos = await listarPeriodos();
-  if (aba === 'cruzamento' || aba === 'indicadores' || aba === 'relatorios') renderAbaCruzamento();
+  if (aba === 'cruzamento' || aba === 'relatorios') renderAbaCruzamento();
   else if (aba === 'mensal') renderAbaMensal();
 };
 
@@ -1247,7 +1246,7 @@ async function _popularConselhos(){
 
 function renderAbaCruzamento(){
   const corpo = el('gestao-corpo');
-  const isCruz = G.aba === 'cruzamento', isInd = G.aba === 'indicadores', isRel = G.aba === 'relatorios';
+  const isCruz = G.aba === 'cruzamento', isRel = G.aba === 'relatorios';
   corpo.innerHTML = _filtrosUI() + (isCruz ? `
       <div id="gestao-kpis" class="grid grid-cols-2 gap-2.5"></div>
       <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
@@ -1272,11 +1271,6 @@ function renderAbaCruzamento(){
         <table class="w-full text-left text-xs whitespace-nowrap"><thead class="sticky top-0" style="background:var(--bg-surface)"><tr><th class="p-3">Período</th><th class="p-3">Semana</th><th class="p-3">Conselho</th><th class="p-3">Congregação</th><th class="p-3">Entradas</th><th class="p-3">Dízimos</th><th class="p-3">Ofertas</th><th class="p-3">Despesas</th><th class="p-3" id="gestao-th-valor">Saldo</th></tr></thead>
         <tbody id="gestao-tbody" class="divide-y" style="border-color:var(--border-color)"><tr><td colspan="9" class="p-8 text-center opacity-60">Configure os filtros e cruze os dados.</td></tr></tbody></table>
       </div>` : '')
-    + (isInd ? `
-      <div id="ind-cards" class="grid grid-cols-2 gap-2.5"></div>
-      <div id="ind-insights" class="grid grid-cols-1 gap-2.5"></div>
-      <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><h3 class="font-bold text-sm mb-3">Desempenho por conselho</h3><div id="ind-conselhos" class="space-y-3"></div></div>
-      <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><h3 class="font-bold text-sm mb-3">Congregações em destaque</h3><div id="ind-congs" class="space-y-3"></div></div>` : '')
     + (isRel ? `
       <div class="border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex-1 min-w-48"><h3 class="font-bold text-sm">Relatório oficial da Gestão Unificada</h3><p id="rel-resumo" class="text-xs opacity-70 mt-1">Cruze os dados para visualizar o conteúdo do PDF.</p></div>
@@ -1355,7 +1349,6 @@ function renderizarCruzamento(dados){
     : cardConta + card('Entradas', moeda(t.entradas)) + card('Dízimos', moeda(t.dizimos), 'text-sky-500') + card('Ofertas', moeda(ofLiq), 'text-amber-500', 'Ofertas gerais (sem Missões)') + card('Ofertas Missionárias', moeda(t.missoes), 'text-purple-400'));
   const pl = el('gestao-periodo-label'); if (pl) pl.textContent = `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim}`;
   const conselhos = Object.entries(t.por_conselho || {}).sort((a, b) => b[1] - a[1]);
-  const congs = Object.entries(t.por_congregacao || {}).sort((a, b) => b[1] - a[1]);
   setHtml('gestao-ranking', conselhos.slice(0, 8).map(([n, v]) => linhaInd(n, v, conselhos[0]?.[1] || 1)).join('') || '<p class="text-xs opacity-60">Sem dados.</p>');
 
   const validos = series.filter(p => (num(p.entradas) > 0 || num(p.despesas) > 0) && !p.parcial);
@@ -1373,27 +1366,6 @@ function renderizarCruzamento(dados){
     const val = nContas ? i.valor_conta_especifica : i.saldo;
     return `<tr><td class="p-3">${esc(i.periodo)}</td><td class="p-3 opacity-70">${esc(i.semana)}</td><td class="p-3">${esc(i.conselho)}</td><td class="p-3 font-semibold">${esc(i.congregacao)}</td><td class="p-3 text-emerald-500">${moeda(i.entradas)}</td><td class="p-3">${moeda(i.dizimos)}</td><td class="p-3">${moeda(i.ofertas)}</td><td class="p-3 text-red-500">${moeda(i.despesas)}</td><td class="p-3 font-bold">${moeda(val)}</td></tr>`;
   }).join('') || '<tr><td colspan="9" class="p-8 text-center opacity-60">Nenhum movimento financeiro encontrado.</td></tr>';
-
-  const nPts = Math.max(validos.length, 1);
-  setHtml('ind-cards', verDesp
-    ? card('Média de entradas', moeda(t.media_entradas), 'text-emerald-500', 'por período com movimento')
-    + card('Média de despesas', moeda(t.media_despesas), 'text-red-500', 'por período com movimento')
-    + card('Resultado médio', moeda(t.media_saldo), num(t.media_saldo) >= 0 ? 'text-emerald-500' : 'text-red-500') + card('Margem operacional', `${num(t.margem_operacional_pct).toFixed(1)}%`, 'text-amber-500', '(entradas − despesas) ÷ entradas')
-    : card('Média de entradas', moeda(t.media_entradas), 'text-emerald-500', 'por período com movimento')
-      + card('Média de dízimos', moeda(validos.reduce((a, s) => a + num(s.dizimos), 0) / nPts), 'text-sky-500', 'por período com movimento')
-      + card('Média de ofertas', moeda(validos.reduce((a, s) => a + num(s.ofertas), 0) / nPts), 'text-amber-500', 'por período com movimento'));
-  const rel = num(t.entradas) > 0 ? num(t.despesas) / num(t.entradas) * 100 : 0;
-  const tend = variacaoPct(at.entradas, validos[0]?.entradas);
-  const ins = (ico, tit, val, det, cor) => `<div class="border rounded-xl p-4" style="background:var(--bg-card);border-color:var(--border-color)"><div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid ${ico} ${cor}"></i>${tit}</div><p class="text-lg font-bold mt-2">${val}</p><p class="text-[10px] opacity-60 mt-1">${det}</p></div>`;
-  setHtml('ind-insights',
-    ins('fa-trophy', 'Maior conselho', esc(conselhos[0]?.[0] || 'Sem dados'), moeda(conselhos[0]?.[1] || 0), 'text-amber-500')
-    + ins('fa-building', 'Maior congregação', esc(congs[0]?.[0] || 'Sem dados'), moeda(congs[0]?.[1] || 0), 'text-sky-500')
-    + (verDesp
-      ? ins('fa-scale-balanced', 'Comprometimento das entradas', `${rel.toFixed(1)}%`, 'Percentual das entradas consumido por saídas', 'text-red-500')
-      : ins('fa-hand-holding-dollar', 'Dízimos sobre entradas', `${num(t.pct_dizimos).toFixed(1)}%`, 'Participação dos dízimos nas entradas', 'text-sky-500'))
-    + ins('fa-arrow-trend-up', 'Tendência das entradas', tend === null ? 'Sem base' : `${tend >= 0 ? '+' : ''}${tend.toFixed(1)}%`, `${esc(validos[0]?.periodo || '-')} até ${esc(at.periodo || '-')}`, tend !== null && tend >= 0 ? 'text-emerald-500' : 'text-red-500'));
-  setHtml('ind-conselhos', conselhos.map(([n, v]) => linhaInd(n, v, conselhos[0]?.[1] || 1)).join('') || '<p class="text-xs opacity-60">Sem dados.</p>');
-  setHtml('ind-congs', congs.slice(0, 15).map(([n, v]) => linhaInd(n, v, congs[0]?.[1] || 1)).join('') || '<p class="text-xs opacity-60">Sem dados.</p>');
 
   setHtml('rel-kpis', card('Entradas', moeda(t.entradas)) + card('Saídas', moeda(t.despesas), 'text-red-500') + card('Registros', String(linhas.length), 'text-sky-500') + card('Contas selecionadas', String(nContas), 'text-amber-500'));
   const rs = el('rel-resumo'); if (rs) rs.textContent = `${f.mes_ini}/${f.ano_ini} a ${f.mes_fim}/${f.ano_fim} • ${f.conselho || 'Todos'} • ${linhas.length} registro(s).`;

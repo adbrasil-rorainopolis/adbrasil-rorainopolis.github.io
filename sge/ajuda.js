@@ -50,9 +50,6 @@ const SGE_AJUDA = {
         { q: 'O que faz', a: 'Radiografia de um mês específico: totais por conta, comparativo com meses anteriores, rankings por conselho e congregação.' },
         { q: 'Ciclo do mês', a: 'Considera quantas semanas (fechamentos) o mês teve — afeta médias e projeções.' },
       ]},
-      { titulo: 'Indicadores', se: () => _aba('gestao','indicadores'), itens: [
-        { q: 'O que faz', a: 'Estatísticas consolidadas: evolução interanual, participação de conselhos e congregações e indicadores derivados dos lançamentos.' },
-      ]},
       { titulo: 'Relatórios', se: () => _aba('gestao','relatorios'), itens: [
         { q: 'O que faz', a: 'Gera os documentos oficiais em PDF — apresentação executiva e relatórios gerenciais do período selecionado.' },
       ]},
