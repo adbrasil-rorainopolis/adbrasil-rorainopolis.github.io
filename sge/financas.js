@@ -4098,32 +4098,52 @@ window.prestSalvar = async function(nomeCong, conselho){
 
 /* ---------- Copiar pendências (texto WhatsApp — paridade desktop) ---------- */
 let _prestPendCache = [];
+const _PREST_ORDEM_CONSELHOS = ['Assembleia Geral', 'Conselho 1', 'Conselho 2', 'Conselho 3', 'Conselho 4', 'Conselho 5'];
 function _prestTextoConselho(conselho){
-  const linhas = _prestPendCache.filter(l => l.conselho === conselho);
+  const geral = conselho === 'GERAL';
+  const linhas = geral ? _prestPendCache : _prestPendCache.filter(l => l.conselho === conselho);
   const nome = l => `- ${l.nome}${l.lider ? ' — ' + l.lider : ''}`;
-  const prest = nome;
   const partes = [`*CONFERÊNCIA DE CAIXA — ${String(conselho).toUpperCase()}*`, `${PREST.semana} • ${PREST.mes}/${PREST.ano}`, ''];
-  const sec = (titulo, lista, fmt) => { if (!lista.length) return; partes.push(`*${titulo}*`, ...lista.map(fmt), ''); };
-  sec('❌ PENDENTES', linhas.filter(l => l.situacao === 'Pendente'), nome);
-  sec('🟡 JUSTIFICADAS', linhas.filter(l => l.situacao === 'Justificada'), nome);
-  sec('✅ PRESTADAS', linhas.filter(l => l.situacao === 'Prestada'), prest);
+  const sec = (titulo, lista) => {
+    if (!lista.length) return;
+    partes.push(`*${titulo}*`);
+    if (geral) {
+      /* Agrupa por conselho dentro da seção — mesma ordem dos cards. */
+      const ord = [..._PREST_ORDEM_CONSELHOS, ...lista.map(l => l.conselho)];
+      [...new Set(ord)].filter(c => c && lista.some(l => l.conselho === c))
+        .forEach(c => partes.push(`_${c}_`, ...lista.filter(l => l.conselho === c).map(nome)));
+      lista.filter(l => !l.conselho).forEach(l => partes.push(nome(l)));
+    } else partes.push(...lista.map(nome));
+    partes.push('');
+  };
+  sec('❌ PENDENTES', linhas.filter(l => l.situacao === 'Pendente'));
+  sec('🟡 JUSTIFICADAS', linhas.filter(l => l.situacao === 'Justificada'));
+  sec('✅ PRESTADAS', linhas.filter(l => l.situacao === 'Prestada'));
   return partes.join('\n').trim();
 }
 window.prestCopiarPendenciasConselho = async function(conselho){
   const txt = _prestTextoConselho(conselho);
-  try { await navigator.clipboard.writeText(txt); toast(`${conselho} copiado — cole no WhatsApp.`); }
+  const rotulo = conselho === 'GERAL' ? 'Geral (todos os conselhos)' : conselho;
+  try { await navigator.clipboard.writeText(txt); toast(`${rotulo} copiado — cole no WhatsApp.`); }
   catch { toast(txt); }
   const sh = document.getElementById('prest-pend-sheet'); if (sh) sh.remove();
 };
 window.prestCopiarPendencias = function(){
   _prestPendCache = prestLinhas().filter(l => l.situacao !== 'Não exigida');
-  const ordem = ['Assembleia Geral', 'Conselho 1', 'Conselho 2', 'Conselho 3', 'Conselho 4', 'Conselho 5'];
+  const ordem = _PREST_ORDEM_CONSELHOS;
   const extras = [...new Set(_prestPendCache.map(l => l.conselho).filter(c => c && !ordem.includes(c)))].sort();
   const conselhos = ordem.filter(c => _prestPendCache.some(l => l.conselho === c)).concat(extras);
   const old = document.getElementById('prest-pend-sheet'); if (old) old.remove();
   const sh = document.createElement('div');
   sh.id = 'prest-pend-sheet'; sh.className = 'fixed inset-0 z-[97]'; sh.style.background = 'rgba(2,6,23,.8)';
-  const itens = conselhos.map(c => {
+  const nPendG = _prestPendCache.filter(l => l.situacao === 'Pendente').length;
+  const cardGeral = _prestPendCache.length ? `<div class="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border-2" style="border-color:rgba(16,185,129,.45);background:rgba(16,185,129,.07)">
+    <div class="min-w-0"><p class="text-sm font-bold truncate">Geral — todos os conselhos</p><div class="mt-1">${nPendG
+      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:rgba(239,68,68,.15);color:#f87171">${nPendG} pendente${nPendG > 1 ? 's' : ''}</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold" style="background:rgba(16,185,129,.15);color:#34d399">em dia</span>`}</div></div>
+    <button onclick="prestCopiarPendenciasConselho('GERAL')" class="w-10 h-10 rounded-xl text-white flex items-center justify-center cursor-pointer shrink-0" style="background:#059669" title="Copiar todos os conselhos"><i class="fa-brands fa-whatsapp text-lg"></i></button>
+  </div>` : '';
+  const itens = cardGeral + conselhos.map(c => {
     const doC = _prestPendCache.filter(l => l.conselho === c);
     const nPend = doC.filter(l => l.situacao === 'Pendente').length;
     const badge = nPend
