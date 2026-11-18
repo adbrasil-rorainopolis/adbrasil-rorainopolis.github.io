@@ -2690,26 +2690,33 @@ window.gestaoEstudoCopiar = async function(){
   const totA = grupos.reduce((s, g) => s + g.a, 0), totB = grupos.reduce((s, g) => s + g.b, 0);
   const fmt = v => Math.round(v).toLocaleString('pt-BR');
   const fmtPct = (a, b) => a > EPS ? `${(b - a) / a * 100 >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1).replace('.', ',')}%` : '—';
-  const largNome = Math.max(15, ...grupos.map(g => g.nome.length), 13);
-  const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(9)} ${fmt(b).padStart(9)} ${fmtPct(a, b).padStart(7)}`;
   const listagem = e.modo === 'listagem';
   const L = [];
   L.push(`📊 *ESTUDO COMPARATIVO — ${e.anoA} × ${e.anoB}*`);
   L.push('⛪ AD Brasil · Campo de Rorainópolis');
   L.push(`_Escopo: ${e.conselho === 'Todos' ? 'campo inteiro' : e.conselho}${!listagem && e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''} · jan–${ORDEM_MESES[e.limite - 1].toLowerCase()}_`);
   L.push('');
-  L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(9)} ${String(e.anoB).padStart(9)} ${'Var.'.padStart(7)}`);
-  L.push('─'.repeat(largNome + 28));
-  let conselhoAnterior = null;
-  grupos.forEach(g => {
-    if (listagem && g.conselho !== conselhoAnterior) {
-      conselhoAnterior = g.conselho;
-      L.push(`── ${String(g.conselho || 'Sem conselho').toUpperCase()} ──`);
+  if (e.modo === 'conselho') {
+    const largNome = Math.max(15, ...grupos.map(g => g.nome.length), 13);
+    const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(9)} ${fmt(b).padStart(9)} ${fmtPct(a, b).padStart(7)}`;
+    L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(9)} ${String(e.anoB).padStart(9)} ${'Var.'.padStart(7)}`);
+    L.push('─'.repeat(largNome + 28));
+    grupos.forEach(g => L.push(linhaTab(g.nome, g.a, g.b)));
+    L.push('─'.repeat(largNome + 28));
+    L.push(linhaTab('CAMPO — TOTAL', totA, totB) + '```');
+  } else {
+    /* Lista por seções de conselho — a tabela monoespaçada quebra linha
+       no celular com dezenas de congregações de nome longo. */
+    const porCons = new Map();
+    grupos.forEach(g => { const c = g.conselho || 'Sem conselho'; if (!porCons.has(c)) porCons.set(c, []); porCons.get(c).push(g); });
+    for (const [cons, itens] of porCons) {
+      const sA = itens.reduce((s, g) => s + g.a, 0), sB = itens.reduce((s, g) => s + g.b, 0);
+      L.push(`*${cons.toUpperCase()}* — ${fmt(sA)} → ${fmt(sB)} (${fmtPct(sA, sB)})`);
+      itens.forEach(g => L.push(`▪ ${g.nome}: ${fmt(g.a)} → ${fmt(g.b)} (${fmtPct(g.a, g.b)})`));
+      L.push('');
     }
-    L.push(linhaTab(g.nome, g.a, g.b));
-  });
-  L.push('─'.repeat(largNome + 28));
-  L.push(linhaTab('CAMPO — TOTAL', totA, totB) + '```');
+    L.push(`*CAMPO — TOTAL:* ${fmt(totA)} → ${fmt(totB)} (${fmtPct(totA, totB)})`);
+  }
   L.push('');
   L.push('_Fonte: movimento financeiro oficial · SGE AD Brasil_');
   try { await navigator.clipboard.writeText(L.join('\n')); toast('Estudo copiado — cole no WhatsApp.'); }
