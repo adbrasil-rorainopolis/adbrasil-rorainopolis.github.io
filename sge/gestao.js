@@ -2688,9 +2688,10 @@ window.gestaoEstudoCopiar = async function(){
   const { grupos } = _agregarEstudo();
   if (!grupos.length) { toast('Sem dados para copiar.'); return; }
   const totA = grupos.reduce((s, g) => s + g.a, 0), totB = grupos.reduce((s, g) => s + g.b, 0);
-  const fmt = v => Math.round(v).toLocaleString('pt-BR');
+  const fmt = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
   const fmtPct = (a, b) => a > EPS ? `${(b - a) / a * 100 >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1).replace('.', ',')}%` : '—';
-  /* WhatsApp não tem cor em texto — emoji carrega a cor da seta. */
+  /* WhatsApp não tem cor em texto — emoji carrega a cor da seta.
+     O prefixo R$ também evita que valores virem links de telefone. */
   const setaEmoji = (a, b) => a > EPS ? `${(b - a) >= 0 ? '🟢' : '🔴'} ${fmtPct(a, b)}` : '—';
   const setaMono = (a, b) => a > EPS ? `● ${fmtPct(a, b)}` : '—';
   const listagem = e.modo === 'listagem';
@@ -2701,11 +2702,11 @@ window.gestaoEstudoCopiar = async function(){
   L.push('');
   if (e.modo === 'conselho') {
     const largNome = Math.max(15, ...grupos.map(g => g.nome.length), 13);
-    const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(9)} ${fmt(b).padStart(9)} ${setaMono(a, b).padStart(8)}`;
-    L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(9)} ${String(e.anoB).padStart(9)} ${'Var.'.padStart(8)}`);
-    L.push('─'.repeat(largNome + 29));
+    const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(12)} ${fmt(b).padStart(12)} ${setaMono(a, b).padStart(8)}`;
+    L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(12)} ${String(e.anoB).padStart(12)} ${'Var.'.padStart(8)}`);
+    L.push('─'.repeat(largNome + 35));
     grupos.forEach(g => L.push(linhaTab(g.nome, g.a, g.b)));
-    L.push('─'.repeat(largNome + 29));
+    L.push('─'.repeat(largNome + 35));
     L.push(linhaTab('CAMPO — TOTAL', totA, totB) + '```');
   } else {
     /* Lista por seções de conselho — a tabela monoespaçada quebra linha
