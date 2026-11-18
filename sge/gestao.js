@@ -2521,7 +2521,7 @@ function renderAbaEstudo(){
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Agrupar por</span>${selHtml('es-modo', [['conselho', 'Conselho'], ['congregacao', 'Congregação'], ['listagem', 'Todas as congregações']], e.modo, 'gestaoEstudoLer()', 'w-full')}</div>
-        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até o mês</span>${selHtml('es-limite', ORDEM_MESES.map((m, i) => [String(i + 1), m])), String(e.limite), 'gestaoEstudoLer()', 'w-full')}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até o mês</span>${selHtml('es-limite', ORDEM_MESES.map((m, i) => [String(i + 1), m]), String(e.limite), 'gestaoEstudoLer()', 'w-full')}</div>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="es-conselho" onchange="gestaoEstudoConselho()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
