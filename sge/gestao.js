@@ -1066,6 +1066,7 @@ const G = {
 const ABAS = [
   ['mensal', 'Análise do Mês', 'fa-calendar-week', '#8b5cf6'],
   ['cruzamento', 'Comparativos & Gráficos', 'fa-code-compare', '#f59e0b'],
+  ['estudo', 'Estudo Anual', 'fa-chart-column', '#0ea5e9'],
   ['relatorios', 'Relatórios', 'fa-file-pdf', '#ef4444'],
 ];
 const el = id => document.getElementById(id);
@@ -1119,6 +1120,7 @@ window.gestaoAba = async function(aba){
   if (!G.periodos.length) G.periodos = await listarPeriodos();
   if (aba === 'cruzamento' || aba === 'relatorios') renderAbaCruzamento();
   else if (aba === 'mensal') renderAbaMensal();
+  else if (aba === 'estudo') renderAbaEstudo();
 };
 
 /* ===================== ABAS — Comparativos & Gráficos + Relatórios ===================== */
@@ -2488,6 +2490,215 @@ window.acessosAba = function(aba){
   });
   if (aba === 'usuarios') return renderAbaUsuarios();
   if (aba === 'dispositivos') return renderAbaDispositivos();
+};
+
+/* ============================================================================
+   ABA — ESTUDO ANUAL (exercício × exercício)
+   Mesmo estudo do desktop/PDF: dois anos lado a lado por conselho ou
+   congregação, Obreiros sempre em linha própria.
+   ============================================================================ */
+if (!G.estudo) G.estudo = { anoA: '', anoB: '', modo: 'conselho', limite: 12, conselho: 'Todos', congregacao: 'Todas', linhas: null, graf: null, grafEvo: null };
+
+function _estudoAnos(){
+  const anos = [...new Set((G.periodos || []).map(p => String(p.ano)))].sort();
+  const atual = String(new Date().getFullYear());
+  if (!anos.includes(atual)) anos.push(atual);
+  return anos.sort();
+}
+
+function renderAbaEstudo(){
+  const e = G.estudo;
+  const anos = _estudoAnos();
+  if (!e.anoA) e.anoA = anos.filter(a => +a < new Date().getFullYear()).at(-1) || anos[0] || '';
+  if (!e.anoB) e.anoB = anos.at(-1) || '';
+  el('gestao-corpo').innerHTML = `
+    <div class="border rounded-2xl p-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
+      <div class="flex items-center gap-2 text-xs font-bold"><i class="fa-solid fa-chart-column text-sky-400"></i>Estudo comparativo de arrecadação</div>
+      <p class="text-[10px] opacity-60">Dois exercícios lado a lado. Conselho/Congregação restringem o escopo; "até o mês" limita os dois anos na mesma régua.</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano base</span>${selHtml('es-ano-a', anos.map(a => [a, a]), e.anoA, 'gestaoEstudoLer()', 'w-full')}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano comparado</span>${selHtml('es-ano-b', anos.map(a => [a, a]), e.anoB, 'gestaoEstudoLer()', 'w-full')}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Agrupar por</span>${selHtml('es-modo', [['conselho', 'Conselho'], ['congregacao', 'Congregação']], e.modo, 'gestaoEstudoLer()', 'w-full')}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até o mês</span>${selHtml('es-limite', ORDEM_MESES.map((m, i) => [String(i + 1), m])), String(e.limite), 'gestaoEstudoLer()', 'w-full')}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Conselho</span><select id="es-conselho" onchange="gestaoEstudoConselho()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todos">Todos</option></select></div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Congregação</span><select id="es-congregacao" onchange="gestaoEstudoLer()" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="Todas">Todas</option></select></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="gestaoEstudoCarregar()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:linear-gradient(135deg,#0369a1,#0ea5e9)"><i class="fa-solid fa-bolt mr-1.5"></i>Comparar exercícios</button>
+        <button onclick="gestaoEstudoCopiar()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer" style="background:#059669" title="Copiar tabelas para colar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
+      </div>
+    </div>
+    <div id="es-resultado"><div class="border rounded-2xl p-8 text-center text-[11px] opacity-60" style="background:var(--bg-card);border-color:var(--border-color)"><i class="fa-solid fa-chart-column mb-2 block text-lg text-sky-400"></i>Escolha os anos e toque em "Comparar exercícios".</div></div>`;
+  _popularEscopoEstudo();
+  if (e.linhas) _renderEstudoResultado();
+}
+
+async function _popularEscopoEstudo(){
+  const sel = el('es-conselho'); if (!sel) return;
+  const { porConselho } = await mapaConselhos();
+  sel.innerHTML = '<option value="Todos">Todos</option>' + ordenarConselhosG(Object.keys(porConselho)).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value = G.estudo.conselho || 'Todos';
+  await gestaoEstudoConselho(true);
+}
+
+window.gestaoEstudoConselho = async function(silencioso){
+  const e = G.estudo;
+  e.conselho = el('es-conselho')?.value || 'Todos';
+  const cong = el('es-congregacao'); if (!cong) return;
+  const { porConselho } = await mapaConselhos();
+  const lista = e.conselho === 'Todos' ? Object.values(porConselho).flat() : (porConselho[e.conselho] || []);
+  const unicas = ordenarCongregacoesG([...new Set(lista)]);
+  cong.innerHTML = '<option value="Todas">Todas</option>' + unicas.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (!unicas.includes(e.congregacao)) e.congregacao = 'Todas';
+  cong.value = e.congregacao;
+  if (!silencioso && e.linhas) gestaoEstudoCarregar();
+};
+
+window.gestaoEstudoLer = function(){
+  const e = G.estudo;
+  e.anoA = el('es-ano-a')?.value || e.anoA;
+  e.anoB = el('es-ano-b')?.value || e.anoB;
+  e.modo = el('es-modo')?.value || e.modo;
+  e.limite = parseInt(el('es-limite')?.value, 10) || 12;
+  e.congregacao = el('es-congregacao')?.value || 'Todas';
+  if (e.linhas) _renderEstudoResultado();
+};
+
+let _estudoReqId = 0;
+window.gestaoEstudoCarregar = async function(){
+  const e = G.estudo;
+  gestaoEstudoLer();
+  if (!e.anoA || !e.anoB) { toast('Escolha os dois anos para comparar.'); return; }
+  const reqId = ++_estudoReqId;
+  const res = el('es-resultado');
+  if (res) res.innerHTML = '<div class="border rounded-2xl p-10 text-center text-xs opacity-60" style="background:var(--bg-card);border-color:var(--border-color)"><div class="spin inline-block mr-2"></div>Cruzando os dois exercícios…</div>';
+  try {
+    const dados = await consultarCruzamento(
+      Math.min(+e.anoA, +e.anoB), 'Janeiro', Math.max(+e.anoA, +e.anoB), 'Dezembro',
+      { conselho: e.conselho, congregacao: e.congregacao });
+    if (reqId !== _estudoReqId) return;
+    e.linhas = dados.linhas || [];
+    _renderEstudoResultado();
+  } catch (erro) {
+    if (res) res.innerHTML = `<div class="border rounded-2xl p-8 text-center text-xs text-red-500" style="border-color:var(--border-color)">${esc(erro?.message || 'Falha ao carregar o estudo.')}</div>`;
+  }
+};
+
+function _grupoEstudo(item, modo){
+  if (modo === 'congregacao') return item.congregacao || 'Não informado';
+  return cfq(item.congregacao) === 'obreiros' ? 'Obreiros' : (item.conselho || 'Não informado');
+}
+
+function _agregarEstudo(){
+  const e = G.estudo, mapa = {}, evo = { [e.anoA]: {}, [e.anoB]: {} };
+  for (const item of (e.linhas || [])){
+    const idxMes = indiceMes(item.mes);
+    if (idxMes < 1 || idxMes > e.limite) continue;
+    const ano = String(item.ano);
+    if (ano !== String(e.anoA) && ano !== String(e.anoB)) continue;
+    const g = _grupoEstudo(item, e.modo);
+    const cel = mapa[g] = mapa[g] || { nome: g, conselho: item.conselho, a: 0, b: 0 };
+    if (ano === String(e.anoA)) cel.a += num(item.entradas); else cel.b += num(item.entradas);
+    evo[ano][idxMes] = (evo[ano][idxMes] || 0) + num(item.entradas);
+  }
+  const ord = e.modo === 'conselho'
+    ? (x, y) => ordemConselhoIdxG(x.nome) - ordemConselhoIdxG(y.nome)
+    : (x, y) => ordemCongregacaoIdxG(x.nome, x.conselho) - ordemCongregacaoIdxG(y.nome, y.conselho);
+  return { grupos: Object.values(mapa).sort(ord), evo };
+}
+
+function _renderEstudoResultado(){
+  const e = G.estudo, res = el('es-resultado');
+  if (!res || !e.linhas) return;
+  const { grupos, evo } = _agregarEstudo();
+  const totA = grupos.reduce((s, g) => s + g.a, 0), totB = grupos.reduce((s, g) => s + g.b, 0);
+  const rotulo = `Jan–${ORDEM_MESES[e.limite - 1].slice(0, 3)}`;
+  const escopo = `${e.conselho === 'Todos' ? 'Campo inteiro' : e.conselho}${e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''}`;
+  const linha = (nome, a, b, total) => {
+    const v = variacaoPct(b, a);
+    return `<tr${total ? ' class="font-bold" style="background:var(--bg-input)"' : ''}>
+      <td class="p-2.5 ${total ? '' : 'font-semibold'}">${esc(nome)}</td>
+      <td class="p-2.5 text-right tabular-nums">${moeda(a)}</td>
+      <td class="p-2.5 text-right tabular-nums">${moeda(b)}</td>
+      <td class="p-2.5 text-right">${seloVar(v)}</td></tr>`;
+  };
+  res.innerHTML = `
+    <div class="grid grid-cols-3 gap-2.5">
+      ${card('Entradas ' + e.anoA, moeda(totA), 'text-sky-500')}
+      ${card('Entradas ' + e.anoB, moeda(totB), 'text-amber-500')}
+      ${card('Variação', (variacaoPct(totB, totA) ?? '—') + (variacaoPct(totB, totA) !== null ? '%' : ''), (variacaoPct(totB, totA) ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500', rotulo + ' · ' + escopo)}
+    </div>
+    <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+      <h3 class="font-bold text-sm mb-1">Variação por ${e.modo === 'conselho' ? 'conselho' : 'congregação'}</h3>
+      <p class="text-[10px] opacity-60 mb-3">${e.anoA} × ${e.anoB} · ${rotulo}</p>
+      <div class="relative h-72"><canvas id="es-graf"></canvas></div>
+    </div>
+    <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
+      <h3 class="font-bold text-sm mb-1">Evolução mensal</h3>
+      <p class="text-[10px] opacity-60 mb-3">${escopo} · ${rotulo}</p>
+      <div class="relative h-56"><canvas id="es-evo"></canvas></div>
+    </div>
+    <div class="border rounded-2xl overflow-auto" style="border-color:var(--border-color)">
+      <table class="w-full text-left text-xs whitespace-nowrap">
+        <thead style="background:var(--bg-surface)"><tr><th class="p-2.5">Grupo</th><th class="p-2.5 text-right">${esc(e.anoA)}</th><th class="p-2.5 text-right">${esc(e.anoB)}</th><th class="p-2.5 text-right">Var.</th></tr></thead>
+        <tbody class="divide-y" style="border-color:var(--border-color)">
+          ${grupos.map(g => linha(g.nome, g.a, g.b, false)).join('') || '<tr><td colspan="4" class="p-8 text-center opacity-60">Sem dados nos exercícios escolhidos.</td></tr>'}
+          ${grupos.length ? linha('CAMPO — TOTAL', totA, totB, true) : ''}
+        </tbody>
+      </table>
+    </div>`;
+  if (typeof Chart === 'undefined') return;
+  const corA = '#38bdf8', corB = '#f59e0b';
+  const tt = c => `${c.dataset.label}: ${moeda(c.raw)}`;
+  if (e.graf) e.graf.destroy();
+  const ctx = el('es-graf')?.getContext('2d');
+  if (ctx && grupos.length) e.graf = new Chart(ctx, { type: 'bar',
+    data: { labels: grupos.map(g => g.nome), datasets: [
+      { label: String(e.anoA), data: grupos.map(g => g.a), backgroundColor: corA + '99', borderColor: corA, borderWidth: 1, borderRadius: 4 },
+      { label: String(e.anoB), data: grupos.map(g => g.b), backgroundColor: corB + '99', borderColor: corB, borderWidth: 1, borderRadius: 4 }]},
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: tt } } },
+      scales: { x: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } }, y: { ticks: { autoSkip: false } } } }});
+  if (e.grafEvo) e.grafEvo.destroy();
+  const ctxE = el('es-evo')?.getContext('2d');
+  if (ctxE) e.grafEvo = new Chart(ctxE, { type: 'line',
+    data: { labels: ORDEM_MESES.slice(0, e.limite).map(m => m.slice(0, 3)), datasets: [e.anoA, e.anoB].map(ano => ({
+      label: String(ano), data: ORDEM_MESES.slice(0, e.limite).map((_, i) => evo[String(ano)]?.[i + 1] ?? null),
+      borderColor: ano === e.anoA ? corA : corB, backgroundColor: (ano === e.anoA ? corA : corB) + '33', borderWidth: 2, tension: .28, pointRadius: 3 }))},
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } }, tooltip: { callbacks: { label: tt } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('pt-BR', { notation: 'compact' }) } } } }});
+}
+
+/* Copia a tabela do estudo em texto monoespaçado (``` do WhatsApp). */
+window.gestaoEstudoCopiar = async function(){
+  const e = G.estudo;
+  if (!e.linhas) { toast('Carregue o estudo primeiro.'); return; }
+  const { grupos } = _agregarEstudo();
+  if (!grupos.length) { toast('Sem dados para copiar.'); return; }
+  const totA = grupos.reduce((s, g) => s + g.a, 0), totB = grupos.reduce((s, g) => s + g.b, 0);
+  const fmt = v => Math.round(v).toLocaleString('pt-BR');
+  const fmtPct = (a, b) => a > EPS ? `${(b - a) / a * 100 >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1).replace('.', ',')}%` : '—';
+  const largNome = Math.max(15, ...grupos.map(g => g.nome.length), 13);
+  const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(9)} ${fmt(b).padStart(9)} ${fmtPct(a, b).padStart(7)}`;
+  const L = [];
+  L.push(`📊 *ESTUDO COMPARATIVO — ${e.anoA} × ${e.anoB}*`);
+  L.push('⛪ AD Brasil · Campo de Rorainópolis');
+  L.push(`_Escopo: ${e.conselho === 'Todos' ? 'campo inteiro' : e.conselho}${e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''} · jan–${ORDEM_MESES[e.limite - 1].toLowerCase()}_`);
+  L.push('');
+  L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(9)} ${String(e.anoB).padStart(9)} ${'Var.'.padStart(7)}`);
+  L.push('─'.repeat(largNome + 28));
+  grupos.forEach(g => L.push(linhaTab(g.nome, g.a, g.b)));
+  L.push('─'.repeat(largNome + 28));
+  L.push(linhaTab('CAMPO — TOTAL', totA, totB) + '```');
+  L.push('');
+  L.push('_Fonte: movimento financeiro oficial · SGE AD Brasil_');
+  try { await navigator.clipboard.writeText(L.join('\n')); toast('Estudo copiado — cole no WhatsApp.'); }
+  catch (err) { toast('Não foi possível copiar para a área de transferência.'); }
 };
 
 /* API de depuração/testes */
