@@ -1084,7 +1084,7 @@ const linhaInd = (nome, valor, max) => {
 const seloVar = (v, invertido = false) => {
   if (v === null || v === undefined || isNaN(v)) return '<span class="text-[10px] opacity-50">sem base</span>';
   const bom = invertido ? v <= 0 : v >= 0;
-  return `<span class="${bom ? 'text-emerald-500' : 'text-red-500'} text-[10px] font-bold"><i class="fa-solid ${v >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-0.5"></i>${v >= 0 ? '+' : ''}${num(v).toFixed(1).replace('.', ',')}%</span>`;
+  return `<span class="${bom ? 'text-emerald-500' : 'text-red-500'} text-[10px] font-bold">● ${v >= 0 ? '+' : ''}${num(v).toFixed(1).replace('.', ',')}%</span>`;
 };
 const selHtml = (id, opts, val, onchange, cls) => `<select id="${id}" ${onchange ? `onchange="${onchange}"` : ''} class="px-2 py-1.5 rounded-lg border text-xs ${cls || ''}" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">${opts.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
 
@@ -2637,7 +2637,7 @@ function _renderEstudoResultado(){
     <div class="grid grid-cols-3 gap-2.5">
       ${card('Entradas ' + e.anoA, moeda(totA), 'text-sky-500')}
       ${card('Entradas ' + e.anoB, moeda(totB), 'text-amber-500')}
-      ${card('Variação', variacaoPct(totB, totA) === null ? '—' : `${variacaoPct(totB, totA) >= 0 ? '▲ +' : '▼ −'}${Math.abs(variacaoPct(totB, totA)).toFixed(1).replace('.', ',')}%`, (variacaoPct(totB, totA) ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500', rotulo + ' · ' + escopo)}
+      ${card('Variação', variacaoPct(totB, totA) === null ? '—' : `● ${variacaoPct(totB, totA) >= 0 ? '+' : '−'}${Math.abs(variacaoPct(totB, totA)).toFixed(1).replace('.', ',')}%`, (variacaoPct(totB, totA) ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500', rotulo + ' · ' + escopo)}
     </div>
     <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-sm mb-1">Variação por ${e.modo === 'conselho' ? 'conselho' : 'congregação'}</h3>
@@ -2691,8 +2691,8 @@ window.gestaoEstudoCopiar = async function(){
   const fmt = v => Math.round(v).toLocaleString('pt-BR');
   const fmtPct = (a, b) => a > EPS ? `${(b - a) / a * 100 >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1).replace('.', ',')}%` : '—';
   /* WhatsApp não tem cor em texto — emoji carrega a cor da seta. */
-  const setaEmoji = (a, b) => a > EPS ? `${(b - a) >= 0 ? '🟢▲' : '🔴▼'} ${fmtPct(a, b)}` : '—';
-  const setaMono = (a, b) => a > EPS ? `${(b - a) >= 0 ? '▲' : '▼'}${fmtPct(a, b)}` : '—';
+  const setaEmoji = (a, b) => a > EPS ? `${(b - a) >= 0 ? '🟢' : '🔴'} ${fmtPct(a, b)}` : '—';
+  const setaMono = (a, b) => a > EPS ? `● ${fmtPct(a, b)}` : '—';
   const listagem = e.modo === 'listagem';
   const L = [];
   L.push(`📊 *ESTUDO COMPARATIVO — ${e.anoA} × ${e.anoB}*`);
