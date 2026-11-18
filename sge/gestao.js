@@ -2716,8 +2716,7 @@ window.gestaoEstudoCopiar = async function(){
     for (const [cons, itens] of porCons) {
       const sA = itens.reduce((s, g) => s + g.a, 0), sB = itens.reduce((s, g) => s + g.b, 0);
       L.push(`*${cons.toUpperCase()}* — ${fmt(sA)} → ${fmt(sB)} (${setaEmoji(sA, sB)})`);
-      itens.forEach(g => L.push(`▪ ${g.nome}: ${fmt(g.a)} → ${fmt(g.b)} (${setaEmoji(g.a, g.b)})`));
-      L.push('');
+      itens.forEach(g => { L.push(`▪ ${g.nome}: ${fmt(g.a)} → ${fmt(g.b)} (${setaEmoji(g.a, g.b)})`); L.push(''); });
     }
     L.push(`*CAMPO — TOTAL:* ${fmt(totA)} → ${fmt(totB)} (${setaEmoji(totA, totB)})`);
   }
