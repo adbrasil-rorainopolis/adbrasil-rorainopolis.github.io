@@ -2520,7 +2520,7 @@ function renderAbaEstudo(){
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Ano comparado</span>${selHtml('es-ano-b', anos.map(a => [a, a]), e.anoB, 'gestaoEstudoLer()', 'w-full')}</div>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Agrupar por</span>${selHtml('es-modo', [['conselho', 'Conselho'], ['congregacao', 'Congregação']], e.modo, 'gestaoEstudoLer()', 'w-full')}</div>
+        <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Agrupar por</span>${selHtml('es-modo', [['conselho', 'Conselho'], ['congregacao', 'Congregação'], ['listagem', 'Todas as congregações']], e.modo, 'gestaoEstudoLer()', 'w-full')}</div>
         <div><span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Até o mês</span>${selHtml('es-limite', ORDEM_MESES.map((m, i) => [String(i + 1), m])), String(e.limite), 'gestaoEstudoLer()', 'w-full')}</div>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -2565,6 +2565,9 @@ window.gestaoEstudoLer = function(){
   e.modo = el('es-modo')?.value || e.modo;
   e.limite = parseInt(el('es-limite')?.value, 10) || 12;
   e.congregacao = el('es-congregacao')?.value || 'Todas';
+  /* 'listagem' lista todas as congregações — o filtro individual não se aplica. */
+  const selCong = el('es-congregacao');
+  if (selCong) { selCong.disabled = e.modo === 'listagem'; selCong.style.opacity = e.modo === 'listagem' ? '0.45' : ''; }
   if (e.linhas) _renderEstudoResultado();
 };
 
@@ -2579,7 +2582,7 @@ window.gestaoEstudoCarregar = async function(){
   try {
     const dados = await consultarCruzamento(
       Math.min(+e.anoA, +e.anoB), 'Janeiro', Math.max(+e.anoA, +e.anoB), 'Dezembro',
-      { conselho: e.conselho, congregacao: e.congregacao });
+      { conselho: e.conselho, congregacao: e.modo === 'listagem' ? 'Todas' : e.congregacao });
     if (reqId !== _estudoReqId) return;
     e.linhas = dados.linhas || [];
     _renderEstudoResultado();
@@ -2589,7 +2592,7 @@ window.gestaoEstudoCarregar = async function(){
 };
 
 function _grupoEstudo(item, modo){
-  if (modo === 'congregacao') return item.congregacao || 'Não informado';
+  if (modo === 'congregacao' || modo === 'listagem') return item.congregacao || 'Não informado';
   return cfq(item.congregacao) === 'obreiros' ? 'Obreiros' : (item.conselho || 'Não informado');
 }
 
@@ -2616,14 +2619,18 @@ function _renderEstudoResultado(){
   if (!res || !e.linhas) return;
   const { grupos, evo } = _agregarEstudo();
   const totA = grupos.reduce((s, g) => s + g.a, 0), totB = grupos.reduce((s, g) => s + g.b, 0);
+  const listagem = e.modo === 'listagem';
   const rotulo = `Jan–${ORDEM_MESES[e.limite - 1].slice(0, 3)}`;
-  const escopo = `${e.conselho === 'Todos' ? 'Campo inteiro' : e.conselho}${e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''}`;
-  const linha = (nome, a, b, total) => {
-    const v = variacaoPct(b, a);
+  const escopo = `${e.conselho === 'Todos' ? 'Campo inteiro' : e.conselho}${!listagem && e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''}`;
+  const tdCons = g => listagem ? `<td class="p-2.5 opacity-70">${esc(g?.conselho || '—')}</td>` : '';
+  const colunas = listagem ? 6 : 5;
+  const linha = (nome, a, b, total, g) => {
+    const v = variacaoPct(b, a), dif = b - a;
     return `<tr${total ? ' class="font-bold" style="background:var(--bg-input)"' : ''}>
-      <td class="p-2.5 ${total ? '' : 'font-semibold'}">${esc(nome)}</td>
+      <td class="p-2.5 ${total ? '' : 'font-semibold'}">${esc(nome)}</td>${tdCons(total ? { conselho: '' } : g)}
       <td class="p-2.5 text-right tabular-nums">${moeda(a)}</td>
       <td class="p-2.5 text-right tabular-nums">${moeda(b)}</td>
+      <td class="p-2.5 text-right tabular-nums ${dif >= 0 ? 'text-emerald-500' : 'text-red-500'}">${dif >= 0 ? '+' : ''}${moeda(dif)}</td>
       <td class="p-2.5 text-right">${seloVar(v)}</td></tr>`;
   };
   res.innerHTML = `
@@ -2635,7 +2642,7 @@ function _renderEstudoResultado(){
     <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-sm mb-1">Variação por ${e.modo === 'conselho' ? 'conselho' : 'congregação'}</h3>
       <p class="text-[10px] opacity-60 mb-3">${e.anoA} × ${e.anoB} · ${rotulo}</p>
-      <div class="relative h-72"><canvas id="es-graf"></canvas></div>
+      <div class="relative" style="height:${Math.max(288, grupos.length * (listagem ? 24 : 42))}px"><canvas id="es-graf"></canvas></div>
     </div>
     <div class="border rounded-2xl p-4" style="background:var(--bg-card);border-color:var(--border-color)">
       <h3 class="font-bold text-sm mb-1">Evolução mensal</h3>
@@ -2644,9 +2651,9 @@ function _renderEstudoResultado(){
     </div>
     <div class="border rounded-2xl overflow-auto" style="border-color:var(--border-color)">
       <table class="w-full text-left text-xs whitespace-nowrap">
-        <thead style="background:var(--bg-surface)"><tr><th class="p-2.5">Grupo</th><th class="p-2.5 text-right">${esc(e.anoA)}</th><th class="p-2.5 text-right">${esc(e.anoB)}</th><th class="p-2.5 text-right">Var.</th></tr></thead>
+        <thead style="background:var(--bg-surface)"><tr><th class="p-2.5">${listagem ? 'Congregação' : 'Grupo'}</th>${listagem ? '<th class="p-2.5">Conselho</th>' : ''}<th class="p-2.5 text-right">${esc(e.anoA)}</th><th class="p-2.5 text-right">${esc(e.anoB)}</th><th class="p-2.5 text-right">Dif.</th><th class="p-2.5 text-right">Var.</th></tr></thead>
         <tbody class="divide-y" style="border-color:var(--border-color)">
-          ${grupos.map(g => linha(g.nome, g.a, g.b, false)).join('') || '<tr><td colspan="4" class="p-8 text-center opacity-60">Sem dados nos exercícios escolhidos.</td></tr>'}
+          ${grupos.map(g => linha(g.nome, g.a, g.b, false, g)).join('') || `<tr><td colspan="${colunas}" class="p-8 text-center opacity-60">Sem dados nos exercícios escolhidos.</td></tr>`}
           ${grupos.length ? linha('CAMPO — TOTAL', totA, totB, true) : ''}
         </tbody>
       </table>
@@ -2685,14 +2692,22 @@ window.gestaoEstudoCopiar = async function(){
   const fmtPct = (a, b) => a > EPS ? `${(b - a) / a * 100 >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1).replace('.', ',')}%` : '—';
   const largNome = Math.max(15, ...grupos.map(g => g.nome.length), 13);
   const linhaTab = (nome, a, b) => `${nome.padEnd(largNome)} ${fmt(a).padStart(9)} ${fmt(b).padStart(9)} ${fmtPct(a, b).padStart(7)}`;
+  const listagem = e.modo === 'listagem';
   const L = [];
   L.push(`📊 *ESTUDO COMPARATIVO — ${e.anoA} × ${e.anoB}*`);
   L.push('⛪ AD Brasil · Campo de Rorainópolis');
-  L.push(`_Escopo: ${e.conselho === 'Todos' ? 'campo inteiro' : e.conselho}${e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''} · jan–${ORDEM_MESES[e.limite - 1].toLowerCase()}_`);
+  L.push(`_Escopo: ${e.conselho === 'Todos' ? 'campo inteiro' : e.conselho}${!listagem && e.congregacao !== 'Todas' ? ' · ' + e.congregacao : ''} · jan–${ORDEM_MESES[e.limite - 1].toLowerCase()}_`);
   L.push('');
   L.push('```' + `${'Grupo'.padEnd(largNome)} ${String(e.anoA).padStart(9)} ${String(e.anoB).padStart(9)} ${'Var.'.padStart(7)}`);
   L.push('─'.repeat(largNome + 28));
-  grupos.forEach(g => L.push(linhaTab(g.nome, g.a, g.b)));
+  let conselhoAnterior = null;
+  grupos.forEach(g => {
+    if (listagem && g.conselho !== conselhoAnterior) {
+      conselhoAnterior = g.conselho;
+      L.push(`── ${String(g.conselho || 'Sem conselho').toUpperCase()} ──`);
+    }
+    L.push(linhaTab(g.nome, g.a, g.b));
+  });
   L.push('─'.repeat(largNome + 28));
   L.push(linhaTab('CAMPO — TOTAL', totA, totB) + '```');
   L.push('');
