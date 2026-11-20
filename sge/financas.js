@@ -7361,20 +7361,24 @@ const DRE_CSS = `
 .dre-doc{font-family:Arial,Helvetica,sans-serif;font-size:8.6px;color:#111;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
 .dre-doc table{border-collapse:collapse;width:100%}
 .dre-doc td{padding:2px 5px}
-.dre-doc .dd-cab{display:flex;align-items:flex-start;justify-content:center;position:relative}
-.dre-doc .dd-timb{max-width:84%;max-height:70px;object-fit:contain;margin:0 auto}
-.dre-doc .dd-qr{position:absolute;right:0;top:0;text-align:center;width:76px;overflow:hidden}
+.dre-doc thead{display:table-header-group}
+.dre-doc tr{page-break-inside:avoid}
+.dre-doc tr.dd-sec{page-break-after:avoid}
+.dre-doc tr.dd-sub,.dre-doc tr.dd-tot{page-break-before:avoid}
+.dre-doc .dd-cab{display:flex;align-items:center;justify-content:center}
+.dre-doc .dd-timb{max-width:84%;max-height:64px;object-fit:contain;object-position:center top;margin:0 auto}
+.dre-doc .dd-qr{display:flex;flex-direction:column;align-items:center;margin:14px auto 0;page-break-inside:avoid}
 .dre-doc .dd-qr canvas,.dre-doc .dd-qr img{width:68px!important;height:68px!important;image-rendering:pixelated;display:block}
-.dre-doc .dd-tit{font-size:9px;margin-top:8px;line-height:1.55;text-align:center}
-.dre-doc .dd-bloco-tit{font-size:9px;font-weight:bold;text-align:center;margin:16px 0 0;letter-spacing:.2px}
+.dre-doc .dd-tit{font-size:9px;margin-top:5px;line-height:1.55;text-align:center}
+.dre-doc .dd-bloco-tit{font-size:9px;font-weight:bold;text-align:center;margin:16px 0 0;letter-spacing:.2px;page-break-after:avoid}
 .dre-doc .dd-sec td{background:#e9edf6;font-weight:bold;letter-spacing:.3px;padding:4px 5px}
 .dre-doc .dd-sub td,.dre-doc .dd-tot td{font-weight:bold;background:#f4f6fa}
 .dre-doc .dd-sub td.dd-v,.dre-doc .dd-tot td.dd-v{border-top:.5px solid #000}
 .dre-doc .dd-tot td.dd-v{border-bottom:2px double #000}
 .dre-doc .dd-v{text-align:right;white-space:nowrap}
 .dre-doc .dd-gap td{padding:2px 0;font-size:4px}
-.dre-doc .dd-nota{font-size:6.5px;color:#555;margin-top:8px;line-height:1.45}
-.dre-doc .dd-sigs{display:flex;gap:4%;margin-top:30px;font-size:7px;text-align:center;line-height:1.45}
+.dre-doc .dd-nota{font-size:6.5px;color:#555;margin-top:8px;line-height:1.45;page-break-inside:avoid}
+.dre-doc .dd-sigs{display:flex;gap:4%;margin-top:30px;font-size:7px;text-align:center;line-height:1.45;page-break-inside:avoid}
 .dre-doc .dd-sig{flex:1}
 .dre-doc .dd-sig .ln{border-top:1px solid #000;padding-top:3px;margin:0 4px}
 `;
@@ -7811,8 +7815,8 @@ window.dreCarregar = async function(){
   const blocos = dre.blocos || [{ titulo: '', cols: cols.map((_, i) => i) }];
   const linhas = dre.linhas_serie || dre.linhas || [];
   const larguraDoc = 110 + Math.max(...blocos.map(b => b.cols.length), 1) * 74;
-  let html = `<div class="dre-doc" style="min-width:${larguraDoc}px;padding:10px 10px 14px">
-    <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""><div id="dre-qr-m" class="dd-qr"></div></div>
+  let html = `<div class="dre-doc" style="min-width:${larguraDoc}px;padding:8px 10px 14px">
+    <div class="dd-cab"><img class="dd-timb" src="icons/cabecalho_ad_brasil.png" alt=""></div>
     <div class="dd-tit">${esc(titulos[dre.modo] || titulos.balancete)}<br>${esc(dre.subtitulo)}<br>(Em reais)</div>`;
   for (const bloco of blocos){
     const bc = bloco.cols;
@@ -7834,6 +7838,7 @@ window.dreCarregar = async function(){
     html += `<div class="dd-sigs">${DRE_ASSINATURAS
         .map(s => `<div class="dd-sig"><div class="ln"><b>${s[0]}</b><br>${s[1]}<br>${s[2]}</div></div>`).join('')}</div>`;
   }
+  html += '<div id="dre-qr-m" class="dd-qr"></div>';
   host.innerHTML = html + '</div>';
   _dreQrNo('dre-qr-m', dre);
 };
@@ -7859,12 +7864,9 @@ window.drePdf = async function(){
         doc.addImage(dataUrl, 'PNG', (W - 110) / 2, 8, 110, 110 * 191 / 1128);
       } catch(e){}
     }
-    if (qrData){
-      try { doc.addImage(qrData, 'PNG', W - 14 - 18, 8, 18, 18); doc.setFontSize(4.5); doc.setTextColor(85,85,85); doc.text(dre.verificacao?.codigo || '', W - 23, 29, { align: 'center' }); } catch(e){}
-    }
     doc.setFontSize(9); doc.setTextColor(17,17,17);
-    doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, W / 2, 36, { align: 'center' });
-    doc.text(dre.subtitulo || '', W / 2, 40, { align: 'center' }); doc.text('(Em reais)', W / 2, 44, { align: 'center' });
+    doc.text('Demonstração do resultado econômico-financeiro — ' + dre.modo, W / 2, 33, { align: 'center' });
+    doc.text(dre.subtitulo || '', W / 2, 37, { align: 'center' }); doc.text('(Em reais)', W / 2, 41, { align: 'center' });
     const cols = dre.colunas || [];
     const blocos = dre.blocos || [{ titulo: '', cols: cols.map((_, i) => i) }];
     const linhas = dre.linhas_serie || dre.linhas || [];
@@ -7873,7 +7875,7 @@ window.drePdf = async function(){
       doc.text(String(doc.internal.getNumberOfPages()), 14, 291);
       doc.text('SGE • AD BRASIL — DEMONSTRAÇÃO DO RESULTADO GERADA ELETRONICAMENTE', W / 2, 291, { align: 'center' });
     };
-    let startY = 48;
+    let startY = 45;
     for (let bi = 0; bi < blocos.length; bi++){
       const bloco = blocos[bi];
       const bc = bloco.cols;
@@ -7917,6 +7919,16 @@ window.drePdf = async function(){
         doc.line(x, y, x + larg - 12, y);
         doc.text(`${s[0]}\n${s[1]}\n${s[2]}`, x + (larg - 12) / 2, y + 3.5, { align: 'center' });
       });
+      y += 12;
+    }
+    if (qrData){
+      y += 10;
+      if (y > 258) { doc.addPage(); y = 20; rodape(); }
+      try {
+        doc.addImage(qrData, 'PNG', (W - 18) / 2, y, 18, 18);
+        doc.setFontSize(4.5); doc.setTextColor(85, 85, 85);
+        doc.text(dre.verificacao?.codigo || '', W / 2, y + 21, { align: 'center' });
+      } catch(e){}
     }
     doc.save(dre.modo === 'serie' ? 'DRE_Serie_de_Exercicios.pdf'
       : dre.modo === 'acumanual' ? `DRE_Acumulada_Anual_${dre.ano_ini}_${dre.ano_fim}.pdf`
