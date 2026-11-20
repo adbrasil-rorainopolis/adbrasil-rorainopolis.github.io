@@ -315,9 +315,9 @@ async function _dizPanorama(){
     const mesesLanc = Object.keys(porMes).length;
     const melhorPer = Object.entries(porMes).sort((a, b) => b[1] - a[1])[0];
     const melhorCong = Object.entries(porCong).sort((a, b) => b[1] - a[1])[0];
-    const story = (cor, valor, rotulo, sub) => `<div class="shrink-0 border rounded-xl px-2.5 py-2 min-w-[118px]" style="background:var(--bg-card);border-color:var(--border-color);border-top:2px solid ${cor}">
-      <b class="text-xs block" style="color:${cor}">${valor}</b><span class="text-[8px] block" style="color:var(--text-muted)">${rotulo}</span>${sub ? `<span class="text-[8px] font-bold block mt-0.5" style="color:var(--text-subtle)">${sub}</span>` : ''}</div>`;
-    const stories = totAno > 0 || qtdAno > 0 ? `<div class="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3" style="scrollbar-width:none">
+    const story = (cor, valor, rotulo, sub) => `<div class="border rounded-xl px-2.5 py-2 min-w-0" style="background:var(--bg-input);border-color:var(--border-color);border-top:2px solid ${cor}">
+      <b class="text-[11px] block truncate" style="color:${cor}">${valor}</b><span class="text-[8px] block leading-tight mt-0.5" style="color:var(--text-muted)">${rotulo}</span>${sub ? `<span class="text-[8px] font-bold block mt-0.5 truncate" style="color:var(--text-subtle)">${sub}</span>` : ''}</div>`;
+    const stories = totAno > 0 || qtdAno > 0 ? `<div class="grid grid-cols-2 gap-1.5 mt-2.5">
       ${story('#34d399', moeda(totAno), 'Arrecadado no ano', `${contribAno.size} contribuintes`)}
       ${story('#38bdf8', String(qtdAno), 'Lançamentos no ano', `${mesesLanc} meses com valores`)}
       ${melhorPer ? story('#fbbf24', MESES_ORD[melhorPer[0] % 12], 'Maior mês', moeda(melhorPer[1])) : ''}
@@ -340,8 +340,8 @@ async function _dizPanorama(){
             <div class="flex items-baseline justify-between"><b class="text-xs ${afast.length ? 'text-red-400' : 'text-emerald-500'}">${afast.length}</b><span class="text-[8px] uppercase" style="color:var(--text-muted)">afastados</span></div>
           </div>
         </div>
+        ${stories}
       </div>
-      ${stories}
       ${lista}</div>`;
   } catch(e){ box.innerHTML = `<p class="text-[10px] text-amber-500 px-1 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Panorama indisponível: ${esc(e.message || '')}</p>`; }
 }
