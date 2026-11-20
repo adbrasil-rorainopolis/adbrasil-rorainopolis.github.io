@@ -889,7 +889,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.1.17';
+const SGE_VERSAO = '2.1.18';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2201,16 +2201,33 @@ async function carregarDashboard(token){
   if ($('n-membros')) {
     // paridade desktop: dizimista ativo = dizimou em 3+ dos ultimos 5 meses
     const hoje = new Date();
+    const refP = hoje.getFullYear() * 12 + hoje.getMonth();
+    const janela5 = [refP - 4, refP - 3, refP - 2, refP - 1, refP];
+    const calcDireto = async () => {
+      // mesmo criterio, sem depender do historico de congregacoes
+      const resM = await api('listar_membros', null, token);
+      const membs = (resM.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
+      const lanc = await (typeof carregarTodosLancamentos === 'function' ? carregarTodosLancamentos() : api('listar_lancamentos', null, token).then(r => r?.dados || r || []));
+      const contrib = {};
+      for (const r of (lanc || [])) {
+        if (parseValor(r.valor) <= 0) continue;
+        const per = _periodoIdx(r.ano, r.mes); if (per === null) continue;
+        const ch = _normIdMembro(r.id); if (!ch) continue;
+        (contrib[ch] = contrib[ch] || new Set()).add(per);
+      }
+      return membs.filter(m => { const s = contrib[_normIdMembro(m.id)]; return s && janela5.filter(p => s.has(p)).length >= 3; }).length;
+    };
     Promise.resolve(typeof dadosFrequenciaBI === 'function'
         ? dadosFrequenciaBI({ ano: String(hoje.getFullYear()), mes: MESES_ORD[hoje.getMonth()] })
         : null).then(res => {
       const n = res?.ativos_regulares ?? res?.ativos;
       if (n == null) throw new Error('sem_bi');
       $('n-membros').textContent = n;
-    }).catch(() => api('listar_membros', null, token).then(res => {
-      const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
-      $('n-membros').textContent = ativos.length;
-    }).catch(() => { if ($('n-membros')) $('n-membros').textContent = '—'; }));
+    }).catch(() => calcDireto().then(n => { $('n-membros').textContent = n; })
+      .catch(() => api('listar_membros', null, token).then(res => {
+        const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
+        $('n-membros').textContent = ativos.length;
+      }).catch(() => { if ($('n-membros')) $('n-membros').textContent = '—'; })));
   }
 
   if ($('fin-corpo')) carregarFinanceiro(token);
