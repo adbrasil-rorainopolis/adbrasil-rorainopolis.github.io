@@ -315,15 +315,16 @@ async function _dizPanorama(){
     const mesesLanc = Object.keys(porMes).length;
     const melhorPer = Object.entries(porMes).sort((a, b) => b[1] - a[1])[0];
     const melhorCong = Object.entries(porCong).sort((a, b) => b[1] - a[1])[0];
-    const story = (cor, valor, rotulo, sub) => `<div class="border rounded-xl px-2.5 py-2 min-w-0" style="background:var(--bg-input);border-color:var(--border-color);border-top:2px solid ${cor}">
-      <b class="text-[11px] block truncate" style="color:${cor}">${valor}</b><span class="text-[8px] block leading-tight mt-0.5" style="color:var(--text-muted)">${rotulo}</span>${sub ? `<span class="text-[8px] font-bold block mt-0.5 truncate" style="color:var(--text-subtle)">${sub}</span>` : ''}</div>`;
+    const story = (cor, icone, valor, rotulo, sub) => `<div class="border rounded-xl px-2.5 pt-2.5 pb-2 min-w-0 relative overflow-hidden" style="background:linear-gradient(135deg, ${cor}14, transparent 55%), var(--bg-input);border-color:${cor}40">
+      <div class="flex items-center gap-1.5 mb-1"><span class="w-5 h-5 rounded-lg flex items-center justify-center shrink-0" style="background:${cor}26;color:${cor}"><i class="fa-solid ${icone} text-[9px]"></i></span><span class="text-[7px] font-bold uppercase tracking-wide leading-tight truncate" style="color:var(--text-muted)">${rotulo}</span></div>
+      <b class="text-[12px] block truncate leading-tight" style="color:${cor}">${valor}</b>${sub ? `<span class="text-[8px] block mt-0.5 truncate" style="color:var(--text-subtle)">${sub}</span>` : ''}</div>`;
     const stories = totAno > 0 || qtdAno > 0 ? `<div class="grid grid-cols-2 gap-1.5 mt-2.5">
-      ${story('#34d399', moeda(totAno), 'Arrecadado no ano', `${contribAno.size} contribuintes`)}
-      ${story('#38bdf8', String(qtdAno), 'Lançamentos no ano', `${mesesLanc} meses com valores`)}
-      ${melhorPer ? story('#fbbf24', MESES_ORD[melhorPer[0] % 12], 'Maior mês', moeda(melhorPer[1])) : ''}
-      ${mesesLanc ? story('#a78bfa', moeda(totAno / mesesLanc), 'Média mensal', '') : ''}
-      ${melhorCong ? story('#22d3ee', esc(melhorCong[0]), 'Congregação destaque', moeda(melhorCong[1])) : ''}
-      ${story('#f472b6', String(contribAno.size), 'Contribuintes no ano', `${hoje.getFullYear()}`)}
+      ${story('#34d399', 'fa-sack-dollar', moeda(totAno), 'Arrecadado no ano', `${contribAno.size} contribuintes`)}
+      ${story('#38bdf8', 'fa-receipt', String(qtdAno), 'Lançamentos no ano', `${mesesLanc} meses com valores`)}
+      ${melhorPer ? story('#fbbf24', 'fa-trophy', MESES_ORD[melhorPer[0] % 12], 'Maior mês', moeda(melhorPer[1])) : ''}
+      ${mesesLanc ? story('#a78bfa', 'fa-chart-line', moeda(totAno / mesesLanc), 'Média mensal', '') : ''}
+      ${melhorCong ? story('#22d3ee', 'fa-church', esc(melhorCong[0]), 'Congregação destaque', moeda(melhorCong[1])) : ''}
+      ${story('#f472b6', 'fa-users', String(contribAno.size), 'Contribuintes no ano', `${hoje.getFullYear()}`)}
     </div>` : '';
 
     const lista = afast.length
