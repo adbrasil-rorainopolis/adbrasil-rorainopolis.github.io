@@ -1368,6 +1368,10 @@ async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = '
     total_avaliados: total, data_referencia: _rotuloPeriodo(referencia), membros: detalhes };
 }
 
+/* Exportada para o card "Dizimistas" do Panorama inicial (index.html) —
+   regra compartilhada: ativos_regulares = dizimou em 3+ dos ultimos 5 meses. */
+window.dadosFrequenciaBI = dadosFrequenciaBI;
+
 /* ---------- UI frequência ---------- */
 const FQ_CORES = { recorrentes: '#10b981', irregulares: '#f59e0b', novos: '#d946ef', ausentes: '#ef4444' };
 let _fqChart = null;
