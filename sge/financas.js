@@ -260,20 +260,23 @@ async function _dizPanorama(){
     const hoje = new Date();
     const refP = hoje.getFullYear() * 12 + hoje.getMonth();
     const semAtual = Math.min(5, Math.ceil(hoje.getDate() / 7));
-    let arrecadado = 0; const ultimos = {};
+    let arrecadado = 0; const ultimos = {}; const contrib = {};
     for (const r of lanc){
       const v = parseValor(r.valor); if (v <= 0) continue;
       const per = _periodoIdx(r.ano, r.mes); if (per === null) continue;
       const ch = _normIdMembro(r.id); if (!ch) continue;
       if (per === refP) arrecadado += v;
+      (contrib[ch] = contrib[ch] || new Set()).add(per);
       const sem = _numSemana(r.semana);
       if (!ultimos[ch] || per > ultimos[ch][0] || (per === ultimos[ch][0] && sem > ultimos[ch][1])) ultimos[ch] = [per, sem];
     }
+    const janelaAtv = [refP - 4, refP - 3, refP - 2, refP - 1, refP];
     let ativos = 0; const afast = [];
     for (const m of (F.membros || [])){
       if (String(m.excluido_em ?? '').trim()) continue;
       if (String(m.data_inativacao ?? '').trim() && !String(m.data_reativacao ?? '').trim()) continue;
-      ativos++;
+      const pers = contrib[_normIdMembro(m.id)];
+      if (pers && janelaAtv.filter(p => pers.has(p)).length >= 3) ativos++;
       const u = ultimos[_normIdMembro(m.id)];
       const semAgo = u ? Math.max(0, (refP - u[0]) * 5 + (semAtual - u[1])) : 999;
       if (semAgo >= 3) afast.push({ nome: String(m.nome || ''), cong: _nomeCongExib(m.congregacao), semanas: semAgo, ult: u ? `${u[1]}ª sem. · ${_rotuloPeriodo(u[0])}` : 'Nunca contribuiu' });
@@ -1348,6 +1351,8 @@ async function dadosFrequenciaBI({ ano, mes, conselho = 'Todos', congregacao = '
   detalhes.sort((a, b) => (-(a.meses_ausente ?? 9999) + (b.meses_ausente ?? 9999)) || a.nome.localeCompare(b.nome, 'pt-BR'));
   const total = contagem.recorrentes + contagem.irregulares + contagem.novos + contagem.ausentes;
   contagem.ativos = total;
+  const janelaAtv = [referencia - 4, referencia - 3, referencia - 2, referencia - 1, referencia];
+  contagem.ativos_regulares = membrosAtivos.filter(([, periodos]) => janelaAtv.filter(p => periodos.has(p)).length >= 3).length;
   const perc = {};
   for (const k of ['recorrentes', 'irregulares', 'novos', 'ausentes']) perc[k] = total ? contagem[k] / total * 100 : 0;
 
