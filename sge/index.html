@@ -896,7 +896,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.3.4';
+const SGE_VERSAO = '2.3.5';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2006,21 +2006,49 @@ let _ptrPerguntando = false;
 
 function ptrIndicar(dy){
   let ind = document.getElementById('ptr-ind');
-  if (dy <= 4){ if (ind){ ind.style.opacity = '0'; setTimeout(() => ind.remove(), 180); ind.dataset.pronto = '0'; } return; }
+  if (dy <= 4){ if (ind){ ind.style.opacity = '0'; ind.style.transform = 'translateX(-50%) scale(.6)'; setTimeout(() => ind.remove(), 180); ind.dataset.pronto = '0'; } return; }
   if (!ind){
     ind = document.createElement('div');
     ind.id = 'ptr-ind';
-    ind.style.cssText = 'position:fixed;top:calc(56px + max(12px, env(safe-area-inset-top)));left:50%;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.4px;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-muted);box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .18s';
-    ind.innerHTML = '<i class="fa-solid fa-rotate-right" style="color:var(--color-primary)"></i><span>Puxe para atualizar</span>';
+    ind.style.cssText = 'position:fixed;top:calc(60px + max(12px, env(safe-area-inset-top)));left:50%;transform:translateX(-50%);z-index:97;display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .18s;pointer-events:none;';
+    ind.innerHTML =
+      '<div style="position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center">' +
+        '<svg viewBox="0 0 60 60" style="position:absolute;inset:0;transform:rotate(-90deg)">' +
+          '<circle cx="30" cy="30" r="26" fill="none" stroke="var(--border-color)" stroke-width="2.5" opacity=".5"/>' +
+          '<circle class="ptr-arc" cx="30" cy="30" r="26" fill="none" stroke="#b98c3f" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>' +
+        '</svg>' +
+        '<img src="icons/logo_sge.png" style="width:34px;height:31px;object-fit:contain" alt="">' +
+      '</div>' +
+      '<span class="ptr-txt" style="font-size:9px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);background:var(--bg-card);border:1px solid var(--border-color);border-radius:999px;padding:3px 10px;box-shadow:0 6px 18px rgba(0,0,0,.2)">Puxe para atualizar</span>';
     document.body.appendChild(ind);
   }
+  const t = Math.min(dy / PTR_LIMIAR, 1);
   const pronto = dy >= PTR_LIMIAR;
   ind.dataset.pronto = pronto ? '1' : '0';
-  const icone = ind.firstElementChild, txt = ind.lastElementChild;
-  icone.style.transform = `rotate(${Math.min(dy * 2.2, 200)}deg)`;
-  ind.style.borderColor = pronto ? 'var(--color-primary)' : 'var(--border-color)';
+  ind.querySelector('.ptr-arc').style.strokeDashoffset = String(163.4 * (1 - t));
+  ind.style.opacity = String(Math.min(.3 + t, 1));
+  const txt = ind.querySelector('.ptr-txt');
   txt.textContent = pronto ? 'Solte para atualizar' : 'Puxe para atualizar';
+  txt.style.borderColor = pronto ? 'var(--color-primary)' : 'var(--border-color)';
+  txt.style.color = pronto ? 'var(--color-primary)' : 'var(--text-muted)';
 }
+
+/* Splash Alvorada em overlay: cobre a tela no instante da recarga confirmada,
+   dando continuidade ao gesto (o simbolo "nasce" no puxar e floresce no soltar) */
+function ptrMostrarSplashRecarga(){
+  if (document.getElementById('ptr-splash')) return;
+  const s = document.createElement('div');
+  s.id = 'ptr-splash';
+  s.className = 'splash-alvorada';
+  s.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .3s;background:linear-gradient(180deg,#fff 0%,#fdf8ec 45%,#f6e3bd 82%,#ecc98a 100%);background-size:100% 220%;animation:dawnShift 9s ease-in-out infinite;';
+  s.innerHTML =
+    '<div class="splash-motes" aria-hidden="true"><i style="left:18%"></i><i style="left:42%;animation-delay:1.1s"></i><i style="left:66%;animation-delay:2s"></i><i style="left:85%;animation-delay:.7s"></i></div>' +
+    '<div class="splash-halo" style="width:13rem;height:13rem"><img src="icons/logo_sge.png" style="width:10rem;height:9rem;object-fit:contain" alt=""></div>' +
+    '<div class="splash-dots" style="margin-top:1.6rem"><i></i><i></i><i></i></div>';
+  document.body.appendChild(s);
+  requestAnimationFrame(() => { s.style.opacity = '1'; });
+}
+function sgeRecarregarComSplash(){ ptrMostrarSplashRecarga(); setTimeout(() => location.reload(), 750); }
 
 window.addEventListener('touchstart', (e) => {
   if (window.scrollY > 2 || e.touches.length !== 1) { _ptr = null; return; }
@@ -2065,16 +2093,16 @@ function ptrConfirmar(){
    versão e pelo botão "Atualizar agora" das configurações. */
 function sgeSolicitarRecarga(){
   if (window.sgeTemEdicaoPendente && window.sgeTemEdicaoPendente()){
-    if (window.rcmConfirmarPerdaEdicao){ rcmConfirmarPerdaEdicao(() => location.reload()); return; }
+    if (window.rcmConfirmarPerdaEdicao){ rcmConfirmarPerdaEdicao(() => sgeRecarregarComSplash()); return; }
     if (window.rcmConfirmar){
       rcmConfirmar({ titulo:'Sair e recarregar?', icone:'fa-triangle-exclamation', cor:'#f59e0b',
         okTexto:'Sair e recarregar', naoTexto:'Continuar editando',
         msg:'Existem lançamentos do Envio de Caixa editados e <b>ainda não gravados</b>. Recarregar agora descarta essas alterações.' })
-        .then(ok => { if (ok) location.reload(); });
+        .then(ok => { if (ok) sgeRecarregarComSplash(); });
       return;
     }
   }
-  location.reload();
+  sgeRecarregarComSplash();
 }
 window.sgeSolicitarRecarga = sgeSolicitarRecarga;
 
