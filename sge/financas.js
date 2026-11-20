@@ -24,7 +24,7 @@ const F = {
   membroSel: null,
   aba: 'rol',
   sem: { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], semana: 'Semana 1',
-    conselho: 'Todos', congregacao: 'Todas', situacao: 'todos', busca: '', lancs: {}, fechada: false, fechPorAno: {} },
+    conselho: 'Todos', congregacao: 'Todas', situacao: 'todos', forma: 'todos', busca: '', lancs: {}, fechada: false, fechPorAno: {} },
   fq: { ano: String(new Date().getFullYear()), mes: MESES_ORD[new Date().getMonth()], conselho: 'Todos', congregacao: 'Todas', perfil: 'Todos', faixa: null, dados: null },
 };
 
@@ -235,16 +235,29 @@ window.dizMenu = function(){
   el('fin-ctx')?.classList.add('hidden');
   const sub = el('fin-sub'); if (sub) sub.innerHTML = '';
   const menu = el('fin-menu'); if (!menu) return;
-  const itens = DIZ_ABAS_ORDEM.filter(dizAbaPermitida);
-  menu.innerHTML = `<div id="diz-panorama"></div><div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
-    ${itens.map(t => {
-      const m = DIZ_TELA_META[t];
-      return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
-        <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
-        <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
-        <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
-      </button>`;
-    }).join('')}</div>` || '<p class="text-[10px] opacity-50 text-center py-4">Nenhuma área liberada.</p>';
+  const grupos = [
+    { titulo: 'Irmãos e acompanhamento', icone: 'fa-users',      abas: ['rol', 'frequencia'] },
+    { titulo: 'Movimento',               icone: 'fa-receipt',    abas: ['semanal'] },
+    { titulo: 'Registros',               icone: 'fa-book',       abas: ['mapa', 'livro'] },
+  ];
+  const blocos = grupos.map(g => {
+    const itens = g.abas.filter(dizAbaPermitida);
+    if (!itens.length) return '';
+    return `<div>
+      <p class="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest px-1 mb-1.5" style="color:var(--text-muted)"><i class="fa-solid ${g.icone} text-[8px] opacity-60"></i>${g.titulo}</p>
+      <div class="border rounded-2xl divide-y overflow-hidden" style="background:var(--bg-card);border-color:var(--border-color)">
+      ${itens.map(t => {
+        const m = DIZ_TELA_META[t];
+        return `<button onclick="finAba('${t}')" class="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer" style="color:var(--text-main)">
+          <i class="fa-solid ${m.icone} w-7 text-center text-base" style="color:${m.cor}"></i>
+          <span class="flex-1 min-w-0"><b class="text-xs block">${m.nome}</b><span class="text-[9px] opacity-55 block leading-snug">${m.desc}</span></span>
+          <i class="fa-solid fa-chevron-right text-[10px] opacity-40 shrink-0"></i>
+        </button>`;
+      }).join('')}
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+  menu.innerHTML = `<div id="diz-panorama"></div><div class="space-y-4">${blocos}</div>` || '<p class="text-[10px] opacity-50 text-center py-4">Nenhuma área liberada.</p>';
   menu.classList.remove('hidden');
   _dizPanorama();
 };
@@ -283,13 +296,52 @@ async function _dizPanorama(){
     }
     afast.sort((a, b) => b.semanas - a.semanas);
     const fqRes = await dadosFrequenciaBI({ ano: String(hoje.getFullYear()), mes: MESES_ORD[hoje.getMonth()], conselho: 'Todos', congregacao: 'Todas' }).catch(() => null);
-    const card = (t, v, cor) => `<div class="border rounded-xl p-2 text-center" style="background:var(--bg-input);border-color:var(--border-color)"><p class="text-[8px] font-bold uppercase" style="color:var(--text-muted)">${t}</p><p class="text-sm font-black ${cor || ''}">${v}</p></div>`;
+
+    /* Stories do ano — calculadas dos mesmos lançamentos já carregados. */
+    const anoRef = Math.floor(refP / 12);
+    const congPorId = {};
+    for (const m of (F.membros || [])) congPorId[_normIdMembro(m.id)] = m.congregacao;
+    let totAno = 0, qtdAno = 0; const porMes = {}, porCong = {}; const contribAno = new Set();
+    for (const r of lanc){
+      const v = parseValor(r.valor); if (v <= 0) continue;
+      const per = _periodoIdx(r.ano, r.mes); if (per === null) continue;
+      if (Math.floor(per / 12) !== anoRef) continue;
+      totAno += v; qtdAno++;
+      const ch = _normIdMembro(r.id); contribAno.add(ch);
+      porMes[per] = (porMes[per] || 0) + v;
+      const cg = cf(r.destino_congregacao) ? String(r.destino_congregacao) : String(congPorId[ch] || '—');
+      porCong[cg] = (porCong[cg] || 0) + v;
+    }
+    const mesesLanc = Object.keys(porMes).length;
+    const melhorPer = Object.entries(porMes).sort((a, b) => b[1] - a[1])[0];
+    const melhorCong = Object.entries(porCong).sort((a, b) => b[1] - a[1])[0];
+    const story = (cor, valor, rotulo, sub) => `<div class="shrink-0 border rounded-xl px-2.5 py-2 min-w-[118px]" style="background:var(--bg-card);border-color:var(--border-color);border-top:2px solid ${cor}">
+      <b class="text-xs block" style="color:${cor}">${valor}</b><span class="text-[8px] block" style="color:var(--text-muted)">${rotulo}</span>${sub ? `<span class="text-[8px] font-bold block mt-0.5" style="color:var(--text-subtle)">${sub}</span>` : ''}</div>`;
+    const stories = totAno > 0 || qtdAno > 0 ? `<div class="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3" style="scrollbar-width:none">
+      ${story('#34d399', moeda(totAno), 'Arrecadado no ano', `${contribAno.size} contribuintes`)}
+      ${story('#38bdf8', String(qtdAno), 'Lançamentos no ano', `${mesesLanc} meses com valores`)}
+      ${melhorPer ? story('#fbbf24', MESES_ORD[melhorPer[0] % 12], 'Maior mês', moeda(melhorPer[1])) : ''}
+      ${mesesLanc ? story('#a78bfa', moeda(totAno / mesesLanc), 'Média mensal', '') : ''}
+      ${melhorCong ? story('#22d3ee', esc(melhorCong[0]), 'Congregação destaque', moeda(melhorCong[1])) : ''}
+      ${story('#f472b6', String(contribAno.size), 'Contribuintes no ano', `${hoje.getFullYear()}`)}
+    </div>` : '';
+
     const lista = afast.length
       ? `<details class="border rounded-xl px-3 py-2" style="border-color:var(--border-color);background:var(--bg-input)"><summary class="text-[10px] font-bold text-red-400 cursor-pointer select-none"><i class="fa-solid fa-user-clock mr-1"></i>${afast.length} dizimista(s) há 3+ semanas sem contribuir — tocar p/ ver</summary><div class="mt-2 space-y-1.5 max-h-56 overflow-y-auto">${afast.map(p => `<div class="flex items-center justify-between gap-2 text-[10px]"><div class="min-w-0"><b class="block truncate">${esc(p.nome)}</b><span class="opacity-60 block truncate">${esc(p.cong)} · ${esc(p.ult)}</span></div><b class="text-red-400 shrink-0">${p.semanas > 900 ? '—' : p.semanas + ' sem'}</b></div>`).join('')}</div></details>`
       : `<p class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-circle-check mr-1"></i>Nenhum dizimista afastado há 3+ semanas.</p>`;
-    box.innerHTML = `<div class="border rounded-2xl p-3 mb-3 space-y-2.5" style="background:var(--bg-card);border-color:var(--border-color)">
-      <div class="flex items-center justify-between"><p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-gauge-high mr-1 text-purple-400"></i>Panorama · ${MESES_ORD[hoje.getMonth()]}/${hoje.getFullYear()}</p><button onclick="finAba('frequencia')" class="text-[9px] font-bold cursor-pointer" style="color:#34d399">Ver frequência ›</button></div>
-      <div class="grid grid-cols-4 gap-1.5">${card('Ativos', ativos)}${card('Arrecadado', moeda(arrecadado), 'text-emerald-500')}${card('Fidelidade', fqRes?.taxa_fidelidade || '—', 'text-sky-400')}${card('Afastados', afast.length, afast.length ? 'text-red-400' : 'text-emerald-500')}</div>
+    box.innerHTML = `<div class="mb-3 space-y-3">
+      <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
+        <div class="flex items-center justify-between mb-2.5"><p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-gauge-high mr-1 text-purple-400"></i>Panorama · ${MESES_ORD[hoje.getMonth()]}/${hoje.getFullYear()}</p><button onclick="finAba('frequencia')" class="text-[9px] font-bold cursor-pointer" style="color:#34d399">Ver frequência ›</button></div>
+        <div class="flex items-center gap-3.5">
+          <div><b class="text-4xl font-black leading-none">${ativos}</b><span class="text-[8px] block mt-1 leading-snug" style="color:var(--text-muted)">dizimistas ativos<br>3+ meses nos últimos 5</span></div>
+          <div class="flex-1 border-l pl-3.5 space-y-1" style="border-color:var(--border-color)">
+            <div class="flex items-baseline justify-between"><b class="text-xs text-emerald-500">${moeda(arrecadado)}</b><span class="text-[8px] uppercase" style="color:var(--text-muted)">arrecadado</span></div>
+            <div class="flex items-baseline justify-between"><b class="text-xs text-sky-400">${fqRes?.taxa_fidelidade || '—'}</b><span class="text-[8px] uppercase" style="color:var(--text-muted)">fidelidade</span></div>
+            <div class="flex items-baseline justify-between"><b class="text-xs ${afast.length ? 'text-red-400' : 'text-emerald-500'}">${afast.length}</b><span class="text-[8px] uppercase" style="color:var(--text-muted)">afastados</span></div>
+          </div>
+        </div>
+      </div>
+      ${stories}
       ${lista}</div>`;
   } catch(e){ box.innerHTML = `<p class="text-[10px] text-amber-500 px-1 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Panorama indisponível: ${esc(e.message || '')}</p>`; }
 }
@@ -5396,7 +5448,8 @@ async function finRenderSemanal(){
         <div><input id="sem-busca" value="${esc(s.busca)}" oninput="semBuscar()" placeholder="Buscar por nome, ID ou valor…" class="w-full px-2 py-1.5 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
         <div>
           <span class="text-[10px] font-bold uppercase opacity-60 block mb-1">Situação</span>
-          <div class="flex flex-wrap gap-1.5" id="sem-situacao">${[['todos','Todos'],['lancados','Com valor'],['sem','Sem lançamento'],['enviados','Enviados']].map(([v, t]) => `<button onclick="semSituacao('${v}')" data-sit="${v}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer sem-sit whitespace-nowrap">${t}</button>`).join('')}</div>
+          <div class="flex flex-wrap items-center gap-1.5" id="sem-situacao">${[['todos','Todos'],['lancados','Com valor'],['sem','Sem lançamento'],['enviados','Enviados']].map(([v, t]) => `<button onclick="semSituacao('${v}')" data-sit="${v}" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer sem-sit whitespace-nowrap">${t}</button>`).join('')}
+          <button id="sem-forma" onclick="semForma()" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer whitespace-nowrap" title="Filtra pela forma de entrada — toque para alternar"></button></div>
         </div>
       </div>
       <div id="sem-aviso"></div>
@@ -5411,6 +5464,7 @@ async function finRenderSemanal(){
     </div>`;
   _semMarcarChip();
   _semMarcarSituacao();
+  _semMarcarForma();
   _semPopularConselhos();
   await semCarregar();
 }
@@ -5424,6 +5478,43 @@ function _semMarcarSituacao(){
   });
 }
 window.semSituacao = function(v){ F.sem.situacao = v; _semMarcarSituacao(); _semRenderLista(); };
+
+/* Filtro de forma de entrada — botão único que cicla:
+   Todos → PIX → Espécie → Misto → Todos.
+   PIX/Espécie também exibem os Misto (que carregam os dois canais). */
+const SEM_FORMAS = ['todos', 'pix', 'especie', 'misto'];
+const SEM_FORMA_META = {
+  todos:   { rotulo: 'Forma: Todas',  icone: 'fa-layer-group', cor: '#94a3b8', fundo: 'var(--bg-card)' },
+  pix:     { rotulo: 'Forma: PIX',    icone: 'fa-qrcode',      cor: '#38bdf8', fundo: 'rgba(56,189,248,.14)' },
+  especie: { rotulo: 'Forma: Espécie',icone: 'fa-money-bill',  cor: '#f59e0b', fundo: 'rgba(245,158,11,.14)' },
+  misto:   { rotulo: 'Forma: Misto',  icone: 'fa-shuffle',     cor: '#a78bfa', fundo: 'rgba(167,139,250,.14)' },
+};
+function _semFormaDe(reg){
+  if (!reg || parseValor(reg.valor) <= 0) return 'sem';
+  try {
+    const ps = typeof reg.detalhes_parcelas === 'string' ? JSON.parse(reg.detalhes_parcelas || '[]') : (reg.detalhes_parcelas || []);
+    const e = (ps || []).reduce((a, i) => a + parseValor(i?.especie), 0);
+    const x = (ps || []).reduce((a, i) => a + parseValor(i?.pix), 0);
+    if (e > 0 && x > 0) return 'misto';
+    if (x > 0) return 'pix';
+    if (e > 0) return 'especie';
+    return 'especie';
+  } catch(_) { return 'especie'; }
+}
+function _semMarcarForma(){
+  const b = el('sem-forma'); if (!b) return;
+  const m = SEM_FORMA_META[F.sem.forma] || SEM_FORMA_META.todos;
+  const on = F.sem.forma !== 'todos';
+  b.innerHTML = `<i class="fa-solid ${m.icone} mr-1"></i>${m.rotulo}`;
+  b.style.background = on ? m.fundo : 'var(--bg-card)';
+  b.style.color = on ? m.cor : 'var(--text-muted)';
+  b.style.borderColor = on ? m.cor : 'var(--border-color)';
+}
+window.semForma = function(){
+  const i = SEM_FORMAS.indexOf(F.sem.forma);
+  F.sem.forma = SEM_FORMAS[(i + 1) % SEM_FORMAS.length];
+  _semMarcarForma(); _semRenderLista();
+};
 
 function _semMarcarChip(){
   const n = +(_semNorm(F.sem.semana).replace('Semana ', '') || 0);
@@ -5523,12 +5614,20 @@ function _semRenderLista(){
     if (s.situacao === 'edicao') return v > 0 && !enviado;
     return true;
   };
+  const formaOk = m => {
+    if (s.forma === 'todos') return true;
+    const f = _semFormaDe(regOf(m));
+    if (f === 'sem') return false;
+    if (s.forma === 'misto') return f === 'misto';
+    return f === s.forma || f === 'misto';
+  };
   const rows = (F.membros || []).filter(m => {
     if (String(m.excluido_em ?? '').trim()) return false;
     if (!_semMembroAtivo(m, s.mes, s.ano)) return false;
     if (s.conselho !== 'Todos' && cf(consEfetivo(m)) !== cf(s.conselho)) return false;
     if (s.congregacao !== 'Todas' && cf(congEfetiva(m)) !== cf(s.congregacao)) return false;
     if (!sitOk(m)) return false;
+    if (!formaOk(m)) return false;
     if (termo && !cfq(m.nome).includes(termo) && !cf(m.id).includes(termo) && !bateValor(m.id)) return false;
     return true;
   }).sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
