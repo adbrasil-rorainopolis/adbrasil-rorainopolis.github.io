@@ -197,18 +197,7 @@
   .animate-content { animation: fadeInScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards; opacity: 0; }
   .animate-text { animation: fadeInScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards; opacity: 0; }
 
-  /* ===== Splash Alvorada — branco com degradê dourado que sobe ===== */
-  #splash-screen.splash-alvorada {
-    background: linear-gradient(180deg, #ffffff 0%, #fdf8ec 45%, #f6e3bd 82%, #ecc98a 100%);
-    background-size: 100% 220%;
-    animation: dawnShift 9s ease-in-out infinite;
-  }
-  @keyframes dawnShift { 0%, 100% { background-position: 50% 0%; } 50% { background-position: 50% 62%; } }
-  .splash-motes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-  .splash-motes i { position: absolute; bottom: -10px; width: 5px; height: 5px; border-radius: 50%; background: rgba(185,140,63,.55); filter: blur(.5px); animation: riseMote 6s linear infinite; }
-  @keyframes riseMote { to { transform: translateY(-110vh); opacity: 0; } }
-  .splash-halo { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: radial-gradient(circle, rgba(222,178,95,.22) 0%, transparent 68%); animation: haloPulse 3s ease-in-out infinite; }
-  @keyframes haloPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(200,150,60,.2); } 50% { box-shadow: 0 0 70px 16px rgba(200,150,60,.35); } }
+  /* Pontinhos de carregamento — usados no overlay de recarga (pull-to-refresh) */
   .splash-dots { display: flex; gap: 9px; }
   .splash-dots i { width: 7px; height: 7px; border-radius: 50%; background: #b98c3f; animation: hopDot 1.1s ease-in-out infinite; }
   .splash-dots i:nth-child(2) { animation-delay: .15s; }
@@ -256,21 +245,32 @@
 <canvas id="linhas"></canvas>
 
 <!-- ============ SPLASH — anel orbital + logo (igual desktop) ============ -->
-<div id="splash-screen" class="fixed inset-0 flex items-center justify-center z-30 transition-all splash-alvorada">
-  <div class="splash-motes" aria-hidden="true">
-    <i style="left:12%"></i><i style="left:26%;animation-delay:1.2s"></i>
-    <i style="left:42%;animation-delay:.6s"></i><i style="left:60%;animation-delay:1.9s"></i>
-    <i style="left:74%;animation-delay:2.7s"></i><i style="left:88%;animation-delay:1.5s"></i>
-  </div>
-  <div class="flex flex-col items-center justify-center">
-    <div class="splash-halo animate-content w-52 h-52">
-      <img src="icons/logo_sge.png" alt="SGE" class="w-40 h-36 object-contain">
+<div id="splash-screen" class="fixed inset-0 flex items-center justify-center z-30 transition-all" style="background: var(--bg-main);">
+  <div class="relative p-10 rounded-[2.5rem] border shadow-[0_25px_60px_-15px_rgba(217,119,6,0.12)] flex flex-col items-center justify-center" style="background: var(--bg-card); border-color: var(--border-color);">
+    <div class="relative w-56 h-56 flex items-center justify-center">
+      <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="92" fill="none" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" class="animate-ring-outer"/>
+        <circle cx="100" cy="100" r="82" fill="none" stroke="url(#goldGradientLight)" stroke-width="1" stroke-dasharray="3 5" class="animate-ring-inner"/>
+        <defs>
+          <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#92400e"/><stop offset="50%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309"/>
+          </linearGradient>
+          <linearGradient id="goldGradientLight" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6"/><stop offset="100%" stop-color="#d97706" stop-opacity="0.9"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="animate-content flex flex-col items-center text-center z-10">
+        <img src="icons/logo_sge.png" alt="SGE" class="w-40 h-36 object-contain">
+      </div>
     </div>
-    <div class="animate-text mt-7 text-center z-10">
-      <div class="font-cinzel font-bold tracking-[0.3em] text-xl" style="color:#4f3d1a; text-indent:.3em;">SGE</div>
-      <div class="text-[9px] tracking-[0.36em] mt-1.5" style="color:#8a744a; text-indent:.36em;">SISTEMA DE GESTÃO ECLESIÁSTICA</div>
+    <div class="animate-text mt-5 text-center z-10">
+      <div class="flex items-center justify-center gap-2.5">
+        <span class="h-px w-8 bg-gradient-to-r from-transparent to-amber-500/60"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm"></span>
+        <span class="h-px w-8 bg-gradient-to-l from-transparent to-amber-500/60"></span>
+      </div>
     </div>
-    <div class="animate-text splash-dots mt-6"><i></i><i></i><i></i></div>
   </div>
 </div>
 
@@ -896,7 +896,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.3.7';
+const SGE_VERSAO = '2.3.8';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
