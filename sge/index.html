@@ -889,7 +889,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.1.16';
+const SGE_VERSAO = '2.1.17';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -2198,11 +2198,20 @@ async function carregarDashboard(token){
       : '<div class="text-xs py-2" style="color: var(--text-muted);">Nenhuma congregação cadastrada.</div>';
   }).catch(() => { if (elCongs) elCongs.textContent = '—'; if (elLista) elLista.innerHTML = '<div class="text-xs py-2" style="color: var(--text-muted);">Indisponível.</div>'; });
 
-  if ($('n-membros')) api('listar_membros', null, token).then(res => {
-    // paridade desktop: nao excluido E (nunca inativado OU reativado)
-    const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
-    $('n-membros').textContent = ativos.length;
-  }).catch(() => { if ($('n-membros')) $('n-membros').textContent = '—'; });
+  if ($('n-membros')) {
+    // paridade desktop: dizimista ativo = dizimou em 3+ dos ultimos 5 meses
+    const hoje = new Date();
+    Promise.resolve(typeof dadosFrequenciaBI === 'function'
+        ? dadosFrequenciaBI({ ano: String(hoje.getFullYear()), mes: MESES_ORD[hoje.getMonth()] })
+        : null).then(res => {
+      const n = res?.ativos_regulares ?? res?.ativos;
+      if (n == null) throw new Error('sem_bi');
+      $('n-membros').textContent = n;
+    }).catch(() => api('listar_membros', null, token).then(res => {
+      const ativos = (res.dados || []).filter(m => !m.excluido_em && (!m.data_inativacao || !!m.data_reativacao));
+      $('n-membros').textContent = ativos.length;
+    }).catch(() => { if ($('n-membros')) $('n-membros').textContent = '—'; }));
+  }
 
   if ($('fin-corpo')) carregarFinanceiro(token);
   if ($('esp-corpo')) carregarEspiritualDash(token);
