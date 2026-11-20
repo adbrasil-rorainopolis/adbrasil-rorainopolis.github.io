@@ -327,9 +327,7 @@ async function _dizPanorama(){
       ${story('#f472b6', 'fa-users', String(contribAno.size), 'Contribuintes no ano', `${hoje.getFullYear()}`)}
     </div>` : '';
 
-    const lista = afast.length
-      ? `<details class="border rounded-xl px-3 py-2" style="border-color:var(--border-color);background:var(--bg-input)"><summary class="text-[10px] font-bold text-red-400 cursor-pointer select-none"><i class="fa-solid fa-user-clock mr-1"></i>${afast.length} dizimista(s) há 3+ semanas sem contribuir — tocar p/ ver</summary><div class="mt-2 space-y-1.5 max-h-56 overflow-y-auto">${afast.map(p => `<div class="flex items-center justify-between gap-2 text-[10px]"><div class="min-w-0"><b class="block truncate">${esc(p.nome)}</b><span class="opacity-60 block truncate">${esc(p.cong)} · ${esc(p.ult)}</span></div><b class="text-red-400 shrink-0">${p.semanas > 900 ? '—' : p.semanas + ' sem'}</b></div>`).join('')}</div></details>`
-      : `<p class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-circle-check mr-1"></i>Nenhum dizimista afastado há 3+ semanas.</p>`;
+    const lista = afast.length ? '' : `<p class="text-[10px] font-bold text-emerald-500"><i class="fa-solid fa-circle-check mr-1"></i>Nenhum dizimista afastado há 3+ semanas.</p>`;
     box.innerHTML = `<div class="mb-3 space-y-3">
       <div class="border rounded-2xl p-3" style="background:var(--bg-card);border-color:var(--border-color)">
         <div class="flex items-center justify-between mb-2.5"><p class="text-[10px] font-extrabold uppercase tracking-widest" style="color:var(--text-muted)"><i class="fa-solid fa-gauge-high mr-1 text-purple-400"></i>Panorama · ${MESES_ORD[hoje.getMonth()]}/${hoje.getFullYear()}</p><button onclick="finAba('frequencia')" class="text-[9px] font-bold cursor-pointer" style="color:#34d399">Ver frequência ›</button></div>
