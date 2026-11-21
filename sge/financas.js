@@ -8203,13 +8203,13 @@ function pbMesAnterior(ano, mes){
   if (i <= 0){ i = 11; a -= 1; } else i -= 1;
   return { ano: String(a), mes: MESES_ORD[i] };
 }
-async function pbCarregarNuvem(){
-  if (PB.lanc) return;
+async function pbCarregarNuvem(force){
+  if (PB.lanc && !force) return;
   try {
     const r = await api('obter_config_sge', { chave: PB_CHAVE }, sessao()?.token);
     const dados = r?.valor ? JSON.parse(r.valor) : {};
     PB.lanc = Array.isArray(dados.lanc) ? dados.lanc : [];
-  } catch(e){ PB.lanc = []; }
+  } catch(e){ if (!PB.lanc) PB.lanc = []; }
 }
 async function pbGravarNuvem(){
   try {
@@ -8316,7 +8316,7 @@ function pbReconciliarMigracoes(){
 window.pbRenderTela = async function(){
   if (!pbPodeVerM()){ el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 text-red-400">Acesso restrito à Prebenda Pastoral.</p>'; return; }
   el('fin-sub').innerHTML = '<p class="text-center text-xs py-8 opacity-60"><span class="spin inline-block mr-2"></span>Carregando prebendas…</p>';
-  await Promise.all([pbCarregarNuvem(), pbCarregarPastores()]);
+  await Promise.all([pbCarregarNuvem(true), pbCarregarPastores()]);
   await pbSincronizarMes();
   if (pbReconciliarMigracoes()) await pbGravarNuvem();
   pbRender();
