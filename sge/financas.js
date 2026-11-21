@@ -8430,10 +8430,10 @@ function pbRender(){
           <span class="text-red-400 font-bold">−${moeda(sai)}</span>
           <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">=${moeda(saldo)}</span>
         </div>
-        ${saldoAnt < -0.004 ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(245,158,11,.08)">
+        ${podeMigrar ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(245,158,11,.08)">
           <i class="fa-solid fa-scale-balanced text-amber-400"></i>
           <span>Ajuste de caixa — dívida de ${ant.mes.slice(0, 3)}/${ant.ano}: <b class="text-amber-400">${moeda(saldoAnt)}</b></span>
-          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold cursor-pointer">Aplicar</button>` : ''}
+          <button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold cursor-pointer">Aplicar</button>
         </div>` : ''}
         <div class="px-3 pb-1">${linhas}</div>
         <div class="px-3 py-2 flex gap-2">
