@@ -8396,13 +8396,13 @@ function pbRender(){
   if (pt){
     const lancs = pbLancs(PB.ano, PB.mes, pt.id);
     const ent = lancs.filter(l => l.tipo === 'E').reduce((acc, l) => acc + num(l.valor), 0);
-    const sai = lancs.filter(l => l.tipo === 'S').reduce((acc, l) => acc + num(l.valor), 0);
-    const saldo = ent - sai;
+    const sai = lancs.filter(l => l.tipo === 'S' && l.grupo !== 'migracao').reduce((acc, l) => acc + num(l.valor), 0);
     const saldoAnt = pbSaldo(ant.ano, ant.mes, pt.id);
+    const saldo = Math.min(saldoAnt, 0) + ent - sai;
     const migrado = lancs.some(l => l.grupo === 'migracao');
     const podeMigrar = saldoAnt < -0.004 && !migrado;
     const linhas = PB_GRUPOS.map(g => {
-      const itens = lancs.filter(l => pbGrupoDe(l) === g.id);
+      const itens = lancs.filter(l => pbGrupoDe(l) === g.id && l.grupo !== 'migracao');
       if (!itens.length) return '';
       const sub = itens.reduce((acc, l) => acc + l.valor, 0);
       return `<div class="flex items-center gap-1.5 pt-2 pb-0.5">
@@ -8425,14 +8425,15 @@ function pbRender(){
           <p class="text-[9px] opacity-60">${esc(pt.papel)} · ${esc(pt.conselho)} · ${pt.pct}% do Total Geral</p>
         </div>
         <div class="px-3 py-2 flex items-center gap-3 text-[10px]">
+          ${saldoAnt < -0.004 ? `<span class="font-bold text-amber-400" title="Ajuste de caixa — dívida de ${ant.mes}/${ant.ano}">Ant ${moeda(saldoAnt)}</span>` : ''}
           <span class="text-emerald-500 font-bold">+${moeda(ent)}</span>
           <span class="text-red-400 font-bold">−${moeda(sai)}</span>
-          <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">${moeda(saldo)}</span>
+          <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">=${moeda(saldo)}</span>
         </div>
-        ${saldoAnt < -0.004 ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(239,68,68,.08)">
-          <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
-          <span>Devedor ${ant.mes.slice(0, 3)}/${ant.ano}: <b class="text-red-400">${moeda(saldoAnt)}</b></span>
-          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-red-600 text-white font-bold cursor-pointer">Migrar</button>` : ''}
+        ${saldoAnt < -0.004 ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(245,158,11,.08)">
+          <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+          <span>Ajuste de caixa — dívida de ${ant.mes.slice(0, 3)}/${ant.ano}: <b class="text-amber-400">${moeda(saldoAnt)}</b></span>
+          ${podeMigrar ? `<button onclick="pbMigrar('${esc(pt.id)}')" class="ml-auto px-2 py-0.5 rounded-md bg-amber-600 text-white font-bold cursor-pointer">Aplicar</button>` : ''}
         </div>` : ''}
         <div class="px-3 pb-1">${linhas}</div>
         <div class="px-3 py-2 flex gap-2">
@@ -8580,9 +8581,11 @@ window.pbContracheque = function(pid){
 window.pbExtrato = function(pid){
   const pt = (PB.pastores || []).find(x => x.id === pid); if (!pt) return;
   const lancs = pbLancs(PB.ano, PB.mes, pid);
-  const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S');
+  const ents = lancs.filter(l => l.tipo === 'E'), sais = lancs.filter(l => l.tipo === 'S' && l.grupo !== 'migracao');
   const totE = ents.reduce((a, l) => a + num(l.valor), 0), totS = sais.reduce((a, l) => a + num(l.valor), 0);
-  const saldo = totE - totS;
+  const antE = pbMesAnterior(PB.ano, PB.mes);
+  const saldoAntE = pbSaldo(antE.ano, antE.mes, pid);
+  const saldo = Math.min(saldoAntE, 0) + totE - totS;
   const linha = l => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e5e7eb"><span style="font-size:10px;flex:1">${esc(l.data || '—')} · ${esc(l.descricao || '—')}</span><span style="font-size:10px;font-weight:700;white-space:nowrap">${moeda(l.valor)}</span></div>`;
   const subT = (v, bg) => `<div style="display:flex;justify-content:space-between;padding:4px 6px;font-size:10px;font-weight:800;background:${bg || '#ffe08a'}"><span>SUBTOTAL</span><span>${moeda(v)}</span></div>`;
   const blocosS = PB_GRUPOS.filter(g => g.id !== 'entradas').map(g => ({ ...g, itens: sais.filter(l => pbGrupoDe(l) === g.id) })).filter(g => g.itens.length);
@@ -8603,8 +8606,9 @@ window.pbExtrato = function(pid){
       <p style="font-size:10px;font-weight:800;background:${g.cor}22;padding:3px 6px;margin:10px 0 2px">${g.tit.toUpperCase()}</p>
       ${g.itens.map(linha).join('')}${subT(g.itens.reduce((a, l) => a + num(l.valor), 0), '#fecaca')}`).join('')}
       <div style="padding-top:10px;font-size:11px;font-weight:700">
+        ${saldoAntE < -0.004 ? `<div style="display:flex;justify-content:space-between;color:#b45309"><span>Saldo anterior — ajuste de caixa (${antE.mes}/${antE.ano})</span><span>${moeda(saldoAntE)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between"><span>Total de entradas</span><span>${moeda(totE)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Total de saídas</span><span>${moeda(totS)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Total de saídas do mês</span><span>${moeda(totS)}</span></div>
         <div style="display:flex;justify-content:space-between;font-size:14px;color:${saldo >= 0 ? '#047857' : '#b91c1c'}"><span>SALDO DO MÊS</span><span>${moeda(saldo)}</span></div>
       </div>
       <p style="text-align:center;font-size:10px;color:#555;padding-top:16px">______________________________<br/>${esc(pt.nome)}</p>
