@@ -8428,7 +8428,7 @@ function pbRender(){
           ${saldoAnt < -0.004 ? `<span class="font-bold text-amber-400" title="Ajuste de caixa — dívida de ${ant.mes}/${ant.ano}">Ant ${moeda(saldoAnt)}</span>` : ''}
           <span class="text-emerald-500 font-bold">+${moeda(ent)}</span>
           <span class="text-red-400 font-bold">−${moeda(sai)}</span>
-          <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">=${moeda(saldo)}</span>
+          <span class="ml-auto font-extrabold ${saldo >= 0 ? 'text-emerald-500' : 'text-red-500'}">Saldo ${moeda(saldo)}</span>
         </div>
         ${podeMigrar ? `<div class="px-3 py-1.5 text-[9px] flex items-center gap-1.5" style="background:rgba(245,158,11,.08)">
           <i class="fa-solid fa-scale-balanced text-amber-400"></i>
