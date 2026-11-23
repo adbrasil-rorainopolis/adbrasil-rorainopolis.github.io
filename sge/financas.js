@@ -9375,11 +9375,14 @@ window.dcpAbrirForm = function(forma, id = null){
     ${ehCartao ? `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Cartão</span><input id="dcp-f-cartao" list="dcp-cartoes" value="${esc(d?.cartao || '')}" placeholder="Ex.: Cartão Campo" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><datalist id="dcp-cartoes">${cartoes.map(c => `<option value="${esc(c)}">`).join('')}</datalist></div>` : ''}
     <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Descrição</span><input id="dcp-f-desc" value="${esc(d?.descricao || '')}" placeholder="${ehCartao ? 'Ex.: Compra supermercado' : 'Ex.: Aluguel, Energia, Fornecedor X'}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     <div class="grid grid-cols-3 gap-2">
-      <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">${ehCartao ? 'Data' : 'Vencimento'}</span><input id="dcp-f-venc" type="date" value="${esc(String(d?.vencimento || '').slice(0, 10))}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
-      <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
+      <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">${ehCartao ? 'Data' : 'Dia do vencimento'}</span>${ehCartao
+        ? `<input id="dcp-f-venc" type="date" value="${esc(String(d?.vencimento || '').slice(0, 10))}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)">`
+        : `<input id="dcp-f-venc-dia" type="text" inputmode="numeric" maxlength="2" value="${esc(String(d?.vencimento || '').slice(8, 10).replace(/^0/, ''))}" placeholder="Ex.: 18" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,2)" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><span class="text-[8px] opacity-55 block mt-0.5">Só o dia — repete igual nos meses seguintes.</span>`}</div>
+      <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" oninput="this.value=_dcpMaskMoeda(this.value)" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     </div>
     ${ehCartao ? `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Tipo de Despesa</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem tipo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>` : ''}
-    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+    ${!ehCartao ? `<label class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg border cursor-pointer" style="background:var(--bg-surface);border-color:var(--border-color)"><input id="dcp-f-recorrente" type="checkbox" ${d?.recorrente ? 'checked' : ''} class="w-4 h-4 accent-teal-500"><span class="text-[10px] font-bold">Repetir todo mês <span class="opacity-55 font-normal">— volta a aparecer nos meses seguintes</span></span></label>` : ''}
+    ${ehCartao ? `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>` : ''}
     <div class="flex gap-2">
       <button onclick="dcpSalvarForm('${forma}')" class="flex-1 py-2.5 rounded-xl ${ehCartao ? 'bg-violet-600' : 'bg-emerald-600'} text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
       <button onclick="dcpFecharForm('${forma}')" class="flex-1 py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold cursor-pointer">Cancelar</button>
@@ -9447,30 +9450,87 @@ async function _dcSincronizarDestinos(itens){
   if (pbMudou) await pbGravarNuvem();
 }
 
+/* Máscara de moeda estilo centavos: dígitos preenchem da direita — "162100"
+   vira "1.621,00" (mesmo padrão do desktop SGE_MASCARAS.moeda). */
+function _dcpMaskMoeda(v){
+  const d = String(v || '').replace(/\D/g, '').slice(0, 12);
+  if (!d) return '';
+  return (parseInt(d, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/* Escopo ao editar conta recorrente: 'somente' | 'proximos' | 'todas' | null. */
+function _dcpEscolherEscopo(){
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/75';
+    ov.innerHTML = `<div class="w-full max-w-md rounded-t-3xl p-5 pb-8 space-y-3" style="background:var(--bg-card);border:1px solid var(--border-color)">
+      <h3 class="font-bold text-sm">Conta recorrente</h3>
+      <p class="text-[11px] opacity-70">Aplicar a alteração em:</p>
+      <div class="space-y-2">
+        <button data-e="somente" class="w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-bold">Somente este mês</button>
+        <button data-e="proximos" class="w-full py-3 rounded-xl bg-teal-600 text-white text-xs font-bold">Este mês e os próximos</button>
+        <button data-e="todas" class="w-full py-3 rounded-xl bg-sky-600 text-white text-xs font-bold">Todos os meses</button>
+        <button data-e="" class="w-full py-2.5 rounded-xl bg-slate-600 text-white text-xs font-bold">Cancelar</button>
+      </div></div>`;
+    const fechar = v => { ov.remove(); resolve(v || null); };
+    ov.querySelectorAll('button').forEach(b => b.onclick = () => fechar(b.dataset.e));
+    ov.addEventListener('click', e => { if (e.target === ov) fechar(null); });
+    document.body.appendChild(ov);
+  });
+}
+
 window.dcpSalvarForm = async function(forma){
   const ehCartao = forma === 'cartao';
   const descricao = el('dcp-f-desc')?.value.trim();
   if (!descricao) { toast('Informe a descrição.'); return; }
   const valor = parseFloat(String(el('dcp-f-valor')?.value || '0').replace(/\./g, '').replace(',', '.')) || 0;
+  const ant = dcpEditId ? dcpCache.find(x => x.id === dcpEditId) : null;
+  /* Contas: vencimento é só o DIA — a data se compõe com o mês/ano da tela. */
+  const anoSel = el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value;
+  const mesSel = el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value;
+  let vencimento = el('dcp-f-venc')?.value || '';
+  if (!ehCartao) {
+    const dia = Math.min(31, Math.max(1, parseInt(el('dcp-f-venc-dia')?.value || '0', 10) || 0));
+    const mi = (typeof MESES_ORD !== 'undefined' ? MESES_ORD.indexOf(mesSel) : -1) + 1;
+    vencimento = dia && mi ? `${anoSel}-${String(mi).padStart(2, '0')}-${String(dia).padStart(2, '0')}` : '';
+  }
+  /* Edição de conta recorrente: pergunta o alcance da alteração. */
+  if (ant?.recorrente && !ehCartao) {
+    const escopo = await _dcpEscolherEscopo();
+    if (escopo === null) return;
+    const recNovo = !!el('dcp-f-recorrente')?.checked;
+    const r2 = await api('atualizar_despesa_escopo', {
+      id: dcpEditId, escopo, descricao,
+      categoria: ant?.categoria || 'Operacional', valor_previsto: valor,
+      vencimento, forma: 'conta', cartao: '', recorrente: recNovo,
+      grupo_dre: ant?.grupo_dre || '', ja_lancada_financeiro: !!ant?.ja_lancada_financeiro,
+    }, sessao()?.token);
+    if (!r2?.ok) { toast(r2?.erro || 'Falha ao salvar.'); return; }
+    _dcSincronizarDestinos([{ id: dcpEditId, ano: anoSel, mes: mesSel, descricao,
+      valor_previsto: valor, grupo_dre: ant?.grupo_dre || '',
+      data_compra: ant?.data_compra || '', vencimento, import_ref: ant?.import_ref || '' }]);
+    dcpEditId = null;
+    el('dcp-form').innerHTML = '';
+    _dcpRenderLista(forma);
+    return;
+  }
   const body = {
     id: dcpEditId || undefined,
-    ano: el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value,
-    mes: el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value,
+    ano: anoSel,
+    mes: mesSel,
     descricao,
-    categoria: ehCartao ? 'Cartão de Crédito' : ((dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.categoria) || 'Operacional'),
+    categoria: ehCartao ? 'Cartão de Crédito' : (ant?.categoria || 'Operacional'),
     valor_previsto: valor,
-    ja_lancada_financeiro: !!(dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.ja_lancada_financeiro),
-    vencimento: el('dcp-f-venc')?.value || '',
+    ja_lancada_financeiro: !!ant?.ja_lancada_financeiro,
+    vencimento,
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
-    recorrente: !!(dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.recorrente),
-    grupo_dre: ehCartao ? (el('dcp-f-cat')?.value || '') : ((dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.grupo_dre) || ''),
-    semana_lancada: el('dcp-f-semana')?.value || '',
-    data_compra: (dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.data_compra) || '',
+    recorrente: ehCartao ? !!ant?.recorrente : !!el('dcp-f-recorrente')?.checked,
+    grupo_dre: ehCartao ? (el('dcp-f-cat')?.value || '') : (ant?.grupo_dre || ''),
+    semana_lancada: ehCartao ? (el('dcp-f-semana')?.value || '') : (ant?.semana_lancada || ''),
+    data_compra: ant?.data_compra || '',
   };
   const r = await api('salvar_despesa_fixa', body, sessao()?.token);
   if (!r?.ok) { toast(r?.erro || 'Falha ao salvar.'); return; }
-  const ant = dcpEditId ? dcpCache.find(x => x.id === dcpEditId) : null;
   _dcSincronizarDestinos([{ id: dcpEditId || r.id || '', ano: body.ano, mes: body.mes,
     descricao, valor_previsto: valor, grupo_dre: body.grupo_dre,
     data_compra: body.data_compra, vencimento: body.vencimento,
