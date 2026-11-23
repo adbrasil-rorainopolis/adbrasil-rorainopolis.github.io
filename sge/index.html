@@ -896,7 +896,7 @@ const MODULOS = {
 const NOMES_TEMA = { 'sacro-claro':'Dourado', 'dark-operacional':'Noturno', 'verde-oliva':'Oliva', 'azul-real':'Marinho', 'solar-dourado':'Solar', 'vinho-rosa':'Vinho', 'ametista':'Ametista', 'terracota':'Terracota', 'oceano-claro':'Oceano' };
 
 const $ = id => document.getElementById(id);
-const SGE_VERSAO = '2.4.1';
+const SGE_VERSAO = '2.4.2';
 const brl = v => (v ?? 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 
 async function api(action, payload, token){
@@ -1013,6 +1013,10 @@ function fecharDownloadDesktop(){
   const m = $('modal-download-desktop');
   if (m){ m.classList.add('hidden'); m.classList.remove('flex'); }
 }
+/* Instalador servido pelo GitHub Pages (41 MB) — a Edge Function não
+   consegue devolver o bytea sem estourar memória. CPF+senha continuam
+   obrigatórios via consultar_acesso_cpf. */
+const URL_INSTALADOR_DESKTOP = 'https://adbrasil-rorainopolis.github.io/app/SGE_Setup.exe';
 async function baixarAppDesktop(){
   const cpf = $('dl-cpf').value.trim();
   const senha = $('dl-senha').value;
@@ -1020,24 +1024,21 @@ async function baixarAppDesktop(){
   const btn = $('btn-dl-baixar');
   const erro = t => { if (fb){ fb.textContent = t; fb.classList.remove('hidden'); } };
   if (!cpf || !senha){ erro('Informe seu CPF e sua senha.'); return; }
-  btn.disabled = true; btn.textContent = 'Baixando pacote…';
+  btn.disabled = true; btn.textContent = 'Verificando acesso…';
   try {
     const resp = await fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'baixar_app', cpf, senha }),
+      body: JSON.stringify({ action: 'consultar_acesso_cpf', cpf, senha }),
     });
-    if (!resp.ok){
-      let j = {}; try { j = await resp.json(); } catch(e) {}
+    let j = {}; try { j = await resp.json(); } catch(e) {}
+    if (!resp.ok || !j.ok){
       erro(j.erro || 'Não foi possível baixar agora. Tente mais tarde.');
     } else {
-      const blob = await resp.blob();
-      const dispo = resp.headers.get('Content-Disposition') || '';
-      const nome = (dispo.match(/filename="?([^";]+)"?/) || [])[1] || 'SGE-app.zip';
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = nome; a.click();
-      URL.revokeObjectURL(a.href);
+      a.href = URL_INSTALADOR_DESKTOP; a.download = 'SGE_Setup.exe';
+      document.body.appendChild(a); a.click(); a.remove();
       fecharDownloadDesktop();
-      toast('Download iniciado — execute o ' + nome + ' e siga o instalador.');
+      toast('Download iniciado — execute o SGE_Setup.exe e siga o instalador.');
     }
   } catch(e) { erro('Falha de conexão ao baixar.'); }
   btn.disabled = false; btn.textContent = 'Baixar agora';

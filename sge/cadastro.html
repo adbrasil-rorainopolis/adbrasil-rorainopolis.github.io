@@ -286,23 +286,24 @@ function ligarBotaoDownload(getCredenciais) {
     btn.addEventListener('click', async () => {
         const { cpf, senha } = getCredenciais();
         if (!cpf || !senha) return;
-        btn.disabled = true; btn.textContent = 'Baixando…';
+        btn.disabled = true; btn.textContent = 'Verificando acesso…';
         try {
+            /* Valida CPF+senha e baixa o instalador pelo GitHub Pages —
+               a action baixar_app estourava memória na Edge Function
+               (bytea de ~41 MB em hex). */
             const resp = await fetch(API, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'baixar_app', cpf, senha }),
+                body: JSON.stringify({ action: 'consultar_acesso_cpf', cpf, senha }),
             });
-            if (!resp.ok) {
-                let j = {}; try { j = await resp.json(); } catch(e) {}
+            let j = {}; try { j = await resp.json(); } catch(e) {}
+            if (!resp.ok || !j.ok) {
                 msg('msg-acesso', j.erro || 'Não foi possível baixar agora.', 'erro');
                 msg('msg-codigo', j.erro || 'Não foi possível baixar agora.', 'erro');
             } else {
-                const blob = await resp.blob();
-                const dispo = resp.headers.get('Content-Disposition') || '';
-                const nome = (dispo.match(/filename="?([^";]+)"?/) || [])[1] || 'SGE-app.zip';
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob); a.download = nome; a.click();
-                URL.revokeObjectURL(a.href);
+                a.href = 'https://adbrasil-rorainopolis.github.io/app/SGE_Setup.exe';
+                a.download = 'SGE_Setup.exe';
+                document.body.appendChild(a); a.click(); a.remove();
             }
         } catch(e) {
             msg('msg-acesso','Falha de conexão ao baixar.','erro');
