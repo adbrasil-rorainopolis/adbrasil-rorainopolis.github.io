@@ -9260,6 +9260,63 @@ function _dcpVencida(d){
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   return new Date(String(d.vencimento).slice(0, 10) + 'T00:00:00') < hoje;
 }
+/* Ordenação: pendentes primeiro por vencimento crescente, pagas por último;
+   sem data vai pro fim do grupo. Aceita ISO e DD/MM/AAAA. */
+function _dcpOrdemVenc(d){
+  const s = String(d.vencimento || '').slice(0, 10);
+  let v = 99991231;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const b = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) v = Number(m[1] + m[2] + m[3]);
+  else if (b) v = Number(b[3] + b[2] + b[1]);
+  return (d.pago_em ? 1e12 : 0) + v;
+}
+/* Linha única do cartão em Contas a Pagar: soma só débitos do campo (sem
+   destino automático), exibe o que falta pagar e atualiza a cada baixa. */
+function _dcpCartaoResumo(itens){
+  if (!itens.length) return null;
+  const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
+  const pend = itens.filter(d => !d.pago_em);
+  const tudo = !pend.length;
+  const vencsPend = pend.map(d => String(d.vencimento || '').slice(0, 10)).filter(Boolean).sort();
+  const vencsTodos = itens.map(d => String(d.vencimento || '').slice(0, 10)).filter(Boolean).sort();
+  const venc = tudo ? (vencsTodos[vencsTodos.length - 1] || '') : (vencsPend[0] || vencsTodos[vencsTodos.length - 1] || '');
+  return {
+    id: '__cartao__', descricao: 'Cartão de Crédito', vencimento: venc,
+    valor_previsto: tudo ? soma(itens) : soma(pend),
+    pago_em: tudo ? (itens.map(d => d.pago_em).sort().pop() || 'x') : '',
+    _pendentes: pend.length, _total: itens.length,
+  };
+}
+function _dcpCardCartaoResumo(c){
+  const pago = !!c.pago_em;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const vencida = !pago && c.vencimento && new Date(c.vencimento + 'T00:00:00') < hoje;
+  const st = pago ? '<span class="text-[9px] font-black text-emerald-500">✔ PAGA</span>'
+    : vencida ? '<span class="text-[9px] font-black text-red-400">⚠ VENCIDA</span>'
+    : '<span class="text-[9px] font-black text-amber-500">PENDENTE</span>';
+  const info = c._pendentes ? ` · ${c._total - c._pendentes}/${c._total} baixados` : '';
+  return `<div class="border rounded-2xl px-3 py-2.5 flex items-center gap-2.5 ${pago ? 'opacity-60' : ''}" style="background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.4)">
+    <input type="checkbox" ${pago ? 'checked' : ''} onchange="dcpAlternarCartaoTodos(this.checked)" class="w-5 h-5 accent-violet-500 cursor-pointer shrink-0" title="Baixa em todos os débitos do cartão">
+    <span class="flex-1 min-w-0">
+      <b class="text-[11px] block truncate"><i class="fa-solid fa-credit-card text-violet-400 mr-1"></i>Cartão de Crédito</b>
+      <span class="text-[9px] opacity-55 block">venc ${_dcpDataBr(c.vencimento)}${info}</span>
+      ${st}
+    </span>
+    <b class="text-[11px] tabular-nums shrink-0 ${vencida ? 'text-red-400' : ''}">${brl(Number(c.valor_previsto) || 0)}</b>
+    <button onclick="dfMudarSub('cartao')" class="w-7 h-7 rounded-lg bg-violet-600/20 text-violet-300 cursor-pointer shrink-0" title="Abrir débitos do cartão"><i class="fa-solid fa-arrow-right text-[9px]"></i></button>
+  </div>`;
+}
+window.dcpAlternarCartaoTodos = async function(pago){
+  const alvo = dcpCache.filter(d => d.forma === 'cartao' && !DC_DESTINOS[d.grupo_dre] && (pago ? !d.pago_em : !!d.pago_em));
+  let erros = 0;
+  for (const d of alvo){
+    const r = await api('pagar_despesa_fixa', { id: d.id, pago }, sessao()?.token);
+    if (!r?.ok) erros++;
+  }
+  if (erros) toast(`${erros} débito(s) do cartão não atualizaram.`);
+  _dcpRenderLista('conta');
+};
 function _dcpCard(d, comCartao){
   const pago = !!d.pago_em, vencida = _dcpVencida(d);
   const st = pago ? '<span class="text-[9px] font-black text-emerald-500">✔ PAGA</span>'
@@ -9285,17 +9342,23 @@ async function _dcpRenderLista(forma){
   corpo.innerHTML = '<p class="text-center text-xs py-6 opacity-60"><span class="spin inline-block mr-2"></span>Carregando…</p>';
   dcpCache = await _dcpListar(ano, mes);
   const lista = dcpCache.filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
-  const pagas = lista.filter(d => d.pago_em), pend = lista.filter(d => !d.pago_em);
+  /* Contas: o cartão do campo entra como linha única (sem destino automático —
+     esses já saem nas abas de prestação próprias). Ordena por vencimento. */
+  const resumoCartao = ehCartao ? null : _dcpCartaoResumo(dcpCache.filter(d => d.forma === 'cartao' && !DC_DESTINOS[d.grupo_dre]));
+  const totalLista = resumoCartao ? [...lista, resumoCartao] : lista;
+  const pagas = totalLista.filter(d => d.pago_em), pend = totalLista.filter(d => !d.pago_em);
   const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
   const blocos = ehCartao
     ? _dcGruposDe(lista).map(g => `
         <p class="text-[9px] font-black uppercase tracking-widest text-sky-400 pt-2 flex items-center justify-between"><span><i class="fa-solid fa-folder-open mr-1"></i>${esc(g.nome)}</span><span class="tabular-nums">${brl(g.itens.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0))}</span></p>
         <div class="space-y-2">${g.itens.map(d => _dcpCard(d, true)).join('')}</div>`).join('')
-    : `<div class="space-y-2">${lista.map(d => _dcpCard(d, false)).join('')}</div>`;
-  corpo.innerHTML = (lista.length
+    : `<div class="space-y-2">${[...lista.map(d => ({ k: _dcpOrdemVenc(d), h: _dcpCard(d, false) })),
+        ...(resumoCartao ? [{ k: _dcpOrdemVenc(resumoCartao), h: _dcpCardCartaoResumo(resumoCartao) }] : [])]
+        .sort((a, b) => a.k - b.k).map(l => l.h).join('')}</div>`;
+  corpo.innerHTML = (totalLista.length
     ? blocos
     : `<p class="text-center text-[11px] py-6 opacity-60">${ehCartao ? 'Nenhum débito de cartão neste mês.' : 'Nenhuma conta a pagar neste mês.'}</p>`)
-    + (lista.length ? `<p class="text-right text-[10px] font-bold mt-2"><span class="text-emerald-500">Pagas ${brl(soma(pagas))}</span> · <span class="text-amber-500">A pagar ${brl(soma(pend))}</span> · <span class="opacity-60">Total ${brl(soma(lista))}</span></p>
+    + (totalLista.length ? `<p class="text-right text-[10px] font-bold mt-2"><span class="text-emerald-500">Pagas ${brl(soma(pagas))}</span> · <span class="text-amber-500">A pagar ${brl(soma(pend))}</span> · <span class="opacity-60">Total ${brl(soma(totalLista))}</span></p>
       <p class="text-[9px] opacity-50 mt-1">A baixa aqui não lança no financeiro — registre a saída no movimento.</p>` : '');
 }
 window.dcpCarregar = () => _dcpRenderLista('conta');
@@ -9315,7 +9378,7 @@ window.dcpAbrirForm = function(forma, id = null){
       <div class="col-span-2"><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">${ehCartao ? 'Data' : 'Vencimento'}</span><input id="dcp-f-venc" type="date" value="${esc(String(d?.vencimento || '').slice(0, 10))}" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
       <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Valor</span><input id="dcp-f-valor" inputmode="decimal" value="${d ? (Number(d.valor_previsto) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}" placeholder="0,00" class="w-full px-2.5 py-2 rounded-lg border text-xs text-right" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"></div>
     </div>
-    <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Tipo de Despesa</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem tipo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    ${ehCartao ? `<div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Tipo de Despesa</span><select id="dcp-f-cat" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— sem tipo —</option>${IMP_GRUPOS.map(g => `<option value="${esc(g)}" ${g === (d?.grupo_dre || '') ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>` : ''}
     <div><span class="text-[9px] font-bold uppercase opacity-60 block mb-1">Semana lançada no movimento</span><select id="dcp-f-semana" class="w-full px-2.5 py-2 rounded-lg border text-xs" style="background:var(--bg-input);border-color:var(--border-color);color:var(--text-main)"><option value="">— ainda não lançada —</option>${['1ª semana', '2ª semana', '3ª semana', '4ª semana', '5ª semana'].map(s => `<option ${s === (d?.semana_lancada || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
     <div class="flex gap-2">
       <button onclick="dcpSalvarForm('${forma}')" class="flex-1 py-2.5 rounded-xl ${ehCartao ? 'bg-violet-600' : 'bg-emerald-600'} text-white text-xs font-bold cursor-pointer"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button>
@@ -9401,7 +9464,7 @@ window.dcpSalvarForm = async function(forma){
     forma: ehCartao ? 'cartao' : 'conta',
     cartao: el('dcp-f-cartao')?.value.trim() || '',
     recorrente: !!(dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.recorrente),
-    grupo_dre: el('dcp-f-cat')?.value || '',
+    grupo_dre: ehCartao ? (el('dcp-f-cat')?.value || '') : ((dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.grupo_dre) || ''),
     semana_lancada: el('dcp-f-semana')?.value || '',
     data_compra: (dcpEditId && dcpCache.find(x => x.id === dcpEditId)?.data_compra) || '',
   };
@@ -9435,15 +9498,18 @@ window.dcpRemover = async function(id){
 window.dcpWhats = async function(forma){
   const ehCartao = forma === 'cartao';
   const ano = el(ehCartao ? 'dct-ano' : 'dcp-ano')?.value, mes = el(ehCartao ? 'dct-mes' : 'dcp-mes')?.value;
-  const lista = (await _dcpListar(ano, mes)).filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
-  if (!lista.length) { toast('Nada para resumir neste período.'); return; }
-  const pagas = lista.filter(d => d.pago_em), pend = lista.filter(d => !d.pago_em);
+  const cache = await _dcpListar(ano, mes);
+  const lista = cache.filter(d => ehCartao ? d.forma === 'cartao' : (d.forma || 'conta') === 'conta');
+  const resumoCartao = ehCartao ? null : _dcpCartaoResumo(cache.filter(d => d.forma === 'cartao' && !DC_DESTINOS[d.grupo_dre]));
+  const totalLista = resumoCartao ? [...lista, resumoCartao] : lista;
+  if (!totalLista.length) { toast('Nada para resumir neste período.'); return; }
+  const pagas = totalLista.filter(d => d.pago_em), pend = totalLista.filter(d => !d.pago_em);
   const soma = l => l.reduce((t, d) => t + (Number(d.valor_previsto) || 0), 0);
   const linha = d => `▪️ ${_dcpDataBr(d.vencimento)} ${ehCartao && d.cartao ? `[${d.cartao}] ` : ''}${d.descricao} — *${brl(Number(d.valor_previsto) || 0)}*`;
   const L = [`📋 *${ehCartao ? 'CARTÃO DE CRÉDITO' : 'CONTAS A PAGAR'} — ${String(mes).toUpperCase()}/${ano}*`, '⛪ AD Brasil · Campo de Rorainópolis', ''];
   L.push(`✅ *Pagas:* ${brl(soma(pagas))} (${pagas.length})`, ...pagas.map(linha), '');
   L.push(`⏳ *A pagar:* ${brl(soma(pend))} (${pend.length})`, ...pend.map(linha), '');
-  L.push(`💰 *Total: ${brl(soma(lista))}*`);
+  L.push(`💰 *Total: ${brl(soma(totalLista))}*`);
   const txt = L.join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Resumo copiado — cole no WhatsApp.'); }
   catch(e){ prompt('Copie o resumo:', txt); }
