@@ -2106,13 +2106,13 @@ const RCM_CSS = `<style>
 .rcm-doc .rcm-qr-box #rcm-qr{background:#fff;padding:3px}
 .rcm-doc .rcm-qr-key{writing-mode:vertical-rl;transform:rotate(180deg);font-size:5.5px;letter-spacing:.8px;color:#777;font-family:'Courier New',monospace;white-space:nowrap}
 .rcm-doc .rcm-head-flex{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 6px;border-top:1px solid #000;border-bottom:1px solid #000}
-.rcm-doc .rcm-title{font-size:13px;font-weight:bold;letter-spacing:1.2px;border:1px solid #000;padding:3px 10px;background:#e6e6e6;color:#000;white-space:nowrap}
+.rcm-doc .rcm-title{font-size:15px;font-weight:bold;letter-spacing:1.2px;border:1px solid #000;padding:3px 10px;background:#e6e6e6;color:#000;white-space:nowrap}
 .rcm-doc .rcm-meta-box{display:flex;border:1px solid #000}
 .rcm-doc .rcm-meta-item{padding:3px 8px;text-align:center;border-right:1px solid #000;background:#fff;display:flex;flex-direction:column;justify-content:center}
 .rcm-doc .rcm-meta-item:last-child{border-right:none}
 .rcm-doc .rcm-meta-label{font-size:6.5px;font-weight:bold;letter-spacing:.5px;color:#333}
 .rcm-doc .rcm-meta-val{font-size:9.5px;font-weight:bold;text-align:center;white-space:nowrap}
-.rcm-doc .rcm-cong{text-align:center;padding:3px;background:#e6e6e6;font-weight:bold;font-size:10px;letter-spacing:.8px;color:#000}
+.rcm-doc .rcm-cong{text-align:center;padding:3px;background:#e6e6e6;font-weight:bold;font-size:14px;letter-spacing:1px;color:#000}
 .rcm-doc .rcm-cols th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px}
 .rcm-doc td{height:14px;font-size:9px}
 .rcm-doc .rcm-sec{background:#d9dfe7;color:#1f2937;font-weight:bold;text-align:center;letter-spacing:1.2px;font-size:8px;padding:4px 3px}
@@ -2122,7 +2122,7 @@ const RCM_CSS = `<style>
 .rcm-doc tr.rcm-sep>td{border:none;padding:0;height:0}
 .rcm-doc tr.rcm-sep>td>i{display:flex;align-items:center;gap:5px;color:#8a8a8a;font-style:normal}
 .rcm-doc tr.rcm-sep>td>i::before,.rcm-doc tr.rcm-sep>td>i::after{content:'';flex:1;border-top:1.4px solid #9e9e9e}
-.rcm-doc tr.rcm-sep>td>i>u{text-decoration:none;font-size:6px;line-height:1}
+.rcm-doc tr.rcm-sep>td>i>u{text-decoration:none;font-size:7px;line-height:1}
 .rcm-doc .rcm-subt th{background:#e6e6e6;color:#000;font-size:8px;letter-spacing:.5px;padding:3px 4px}
 .rcm-doc .rcm-subt td{font-size:8px}
 .rcm-doc .rcm-totais{display:flex;justify-content:space-between;gap:4%;padding:7px;border:1px solid #000;border-top:none}
@@ -3573,11 +3573,11 @@ window.rcmPdf = async function(){
       if (data.section === 'body' && data.cell.raw && data.cell.raw._sep) {
         const c = data.cell, midY = c.y + c.height / 2, midX = c.x + c.width / 2;
         doc.setDrawColor(158,158,158); doc.setLineWidth(0.35);
-        doc.line(c.x + 3, midY, midX - 3, midY);
-        doc.line(midX + 3, midY, c.x + c.width - 3, midY);
+        doc.line(c.x + 3, midY, midX - 2.3, midY);
+        doc.line(midX + 2.3, midY, c.x + c.width - 3, midY);
         doc.setFillColor(140,140,140);
-        doc.triangle(midX, midY - 1.4, midX - 1.4, midY, midX + 1.4, midY, 'F');
-        doc.triangle(midX - 1.4, midY, midX + 1.4, midY, midX, midY + 1.4, 'F');
+        doc.triangle(midX, midY - 0.85, midX - 0.85, midY, midX + 0.85, midY, 'F');
+        doc.triangle(midX - 0.85, midY, midX + 0.85, midY, midX, midY + 0.85, 'F');
       }
     },
   });
